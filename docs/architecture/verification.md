@@ -38,5 +38,5 @@ Au checkpoint 1, viser d'abord la création/rejoindre par code et la synchronisa
 ## État réel au 29 septembre 2026
 
 - Documents d'architecture : créés.
-- Application Next.js, schéma Drizzle, migrations et tests : **pas encore créés**.
+- Squelette Next.js : créé et vérifié. Schéma Drizzle, migrations et tests métier : **pas encore créés**.
 - Déploiement HTTPS, authentification, salle temps réel, CI/CD : **pas encore démontrés**.

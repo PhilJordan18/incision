@@ -1,43 +1,36 @@
-# Créer et lancer le projet
+# Installer et lancer le projet
 
-Ce guide part du dossier `incision/` qui contient déjà les documents d'architecture. Les commandes ci-dessous **créent le projet local**; elles ne créent ni dépôt GitHub, ni site public, ni déploiement.
+Ce guide part d'une copie du dépôt `incision/`. L'application Next.js existe déjà dans `apps/web`; les commandes ci-dessous préparent un environnement local. Elles ne publient pas le site.
 
 ## Outils
 
-Sur cette machine, Node.js 24, pnpm 11, Git et Docker sont déjà installés. Il faut démarrer Docker Desktop pour la base locale. GitHub servira au dépôt et aux actions de CI/CD; l'hébergeur HTTPS reste à sélectionner. Un éditeur avec TypeScript et un outil de dessin de schéma ne sont pas obligatoires pour lancer l'application.
+Utiliser Node.js 24, npm 11, Git et Docker. Démarrer Docker Desktop pour la base locale. GitHub héberge le dépôt; la CI/CD et l'hébergeur HTTPS restent à configurer. Un éditeur avec support TypeScript est recommandé.
 
-## 1. Initialiser le dépôt
+## 1. Se placer à la racine du dépôt
 
-Dans le terminal :
-
-```sh
-cd '/Users/philippemonfouayi/Documents/Codex/2026-09-22/il-a-chang-le-planning-mais/incision'
-git init -b main
-```
-
-Avant le premier commit, vérifier qu'aucun fichier personnel ou secret n'est ajouté. Le fichier `.env` est ignoré par Git.
-
-## 2. Générer l'application Next.js
+Sur cette machine, depuis le Terminal :
 
 ```sh
-pnpm create next-app@latest apps/web --ts --tailwind --eslint --app --src-dir --use-pnpm --disable-git --skip-install
+cd ~/Projects/incision
 ```
 
-Le projet utilisera React via Next.js, TypeScript, Tailwind CSS et l'App Router. Dans `apps/web/package.json`, remplacer ensuite le nom généré par `@incision/web`. Puis, depuis la racine :
+Sur une autre machine, cloner d'abord le dépôt GitHub et entrer dans son dossier. Ne jamais commiter `.env`; le fichier est ignoré par Git.
+
+## 2. Installer les dépendances et lancer Next.js
 
 ```sh
-pnpm install
-pnpm --filter @incision/web dev
+npm ci
+npm run dev -w @incision/web
 ```
 
-Ouvrir `http://localhost:3000` pour vérifier l'écran initial. Le serveur temps réel et l'authentification ne sont **pas encore implémentés** à ce stade.
+Ouvrir `http://localhost:3000` pour vérifier l'écran initial. React, Next.js, TypeScript, Tailwind CSS et l'App Router sont installés. Le serveur temps réel et l'authentification ne sont **pas encore implémentés**.
 
-**Contrainte TypeScript stricte.** Selon la version du générateur, certains fichiers de configuration peuvent être créés en `.mjs` ou `.js`. Il faudra convertir ces configurations en `.ts` ou en JSON lorsque le projet aura été généré, puis exécuter explicitement le lint, la vérification TypeScript et le build. Ne pas se contenter de renommer l'extension. Les fichiers issus de dépendances dans `node_modules` ne sont pas du code produit.
+**Contrainte TypeScript stricte.** Le code produit utilise `.ts`/`.tsx`; la configuration PostCSS est en JSON. `tsconfig.json` désactive `allowJs`. Les fichiers JavaScript des dépendances dans `node_modules` ne sont pas du code rédigé pour ce projet.
 
 ## 3. Démarrer PostgreSQL local
 
 ```sh
-cp .env.example .env
+cp -n .env.example .env
 docker compose up -d db
 docker compose ps
 ```
@@ -46,7 +39,7 @@ Le mot de passe fourni est **uniquement pour le développement local**. Le dépl
 
 ## 4. Ajouter les modules de l'application
 
-Créer ensuite `packages/domain`, `packages/contracts` et `packages/database` avec leurs propres `package.json` TypeScript. Installer `drizzle-orm` et `pg` dans le module de base de données, puis `drizzle-kit` et `@types/pg` comme dépendances de développement. Choisir des versions **stables verrouillées par `pnpm-lock.yaml`** et tester les migrations avant de les appliquer à une base distante. Au 29 septembre 2026, les versions stables repérées sont `drizzle-orm@0.45.3` et `drizzle-kit@0.31.11`; la documentation d'installation affiche aussi des versions RC, que nous ne retenons pas pour le checkpoint.
+Créer ensuite `packages/domain`, `packages/contracts` et `packages/database` avec leurs propres `package.json` TypeScript. Installer `drizzle-orm` et `pg` dans le module de base de données, puis `drizzle-kit` et `@types/pg` comme dépendances de développement. Choisir des versions **stables verrouillées par `package-lock.json`** et tester les migrations avant de les appliquer à une base distante. Au 29 septembre 2026, les versions stables repérées sont `drizzle-orm@0.45.3` et `drizzle-kit@0.31.11`; la documentation d'installation affiche aussi des versions RC, que nous ne retenons pas pour le checkpoint.
 
 Le premier schéma doit suivre [le modèle de données](architecture/data-model.md). Générer des migrations versionnées avec Drizzle Kit (`generate`, puis `migrate`); ne pas utiliser `push` comme mécanisme de production. Ajouter le serveur Socket.IO et les contrats d'événements seulement après la validation des cycles de vie de la salle et de la manche.
 
@@ -60,10 +53,10 @@ La cible est démontrable, pas seulement documentée :
 4. CI à chaque push : lint, TypeScript, tests et build; déploiement automatique après succès.
 5. Langue et thème accessibles dans l'interface initiale; matrice des exigences reliée aux tests.
 
-Les points 1, 2 et 4 demandent encore une implémentation et une configuration externe. Ne pas les présenter comme acquis parce que ces documents existent.
+Les points 1, 2 et 4 demandent encore une implémentation et une configuration externe. Ne pas les présenter comme acquis parce que ces documents existent. Pour le squelette actuel, lancer `npm run lint -w @incision/web` et `npm run build -w @incision/web`.
 
 ## Références officielles
 
 - [Next.js — `create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app)
-- [pnpm — workspaces](https://pnpm.io/workspaces)
+- [npm — workspaces](https://docs.npmjs.com/cli/v11/using-npm/workspaces/)
 - [Drizzle — PostgreSQL](https://orm.drizzle.team/docs/get-started/postgresql-new) et [migrations](https://orm.drizzle.team/docs/migrations)
