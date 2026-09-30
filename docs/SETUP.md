@@ -41,7 +41,7 @@ Le mot de passe fourni est **uniquement pour le développement local**. Le dépl
 
 Créer ensuite `packages/domain`, `packages/contracts` et `packages/database` avec leurs propres `package.json` TypeScript. Installer `drizzle-orm` et `pg` dans le module de base de données, puis `drizzle-kit` et `@types/pg` comme dépendances de développement. Choisir des versions **stables verrouillées par `package-lock.json`** et tester les migrations avant de les appliquer à une base distante. Au 29 septembre 2026, les versions stables repérées sont `drizzle-orm@0.45.3` et `drizzle-kit@0.31.11`; la documentation d'installation affiche aussi des versions RC, que nous ne retenons pas pour le checkpoint.
 
-Le premier schéma doit suivre [le modèle de données](architecture/data-model.md). Générer des migrations versionnées avec Drizzle Kit (`generate`, puis `migrate`); ne pas utiliser `push` comme mécanisme de production. Ajouter le serveur Socket.IO et les contrats d'événements seulement après la validation des cycles de vie de la salle et de la manche.
+Le premier schéma doit suivre la [coupe checkpoint du modèle de données](architecture/data-model.md#coupe-de-données-pour-le-checkpoint-1). Générer des migrations versionnées avec Drizzle Kit (`generate`, puis `migrate`); ne pas utiliser `push` comme mécanisme de production. Pour ce checkpoint, implémenter la création/admission de salle avant la synchronisation Socket.IO des membres; la machine complète de manche ne doit pas retarder cette preuve minimale. Les scripts `next dev` et `next start` actuels ne lancent pas Socket.IO : ils devront être adaptés lorsque le serveur personnalisé sera ajouté.
 
 ## 5. Vérifications du checkpoint
 

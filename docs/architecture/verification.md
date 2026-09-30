@@ -2,11 +2,22 @@
 
 Ce document relie les livrables du **troisième volet (20 points)** aux démonstrations que l'équipe devra produire. Les autres lignes de la grille du checkpoint — HTTPS, authentification, salle temps réel, CI/CD, langue/thème — exigent de l'application en marche; cette documentation seule ne les valide pas.
 
+## État du checkpoint 1
+
+| Ligne de la grille | État vérifié dans le dépôt au 29 septembre 2026 | Preuve encore nécessaire |
+|---|---|---|
+| Architecture : modèle, états, ADR (20) | Documents présents; décisions de prototype identifiées, aucun schéma Drizzle encore exécuté. | Relecture du modèle contre les migrations et validation du transport par prototype. |
+| Production : HTTPS, authentification, PostgreSQL (20) | PostgreSQL local via Docker seulement; pas d'authentification ni de site public. | URL HTTPS, connexion réelle, base distante et parcours utilisateur démontrable. |
+| Salle par code et mise à jour temps réel (10) | Conçue, non implémentée; les scripts Next actuels ne démarrent pas Socket.IO. | Deux navigateurs : création par compte, admission par code, liste de membres synchronisée. |
+| CI, langue, thème, qualité, matrice (10) | Lint et build locaux passent; pas de workflow CI, de tests métier, d'interface bilingue/thèmes ou de matrice de traçabilité complète dans le dépôt. | Workflow sur push, tests exécutés, contrôles de langue/thème et liens exigence → vérification. |
+
+Le tableau de correspondance par plages d'IDs ci-dessous est un **index architectural**, pas encore la matrice détaillée des exigences demandée par la grille. Il faudra relier chaque exigence pertinente à sa preuve et à son état, sans la déclarer satisfaite parce qu'elle apparaît ici.
+
 | Objet évalué | Preuve de conception présente | Preuve à produire pendant l'implémentation |
 |---|---|---|
 | Modèle de données | [Entités, relations, contraintes et transactions](data-model.md). | Schéma Drizzle, migrations versionnées, tests de contraintes et d'invitation concurrente. |
-| Machine à états | [Salle, manche, entrant, connexion et hôte](state-machines.md). | Tests de chaque transition autorisée/interdite; tests du compte à rebours et des DNF. |
-| ADR temps réel | [ADR-0001](../adr/0001-temps-reel.md) avec alternatives, décision, risques et critères. | Prototype Socket.IO à deux navigateurs, reprise, mesures à 50 humains, décision d'hébergement confirmée. |
+| Machine à états | [Salle, manche, entrant, connexion et hôte](state-machines.md). | Au checkpoint : transitions d'admission de la salle. Ensuite : transitions complètes du compte à rebours, des DNF et du rôle d'hôte. |
+| ADR temps réel | [ADR-0001](../adr/0001-temps-reel.md) avec alternatives, décision, risques et critères. | Au checkpoint : prototype Socket.IO de salle à deux navigateurs et hébergement compatible. Reprise de manche et mesure à 50 humains ensuite. |
 | Traçabilité | Cahier v1.1 et matrice ancienne distingués dans [la vue d'ensemble](README.md). | Reporter les IDs de la matrice dans les tickets/tests lors du développement; marquer les divergences résolues. |
 
 ### Correspondance avec le cahier remis

@@ -2,6 +2,8 @@
 
 Les transitions sont exécutées par le serveur et refusées si le rôle, la révision ou l'état attendu ne correspondent pas. Les horloges client ne font pas foi. La connexion réseau et le rôle d'hôte sont **orthogonaux** au résultat d'un coureur.
 
+**Lecture par jalon.** Pour le checkpoint 1, seule la coupe « créer une salle `OPEN`, la rejoindre par code, diffuser l'arrivée/le départ des membres » doit être démontrée en temps réel. Les machines de manche, de coureur, d'annulation et de reprise ci-dessous restent la conception cible du projet; elles ne sont pas encore implémentées ni exigées comme parcours complet à ce checkpoint. La reconnexion de la salle ne doit pas être confondue avec la reprise d'une manche.
+
 ## 1. Salle persistante
 
 Une salle n'est pas une manche. Elle survit à plusieurs courses; ses membres redeviennent non prêts après chaque résultat.
@@ -72,4 +74,4 @@ La sélection du successeur et l'écriture du nouvel hôte doivent être atomiqu
 
 Les finisseurs passent avant les non-finisseurs. Pour les finisseurs : WPM net décroissant. En `STANDARD`, les DNF sont classés par progression décroissante, puis précision et WPM net. À égalité résiduelle, l'instant du dernier progrès et l'identifiant stable donnent un ordre déterministe. Ces départages secondaires sont une **règle de conception**, à vérifier avec le client si elle influence une évaluation scolaire. En Arcade, si les bonus modifient la longueur individuelle du texte, le départage DNF doit encore être confirmé; ne pas comparer naïvement deux nombres de caractères. Les records et tableaux Arcade/Standard, puis modes d'erreur, sont isolés.
 
-Cas à tester impérativement : deuxième participant bot; hôte spectateur; arrivée pendant compte à rebours; double clic « démarrer »; annulation pendant et après compte à rebours; hôte volontairement parti contre simple coupure; retour à 4 min 59 s contre 5 min 01 s; timer pendant l'absence; deux invitations utilisées en concurrence; 50 humains connectés durant dix minutes.
+Cas à tester lors des itérations correspondantes : deuxième participant bot; hôte spectateur; arrivée pendant compte à rebours; double clic « démarrer »; annulation pendant et après compte à rebours; hôte volontairement parti contre simple coupure; retour à 4 min 59 s contre 5 min 01 s; timer pendant l'absence; deux invitations utilisées en concurrence; 50 humains connectés durant dix minutes. Pour le checkpoint 1, tester prioritairement les transitions de création, admission par code, refus d'un code invalide et diffusion des membres entre deux navigateurs.

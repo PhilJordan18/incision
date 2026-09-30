@@ -2,6 +2,8 @@
 
 Statut : **proposition de conception à implémenter**, 29 septembre 2026. Ce dossier répond aux trois éléments explicitement évalués : modèle de données, machines à états, ADR temps réel. Il ne constitue pas encore une preuve de déploiement ou de fonctionnement.
 
+Le checkpoint évalue aussi, séparément, un site réellement publié en HTTPS avec authentification et PostgreSQL, une salle créée/rejointe par code avec mise à jour temps réel, et la CI, la langue, le thème, la qualité initiale et la matrice des exigences. Les documents de conception ne remplacent aucune de ces démonstrations. Voir [l'état de chaque ligne de la grille](verification.md#état-du-checkpoint-1).
+
 ## Lecture des sources
 
 1. **Cahier des charges Incision v1.1 remis** : périmètre et choix client actuels.
@@ -69,6 +71,7 @@ Les règles de salle, de course et de classement résident dans `packages/domain
 | Troisième bonus, groupes de tête/fin et durée ? | Ne pas figer les variantes dans le schéma; événements typés extensibles et règles versionnées. | Client |
 | Tablette avec clavier physique ? | Séparer capacité de saisie et largeur d'écran; téléphone spectateur selon le cahier. | Client |
 | Durée exacte d'une invitation ? | Usage unique confirmé dans le cahier; expiration à 24 h selon l'hypothèse H-01. | Client pour la durée |
+| Une salle privée peut-elle admettre à la fois par code et par lien, ou le lien définit-il un type distinct ? | Modéliser visibilité et politique d'admission séparément; ne livrer au checkpoint que l'accès par code demandé dans la grille. | Client |
 | Qui pilote une salle créée automatiquement ? | Système avec configuration prédéfinie et départ automatique lorsque les gardes sont remplies; ni invité ni bot n'obtient le rôle d'hôte. | Client / prototype |
 | Comment comparer les progressions en Arcade quand un bonus change la longueur à saisir ? | Conserver la cible effective par entrant et l'historique des bonus; la piste peut montrer une fraction normalisée, mais le classement DNF Arcade reste à valider. | Client |
 | Seuils précis de fluidité ? | Les seuils de la matrice servent de cibles de test internes, non de promesse client déjà validée. | Test + client |
