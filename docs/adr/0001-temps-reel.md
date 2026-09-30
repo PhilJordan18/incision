@@ -1,6 +1,6 @@
 # ADR-0001 — Synchronisation des salles et des courses
 
-- **Statut :** proposé pour le checkpoint 1; à confirmer par prototype et test de charge.
+- **Statut :** décision de conception retenue pour le prototype; faisabilité de l'hébergement et capacité de 50 humains à confirmer par essais.
 - **Date :** 29 septembre 2026.
 - **Contexte :** Next.js/React/TypeScript, PostgreSQL/Drizzle, salles de 50 humains garanties, reprise après coupure, courses en direct, HTTPS et déploiement automatique obligatoires.
 
@@ -9,6 +9,8 @@
 Utiliser **Socket.IO sur un serveur Node persistant au même domaine que Next.js**, avec un serveur personnalisé TypeScript dans `apps/web`. Garder les règles métier dans des modules séparés (`packages/domain`, `packages/contracts`, `packages/database`). Déployer d'abord **une instance** pour le checkpoint; ne passer à plusieurs instances qu'après mesure et ajout d'un mécanisme de partage d'état/coordination adapté.
 
 Cela fait évoluer le croquis initial à deux applications (`web` et `realtime`) vers un **monolithe modulaire**, sans perdre la frontière métier. La séparation en deux services reste possible si la charge ou l'hébergement l'exige. Ce n'est pas une obligation de la demande client.
+
+**État du dépôt.** `apps/web` utilise encore les scripts `next dev` et `next start` du générateur : ils ne lancent aucun serveur Socket.IO. Le serveur personnalisé, son exécution TypeScript en développement et en production, le routage HTTPS et les contrats d'événements restent à implémenter et à vérifier sur l'hébergeur choisi. Un build Next.js réussi ne prouve donc pas cette architecture en fonctionnement.
 
 ## Options examinées
 
@@ -28,15 +30,22 @@ La disponibilité de WebSockets sur une plateforme précise doit être vérifié
 3. Les événements sortants contiennent une `revision` monotone, un instant serveur et un état compact. Au démarrage ou à la reconnexion, le client reçoit un **snapshot autoritaire** puis les mises à jour. La récupération native de Socket.IO est une aide « best effort », pas la seule source de vérité.
 4. La frappe est validée sur le serveur contre le texte/snapshot de la manche. Le client peut afficher une animation optimiste locale, mais le classement n'utilise que la progression acceptée. Le serveur limite fréquence et taille des messages, notamment pour les codes privés.
 5. Le serveur agrège et diffuse le classement à fréquence bornée (cible initiale : quatre fois par seconde). Pour 50 joueurs, un message compact à toute la salle évite une diffusion par frappe × destinataire. Les cinq secondes du compte à rebours et la fin du timer viennent de l'horloge serveur.
-6. PostgreSQL conserve la salle, la manche, les invitations et les résultats; la progression vivante est en mémoire, avec checkpoints durables périodiques et à la déconnexion. En cas de redémarrage, le serveur reconstruit l'état depuis la base; la perte potentielle depuis le dernier checkpoint est une limite mesurée et communiquée.
+6. PostgreSQL conserve la salle, la manche, les invitations et les résultats; la progression vivante est en mémoire, avec checkpoints durables périodiques et à la déconnexion. Après un redémarrage, le serveur ne peut reconstruire que le **dernier état durable** et doit réauthentifier les connexions. Une reprise exacte de course après panne n'est pas encore garantie : il faudra persister les états terminaux et délais nécessaires, puis mesurer la perte potentielle entre checkpoints avant de l'annoncer.
 
 ## Critères de validation
 
-- Deux navigateurs créent/rejoignent une salle par code et voient les états prêt, départ, positions et résultats sans rechargement.
+### Checkpoint 1
+
+- Un compte crée une salle, un autre navigateur la rejoint par code, et les deux voient la liste des membres se mettre à jour sans rechargement. Vérifier aussi le refus d'un code invalide et l'interdiction pour un invité de créer une salle.
+- La CI exécute les tests de création/admission, d'autorisation d'événements et de synchronisation avant le déploiement automatique.
+
+### Itérations suivantes
+
+- Les deux navigateurs voient les états prêt, départ, positions et résultats sans rechargement.
 - Une invitation à usage unique n'admet qu'un seul membre, même sous double requête; la reconnexion n'utilise pas de nouveau cette invitation.
 - Un joueur perd sa connexion puis revient dans les cinq minutes, sans reculer par rapport à son dernier checkpoint accepté; une fin de manche pendant l'absence produit un DNF.
 - Un essai avec **50 humains dans la même salle** durant dix minutes vérifie absence de pertes ou doublons, cohérence des résultats et fluidité de l'interface. La matrice propose comme cibles internes quatre rafraîchissements de classement par seconde, latence visible p95 < 500 ms, écart de départ < 250 ms, résultats < 2 s. Ces chiffres demandent une mesure et ne sont pas une validation client déjà reçue.
-- La CI teste séparément machines à états, autorisations d'événements, classement et reconnexion. Le déploiement automatique ne se déclenche qu'après les tests réussis.
+- La CI complète progressivement les tests des machines à états, du classement et de la reconnexion. Le déploiement automatique ne se déclenche qu'après les tests réussis.
 
 ## Conséquences et sortie de secours
 
