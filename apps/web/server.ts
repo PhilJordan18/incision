@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import next from "next";
@@ -7,6 +7,7 @@ import { attachRealtimeServer } from "./src/server/realtime/socket-server";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
 async function main(): Promise<void> {
+  loadLocalEnvFile();
   const env = parseServerEnv(process.env);
   process.env.APP_COMMIT_SHA ??= readDeployedCommit();
 
@@ -24,6 +25,14 @@ async function main(): Promise<void> {
   httpServer.listen(env.port, () => {
     console.log(`[server] ${env.isProduction ? "production" : "development"} on port ${env.port}`);
   });
+}
+
+/** Local runs share the root `.env` with Docker Compose; App Service injects app settings instead. */
+function loadLocalEnvFile(): void {
+  const envFile = path.join(__dirname, "..", "..", ".env");
+  if (process.env.NODE_ENV !== "production" && existsSync(envFile)) {
+    process.loadEnvFile(envFile);
+  }
 }
 
 /** The deployment workflow writes `build-info.json`; local runs have none. */
