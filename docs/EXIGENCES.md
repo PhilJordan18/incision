@@ -9,14 +9,14 @@ Status observed on **October 2, 2026**, updated on **October 3** for the complet
 | ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
 | TECH-01 | Next.js App Router and React, current stable version | partial | apps/web/package.json; apps/web/src/app | — | Skeleton installed; stable version to be re-checked at delivery. |
-| TECH-02 | TS only, strict, no explicit any | partial | apps/web/tsconfig.json; apps/web/eslint.config.ts | — | TS/JSON configurations; no-explicit-any rule set to error and automated check still to be guaranteed. |
+| TECH-02 | TS only, strict, no explicit any | complete | apps/web/tsconfig.json; tsconfig.base.json; apps/web/eslint.config.ts; packages/domain/eslint.config.ts; package.json (`check:no-js`) | CI on every push: `check:no-js`, lint (`no-explicit-any` and `ban-ts-comment` as errors), `tsc --noEmit` | `strict` in every workspace; `no-explicit-any` pinned as error in both ESLint configs; tracked `.js/.jsx/.mjs/.cjs` files fail CI (case-insensitive). Ongoing constraint, enforced automatically. |
 | TECH-03 | Tailwind CSS | partial | apps/web/src/app/globals.css; apps/web/postcss.config.json | — | Integrated in the template, not yet applied to the product interface. |
 | TECH-04 | PostgreSQL, ORM, migrations, seed of texts/accounts/history | partial | compose.yaml | — | Local database planned; Drizzle, migrations and seed not created. |
 | TECH-05 | Server/VPS, public HTTPS at the checkpoint and at the final | not done | — | — | Cégep unavailable; Azure for Students VM option to be verified; PaaS fallback subject to the teacher's agreement. |
 | TECH-06 | Realtime progress, free choice of transport | not done | — | — | Socket.IO selected; ADR-0001, no server implemented. |
 | TECH-07 | Schemas on all server inputs | not done | — | — | Zod planned for HTTP, actions and events. |
 | TECH-08 | Server at own expense or cégep; other services free | not done | — | — | Personal constraint: $0 out of pocket. Student credit possible, without paid conversion; infrastructure to be verified. |
-| TECH-09 | GitHub Actions: lint, tsc without emit, unit tests on every push | not done | — | — | No workflow; additional build and deployment after success planned. |
+| TECH-09 | GitHub Actions: lint, tsc without emit, unit tests on every push | complete | .github/workflows/ci.yml; package.json | First green run: [37387851342](https://github.com/PhilJordan18/incision/actions/runs/37387851342) | Every push and PR: JS guard, lint, `tsc --noEmit` (after `next typegen`), Vitest, build. Deployment after success: CP-02. |
 | TECH-10 | Complete .env.example, no committed secret | partial | .env.example; .gitignore | — | Local database variables only; to be completed with OAuth, sessions, HTTPS and deployment. |
 
 ## Design
@@ -46,7 +46,7 @@ Status observed on **October 2, 2026**, updated on **October 3** for the complet
 | ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
 | SALLE-01 | An account creates a room and becomes the host as participant or spectator | not done | — | — | Checkpoint priority. |
-| SALLE-02 | Unique 6-character code without 0/O/1/I/L | not done | — | — | Stored readable, random generation; D-01. |
+| SALLE-02 | Unique 6-character code without 0/O/1/I/L | partial | packages/domain/src/rooms/room-code.ts | packages/domain/src/rooms/room-code.test.ts | Format rule done: 31-character alphabet, CSPRNG source required, ASCII-checked parsing; D-01. Database uniqueness and collision retry still to do (CP-03/CP-06). |
 | SALLE-03 | PUBLIC / CODE / PRIVATE and the matching access | not done | — | — | PRIVATE always refuses the code alone. |
 | SALLE-04 | Strong invitations, tracking, IP binding, resumption, revocation | not done | — | — | 32 random bytes; IP + session to distinguish a class behind NAT; D-02. |
 | SALLE-05 | Capacity of 2–30 participants, bots included, spectators excluded | not done | — | — | Replaces 50 humans; room lock on admission. |
@@ -130,7 +130,7 @@ Status observed on **October 2, 2026**, updated on **October 3** for the complet
 | I18N-01 | Whole UI in FR/EN, errors/empty states/metadata included | not done | — | — | No hard-coded business strings. |
 | I18N-02 | Selector everywhere, choice kept, browser default | not done | — | — | Required on the existing pages from the checkpoint. |
 | I18N-03 | Dates and numbers according to the locale | not done | — | — | Use Intl and FR/EN tests. |
-| TEST-01 | Unit tests of the rules | not done | — | — | Vitest planned; zero existing business test. |
+| TEST-01 | Unit tests of the rules | partial | packages/domain/src/rooms/room-code.test.ts | Vitest, 25 tests, run in CI | Only the room-code rule is covered so far. |
 | TEST-02 | Playwright E2E | not done | — | — | Two independent browser contexts for the room. |
 | TEST-03 | E2E through username/password | not done | — | — | Isolated seed; do not automate sign-in on OAuth sites. |
 | PERF-01 | Lighthouse ≥90 in every category on the home page | not done | — | — | Production measurement to keep; no presumed score. |
