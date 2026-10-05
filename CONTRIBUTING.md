@@ -33,7 +33,7 @@ These rules aim at readability and correctness. A reasoned, tested exception is 
 ## Verifying a contribution
 
 - Add or update tests in proportion to the risk: business rule, edge case, API/event contract, or affected acceptance path. Do not present a feature as tested if no corresponding test exists.
-- From the root, run `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` for application changes; each runs in every workspace that defines it. CI runs the same checks on every push and pull request (`.github/workflows/ci.yml`). A documentation-only change does not need a full build.
+- From the root, run `npm run check:no-js`, `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` for application changes. CI runs the same commands on every push and pull request (`.github/workflows/ci.yml`). The root scripts skip a workspace that lacks the script, so every workspace defines `lint` and `typecheck`, and `test` once it has tests. A documentation-only change does not need a full build.
 - Check error states, reconnection and concurrency for realtime flows. Test keyboard navigation, readability and translation of modified interfaces.
 - Never commit `.env`, secrets or real student data. For any change to authentication, authorisation, result sharing or personal data, request a security review before integration.
 - Update the card, the matrix and the documentation when shipped behaviour or an architecture decision changes. State honestly what remains unimplemented.
