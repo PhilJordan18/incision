@@ -4,7 +4,7 @@ This guide starts from a copy of the `incision/` repository. The Next.js applica
 
 ## Tools
 
-Use Node.js 24, npm 11, Git and Docker. Start Docker Desktop for the local database. GitHub hosts the repository; CI/CD and the HTTPS server are still to be configured. On October 3, Philippe confirmed that the cégep does not provide a server and that the budget is **$0 out of pocket**. First option: a VM under Azure for Students, if eligibility and credit are confirmed, without converting to a paid plan. See [the hosting plan](architecture/verification.md#hébergement-sans-dépense). An editor with TypeScript support is recommended.
+Use Node.js 24, npm 11, Git and Docker. Start Docker Desktop for the local database. GitHub hosts the repository; CI/CD and the HTTPS server are still to be configured. On October 3, Philippe confirmed that the cégep does not provide a server and that the budget is **$0 out of pocket**. First option: a VM under Azure for Students, if eligibility and credit are confirmed, without converting to a paid plan. See [the hosting plan](architecture/verification.md#hosting-without-spending). An editor with TypeScript support is recommended.
 
 ## 1. Go to the repository root
 
@@ -41,7 +41,7 @@ The provided password is **for local development only**. Deployment will use a s
 
 Then create `packages/domain`, `packages/contracts` and `packages/database`, each with its own TypeScript `package.json`. Install `drizzle-orm` and `pg` in the database module, then `drizzle-kit` and `@types/pg` as development dependencies. Choose **stable versions locked by `package-lock.json`**, checked at installation time, and test migrations before applying them to a remote database.
 
-The first schema must follow the [checkpoint slice of the data model](architecture/data-model.md#coupe-de-données-pour-le-checkpoint-1). Generate versioned migrations with Drizzle Kit (`generate`, then `migrate`); do not use `push` as a production mechanism. For this checkpoint, implement room creation/admission before the Socket.IO synchronisation of members; the full round state machine must not delay this minimal proof. The current `next dev` and `next start` scripts do not start Socket.IO: they will have to be adapted when the custom server is added.
+The first schema must follow the [checkpoint slice of the data model](architecture/data-model.md#data-slice-for-checkpoint-1). Generate versioned migrations with Drizzle Kit (`generate`, then `migrate`); do not use `push` as a production mechanism. For this checkpoint, implement room creation/admission before the Socket.IO synchronisation of members; the full round state machine must not delay this minimal proof. The current `next dev` and `next start` scripts do not start Socket.IO: they will have to be adapted when the custom server is added.
 
 ## 5. Checkpoint checks
 

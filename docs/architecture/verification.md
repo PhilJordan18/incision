@@ -1,105 +1,105 @@
-# Livraison et preuves — checkpoint 1 puis finale
+# Delivery and evidence — checkpoint 1, then final
 
-Mise à jour du **3 octobre 2026**, selon les précisions de Philippe : remise du checkpoint **mercredi 7 octobre**, heure non précisée; objectif interne maintenu au **lundi 5 octobre**. Mardi et mercredi servent de marge de vérification, pas à ajouter des fonctionnalités. Remise finale : **13 novembre 2026**. Aucun serveur fourni par le cégep; budget **0 $ à débourser**.
+Updated on **October 3, 2026**, following Philippe's clarifications: checkpoint submission on **Wednesday, October 7**, time not specified; internal target kept at **Monday, October 5**. Tuesday and Wednesday serve as a verification margin, not for adding features. Final submission: **November 13, 2026**. No server provided by the cégep; budget **$0 out of pocket**.
 
-## Ce qui existe réellement
+## What actually exists
 
-Squelette Next.js, TypeScript/Tailwind, workspaces npm, PostgreSQL local par Compose, règles de contribution et conception. **Pas encore** d'authentification, migrations Drizzle, serveur Socket.IO, tests métier, GitHub Actions ou URL HTTPS vérifiée. Les documents ajoutés ne remplacent pas ces preuves.
+Next.js skeleton, TypeScript/Tailwind, npm workspaces, local PostgreSQL through Compose, contribution rules and design. **Not yet**: authentication, Drizzle migrations, Socket.IO server, business tests, GitHub Actions or a verified HTTPS URL. The added documents do not replace this evidence.
 
-| Ligne notée au checkpoint | Situation observée | Condition de clôture |
+| Line graded at the checkpoint | Observed situation | Closing condition |
 |---|---|---|
-| Cahier des charges — 20 | Remis par Philippe; copie conservée. | Ne pas refaire le document déjà remis; appliquer les nouvelles règles au code. |
-| Démarche / DA — 20 | DA V3 complète, 24 pages lues; nom Incision confirmé, cinq références, palette, typographies et maquettes présentes. | DEMARCHE-CREATIVE.md, preuves de croquis humains, logo exportable et application dans l'app; adapter les exemples de règles devenus anciens. |
-| Architecture — 20 | ARCHITECTURE.md, modèle, états, ADR et approche bots alignés. | Relire contre la première migration et le prototype réel, diagrammes lisibles. |
-| Production — 20 | Non démontrée. | Serveur HTTPS, GitHub ET Discord fonctionnels, PostgreSQL et migrations réelles. |
-| Salle par code / temps réel — 10 | Non implémentée. | Création, admission et présence synchronisées dans deux navigateurs. |
-| CI, langue, thème, qualité, matrice — 10 | Matrice initiale des 90 IDs créée; autres éléments absents/incomplets. | Workflow exécuté, vrais tests, sélecteurs fonctionnels, statuts honnêtes. |
+| Specification — 20 | Submitted by Philippe; copy kept. | Do not redo the already submitted document; apply the new rules to the code. |
+| Creative process / art direction — 20 | Complete art direction V3, 24 pages read; name Incision confirmed, five references, palette, typefaces and mockups present. | DEMARCHE-CREATIVE.md, evidence of human sketches, exportable logo and application in the app; adapt the rule examples that have become outdated. |
+| Architecture — 20 | ARCHITECTURE.md, model, states, ADR and bots approach aligned. | Re-read against the first migration and the real prototype, readable diagrams. |
+| Production — 20 | Not demonstrated. | HTTPS server, GitHub AND Discord working, real PostgreSQL and migrations. |
+| Room by code / realtime — 10 | Not implemented. | Creation, admission and presence synchronised in two browsers. |
+| CI, language, theme, quality, requirements matrix — 10 | Initial requirements matrix of the 90 IDs created; other elements missing/incomplete. | Workflow executed, real tests, working selectors, honest statuses. |
 
-## Chemin critique immédiat
+## Immediate critical path
 
-Ces lots sont des unités de travail vérifiables, pas des promesses de durée. Ils peuvent être réalisés dans une même journée disponible; ne pas attendre une date pour commencer le suivant.
+These batches are verifiable units of work, not promises of duration. They can be done within the same available day; do not wait for a date to start the next one.
 
-### CP-01 — Démontrer l'exécution et la livraison
+### CP-01 — Demonstrate execution and delivery
 
-- Vérifier l'admissibilité Azure for Students et le crédit, puis la VM, l'adresse HTTPS, les volumes et le coût couvert jusqu'à correction. Repli gratuit soumis à validation TECH-05 si nécessaire. Aucun secret dans une carte, aucune conversion payante.
-- Aligner Node 24, types Node, npm et scripts racine lint/typecheck/test/build.
-- Installer Zod/Vitest, créer quelques tests de règles réelles (code, capacité, autorisation), GitHub Actions sur chaque push/PR.
-- Faire tourner Next + Socket.IO en dev **et production**, derrière HTTPS; PostgreSQL persistant. Conserver un test de fumée, vérifier redémarrage.
-- Déploiement automatique depuis main après vérifications; rollback applicatif sans effacer la BD. Ne pas provisionner de service payant sans budget approuvé.
+- Check Azure for Students eligibility and credit, then the VM, the HTTPS address, the volumes and the cost covered until grading. Free fallback subject to TECH-05 validation if needed. No secret in a card, no paid conversion.
+- Align Node 24, Node types, npm and the root lint/typecheck/test/build scripts.
+- Install Zod/Vitest, create a few tests of real rules (code, capacity, authorisation), GitHub Actions on every push/PR.
+- Run Next + Socket.IO in dev **and production**, behind HTTPS; persistent PostgreSQL. Keep a smoke test, check restarts.
+- Automatic deployment from main after checks; application rollback without wiping the database. Do not provision a paid service without an approved budget.
 
-**Sortie :** URL HTTPS et CI verte; transport et base joignables. Une page publiée seule ne termine pas le checkpoint.
+**Output:** HTTPS URL and green CI; transport and database reachable. A published page alone does not complete the checkpoint.
 
-### CP-02 — Identité et premières migrations
+### CP-02 — Identity and first migrations
 
-- Prototype de bibliothèque d'authentification : GitHub, Discord, compte local haché; session reconnue côté temps réel. Ne pas consacrer un jour à une authentification maison.
-- Migrations Drizzle : comptes/identités, salles/membres et contraintes d'unicité. Seed de comptes de test isolés, aucune donnée d'élève.
-- Refus visiteur/invité sur création et actions réservées; protections des callbacks et origines.
-- Prévoir les deux applications OAuth et leurs URL de retour, localhost puis HTTPS.
+- Authentication library prototype: GitHub, Discord, hashed local account; session recognised on the realtime side. Do not spend a day on home-made authentication.
+- Drizzle migrations: accounts/identities, rooms/members and uniqueness constraints. Seed of isolated test accounts, no student data.
+- Refusal of visitors/guests on creation and reserved actions; protection of callbacks and origins.
+- Plan the two OAuth applications and their callback URLs, localhost then HTTPS.
 
-**Sortie :** les deux connexions OAuth marchent sur le site public; identifiants locaux utilisables pour les tests. TECH-04 reste partiel si corpus/historique du seed final ne sont pas encore possibles.
+**Output:** both OAuth sign-ins work on the public site; local credentials usable for tests. TECH-04 stays partial if the corpus/history of the final seed are not possible yet.
 
-### CP-03 — Tranche salle de bout en bout
+### CP-03 — End-to-end room slice
 
-- Compte crée une salle sur code, choisit participant/spectateur; code à six caractères.
-- Second navigateur rejoint, membres synchronisés, départ visible. Schémas et autorisation côté serveur.
-- Contrainte une salle par identité, double onglet sans doublon, capacité bornée et code invalide refusé.
-- Test Playwright avec deux contextes et comptes locaux; test SQL de concurrence. Version invitée si incluse, test du cookie signé.
-- Un prototype sur code utilise la visibilité CODE, jamais une salle PRIVATE acceptant un code par erreur.
+- An account creates a code-based room and chooses participant/spectator; six-character code.
+- A second browser joins, members synchronised, departure visible. Server-side schemas and authorisation.
+- One-room-per-identity constraint, double tab without duplicate, bounded capacity and invalid code refused.
+- Playwright test with two contexts and local accounts; SQL concurrency test. Guest version if included, test of the signed cookie.
+- A code-based prototype uses the CODE visibility, never a PRIVATE room accepting a code by mistake.
 
-**Sortie :** démonstration reproductible à deux navigateurs en production; chemins de refus vérifiés.
+**Output:** reproducible two-browser demo in production; refusal paths verified.
 
-### CP-04 — Identité visuelle, langue, thème et remise
+### CP-04 — Visual identity, language, theme and submission
 
-À faire progressivement avec CP-02/03, pas seulement à la dernière heure :
+To be done progressively with CP-02/03, not only at the last hour:
 
-- Appliquer logo fourni par Philippe, favicon, palette et typographies validées; ne pas générer nom ou logo.
-- Tous les écrans existants FR/EN, défaut navigateur, choix persistant; deux thèmes, défaut système, sans flash; contrôle à 360 px et au clavier.
-- Ajouter DEMARCHE-CREATIVE.md avec les preuves réelles du dossier complet.
-- Compléter fichiers/tests/statuts de la matrice; ajuster le diagramme au schéma exécuté.
-- Relire le dépôt cloné proprement, URL publique et droits de lecture du prof. Fournir le fichier de remise contenant liens GitHub et site selon sa consigne.
+- Apply the logo provided by Philippe, favicon, validated palette and typefaces; do not generate the name or the logo.
+- All existing screens in FR/EN, browser default, persistent choice; two themes, system default, without flash; check at 360 px and with the keyboard.
+- Add DEMARCHE-CREATIVE.md with the real evidence from the complete dossier.
+- Complete the files/tests/statuses of the requirements matrix; adjust the diagram to the executed schema.
+- Re-read the cleanly cloned repository, the public URL and the teacher's read access. Provide the submission file containing the GitHub and site links, as instructed by the teacher.
 
-**Sortie :** checklist ci-dessous satisfaite; pas d'ajout d'une fonctionnalité finale au détriment d'un critère checkpoint.
+**Output:** checklist below satisfied; no final feature added at the expense of a checkpoint criterion.
 
-## Acceptation avant de remettre
+## Acceptance before submitting
 
-- [ ] Le prof ouvre l'URL HTTPS hors de notre session locale.
-- [ ] GitHub et Discord se connectent réellement; annulation/erreur sont gérées.
-- [ ] Une migration reconstruit la base; les données persistent après redémarrage.
-- [ ] A crée, B rejoint par code, les deux voient les mêmes membres sans rafraîchir.
-- [ ] Double onglet, code invalide et création non authentifiée n'altèrent pas la salle.
-- [ ] Le dernier push a exécuté lint, tsc --noEmit, tests; le déploiement publié correspond au commit attendu.
-- [ ] Langue et thème fonctionnent sur toutes les pages existantes; logo final visible et favicon remplacé.
-- [ ] DEMARCHE-CREATIVE complet, ARCHITECTURE avec diagrammes/ADR/bots, EXIGENCES avec 90 IDs et preuves sincères.
-- [ ] Aucun secret commité; démo, accès professeur et procédure de lancement vérifiés.
+- [ ] The teacher opens the HTTPS URL outside our local session.
+- [ ] GitHub and Discord actually sign in; cancellation/errors are handled.
+- [ ] A migration rebuilds the database; data persists after a restart.
+- [ ] A creates, B joins by code, both see the same members without refreshing.
+- [ ] Double tab, invalid code and unauthenticated creation do not alter the room.
+- [ ] The last push ran lint, tsc --noEmit, tests; the published deployment matches the expected commit.
+- [ ] Language and theme work on all existing pages; final logo visible and favicon replaced.
+- [ ] DEMARCHE-CREATIVE complete, ARCHITECTURE with diagrams/ADR/bots, EXIGENCES with 90 IDs and honest evidence.
+- [ ] No committed secret; demo, teacher access and launch procedure verified.
 
-## Trajectoire jusqu'au 13 novembre
+## Trajectory to November 13
 
-| Fenêtre cible | Résultat testable | Périmètre |
+| Target window | Testable result | Scope |
 |---|---|---|
-| Maintenant → lundi 5 octobre | Fondations publiques utilisables | CP-01 à CP-04. La disponibilité serveur/OAuth est le risque principal. |
-| 6–7 octobre | Vérification et remise mercredi | Tampon, tests de production, liens de remise; pas de fonctionnalité supplémentaire prioritaire. |
-| 8–11 octobre | Salles complètes et textes | Trois visibilités, invitations IP/session, exclusions/succession, explorateur/quickplay, corpus/dictionnaires et configuration. |
-| 12–18 octobre | Première vraie course de bout en bout | États, 3 s, frappe/correction, autorité serveur, abandon/reprise 30 s, fin/classement. |
-| 19–25 octobre | Résultats durables et bots | Séries MPM, carte thermique, profil/historique, cinq bots déterministes et tests. |
-| 26 octobre–1 novembre | Bonus et finition fonctionnelle | Trois bonus, seuils/idempotence, cibles variables, réglages restants, ADR bots. |
-| 2–8 novembre | Durcissement | Charge 30, Lighthouse, accessibilité, mobile, sécurité, E2E, erreurs et exploitation. |
-| 9–12 novembre | Gel et répétition de remise | Dépôt propre, seed complet, README/captures, matrice vérifiée, IA.md avec trois cas réels, démo/URL et sauvegarde. |
-| 13 novembre | Remise | Tampon réservé aux incidents, aucune fonction ambitieuse planifiée ce jour-là. |
+| Now → Monday, October 5 | Usable public foundations | CP-01 to CP-04. Server/OAuth availability is the main risk. |
+| October 6–7 | Verification and submission on Wednesday | Buffer, production tests, submission links; no additional priority feature. |
+| October 8–11 | Complete rooms and texts | Three visibilities, IP/session invitations, kicks/succession, explorer/quickplay, corpus/dictionaries and configuration. |
+| October 12–18 | First real end-to-end race | States, 3 s, typing/correction, server authority, 30 s abandonment/resumption, end/ranking. |
+| October 19–25 | Durable results and bots | MPM series, heatmap, profile/history, five deterministic bots and tests. |
+| October 26–November 1 | Bonuses and functional polish | Three bonuses, thresholds/idempotence, variable targets, remaining settings, bots ADR. |
+| November 2–8 | Hardening | Load of 30, Lighthouse, accessibility, mobile, security, E2E, errors and operations. |
+| November 9–12 | Freeze and submission rehearsal | Clean repository, complete seed, README/screenshots, verified requirements matrix, IA.md with three real cases, demo/URL and backup. |
+| November 13 | Submission | Buffer reserved for incidents, no ambitious feature planned that day. |
 
-Les dates sont un **plan de travail**, pas de nouvelles échéances du prof. Avancer les lots dès qu'ils passent leurs critères; garder de la marge compte tenu des cours et du travail de Philippe.
+The dates are a **work plan**, not new teacher deadlines. Move batches forward as soon as they pass their criteria; keep some margin given Philippe's classes and work.
 
-## Processus léger
+## Lightweight process
 
-Une carte courte par tranche : objectif, IDs officiels, données/permissions, critères observables, cas de refus et preuves. Branche depuis dev; revue/test puis fusion dev; release main quand stable. Les revues architecture, sécurité, données et UX interviennent selon le risque, sans sept agents obligatoires en série.
+One short card per slice: goal, official IDs, data/permissions, observable criteria, refusal cases and evidence. Branch from dev; review/test, then merge into dev; release to main when stable. Architecture, security, data and UX reviews happen according to risk, without seven mandatory agents in series.
 
-Conserver la vision portfolio dans la qualité du moteur, les tests reproductibles et la piste distinctive. Différer réseau social, classe d'enseignant, MFA, infrastructure distribuée et autres extensions jusqu'à couverture du périmètre noté.
+Keep the portfolio vision in the quality of the engine, the reproducible tests and the distinctive track. Defer social network, teacher's class, MFA, distributed infrastructure and other extensions until the graded scope is covered.
 
-## Hébergement sans dépense
+## Hosting without spending
 
-Recherche du 3 octobre, aucune inscription ou ressource distante créée.
+Research of October 3; no sign-up and no remote resource created.
 
-1. **Piste prioritaire : Azure for Students.** Offre de 100 USD de crédit utilisable sur 12 mois, sans carte, pour étudiants admissibles de 18 ans et plus, à temps plein, dans un établissement admissible. Le courriel scolaire doit être vérifié. Ce n'est pas un serveur gratuit illimité : estimer VM, disque, IP et trafic jusqu'après la correction. Garder l'abonnement étudiant et sa limite : crédit épuisé = service désactivé; ne pas convertir en Pay-As-You-Go. Proposition technique : VM Linux, application conteneurisée, PostgreSQL sur volume et reverse proxy HTTPS. Configuration précise seulement après vérification de l'offre disponible. [Offre et conditions Microsoft](https://azure.microsoft.com/en-us/pricing/offers/ms-azr-0170p).
-2. **Repli : Render Free pour Next/Socket.IO + Neon Free pour PostgreSQL.** Serveur applicatif compatible WebSocket, mais pas VPS administré : accord du prof nécessaire pour TECH-05. Render dort après 15 minutes sans trafic, redémarre en environ une minute, a un disque éphémère et des quotas; aucune preuve de performance à 30 joueurs avant test. Pas d'images persistantes sur son disque. Sans moyen de paiement, les dépassements prévus par la documentation entraînent des suspensions plutôt qu'une extension facturée. Ne pas choisir Render Postgres Free pour la finale : il expire après 30 jours. Neon Free évite cet essai BD de 30 jours, mais ses quotas doivent être suivis. [Render Free](https://render.com/docs/free), [WebSocket](https://render.com/docs/websocket), [Neon Free](https://neon.com/blog/neon-free-plan-1-gb-per-project).
-3. **Oracle Always Free n'est pas la piste prioritaire.** Carte requise avec possibilité de retenue temporaire, disponibilité des VM non garantie : mauvais pari si aucune avance n'est possible et livraison lundi. [FAQ Oracle](https://www.oracle.com/cloud/free/faq/).
+1. **Priority option: Azure for Students.** Offer of 100 USD of credit usable over 12 months, without a card, for eligible students aged 18 and over, full-time, at an eligible institution. The school email must be verified. It is not an unlimited free server: estimate VM, disk, IP and traffic until after grading. Keep the student subscription and its limit: credit exhausted = service disabled; do not convert to Pay-As-You-Go. Technical proposal: Linux VM, containerised application, PostgreSQL on a volume and HTTPS reverse proxy. Precise configuration only after verifying the available offer. [Microsoft offer and terms](https://azure.microsoft.com/en-us/pricing/offers/ms-azr-0170p).
+2. **Fallback: Render Free for Next/Socket.IO + Neon Free for PostgreSQL.** WebSocket-compatible application server, but not an administered VPS: the teacher's agreement is needed for TECH-05. Render sleeps after 15 minutes without traffic, restarts in about one minute, has an ephemeral disk and quotas; no performance evidence at 30 players before testing. No persistent images on its disk. Without a payment method, the overages described in the documentation lead to suspensions rather than a billed extension. Do not choose Render Postgres Free for the final: it expires after 30 days. Neon Free avoids this 30-day database trial, but its quotas must be monitored. [Render Free](https://render.com/docs/free), [WebSocket](https://render.com/docs/websocket), [Neon Free](https://neon.com/blog/neon-free-plan-1-gb-per-project).
+3. **Oracle Always Free is not the priority option.** Card required with a possible temporary hold, VM availability not guaranteed: a bad bet if no advance payment is possible and delivery is on Monday. [Oracle FAQ](https://www.oracle.com/cloud/free/faq/).
 
-Ne pas acheter de domaine : rechercher un nom DNS fourni ou une solution DNS gratuite compatible avec HTTPS et les callbacks OAuth. Aucun keep-alive artificiel pour contourner la mise en veille d'un forfait. Tant qu'accès, budget couvert et déploiement ne sont pas vérifiés, TECH-05/08 restent non faits.
+Do not buy a domain: look for a provided DNS name or a free DNS solution compatible with HTTPS and the OAuth callbacks. No artificial keep-alive to work around a plan's sleep mode. As long as access, a covered budget and deployment are not verified, TECH-05/08 remain not done.
