@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy to Azure App Service
+    needs: ci
+    # Manual runs too: only main reaches production (also enforced by the environment).
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package release
+        run: scripts/package-release.sh "$GITHUB_SHA" "$RUNNER_TEMP/release.zip"
+
+      - name: Deploy package
+        uses: azure/webapps-deploy@02a81bead70021f5284939794bcec79c271ab383 # v3.0.8
+        with:
+          app-name: incision
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ${{ runner.temp }}/release.zip
+          type: ZIP
+          clean: true
+          restart: true
+
+      - name: Smoke test
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: npm run smoke -w @incision/web -- "$APP_URL" --commit "$GITHUB_SHA" --database up

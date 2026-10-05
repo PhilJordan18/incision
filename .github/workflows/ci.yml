@@ -2,13 +2,17 @@ name: CI
 
 on:
   push:
+    # main is checked by the Deploy workflow, which calls this one before deploying.
+    branches-ignore: [main]
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # github.workflow is the caller's name when called, so Deploy never waits on a CI run.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   # Superseded pushes on work branches are cancelled; dev and main always finish.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 
