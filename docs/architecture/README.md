@@ -5,7 +5,7 @@ La référence d'entrée demandée par l'énoncé est désormais [docs/ARCHITECT
 - [Architecture, diagrammes et approche des bots](../ARCHITECTURE.md)
 - [Modèle de données, contraintes et transactions](data-model.md)
 - [Machines à états et cas limites](state-machines.md)
-- [ADR-0001 : temps réel](../adr/0001-temps-reel.md)
+- [ADR-0001 : temps réel](../adr/0001-realtime.md)
 - [Plan et preuves du checkpoint puis de la remise finale](verification.md)
 - [Matrice des 90 exigences et décisions d'interprétation](../EXIGENCES.md)
 

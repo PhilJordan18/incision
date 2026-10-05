@@ -6,7 +6,7 @@ Plateforme de course de frappe pour les élèves de 12 à 17 ans. Le dépôt con
 
 1. Lire [le guide d'installation et de lancement](docs/SETUP.md).
 2. Consulter [l'architecture alignée sur l'énoncé final](docs/ARCHITECTURE.md) et [le plan du checkpoint](docs/architecture/verification.md).
-3. Utiliser [le modèle de données](docs/architecture/data-model.md), [les machines à états](docs/architecture/state-machines.md) et [l'ADR temps réel](docs/adr/0001-temps-reel.md) comme contrats de conception pour le développement.
+3. Utiliser [le modèle de données](docs/architecture/data-model.md), [les machines à états](docs/architecture/state-machines.md) et [l'ADR temps réel](docs/adr/0001-realtime.md) comme contrats de conception pour le développement.
 4. Suivre le [guide de contribution](CONTRIBUTING.md) pour le code, les vérifications et les commits.
 
 ## Sources et autorité
@@ -32,4 +32,4 @@ incision/
 └── package-lock.json         Dépendances verrouillées
 ```
 
-La séparation est **métier** : identité, salles, courses, textes et résultats possèdent chacune leurs règles, même si le premier déploiement peut utiliser un seul processus Node. Voir [ADR-0001](docs/adr/0001-temps-reel.md).
+La séparation est **métier** : identité, salles, courses, textes et résultats possèdent chacune leurs règles, même si le premier déploiement peut utiliser un seul processus Node. Voir [ADR-0001](docs/adr/0001-realtime.md).
