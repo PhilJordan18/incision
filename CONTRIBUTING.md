@@ -33,14 +33,14 @@ These rules aim at readability and correctness. A reasoned, tested exception is 
 ## Verifying a contribution
 
 - Add or update tests in proportion to the risk: business rule, edge case, API/event contract, or affected acceptance path. Do not present a feature as tested if no corresponding test exists.
-- From the root, run at least `npm run lint -w @incision/web` and `npm run build -w @incision/web` for application changes. Run the relevant test suites once they are added to the repository. A documentation-only change does not need a full build.
+- From the root, run `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` for application changes; each runs in every workspace that defines it. CI runs the same checks on every push and pull request (`.github/workflows/ci.yml`). A documentation-only change does not need a full build.
 - Check error states, reconnection and concurrency for realtime flows. Test keyboard navigation, readability and translation of modified interfaces.
 - Never commit `.env`, secrets or real student data. For any change to authentication, authorisation, result sharing or personal data, request a security review before integration.
 - Update the card, the matrix and the documentation when shipped behaviour or an architecture decision changes. State honestly what remains unimplemented.
 
 ## Git and commits
 
-Create working branches from `dev` (`feat/…`, `fix/…`, `docs/…`). Verified changes are merged into `dev`; a stable release then goes from `dev` to `main`. Do not develop directly on these two branches, nor rewrite their published history. CI runs on every push and PR; only `main`, published after checks, automatically feeds production. These protections and workflows still have to be configured; do not assume they are active.
+Create working branches from `dev` (`feat/…`, `fix/…`, `docs/…`). Verified changes are merged into `dev`; a stable release then goes from `dev` to `main`. Do not develop directly on these two branches, nor rewrite their published history. CI runs on every push and PR; only `main`, published after checks, automatically feeds production. Branch protection and the deployment workflow still have to be configured; do not assume they are active.
 
 Write focused commits in English using **Conventional Commits**: `type(scope): short description`. Usual types: `feat` (feature), `fix`, `docs`, `test`, `refactor` (no behaviour change), `perf`, `chore`, `build` and `ci`. The scope is optional but useful: `auth`, `rooms`, `db`, `web`, `docs`.
 
