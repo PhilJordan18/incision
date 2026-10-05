@@ -9,12 +9,12 @@ Roles: [architect](../../roles/architect.md) with the [analyst](../../roles/anal
 
 ## Steps
 
-1. Read the Git state (`git status`, branch, `git log -1 --oneline`). Flag a dirty working tree.
+1. If the card already exists as a GitHub issue, start from it (`gh issue view <number>`). Read the Git state (`git status`, branch, `git log -1 --oneline`). Flag a dirty working tree.
 2. Identify the official IDs in `docs/EXIGENCES.md` and the brief, plus the applicable D-xx choices. State checkpoint (§7.1) or final submission.
 3. Explore the relevant code and documents (analyst, read-only; in parallel dba or security when the card touches data or security).
 4. Write the card below. One card = one goal deliverable and verifiable in one PR; otherwise propose a split.
 5. Pick the reviews from the risk table in [WORKFLOW.md](../../WORKFLOW.md#risk-based-reviews).
-6. Present the card to Philippe and **stop**. Implementation starts only after "Go Ahead" in the active conversation.
+6. Present the card to Philippe and **stop**. With his approval, publish it as a GitHub issue (or update the existing one). Implementation starts only after "Go Ahead" in the active conversation.
 
 ## Card template
 

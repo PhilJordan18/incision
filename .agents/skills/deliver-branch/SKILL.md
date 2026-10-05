@@ -21,6 +21,7 @@ Role: [developer](../../roles/developer.md), after the "ready to deliver" report
    ```markdown
    ## Summary
    <what changes and why> — Card <ID>, requirements <IDs>
+   Closes #<issue number>
    ## Evidence
    - <command> → <result>
    - <criterion> → <evidence>

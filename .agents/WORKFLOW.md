@@ -17,7 +17,9 @@ Complements [AGENTS.md](../AGENTS.md) (rules and human approvals) and [CONTRIBUT
 
 No staging environment for the checkpoint: verify locally (Docker PostgreSQL), then in production. A Neon development branch can serve as a remote test database if Philippe creates one.
 
-Branches use the [CONTRIBUTING.md](../CONTRIBUTING.md#git-and-commits) types (`feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `build`), e.g. `feat/cp02-oauth-login`.
+Cards are **GitHub issues** titled `<CARD-ID> — <title>` (e.g. `CP-04 — Authentication…`) and labelled by milestone (e.g. `checkpoint-1`). Creating or editing an issue publishes content: it needs Philippe's approval. The PR that delivers a card closes its issue.
+
+Branches use the [CONTRIBUTING.md](../CONTRIBUTING.md#git-and-commits) types (`feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `build`) and the card ID, e.g. `feat/cp04-auth`.
 
 ## Risk-based reviews
 
