@@ -40,6 +40,15 @@ describe("generateRoomCode", () => {
     expect(generateRoomCode(sequence(ROOM_CODE_ALPHABET.length - 1))).toBe("999999");
   });
 
+  it("asks the random source for an index over the whole alphabet, once per character", () => {
+    const upperBounds: number[] = [];
+    generateRoomCode((upperBound) => {
+      upperBounds.push(upperBound);
+      return 0;
+    });
+    expect(upperBounds).toEqual(Array<number>(ROOM_CODE_LENGTH).fill(ROOM_CODE_ALPHABET.length));
+  });
+
   it("always produces a code that parses back to itself", () => {
     const randomIndex = seeded(42);
     for (let attempt = 0; attempt < 1_000; attempt += 1) {
@@ -66,11 +75,11 @@ describe("parseRoomCode", () => {
     expect(parseRoomCode(input)).toEqual({ ok: false, error: "EMPTY" });
   });
 
-  it.each(["ABC23", "ABC23ZZ", "ABC 23Z"])("reports a wrong length (%s)", (input) => {
+  it.each(["ABC23", "ABC23ZZ", "ABC 23Z", "ABCDﬀ"])("reports a wrong length (%s)", (input) => {
     expect(parseRoomCode(input)).toEqual({ ok: false, error: "WRONG_LENGTH" });
   });
 
-  it.each(["ABC0EF", "ABCOEF", "ABC1EF", "ABCIEF", "abclef", "ABC-EF", "ÀBCDEF"])(
+  it.each(["ABC0EF", "ABCOEF", "ABC1EF", "ABCIEF", "abclef", "ABC-EF", "ÀBCDEF", "ABCDEß", "ABCDEſ"])(
     "rejects a character outside the alphabet (%s)",
     (input) => {
       expect(parseRoomCode(input)).toEqual({ ok: false, error: "INVALID_CHARACTER" });
