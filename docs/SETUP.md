@@ -4,7 +4,7 @@ This guide starts from a copy of the `incision/` repository. The Next.js applica
 
 ## Tools
 
-Use Node.js 24, npm 11, Git and Docker. Start Docker Desktop for the local database. GitHub hosts the repository; CI/CD and the HTTPS server are still to be configured. On October 3, Philippe confirmed that the cégep does not provide a server and that the budget is **$0 out of pocket**. First option: a VM under Azure for Students, if eligibility and credit are confirmed, without converting to a paid plan. See [the hosting plan](architecture/verification.md#hosting-without-spending). An editor with TypeScript support is recommended.
+Use Node.js 24, npm 11, Git and Docker. Start Docker Desktop for the local database. GitHub hosts the repository and runs CI on every push. Production runs on Azure App Service with Neon PostgreSQL ([ADR-0002](adr/0002-hosting.md), [deployment guide](DEPLOYMENT.md)); the budget stays **$0 out of pocket**. An editor with TypeScript support is recommended.
 
 ## 1. Go to the repository root
 

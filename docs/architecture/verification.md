@@ -21,7 +21,7 @@ These batches are verifiable units of work, not promises of duration. They can b
 
 ### CP-01 — Demonstrate execution and delivery
 
-- Check Azure for Students eligibility and credit, then the VM, the HTTPS address, the volumes and the cost covered until grading. Free fallback subject to TECH-05 validation if needed. No secret in a card, no paid conversion.
+- Hosting decided on October 5 (D-13, [ADR-0002](../adr/0002-hosting.md)): Azure App Service + Neon, accepted by the teacher. No secret in a card, no paid conversion.
 - Align Node 24, Node types, npm and the root lint/typecheck/test/build scripts.
 - Install Zod/Vitest, create a few tests of real rules (code, capacity, authorisation), GitHub Actions on every push/PR.
 - Run Next + Socket.IO in dev **and production**, behind HTTPS; persistent PostgreSQL. Keep a smoke test, check restarts.
@@ -95,6 +95,8 @@ One short card per slice: goal, official IDs, data/permissions, observable crite
 Keep the portfolio vision in the quality of the engine, the reproducible tests and the distinctive track. Defer social network, teacher's class, MFA, distributed infrastructure and other extensions until the graded scope is covered.
 
 ## Hosting without spending
+
+**Superseded on October 5** by D-13 and [ADR-0002](../adr/0002-hosting.md): Azure App Service (student credit) + Neon Free, accepted by the teacher. The research below is kept as the record of the options considered.
 
 Research of October 3; no sign-up and no remote resource created.
 

@@ -13,7 +13,7 @@ The [final brief](Web-V-Travail-de-session.pdf) prevails for constraints and gra
 ```mermaid
 flowchart TB
   Browser["Browser: React, FR/EN, themes"]
-  TLS["Server's HTTPS reverse proxy"]
+  TLS["Azure App Service front end (HTTPS)"]
   Web["One Node process: Next.js + Socket.IO"]
   Identity["Identity: OAuth, local account, guest"]
   Rooms["Rooms: access, presence, host"]
@@ -49,7 +49,7 @@ Server use cases orchestrate rules and transactions. The domain depends on neith
 
 | Topic | Basis chosen for the next slice | Verification before validation |
 |---|---|---|
-| Hosting | No cégep server. Priority option: Ubuntu VM under Azure for Students credit, Node + PostgreSQL + persistent volume + HTTPS, with no purchase or paid upgrade. | Eligibility, remaining credit, available region/size, VM/disk/IP/traffic estimate until grading, DNS and TLS. Render Free + Neon Free fallback only with the teacher's validation for TECH-05; no server provisioned. |
+| Hosting | D-13 / [ADR-0002](adr/0002-hosting.md): Azure App Service (Linux, Node 24, one B2 instance, student credit) + Neon PostgreSQL free plan; zip deployment of `main` by GitHub Actions. | Smoke test on every deployment: deployed commit, Neon reachable, WebSocket ping ([DEPLOYMENT.md](DEPLOYMENT.md)). Teacher accepted the managed server for TECH-05. |
 | Realtime | Socket.IO on the same domain as Next.js; single instance. | Two-browser production prototype; [ADR-0001](adr/0001-realtime.md). |
 | TS execution | Node 24 / npm; `tsx` for the custom server in dev and when launching the Next build in production. Packages exporting their TS sources, `transpilePackages` on the Next side. | `tsx` becomes a runtime dependency. Test a clean install and dev reload; no `output: standalone`. Scripts to be implemented. |
 | Authentication | Prototype priority: Auth.js, GitHub + Discord + Credentials, the library's JWT sessions; local passwords hashed with scrypt. Accounts and identities persisted through Drizzle. | Prove the three flows and session reading in Socket.IO. Credentials does not create accounts: sign-up/seed and hash verification are application code. Physical schema after the prototype. |
