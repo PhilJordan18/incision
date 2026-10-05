@@ -1,54 +1,61 @@
-# Contribuer à Incision
+# Contributing to Incision
 
-Ce guide s'applique aux contributions humaines et aux agents de développement. Il décrit **comment** travailler; l'[énoncé final et la matrice](README.md#sources-et-autorité) définissent **quoi** construire. Les ambiguïtés se résolvent par des choix raisonnables explicitement consignés dans `docs/EXIGENCES.md` (§2.2 de l'énoncé), pas par des exigences attribuées au client.
+This guide applies to human contributors and development agents. It describes **how** to work; the [final brief and the requirements matrix](README.md#sources-et-autorité) define **what** to build. Ambiguities are resolved by reasonable choices explicitly recorded in `docs/EXIGENCES.md` (brief §2.2), not by requirements attributed to the client.
 
-## Avant de coder
+## Working language
 
-1. Relire la carte de la fonctionnalité et les exigences qu'elle trace. Si la carte n'existe pas encore, documenter au minimum le besoin, sa source, les critères d'acceptation et les cas limites avant une implémentation importante.
-2. Consulter l'[architecture](docs/ARCHITECTURE.md) et les ADR concernés. Ajouter un ADR lorsqu'une décision durable change les contrats, la persistance ou l'exploitation du système.
-3. Limiter le changement à un objectif vérifiable. Ne pas ajouter de fonctions « au cas où » ni de besoins absents du cahier.
-4. Dans `apps/web`, suivre aussi [les consignes Next.js locales](apps/web/AGENTS.md), notamment la lecture de la documentation de la version installée avant de modifier son code.
+- **English** for code, identifiers, file and branch names, commit messages, pull requests, agent instructions and project documentation.
+- French and English are both **product** languages: every user-facing string (labels, errors, empty states, page metadata) lives in the FR/EN i18n dictionaries, never hard-coded (I18N-01).
+- Unchanged on purpose: official requirement IDs (`AUTH-01`, `SALLE-02`, `COURSE-04`…), the source PDFs, and the deliverable file names required by the brief: `docs/ARCHITECTURE.md`, `docs/EXIGENCES.md`, `docs/DEMARCHE-CREATIVE.md`, `docs/IA.md`.
+- Documents still written in French are translated progressively; their content stays authoritative until then.
 
-## Code et architecture
+## Before coding
 
-- Écrire le code produit en TypeScript (`.ts`/`.tsx`), avec `strict` activé. Les configurations peuvent être en JSON. Ne pas introduire de code JavaScript produit ni désactiver les vérifications pour contourner une erreur.
-- Une fonction doit avoir une responsabilité claire et un nom qui annonce son résultat ou son effet. Extraire une fonction quand cela clarifie une règle, facilite un test ou élimine une duplication réelle; ne pas découper mécaniquement chaque ligne.
-- Viser au plus **trois paramètres positionnels**. Au-delà, revoir la responsabilité de la fonction; utiliser un objet nommé lorsque les arguments forment une seule intention. Ne pas créer un objet fourre-tout pour masquer trop de dépendances.
-- Préférer des types explicites aux frontières (requêtes, événements, accès aux données, valeurs retournées publiques). Traiter les données externes comme `unknown` jusqu'à validation par schéma. Aucun `any` explicite : règle ESLint en erreur (TECH-02). Pas de suppression TypeScript sans justification locale; aucune assertion pour contourner une validation absente.
-- Garder les règles métier indépendantes de React, de la base de données et du transport temps réel. Les contrôleurs, composants et adaptateurs appellent ces règles; ils ne les recopient pas.
-- Préférer des noms descriptifs, des sorties anticipées et une gestion explicite des erreurs aux conditions imbriquées, booléens opaques et fonctions à effets cachés. Commenter le **pourquoi** d'une décision non évidente, pas traduire le code en prose.
-- Dans React, garder le rendu pur, ne pas muter les props ou l'état, et dériver les valeurs calculables plutôt que les dupliquer dans un autre état. Utiliser un effet pour synchroniser un système externe, pas pour recalculer ce que le rendu peut calculer. Déstructurer les props lorsqu'elles sont utilisées individuellement; ne pas le faire par automatisme si cela réduit la lisibilité.
-- Séparer les composants serveur et client selon leurs besoins réels. Réserver le code client aux interactions et APIs du navigateur; ne jamais exposer un secret serveur dans un composant client.
-- Pour PostgreSQL, versionner les migrations, expliciter les transactions couvrant plusieurs écritures liées, et examiner le nombre de requêtes lorsqu'une liste ou un lobby peut contenir de nombreux participants. Ne pas effectuer de changement direct en production sans procédure de migration et retour arrière.
+1. Re-read the feature card and the requirements it traces. If no card exists yet, document at least the need, its source, the acceptance criteria and the edge cases before any significant implementation.
+2. Read the [architecture](docs/ARCHITECTURE.md) and the relevant ADRs. Add an ADR when a lasting decision changes contracts, persistence or operations.
+3. Limit the change to one verifiable goal. No "just in case" features and no needs absent from the brief.
+4. In `apps/web`, also follow [the local Next.js instructions](apps/web/AGENTS.md), in particular reading the documentation of the installed version before changing its code.
 
-Ces règles visent la lisibilité et la correction. Une exception argumentée et testée vaut mieux qu'une conformité artificielle à un chiffre.
+## Code and architecture
 
-## Vérification d'une contribution
+- Write product code in TypeScript (`.ts`/`.tsx`) with `strict` enabled. Configuration may be JSON. Do not introduce product JavaScript or disable checks to work around an error.
+- A function has one clear responsibility and a name that states its result or effect. Extract a function when it clarifies a rule, eases a test or removes real duplication; do not split every line mechanically.
+- Aim for at most **three positional parameters**. Beyond that, revisit the function's responsibility; use a named object when the arguments form a single intent. Do not create a catch-all object to hide too many dependencies.
+- Prefer explicit types at boundaries (requests, events, data access, public return values). Treat external data as `unknown` until it is validated by a schema. No explicit `any`: ESLint rule set to error (TECH-02). No TypeScript suppression without a local justification; no assertion to work around missing validation.
+- Keep business rules independent of React, the database and the realtime transport. Controllers, components and adapters call these rules; they do not copy them.
+- Prefer descriptive names, early returns and explicit error handling over nested conditions, opaque booleans and functions with hidden side effects. Comment the **why** of a non-obvious decision, not a prose translation of the code.
+- In React, keep rendering pure, never mutate props or state, and derive computable values instead of duplicating them in another state. Use an effect to synchronise with an external system, not to recompute what rendering can compute. Destructure props when they are used individually; not by reflex if it hurts readability.
+- Split server and client components according to their real needs. Reserve client code for interactions and browser APIs; never expose a server secret in a client component.
+- For PostgreSQL, version migrations, make transactions explicit for multiple related writes, and check the number of queries when a list or a lobby can hold many participants. No direct production change without a migration and rollback procedure.
 
-- Ajouter ou mettre à jour les tests proportionnellement au risque : règle métier, cas limite, contrat d'API/événement, ou parcours d'acceptation concerné. Ne pas présenter une fonctionnalité comme testée si aucun test correspondant n'existe.
-- Depuis la racine, exécuter au minimum `npm run lint -w @incision/web` et `npm run build -w @incision/web` pour les changements applicatifs. Lancer les suites de tests pertinentes lorsqu'elles seront ajoutées au dépôt. Un changement documentaire seul ne nécessite pas un build complet.
-- Vérifier les états d'erreur, la reconnexion et la concurrence pour les parcours temps réel. Tester la navigation clavier, la lisibilité et la traduction des interfaces modifiées.
-- Ne jamais commiter `.env`, de secrets ou de données réelles d'élèves. Pour une modification d'authentification, d'autorisation, de partage de résultats ou de données personnelles, demander une revue de sécurité avant intégration.
-- Mettre à jour la carte, la matrice et la documentation lorsque le comportement livré ou une décision d'architecture change. Indiquer honnêtement ce qui reste non implémenté.
+These rules aim at readability and correctness. A reasoned, tested exception is better than artificial compliance with a number.
 
-## Git et commits
+## Verifying a contribution
 
-Créer les branches de travail depuis `dev` (`feat/…`, `fix/…`, `docs/…`). Les changements vérifiés sont intégrés à `dev`; une livraison stable passe ensuite de `dev` à `main`. Ne pas développer directement sur ces deux branches, ni réécrire leur historique publié. La CI s'exécute sur chaque push et PR; seul `main` publié après contrôles alimente automatiquement la production. Ces protections et workflows sont à configurer, pas supposés actifs.
+- Add or update tests in proportion to the risk: business rule, edge case, API/event contract, or affected acceptance path. Do not present a feature as tested if no corresponding test exists.
+- From the root, run at least `npm run lint -w @incision/web` and `npm run build -w @incision/web` for application changes. Run the relevant test suites once they are added to the repository. A documentation-only change does not need a full build.
+- Check error states, reconnection and concurrency for realtime flows. Test keyboard navigation, readability and translation of modified interfaces.
+- Never commit `.env`, secrets or real student data. For any change to authentication, authorisation, result sharing or personal data, request a security review before integration.
+- Update the card, the matrix and the documentation when shipped behaviour or an architecture decision changes. State honestly what remains unimplemented.
 
-Faire des commits ciblés au format **Conventional Commits** : `type(portée): description courte`. Types usuels : `feat` (fonctionnalité), `fix` (correction), `docs`, `test`, `refactor` (sans changement de comportement), `perf`, `chore`, `build` et `ci`. La portée est facultative, mais utile : `auth`, `rooms`, `db`, `web`, `docs`.
+## Git and commits
 
-Exemples :
+Create working branches from `dev` (`feat/…`, `fix/…`, `docs/…`). Verified changes are merged into `dev`; a stable release then goes from `dev` to `main`. Do not develop directly on these two branches, nor rewrite their published history. CI runs on every push and PR; only `main`, published after checks, automatically feeds production. These protections and workflows still have to be configured; do not assume they are active.
+
+Write focused commits in English using **Conventional Commits**: `type(scope): short description`. Usual types: `feat` (feature), `fix`, `docs`, `test`, `refactor` (no behaviour change), `perf`, `chore`, `build` and `ci`. The scope is optional but useful: `auth`, `rooms`, `db`, `web`, `docs`.
+
+Examples:
 
 ```text
-feat(rooms): permettre de rejoindre une salle par code
-fix(auth): refuser une session expirée
-docs: préciser les critères d'acceptation des invités
-chore(config): aligner les outils sur npm et TypeScript
+feat(rooms): join a room by code
+fix(auth): reject an expired session
+docs: clarify guest acceptance criteria
+chore(config): align tooling on npm and TypeScript
 ```
 
-Un commit doit décrire ce qu'il contient réellement. Vérifier `git status` et le diff avant de commiter; ne pas inclure des modifications étrangères à la tâche. Un changement incompatible de contrat doit être signalé explicitement dans la description du commit ou de la revue.
+A commit describes what it actually contains. Check `git status` and the diff before committing; do not include changes unrelated to the task. An incompatible contract change must be flagged explicitly in the commit or review description.
 
-## Références techniques
+## Technical references
 
-- [React : structurer l'état](https://react.dev/learn/choosing-the-state-structure) et [garder les composants purs](https://react.dev/learn/keeping-components-pure)
-- [TypeScript : mode strict](https://www.typescriptlang.org/tsconfig/strict) et [rétrécissement des types](https://www.typescriptlang.org/docs/handbook/2/narrowing)
+- [React: choosing the state structure](https://react.dev/learn/choosing-the-state-structure) and [keeping components pure](https://react.dev/learn/keeping-components-pure)
+- [TypeScript: strict mode](https://www.typescriptlang.org/tsconfig/strict) and [narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing)
