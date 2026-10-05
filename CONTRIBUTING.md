@@ -1,6 +1,6 @@
 # Contributing to Incision
 
-This guide applies to human contributors and development agents. It describes **how** to work; the [final brief and the requirements matrix](README.md#sources-et-autorité) define **what** to build. Ambiguities are resolved by reasonable choices explicitly recorded in `docs/EXIGENCES.md` (brief §2.2), not by requirements attributed to the client.
+This guide applies to human contributors and development agents. It describes **how** to work; the [final brief and the requirements matrix](README.md#sources-and-authority) define **what** to build. Ambiguities are resolved by reasonable choices explicitly recorded in `docs/EXIGENCES.md` (brief §2.2), not by requirements attributed to the client.
 
 ## Working language
 

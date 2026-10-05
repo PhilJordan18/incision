@@ -1,35 +1,35 @@
 # INCISION — 剃 / SHAVE
 
-Plateforme de course de frappe pour les élèves de 12 à 17 ans. Le dépôt contient le squelette Next.js, l'environnement PostgreSQL local et le cadrage architectural. L'authentification, les salles temps réel et le déploiement restent à développer.
+Typing race platform for students aged 12 to 17. The repository contains the Next.js skeleton, the local PostgreSQL environment and the architectural framing. Authentication, realtime rooms and deployment are still to be developed.
 
-## Commencer
+## Getting started
 
-1. Lire [le guide d'installation et de lancement](docs/SETUP.md).
-2. Consulter [l'architecture alignée sur l'énoncé final](docs/ARCHITECTURE.md) et [le plan du checkpoint](docs/architecture/verification.md).
-3. Utiliser [le modèle de données](docs/architecture/data-model.md), [les machines à états](docs/architecture/state-machines.md) et [l'ADR temps réel](docs/adr/0001-realtime.md) comme contrats de conception pour le développement.
-4. Suivre le [guide de contribution](CONTRIBUTING.md) pour le code, les vérifications et les commits.
+1. Read [the installation and launch guide](docs/SETUP.md).
+2. Consult [the architecture aligned with the final brief](docs/ARCHITECTURE.md) and [the checkpoint plan](docs/architecture/verification.md).
+3. Use [the data model](docs/architecture/data-model.md), [the state machines](docs/architecture/state-machines.md) and [the realtime ADR](docs/adr/0001-realtime.md) as design contracts for development.
+4. Follow the [contribution guide](CONTRIBUTING.md) for code, checks and commits.
 
-## Sources et autorité
+## Sources and authority
 
-1. [Énoncé final du travail de session](docs/Web-V-Travail-de-session.pdf) : contraintes et périmètre noté prioritaires.
-2. [Matrice officielle des 90 exigences](docs/EXIGENCES.md) : statuts, preuves et choix d'interprétation, avec écarts explicités.
-3. [Cahier des charges remis](docs/cahier-des-charges-incision.pdf) : historique conservé, sans appliquer ses règles devenues incompatibles.
-4. [Direction artistique V3 complète](docs/da/da_incision.pdf) : 24 pages vérifiées le 3 octobre; ambiance « nuit de course », piste verticale, palette et typographies de référence. Le nom **Incision** est confirmé par Philippe. L'entrée `docs/DEMARCHE-CREATIVE.md` et les preuves de croquis restent à compléter.
+1. [Final brief of the term project](docs/Web-V-Travail-de-session.pdf): constraints and graded scope, which take priority.
+2. [Official requirements matrix of the 90 requirements](docs/EXIGENCES.md): statuses, evidence and interpretation choices, with deviations made explicit.
+3. [Submitted specification](docs/cahier-des-charges-incision.pdf): history kept, without applying its rules that have become incompatible.
+4. [Complete art direction V3](docs/da/da_incision.pdf): 24 pages checked on October 3; "race night" mood, vertical track, reference palette and typefaces. The name **Incision** is confirmed by Philippe. The `docs/DEMARCHE-CREATIVE.md` entry and the sketch evidence are still to be completed.
 
-La DA reste créative, mais doit respecter les exigences DES : nom/logo créés par l'étudiant, responsive, lisibilité et accessibilité. Une décision technique n'est ni une exigence supplémentaire du prof ni une fonctionnalité déjà livrée.
+The art direction stays creative, but must meet the DES requirements: name/logo created by the student, responsive, readability and accessibility. A technical decision is neither an additional teacher requirement nor an already delivered feature.
 
-## Structure du dépôt et modules prévus
+## Repository structure and planned modules
 
 ```text
 incision/
-├── apps/web/                 Next.js et React (créés); temps réel à développer
-├── packages/domain/          Règles pures : salle, manche, résultats (à créer)
-├── packages/contracts/       Événements et validation partagés (à créer)
-├── packages/database/        Schéma Drizzle et migrations PostgreSQL (à créer)
-├── docs/                     Conception et décisions
-├── compose.yaml              PostgreSQL local uniquement
-├── package.json              Workspaces npm
-└── package-lock.json         Dépendances verrouillées
+├── apps/web/                 Next.js and React (created); realtime to be developed
+├── packages/domain/          Pure rules: room, round, results (to be created)
+├── packages/contracts/       Shared events and validation (to be created)
+├── packages/database/        Drizzle schema and PostgreSQL migrations (to be created)
+├── docs/                     Design and decisions
+├── compose.yaml              Local PostgreSQL only
+├── package.json              npm workspaces
+└── package-lock.json         Locked dependencies
 ```
 
-La séparation est **métier** : identité, salles, courses, textes et résultats possèdent chacune leurs règles, même si le premier déploiement peut utiliser un seul processus Node. Voir [ADR-0001](docs/adr/0001-realtime.md).
+The separation is by **business domain**: identity, rooms, races, texts and results each own their rules, even if the first deployment may use a single Node process. See [ADR-0001](docs/adr/0001-realtime.md).
