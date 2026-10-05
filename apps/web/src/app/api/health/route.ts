@@ -1,4 +1,4 @@
-import { checkDatabaseConnection, getDatabasePool } from "@incision/database";
+import { checkDatabaseConnection, describeDatabaseError, getDatabasePool } from "@incision/database";
 
 type DatabaseStatus = "up" | "down" | "not_configured";
 
@@ -26,7 +26,7 @@ async function readDatabaseStatus(): Promise<DatabaseStatus> {
   }
   const check = await checkDatabaseConnection(getDatabasePool(databaseUrl));
   if (!check.reachable) {
-    console.error("[health] database unreachable:", check.error instanceof Error ? check.error.message : check.error);
+    console.error("[health] database unreachable:", describeDatabaseError(check.error));
     return "down";
   }
   return "up";

@@ -34,12 +34,28 @@ export async function checkDatabaseConnection(pool: pg.Pool): Promise<DatabaseCh
   }
 }
 
+/**
+ * Short, log-safe description of a connection error: codes and messages only, never
+ * the connection string. Node reports a refused IPv4 + IPv6 connection as an
+ * AggregateError whose own message is empty.
+ */
+export function describeDatabaseError(error: unknown): string {
+  if (error instanceof AggregateError && error.errors.length > 0) {
+    return error.errors.map(describeDatabaseError).join("; ");
+  }
+  if (error instanceof Error) {
+    const code = "code" in error && typeof error.code === "string" ? `${error.code} ` : "";
+    return `${code}${error.message}`.trim() || error.name;
+  }
+  return "unknown error";
+}
+
 function createPool(connectionString: string): pg.Pool {
   const pool = new pg.Pool({ connectionString, ...POOL_OPTIONS });
   // Neon closes idle connections when its compute suspends. Without a listener,
   // that error on an idle client would crash the whole process.
   pool.on("error", (error) => {
-    console.error("[database] idle client error:", error.message);
+    console.error("[database] idle client error:", describeDatabaseError(error));
   });
   return pool;
 }
