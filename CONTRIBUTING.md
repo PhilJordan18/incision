@@ -1,11 +1,11 @@
 # Contribuer à Incision
 
-Ce guide s'applique aux contributions humaines et aux agents de développement. Il décrit **comment** travailler; le [cahier des charges et la matrice](README.md#sources-et-autorité) définissent **quoi** construire. Une hypothèse technique ne devient pas une exigence client sans validation.
+Ce guide s'applique aux contributions humaines et aux agents de développement. Il décrit **comment** travailler; l'[énoncé final et la matrice](README.md#sources-et-autorité) définissent **quoi** construire. Les ambiguïtés se résolvent par des choix raisonnables explicitement consignés dans `docs/EXIGENCES.md` (§2.2 de l'énoncé), pas par des exigences attribuées au client.
 
 ## Avant de coder
 
 1. Relire la carte de la fonctionnalité et les exigences qu'elle trace. Si la carte n'existe pas encore, documenter au minimum le besoin, sa source, les critères d'acceptation et les cas limites avant une implémentation importante.
-2. Consulter les documents d'[architecture](docs/architecture/README.md) et les ADR concernés. Ajouter un ADR lorsqu'une décision durable change les contrats, la persistance ou l'exploitation du système.
+2. Consulter l'[architecture](docs/ARCHITECTURE.md) et les ADR concernés. Ajouter un ADR lorsqu'une décision durable change les contrats, la persistance ou l'exploitation du système.
 3. Limiter le changement à un objectif vérifiable. Ne pas ajouter de fonctions « au cas où » ni de besoins absents du cahier.
 4. Dans `apps/web`, suivre aussi [les consignes Next.js locales](apps/web/AGENTS.md), notamment la lecture de la documentation de la version installée avant de modifier son code.
 
@@ -14,7 +14,7 @@ Ce guide s'applique aux contributions humaines et aux agents de développement. 
 - Écrire le code produit en TypeScript (`.ts`/`.tsx`), avec `strict` activé. Les configurations peuvent être en JSON. Ne pas introduire de code JavaScript produit ni désactiver les vérifications pour contourner une erreur.
 - Une fonction doit avoir une responsabilité claire et un nom qui annonce son résultat ou son effet. Extraire une fonction quand cela clarifie une règle, facilite un test ou élimine une duplication réelle; ne pas découper mécaniquement chaque ligne.
 - Viser au plus **trois paramètres positionnels**. Au-delà, revoir la responsabilité de la fonction; utiliser un objet nommé lorsque les arguments forment une seule intention. Ne pas créer un objet fourre-tout pour masquer trop de dépendances.
-- Préférer des types explicites aux frontières (requêtes, événements, accès aux données, valeurs retournées publiques). Traiter les données externes comme `unknown` jusqu'à validation. Éviter `any`, les assertions de type non justifiées et les suppressions d'erreurs TypeScript; expliquer toute exception locale.
+- Préférer des types explicites aux frontières (requêtes, événements, accès aux données, valeurs retournées publiques). Traiter les données externes comme `unknown` jusqu'à validation par schéma. Aucun `any` explicite : règle ESLint en erreur (TECH-02). Pas de suppression TypeScript sans justification locale; aucune assertion pour contourner une validation absente.
 - Garder les règles métier indépendantes de React, de la base de données et du transport temps réel. Les contrôleurs, composants et adaptateurs appellent ces règles; ils ne les recopient pas.
 - Préférer des noms descriptifs, des sorties anticipées et une gestion explicite des erreurs aux conditions imbriquées, booléens opaques et fonctions à effets cachés. Commenter le **pourquoi** d'une décision non évidente, pas traduire le code en prose.
 - Dans React, garder le rendu pur, ne pas muter les props ou l'état, et dériver les valeurs calculables plutôt que les dupliquer dans un autre état. Utiliser un effet pour synchroniser un système externe, pas pour recalculer ce que le rendu peut calculer. Déstructurer les props lorsqu'elles sont utilisées individuellement; ne pas le faire par automatisme si cela réduit la lisibilité.
@@ -32,6 +32,8 @@ Ces règles visent la lisibilité et la correction. Une exception argumentée et
 - Mettre à jour la carte, la matrice et la documentation lorsque le comportement livré ou une décision d'architecture change. Indiquer honnêtement ce qui reste non implémenté.
 
 ## Git et commits
+
+Créer les branches de travail depuis `dev` (`feat/…`, `fix/…`, `docs/…`). Les changements vérifiés sont intégrés à `dev`; une livraison stable passe ensuite de `dev` à `main`. Ne pas développer directement sur ces deux branches, ni réécrire leur historique publié. La CI s'exécute sur chaque push et PR; seul `main` publié après contrôles alimente automatiquement la production. Ces protections et workflows sont à configurer, pas supposés actifs.
 
 Faire des commits ciblés au format **Conventional Commits** : `type(portée): description courte`. Types usuels : `feat` (fonctionnalité), `fix` (correction), `docs`, `test`, `refactor` (sans changement de comportement), `perf`, `chore`, `build` et `ci`. La portée est facultative, mais utile : `auth`, `rooms`, `db`, `web`, `docs`.
 

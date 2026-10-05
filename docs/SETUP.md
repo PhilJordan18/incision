@@ -4,7 +4,7 @@ Ce guide part d'une copie du dépôt `incision/`. L'application Next.js existe d
 
 ## Outils
 
-Utiliser Node.js 24, npm 11, Git et Docker. Démarrer Docker Desktop pour la base locale. GitHub héberge le dépôt; la CI/CD et l'hébergeur HTTPS restent à configurer. Un éditeur avec support TypeScript est recommandé.
+Utiliser Node.js 24, npm 11, Git et Docker. Démarrer Docker Desktop pour la base locale. GitHub héberge le dépôt; la CI/CD et le serveur HTTPS restent à configurer. Philippe confirme le 3 octobre que le cégep ne fournit pas de serveur et que le budget est de **0 $ à débourser**. Première piste : VM sous Azure for Students, si admissibilité et crédit confirmés, sans conversion payante. Voir [le plan d'hébergement](architecture/verification.md#hébergement-sans-dépense). Un éditeur avec support TypeScript est recommandé.
 
 ## 1. Se placer à la racine du dépôt
 
@@ -39,7 +39,7 @@ Le mot de passe fourni est **uniquement pour le développement local**. Le dépl
 
 ## 4. Ajouter les modules de l'application
 
-Créer ensuite `packages/domain`, `packages/contracts` et `packages/database` avec leurs propres `package.json` TypeScript. Installer `drizzle-orm` et `pg` dans le module de base de données, puis `drizzle-kit` et `@types/pg` comme dépendances de développement. Choisir des versions **stables verrouillées par `package-lock.json`** et tester les migrations avant de les appliquer à une base distante. Au 29 septembre 2026, les versions stables repérées sont `drizzle-orm@0.45.3` et `drizzle-kit@0.31.11`; la documentation d'installation affiche aussi des versions RC, que nous ne retenons pas pour le checkpoint.
+Créer ensuite `packages/domain`, `packages/contracts` et `packages/database` avec leurs propres `package.json` TypeScript. Installer `drizzle-orm` et `pg` dans le module de base de données, puis `drizzle-kit` et `@types/pg` comme dépendances de développement. Choisir des versions **stables verrouillées par `package-lock.json`**, vérifiées au moment de l'installation, et tester les migrations avant application à une base distante.
 
 Le premier schéma doit suivre la [coupe checkpoint du modèle de données](architecture/data-model.md#coupe-de-données-pour-le-checkpoint-1). Générer des migrations versionnées avec Drizzle Kit (`generate`, puis `migrate`); ne pas utiliser `push` comme mécanisme de production. Pour ce checkpoint, implémenter la création/admission de salle avant la synchronisation Socket.IO des membres; la machine complète de manche ne doit pas retarder cette preuve minimale. Les scripts `next dev` et `next start` actuels ne lancent pas Socket.IO : ils devront être adaptés lorsque le serveur personnalisé sera ajouté.
 
@@ -47,11 +47,11 @@ Le premier schéma doit suivre la [coupe checkpoint du modèle de données](arch
 
 La cible est démontrable, pas seulement documentée :
 
-1. HTTPS public, authentification et PostgreSQL fonctionnels.
+1. Serveur HTTPS public, authentification **GitHub et Discord**, PostgreSQL et migrations fonctionnels. Connexion locale également prévue pour les tests Playwright.
 2. Salle créée puis rejointe par code, deux navigateurs synchronisés en temps réel.
-3. Modèle de données, machines à états et ADR présents dans le dépôt.
+3. `docs/ARCHITECTURE.md` : modèle de données, machine à états, ADR temps réel et approche des bots; `docs/DEMARCHE-CREATIVE.md` complet avec preuves humaines de nom/logo et identité appliquée.
 4. CI à chaque push : lint, TypeScript, tests et build; déploiement automatique après succès.
-5. Langue et thème accessibles dans l'interface initiale; matrice des exigences reliée aux tests.
+5. Langue et thème accessibles dans les pages existantes; `docs/EXIGENCES.md` listant tous les IDs officiels, états sincères et tests réels.
 
 Les points 1, 2 et 4 demandent encore une implémentation et une configuration externe. Ne pas les présenter comme acquis parce que ces documents existent. Pour le squelette actuel, lancer `npm run lint -w @incision/web` et `npm run build -w @incision/web`.
 
