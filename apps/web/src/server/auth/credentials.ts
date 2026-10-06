@@ -10,9 +10,14 @@ export class InvalidCredentials extends CredentialsSignin {
   override code = "invalid_credentials";
 }
 
-/** Too many recent failures for this login or this address. */
+/** Too many recent failures for this login, this login at this address, or this address. */
 export class TooManyAttempts extends CredentialsSignin {
   override code = "rate_limited";
+}
+
+/** Too many password checks running at this moment; an immediate retry may pass. */
+export class ServerBusy extends CredentialsSignin {
+  override code = "busy";
 }
 
 /**
@@ -28,8 +33,9 @@ export const CREDENTIAL_LIMITS = {
 } as const;
 
 /**
- * Password checks running at once in the process. scrypt runs in libuv's small thread
- * pool, shared with DNS and file access: a burst must not starve them.
+ * Sign-in checks (account lookup and scrypt) running at once in the process. scrypt runs
+ * in libuv's small thread pool, shared with DNS and file access: a burst must not starve
+ * them. Checked before the first await, so it also covers the lookup.
  */
 export const MAX_CONCURRENT_VERIFICATIONS = 8;
 
@@ -72,27 +78,37 @@ export async function authorizeCredentials(
     [limiters.login, loginKey],
     [limiters.address, addressKey],
   ] as const;
-  if (verifications.inFlight >= verifications.max || keys.some(([limiter, key]) => limiter.isBlocked(key))) {
+  if (keys.some(([limiter, key]) => limiter.isBlocked(key))) {
     throw new TooManyAttempts();
   }
+  if (verifications.inFlight >= verifications.max) {
+    throw new ServerBusy();
+  }
+  // Counted before the first await, so parallel attempts see each other at once. Only a
+  // password that was checked and wrong keeps counting: a success or a server failure
+  // (database down, timeout) gives no information and is forgiven.
   for (const [limiter, key] of keys) {
     limiter.recordFailure(key);
   }
   verifications.inFlight += 1;
+  let wrongPassword = false;
   try {
     const parsedLogin = parseLogin(login);
     const account = parsedLogin.ok ? await findCredentials(parsedLogin.value.canonical) : undefined;
     const valid =
       account?.passwordHash != null ? await verifyPassword(password, account.passwordHash) : await verifyAgainstDecoy(password);
     if (!valid || account === undefined) {
+      wrongPassword = true;
       throw new InvalidCredentials();
-    }
-    for (const [limiter, key] of keys) {
-      limiter.forgive(key);
     }
     return { id: account.accountId };
   } finally {
     verifications.inFlight -= 1;
+    if (!wrongPassword) {
+      for (const [limiter, key] of keys) {
+        limiter.forgive(key);
+      }
+    }
   }
 }
 

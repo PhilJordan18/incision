@@ -8,7 +8,8 @@ type Window = { failures: number; readonly startedAt: number };
  * attempt as a failure before any `await` and `forgive` it once it succeeds, so parallel
  * attempts cannot all pass the check before one of them is counted. A success does not
  * reset earlier failures: a correct guess after many failures still waits.
- * The map is bounded: when full, expired windows are dropped, then the oldest one.
+ * The map is bounded: when full, expired windows are dropped, then the oldest window that
+ * blocks nothing (the oldest of all only if every window blocks).
  */
 export class AttemptLimiter {
   readonly #windows = new Map<string, Window>();
@@ -64,8 +65,14 @@ export class AttemptLimiter {
     if (this.#windows.size >= this.maxKeys) {
       // The oldest window that is not blocking anything: flooding the map with new keys
       // must not lift a block. Insertion order: the first keys are the oldest windows.
-      const victim =
-        [...this.#windows].find(([, window]) => window.failures < this.limit.maxFailures)?.[0] ?? this.#windows.keys().next().value;
+      let victim: string | undefined;
+      for (const [key, window] of this.#windows) {
+        if (window.failures < this.limit.maxFailures) {
+          victim = key;
+          break;
+        }
+      }
+      victim ??= this.#windows.keys().next().value;
       if (victim !== undefined) {
         this.#windows.delete(victim);
       }

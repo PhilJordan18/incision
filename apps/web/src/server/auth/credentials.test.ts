@@ -2,7 +2,7 @@ import { hashPassword, type LocalCredentials } from "@incision/database";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { CLIENT_ADDRESS_HEADER } from "../http/client-address";
 import { AttemptLimiter } from "./attempt-limiter";
-import { authorizeCredentials, type CredentialsDependencies, InvalidCredentials, TooManyAttempts } from "./credentials";
+import { authorizeCredentials, type CredentialsDependencies, InvalidCredentials, ServerBusy, TooManyAttempts } from "./credentials";
 
 const accountId = "0b6f3c1e-5d2a-4f7b-9c8e-1a2b3c4d5e6f";
 let alice: LocalCredentials;
@@ -107,7 +107,7 @@ describe("authorizeCredentials", () => {
       ["u1", "u2", "u3", "u4", "u5"].map((login, index) => authorizeCredentials({ login, password: "x" }, request(`203.0.113.${index}`), deps)),
     );
     const reasons = burst.map((result) => (result.status === "rejected" ? result.reason : result.value));
-    expect(reasons.filter((reason) => reason instanceof TooManyAttempts)).toHaveLength(3);
+    expect(reasons.filter((reason) => reason instanceof ServerBusy)).toHaveLength(3);
     expect(deps.verifications.inFlight).toBe(0);
   });
 
@@ -121,5 +121,18 @@ describe("authorizeCredentials", () => {
   it("lets a database failure surface as an error, not as a wrong password", async () => {
     const deps = dependencies({ findCredentials: async () => Promise.reject(new Error("down")) });
     await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request(), deps)).rejects.toThrow("down");
+  });
+
+  it("does not count server failures: once the database answers, the right password works", async () => {
+    let down = true;
+    const deps = dependencies({
+      findCredentials: async (login) => (down ? Promise.reject(new Error("down")) : login === "alice" ? alice : undefined),
+    });
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request(), deps)).rejects.toThrow("down");
+    }
+    expect(deps.verifications.inFlight).toBe(0);
+    down = false;
+    await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request(), deps)).resolves.toEqual({ id: accountId });
   });
 });
