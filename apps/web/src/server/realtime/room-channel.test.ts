@@ -6,7 +6,7 @@ import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT } from "../../rooms/protocol";
 import type { RoomEvents } from "../rooms/room-events";
-import { registerRoomChannel, WATCH_LIMIT } from "./room-channel";
+import { ACCOUNT_WATCHES_IN_FLIGHT, registerRoomChannel, WATCH_LIMIT } from "./room-channel";
 import { RoomPresence } from "./room-presence";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
@@ -84,6 +84,22 @@ beforeEach(async () => {
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
   });
 });
+
+/** Makes the next room read wait for `release`, returning the room as it was when it started. */
+function holdNextRead(): { started: boolean; release: () => void } {
+  const control = { started: false, release: () => undefined as void };
+  const original = readRoomSnapshot;
+  readRoomSnapshot = vi.fn(async (lobbyId: string) => {
+    readRoomSnapshot = original;
+    const before = snapshots.get(lobbyId);
+    control.started = true;
+    await new Promise<void>((resolve) => {
+      control.release = resolve;
+    });
+    return before;
+  });
+  return control;
+}
 
 function snapshotOf(lobbyId: string): RoomSnapshot {
   const snapshot = snapshots.get(lobbyId);
@@ -253,5 +269,78 @@ describe("room channel", () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(vi.mocked(readRoomSnapshot).mock.calls.length).toBeGreaterThanOrEqual(1);
     expect(vi.mocked(readRoomSnapshot).mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("applies a change that arrives while the room is being read", async () => {
+    const alice = await open("session=alice");
+    await watch(alice);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const held = holdNextRead();
+    events.emit("changed", "lobby-1");
+    await until(() => held.started);
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), revision: 2 });
+    events.emit("changed", "lobby-1");
+    const received: unknown[] = [];
+    alice.on(ROOM_SNAPSHOT_EVENT, (snapshot: unknown) => received.push(snapshot));
+    held.release();
+    await vi.waitFor(() => expect(received).toContainEqual(expect.objectContaining({ revision: 2 })), { timeout: 2_000 });
+  });
+
+  it("keeps a member who joined while an older read was in flight", async () => {
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), members: [member("member-a", ALICE, "Alice", true)] });
+    const alice = await open("session=alice");
+    await watch(alice);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // A change starts a read of the room as it was before Bob joined…
+    const held = holdNextRead();
+    events.emit("changed", "lobby-1");
+    await until(() => held.started);
+    // …then Bob joins and watches, and only then does the old read come back.
+    snapshots.set("lobby-1", {
+      ...snapshotOf("lobby-1"),
+      revision: 2,
+      members: [member("member-a", ALICE, "Alice", true), member("member-b", BOB, "Bob")],
+    });
+    const bob = await open("session=bob");
+    expect(await watch(bob)).toMatchObject({ ok: true });
+    held.release();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const later = nextSnapshot(bob, 1_000);
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), revision: 3 });
+    events.emit("changed", "lobby-1");
+    expect(await later).toMatchObject({ revision: 3 });
+  });
+
+  it("undoes a watch whose room cannot be read", async () => {
+    readRoomSnapshot = vi.fn(async () => {
+      throw new Error("database unreachable");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const alice = await open("session=alice");
+    expect(await watch(alice)).toEqual({ ok: false, error: "UNAVAILABLE" });
+    expect(presence.onlineMembers("lobby-1")).toEqual(new Set());
+    readRoomSnapshot = vi.fn(async (lobbyId: string) => snapshots.get(lobbyId));
+    const nothing = nextSnapshot(alice);
+    events.emit("changed", "lobby-1");
+    expect(await nothing).toBe("silent");
+  });
+
+  it("lets one account run only a few watches at once, whatever its number of sockets", async () => {
+    const releases: (() => void)[] = [];
+    findActiveMembership = vi.fn(async (accountId: string) => {
+      await new Promise<void>((resolve) => releases.push(resolve));
+      return memberships.get(accountId);
+    });
+    const sockets = await Promise.all(Array.from({ length: ACCOUNT_WATCHES_IN_FLIGHT + 2 }, () => open("session=alice")));
+    const answers = sockets.map((socket) => watch(socket));
+    await until(() => vi.mocked(findActiveMembership).mock.calls.length === ACCOUNT_WATCHES_IN_FLIGHT);
+    const refused = await Promise.all(answers.slice(ACCOUNT_WATCHES_IN_FLIGHT));
+    expect(refused).toEqual(Array.from({ length: 2 }, () => ({ ok: false, error: "RATE_LIMITED" })));
+    releases.forEach((release) => release());
+    expect(await Promise.all(answers.slice(0, ACCOUNT_WATCHES_IN_FLIGHT))).toEqual(
+      Array.from({ length: ACCOUNT_WATCHES_IN_FLIGHT }, () => expect.objectContaining({ ok: true })),
+    );
+    expect(vi.mocked(findActiveMembership).mock.calls.length).toBe(ACCOUNT_WATCHES_IN_FLIGHT);
   });
 });

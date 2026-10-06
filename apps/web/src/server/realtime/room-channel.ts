@@ -26,7 +26,21 @@ export type RoomChannelDependencies = {
  */
 export const WATCH_LIMIT = { maxWatches: 5, windowMs: 10_000 } as const;
 
-type WatchedRoom = { readonly lobbyId: string; readonly memberId: string };
+/**
+ * Watches one account may have in progress at once, across all its sockets: many sockets
+ * of one account cannot hold more of the database pool than this.
+ */
+export const ACCOUNT_WATCHES_IN_FLIGHT = 2;
+
+type WatchedRoom = {
+  readonly lobbyId: string;
+  readonly memberId: string;
+  /**
+   * Revision of the snapshot that admitted the socket; Infinity while its watch reads it.
+   * Only a snapshot at least this new can show that the member left.
+   */
+  readonly since: number;
+};
 type WatchBudget = { startedAt: number; used: number; inFlight: boolean };
 
 const channelOf = (lobbyId: string) => `lobby:${lobbyId}`;
@@ -41,6 +55,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
   const { presence, events, now = Date.now } = dependencies;
   // One snapshot read per room at a time; changes during a read trigger one more read.
   const broadcasting = new Map<string, { again: boolean }>();
+  const watchesInFlight = new Map<string, number>();
 
   function scheduleBroadcast(lobbyId: string): void {
     const running = broadcasting.get(lobbyId);
@@ -82,7 +97,8 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     io.to(channelOf(lobbyId)).emit(ROOM_SNAPSHOT_EVENT, publicSnapshot(snapshot, presence.onlineMembers(lobbyId)));
     for (const socket of await io.in(channelOf(lobbyId)).fetchSockets()) {
       const watched = watchedRoomOf(socket.data);
-      if (watched?.lobbyId === lobbyId && !members.has(watched.memberId)) {
+      // A read that started before this member joined must not drop its socket.
+      if (watched?.lobbyId === lobbyId && !members.has(watched.memberId) && snapshot.revision >= watched.since) {
         socket.leave(channelOf(lobbyId));
         presence.remove(lobbyId, watched.memberId, socket.id);
         socket.data.room = undefined;
@@ -105,19 +121,34 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       }
       budget.used += 1;
       if (budget.used > WATCH_LIMIT.maxWatches) {
-        // Beyond any page's needs: the socket is cut, its page reconnects later.
+        // Beyond any page's needs: the socket is cut, and the page shows that its session
+        // ended (a server disconnect is not retried by the client).
         socket.disconnect(true);
         return;
       }
-      if (budget.inFlight) {
+      const session = currentSession(socket, dependencies);
+      if (session === undefined) {
+        acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies RoomWatchAck);
+        return;
+      }
+      const { accountId } = session;
+      const accountWatches = watchesInFlight.get(accountId) ?? 0;
+      if (budget.inFlight || accountWatches >= ACCOUNT_WATCHES_IN_FLIGHT) {
         acknowledge({ ok: false, error: "RATE_LIMITED" } satisfies RoomWatchAck);
         return;
       }
       budget.inFlight = true;
-      void watch(socket, payload)
+      watchesInFlight.set(accountId, accountWatches + 1);
+      void watch(socket, payload, accountId)
         .then((answer) => acknowledge(answer))
         .finally(() => {
           budget.inFlight = false;
+          const left = (watchesInFlight.get(accountId) ?? 1) - 1;
+          if (left > 0) {
+            watchesInFlight.set(accountId, left);
+          } else {
+            watchesInFlight.delete(accountId);
+          }
         });
     });
 
@@ -139,25 +170,25 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     return presence.add(room.lobbyId, room.memberId, socket.id);
   }
 
-  function unfollow(socket: Socket, room: WatchedRoom): void {
+  /** Stops following; the others learn it if this was the member's last socket. */
+  function unfollow(socket: Socket, room: Omit<WatchedRoom, "since">): void {
     void socket.leave(channelOf(room.lobbyId));
-    presence.remove(room.lobbyId, room.memberId, socket.id);
     socket.data.room = undefined;
+    if (presence.remove(room.lobbyId, room.memberId, socket.id)) {
+      scheduleBroadcast(room.lobbyId);
+    }
   }
 
-  async function watch(socket: Socket, payload: unknown): Promise<RoomWatchAck> {
+  /** Follows the room of `accountId`, whose session the caller has just checked. */
+  async function watch(socket: Socket, payload: unknown, accountId: string): Promise<RoomWatchAck> {
     const parsed = roomWatchPayloadSchema.safeParse(payload);
     const code = parsed.success ? parseRoomCode(parsed.data.code) : undefined;
     if (code === undefined || !code.ok) {
       return { ok: false, error: "INVALID_PAYLOAD" };
     }
-    const session = currentSession(socket, dependencies);
-    if (session === undefined) {
-      return { ok: false, error: "UNAUTHORIZED" };
-    }
     let membership: ActiveMembership | undefined;
     try {
-      membership = await dependencies.findActiveMembership(session.accountId);
+      membership = await dependencies.findActiveMembership(accountId);
     } catch (error: unknown) {
       console.error("[rooms] membership check failed:", describeDatabaseError(error));
       return { ok: false, error: "UNAVAILABLE" };
@@ -171,7 +202,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     }
     // Follow before reading, so no change between the read and the join is missed.
     const room = { lobbyId: membership.lobbyId, memberId: membership.memberId };
-    const cameOnline = follow(socket, room);
+    const cameOnline = follow(socket, { ...room, since: Number.POSITIVE_INFINITY });
     let snapshot: RoomSnapshot | undefined;
     try {
       snapshot = await dependencies.readRoomSnapshot(room.lobbyId);
@@ -183,6 +214,9 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
         unfollow(socket, room);
       }
       return { ok: false, error: snapshot === undefined ? "UNAVAILABLE" : "NOT_A_MEMBER" };
+    }
+    if (socket.connected) {
+      socket.data.room = { ...room, since: snapshot.revision } satisfies WatchedRoom;
     }
     if (cameOnline) {
       scheduleBroadcast(room.lobbyId);
@@ -205,7 +239,9 @@ function watchedRoomOf(data: unknown): WatchedRoom | undefined {
     "lobbyId" in room &&
     typeof room.lobbyId === "string" &&
     "memberId" in room &&
-    typeof room.memberId === "string"
-    ? { lobbyId: room.lobbyId, memberId: room.memberId }
+    typeof room.memberId === "string" &&
+    "since" in room &&
+    typeof room.since === "number"
+    ? { lobbyId: room.lobbyId, memberId: room.memberId, since: room.since }
     : undefined;
 }
