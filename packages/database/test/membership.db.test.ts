@@ -104,6 +104,7 @@ describe("joinRoomByCode", () => {
     const again = await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" });
     expect(again).toMatchObject({ ok: true, lobbyId, alreadyMember: true });
     expect(first.ok && again.ok && again.memberId === first.memberId).toBe(true);
+    expect(await findActiveMembership(db, bob)).toMatchObject({ lobbyId, code: "ABCDEF", isHost: false });
     expect((await readRoomSnapshot(db, lobbyId))?.members.map((member) => member.displayName)).toEqual(["Hôte", "Bob"]);
   });
 

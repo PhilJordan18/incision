@@ -15,15 +15,23 @@ type Queryable = Database | Transaction;
 const READ_COMMITTED = { isolationLevel: "read committed" } as const;
 
 /** The room an account currently occupies (one at most, SALLE-06). */
-export type ActiveMembership = { readonly lobbyId: string; readonly code: string; readonly memberId: string };
+export type ActiveMembership = {
+  readonly lobbyId: string;
+  readonly code: string;
+  readonly memberId: string;
+  /** Leaving closes the room at the checkpoint (SALLE-08 comes later). */
+  readonly isHost: boolean;
+};
 
 export async function findActiveMembership(db: Queryable, accountId: string): Promise<ActiveMembership | undefined> {
   const [row] = await db
-    .select({ lobbyId: lobbyMembers.lobbyId, code: lobbies.code, memberId: lobbyMembers.id })
+    .select({ lobbyId: lobbyMembers.lobbyId, code: lobbies.code, memberId: lobbyMembers.id, hostMemberId: lobbies.hostMemberId })
     .from(lobbyMembers)
     .innerJoin(lobbies, eq(lobbies.id, lobbyMembers.lobbyId))
     .where(and(eq(lobbyMembers.accountId, accountId), isNull(lobbyMembers.leftAt)));
-  return row;
+  return row === undefined
+    ? undefined
+    : { lobbyId: row.lobbyId, code: row.code, memberId: row.memberId, isHost: row.hostMemberId === row.memberId };
 }
 
 /** A room that admits by code: not private, whatever its phase. */

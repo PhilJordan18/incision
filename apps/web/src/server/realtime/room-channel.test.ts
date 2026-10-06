@@ -52,9 +52,9 @@ beforeEach(async () => {
   events = new EventEmitter();
   presence = new RoomPresence();
   memberships.clear();
-  memberships.set(ALICE, { lobbyId: "lobby-1", code: "ABCDEF", memberId: "member-a" });
-  memberships.set(BOB, { lobbyId: "lobby-1", code: "ABCDEF", memberId: "member-b" });
-  memberships.set(CLO, { lobbyId: "lobby-2", code: "BCDEFG", memberId: "member-c" });
+  memberships.set(ALICE, { lobbyId: "lobby-1", code: "ABCDEF", memberId: "member-a", isHost: true });
+  memberships.set(BOB, { lobbyId: "lobby-1", code: "ABCDEF", memberId: "member-b", isHost: false });
+  memberships.set(CLO, { lobbyId: "lobby-2", code: "BCDEFG", memberId: "member-c", isHost: true });
   snapshots.clear();
   snapshots.set("lobby-1", {
     lobbyId: "lobby-1",
