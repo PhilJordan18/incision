@@ -16,9 +16,10 @@ describe("clientAddress", () => {
     expect(clientAddress(request("10.0.0.5", ["1.1.1.1", "[2001:db8::1]:443"]), 1)).toBe("2001:db8::1");
   });
 
-  it("falls back to the TCP peer when the trusted entry is missing or not an address", () => {
+  it("falls back to the TCP peer only when the trusted entry is missing", () => {
     expect(clientAddress(request("10.0.0.5"), 1)).toBe("10.0.0.5");
-    expect(clientAddress(request("10.0.0.5", "not-an-ip"), 1)).toBe("10.0.0.5");
+    expect(clientAddress(request("10.0.0.5", "2001:db8::1:443"), 1)).toBe("2001:db8::1:443");
+    expect(clientAddress(request("10.0.0.5", "not-an-ip"), 1)).toBe("unparsed:not-an-ip");
   });
 });
 

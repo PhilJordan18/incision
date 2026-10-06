@@ -4,8 +4,10 @@ type Window = { failures: number; readonly startedAt: number };
 
 /**
  * Counts failed attempts per key in fixed windows, in memory (one instance, ADR-0001).
- * A key is blocked once it reaches `maxFailures` until its window ends. Successful
- * attempts do not reset the count: a correct guess after many failures still waits.
+ * A key is blocked once it reaches `maxFailures` until its window ends. Callers count an
+ * attempt as a failure before any `await` and `forgive` it once it succeeds, so parallel
+ * attempts cannot all pass the check before one of them is counted. A success does not
+ * reset earlier failures: a correct guess after many failures still waits.
  * The map is bounded: when full, expired windows are dropped, then the oldest one.
  */
 export class AttemptLimiter {
@@ -32,6 +34,14 @@ export class AttemptLimiter {
     this.#windows.set(key, { failures: 1, startedAt: this.now() });
   }
 
+  /** Takes back one failure counted for an attempt that succeeded. */
+  forgive(key: string): void {
+    const window = this.#current(key);
+    if (window !== undefined && window.failures > 0) {
+      window.failures -= 1;
+    }
+  }
+
   #current(key: string): Window | undefined {
     const window = this.#windows.get(key);
     if (window !== undefined && this.now() - window.startedAt >= this.limit.windowMs) {
@@ -52,10 +62,12 @@ export class AttemptLimiter {
       }
     }
     if (this.#windows.size >= this.maxKeys) {
-      // Insertion order: the first key is the oldest window.
-      const oldest = this.#windows.keys().next();
-      if (!oldest.done) {
-        this.#windows.delete(oldest.value);
+      // The oldest window that is not blocking anything: flooding the map with new keys
+      // must not lift a block. Insertion order: the first keys are the oldest windows.
+      const victim =
+        [...this.#windows].find(([, window]) => window.failures < this.limit.maxFailures)?.[0] ?? this.#windows.keys().next().value;
+      if (victim !== undefined) {
+        this.#windows.delete(victim);
       }
     }
   }

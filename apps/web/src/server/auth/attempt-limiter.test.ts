@@ -17,6 +17,27 @@ describe("AttemptLimiter", () => {
     expect(limiter.isBlocked("alice")).toBe(false);
   });
 
+  it("forgives a counted attempt, never below zero", () => {
+    const limiter = new AttemptLimiter({ maxFailures: 1, windowMs: 1_000 }, () => 0);
+    limiter.recordFailure("alice");
+    expect(limiter.isBlocked("alice")).toBe(true);
+    limiter.forgive("alice");
+    limiter.forgive("alice");
+    expect(limiter.isBlocked("alice")).toBe(false);
+    limiter.recordFailure("alice");
+    expect(limiter.isBlocked("alice")).toBe(true);
+  });
+
+  it("keeps a blocked key when many new keys arrive", () => {
+    const limiter = new AttemptLimiter({ maxFailures: 2, windowMs: 1_000 }, () => 0, 3);
+    limiter.recordFailure("victim");
+    limiter.recordFailure("victim");
+    for (const key of ["a", "b", "c", "d", "e"]) {
+      limiter.recordFailure(key);
+    }
+    expect(limiter.isBlocked("victim")).toBe(true);
+  });
+
   it("stays bounded in memory, dropping expired windows first, then the oldest", () => {
     let now = 0;
     const limiter = new AttemptLimiter({ maxFailures: 1, windowMs: 1_000 }, () => now, 2);

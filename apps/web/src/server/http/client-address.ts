@@ -23,7 +23,11 @@ export function clientAddress(request: RequestLike, trustedProxyHops: number): s
   const values = (Array.isArray(header) ? header.join(",") : (header ?? "")).split(",").map((value) => value.trim());
   const entries = values.filter((value) => value.length > 0);
   const candidate = entries.at(-trustedProxyHops);
-  return (candidate === undefined ? undefined : normaliseAddress(candidate)) ?? peer;
+  if (candidate === undefined) {
+    return peer;
+  }
+  // An entry that does not parse keeps its own bucket instead of sharing the proxy's.
+  return normaliseAddress(candidate) ?? `unparsed:${candidate.slice(0, 64)}`;
 }
 
 /** Strips the port Azure appends (`1.2.3.4:5678`, `[::1]:5678`) and IPv4-mapped IPv6. */
