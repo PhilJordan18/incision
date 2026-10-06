@@ -71,7 +71,7 @@ jobs:
           echo "$output"
           if ! grep -q "No schema changes, nothing to migrate" <<< "$output" \
             || [ -n "$(git status --porcelain -- packages/database/drizzle)" ]; then
-            echo "::error::The Drizzle schema and the committed migrations disagree (run npm run db:generate)."
+            echo "::error::The Drizzle schema and the committed migrations disagree (run npm run db:generate -w @incision/database)."
             git status --porcelain -- packages/database/drizzle
             exit 1
           fi
