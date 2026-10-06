@@ -77,7 +77,7 @@ Auth.js v5 with JWT sessions ([ADR-0003](adr/0003-authentication.md)). Variable 
 | `AUTH_SECRET` | 32 random bytes: `openssl rand -base64 32` | One per environment. Changing it signs everybody out (no rotation list at the checkpoint). Socket.IO decrypts the same cookie with it. |
 | `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | production GitHub OAuth app | GitHub allows one callback URL per OAuth app: one app for production, another for local development. |
 | `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET` | Discord application | One application can list both redirect URLs. |
-| `TRUSTED_PROXY_HOPS` | `1` | Azure's front end appends the client address to `X-Forwarded-For`; only that last entry is trusted, the ones a client writes are ignored. `0` locally. |
+| `TRUSTED_PROXY_HOPS` | `1` | Azure's front end appends the client address to `X-Forwarded-For`; only that last entry is trusted, the ones a client writes are ignored. `0` locally. Keep `1` unless another proxy (e.g. Front Door) is added: with `0` every visitor shares the front end's address, so 100 failed sign-ins pause local sign-in for everyone; with `2` a client's own entry is trusted and the per-address limit can be bypassed. |
 
 Exact callback URLs to register:
 
@@ -88,9 +88,9 @@ Exact callback URLs to register:
 
 Permissions: GitHub requests **no scope** (public profile only), Discord only `identify`. No email is requested, stored or logged; the provider's name only seeds the display name of a new account.
 
-**Sessions.** A session lasts **24 hours from sign-in**, whatever the activity: Auth.js re-issues its cookie when the session is read, but every check also compares the sign-in time with the 24-hour limit, so the cookie can never extend it. There is no "remember me". Each request carrying a session cookie reads the account's `session_version` (one indexed query); requests without a session cookie, such as Always On and the liveness probe, never touch the database. **Sign-out ends every session of the account** on every device: it increments `session_version` and closes the account's sockets. If the database cannot be reached, protected pages refuse the session and Auth.js clears the cookie: users sign in again once Neon answers. A failed sign-out says so and keeps the session.
+**Sessions.** A session lasts **24 hours from sign-in**, whatever the activity: Auth.js re-issues its cookie when `/api/auth/session` is read (pages and actions never write it), but every check also compares the sign-in time with the 24-hour limit, so the cookie can never extend it. There is no "remember me". Each request carrying a session cookie reads the account's `session_version` (one indexed query); requests without a session cookie, such as Always On and the liveness probe, never touch the database. **Sign-out ends every session of the account** on every device: it increments `session_version` and closes the account's sockets. If the database cannot be reached, protected pages and sockets refuse the session (fail closed); the cookie stays and works again once Neon answers. A failed sign-out says so and keeps the session. Auth.js' built-in `POST /api/auth/signout` is refused (405): it would clear the cookie even when the revocation failed.
 
-**Rate limits** (in memory, one instance): 5 failed local sign-ins per login per 15 minutes, 100 per address per 15 minutes (a whole class may share one school address). A restart resets them.
+**Rate limits** (in memory, one instance, counted before any password check so parallel attempts cannot slip through): per 15 minutes, 5 failed local sign-ins per login and address, 50 per login from anywhere, 100 per address (a whole class may share one school address); at most 8 password checks run at once. A pause also refuses the right password. Because the demo accounts are public, a stranger can pause one for 15 minutes with 50 failures from various addresses: on demonstration day, prefer GitHub or Discord or keep the second demo account in reserve. A restart resets the counters.
 
 **Verifying real OAuth sign-ins** (manual; the automated tests stop at the provider's authorisation page): locally with the development apps, then in production after deployment — sign in with GitHub, sign out, sign in with Discord, sign out; check that `/account` shows a display name, that `/api/auth/session` returns only `user.id` and `expires`, and that the Log stream shows no email, token or profile. Cancel once on each provider's consent screen: the sign-in page must show the translated "cancelled or failed" message.
 
@@ -100,7 +100,22 @@ Two fictitious local accounts, listed with their passwords in the [README](../RE
 
 - Local: `npm run db:seed:demo -w @incision/database` (uses `DATABASE_URL_UNPOOLED` from `.env`; refuses a remote database without `--remote`).
 - CI: the E2E run seeds its own disposable database.
-- **Production, only on Philippe's explicit approval:** Actions → *Seed demo accounts* → *Run workflow* on `main`, typing `seed production demo accounts`. It runs the last successful deployment's release, like the migrate job, with `DATABASE_URL_UNPOOLED` from the `production` environment, and logs `created`, `unchanged` or `conflict` for each login.
+- **Production, only on Philippe's explicit approval:** Actions → *Seed demo accounts* → *Run workflow* on `main`, typing `seed production demo accounts`. It runs the last successful deployment's release (most recent green *Deploy* run, artifacts kept 30 days), like the migrate job, with `DATABASE_URL_UNPOOLED` from the `production` environment, and logs `created`, `unchanged` or `conflict` for each login. Run it after a green Deploy, never while one runs; a mistyped confirmation skips the job (green run, nothing seeded): check that the job ran and logged its results. A failed run's public log can show the Neon host name, never the password.
+
+## First promotion (CP-02 to CP-04 together)
+
+The first `dev` → `main` promotion deploys the pipeline, the schema (migrations `0000` and `0001`) and authentication at once, and there is no earlier Deploy artifact to roll back to. In order:
+
+1. OAuth apps: the production callback URLs above, on the exact default domain.
+2. App Service: startup command and every app setting of [One-time configuration](#one-time-configuration) and [Authentication](#authentication), none empty, `AUTH_SECRET` newly generated for production.
+3. GitHub environment `production`: secrets `AZURE_WEBAPP_PUBLISH_PROFILE` and `DATABASE_URL_UNPOOLED`, variable `APP_URL` equal to App Service's `APP_URL` (the smoke test uses it as the socket's Origin).
+4. Neon: no Incision table yet (`0000` creates them); optionally a backup branch.
+5. Promote, then watch the run: ci (with E2E) → build → migrate (`2 migration(s) applied`) → deploy → smoke.
+6. If smoke fails because the app refuses to start (Log stream: `Invalid server environment: <NAME>: …`), set the named variable (saving restarts the app), then *Re-run failed jobs*: only smoke runs again. A wrong but present value (OAuth secret, callback) does not stop the app: step 7 catches it.
+7. Real GitHub and Discord sign-ins and a cancellation on each, as in [Authentication](#authentication).
+8. Demo seed only on explicit approval ([Demo accounts](#demo-accounts)).
+
+The Health check on `/api/health/live` fails until this first deployment: harmless, it does not block the zip deploy.
 
 ## Checking production
 

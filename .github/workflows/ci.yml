@@ -104,3 +104,5 @@ jobs:
             apps/web/test-results
           if-no-files-found: ignore
           retention-days: 7
+          # A re-run attempt replaces the report of the failed one.
+          overwrite: true
