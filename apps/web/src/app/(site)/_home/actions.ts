@@ -2,6 +2,7 @@
 
 import { parseRoomCode, type RoomCodeError } from "@incision/domain";
 import { redirect } from "next/navigation";
+import { CODE_INPUT_MAX_LENGTH } from "./code-input";
 
 export type JoinFormState = { readonly error?: RoomCodeError; readonly code?: string };
 
@@ -14,7 +15,7 @@ export async function joinRoomByCode(_previous: JoinFormState, formData: FormDat
   const code = typeof input === "string" ? input : "";
   const parsed = parseRoomCode(code);
   if (!parsed.ok) {
-    return { error: parsed.error, code: code.slice(0, 32) };
+    return { error: parsed.error, code: code.slice(0, CODE_INPUT_MAX_LENGTH) };
   }
   redirect(`/rooms/${parsed.code}`);
 }

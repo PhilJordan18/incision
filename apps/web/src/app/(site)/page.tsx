@@ -22,7 +22,7 @@ export default async function Home() {
           <p className="max-w-[480px] text-[19px] leading-normal text-embrun">{t.home.description}</p>
           <JoinForm t={t.home} />
         </section>
-        <div className="red-mist flex justify-center [--mist-x:50%] [--mist-y:15%]">
+        <div className="red-mist flex justify-center [--mist-x:50%] [--mist-y:40%]">
           <SeaRoutes />
         </div>
       </div>

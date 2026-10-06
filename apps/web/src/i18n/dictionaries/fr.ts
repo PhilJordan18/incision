@@ -73,7 +73,7 @@ export const fr = {
   },
   authError: {
     title: "Connexion impossible",
-    label: "Connexion",
+    label: "Erreur d’authentification",
     headingBold: "Connexion",
     headingSerif: "impossible",
     accessDenied: "La connexion a été refusée ou annulée. Tu peux réessayer avec un autre moyen.",
@@ -97,6 +97,11 @@ export const fr = {
     headingSerif: "perdu",
     body: "Cette page n’existe pas ou n’est plus disponible.",
     backHome: "Revenir à l’accueil",
+  },
+  globalError: {
+    title: "Avarie",
+    body: "Le site n’a pas pu s’afficher. Réessaie dans un moment.",
+    retry: "Réessayer",
   },
   errorBoundary: {
     label: "Erreur",

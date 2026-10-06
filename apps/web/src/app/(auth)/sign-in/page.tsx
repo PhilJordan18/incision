@@ -5,6 +5,7 @@ import { LogoLink } from "@/components/brand/logo";
 import { LanguageSwitcher } from "@/components/preferences/language-switcher";
 import { ThemeToggle } from "@/components/preferences/theme-toggle";
 import { SkipLink } from "@/components/skip-link";
+import { FormAlert } from "@/components/ui/form-alert";
 import { PageHeading } from "@/components/ui/page-heading";
 import { monoLabel } from "@/components/ui/styles";
 import { getRequestDictionary } from "@/i18n/server";
@@ -33,11 +34,13 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   const error = signInErrorKey(params.error, params.code);
 
   return (
-    <div className="flex min-h-screen flex-wrap">
+    // Side by side from 1080 px (the decorative panel and the form); below, the form
+    // comes first and the panel is left out, so the first screen is the form.
+    <div className="flex min-h-screen flex-col min-[1080px]:flex-row">
       <SkipLink label={t.layout.skipToContent} />
-      <aside className="red-mist relative flex flex-[1_1_520px] flex-col justify-between gap-8 overflow-hidden border-houle bg-nuit px-4 py-6 sm:px-12 sm:py-10 md:min-h-screen md:border-r">
+      <aside className="red-mist relative hidden min-h-screen flex-[0_1_40%] flex-col justify-between gap-8 overflow-hidden border-r border-houle bg-nuit px-12 py-10 min-[1080px]:flex">
         <LogoLink label={t.layout.homeLink} size="panel" />
-        <div className="relative hidden flex-col items-center gap-7 md:flex">
+        <div className="relative flex flex-col items-center gap-7">
           <svg viewBox="0 0 360 360" fill="none" aria-hidden="true" focusable="false" className="absolute -top-20 left-1/2 size-[360px] -translate-x-1/2">
             <g className="stroke-brume" strokeOpacity="0.3" strokeDasharray="2 8">
               <circle cx="180" cy="180" r="176" />
@@ -47,33 +50,23 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
           <Image src="/brand/ico-red.svg" alt="" width={200} height={200} unoptimized className="icon-slow-spin relative" />
           <p className="relative max-w-[380px] text-center font-serif text-[34px] leading-tight">{t.signIn.tagline}</p>
         </div>
-        <span aria-hidden="true" className="hidden md:block" />
+        <span aria-hidden="true" />
       </aside>
-      <div className="flex flex-[999_1_560px] flex-col">
-        <div className="flex justify-end gap-2.5 px-4 pt-6 sm:px-8">
-          <LanguageSwitcher locale={locale} t={t.layout} />
-          <ThemeToggle labels={{ toAube: t.layout.themeToAube, toAbysse: t.layout.themeToAbysse }} />
-        </div>
+      <div className="flex flex-1 flex-col">
+        <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-6 sm:px-8">
+          <span className="min-[1080px]:hidden">
+            <LogoLink label={t.layout.homeLink} size="panel" />
+          </span>
+          <div className="ml-auto flex gap-2.5">
+            <LanguageSwitcher locale={locale} t={t.layout} />
+            <ThemeToggle t={t.layout} />
+          </div>
+        </header>
         <main id="main" tabIndex={-1} className="flex flex-1 items-center justify-center px-4 py-10 sm:px-8">
           <div className="flex w-full max-w-[440px] flex-col gap-6">
             <PageHeading bold={t.signIn.headingBold} serif={t.signIn.headingSerif} size="panel" />
-            {error !== undefined && (
-              <p role="alert" className="flex gap-2 rounded-bouton border border-erreur bg-erreur-fond px-4 py-3 text-erreur">
-                <span aria-hidden="true">⚠</span>
-                {t.signIn.errors[error]}
-              </p>
-            )}
-            <ProviderButtons
-              callbackUrl={callbackUrl}
-              labels={{
-                github: t.signIn.continueWithGitHub,
-                discord: t.signIn.continueWithDiscord,
-                githubAria: t.signIn.gitHubAriaLabel,
-                discordAria: t.signIn.discordAriaLabel,
-                group: t.signIn.providersLabel,
-                redirecting: t.signIn.redirecting,
-              }}
-            />
+            {error !== undefined && <FormAlert message={t.signIn.errors[error]} />}
+            <ProviderButtons callbackUrl={callbackUrl} t={t.signIn} />
             <p className={`${monoLabel} flex items-center gap-3`}>
               <span aria-hidden="true" className="h-px grow bg-houle" />
               {t.signIn.separator}

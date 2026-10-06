@@ -38,8 +38,14 @@ test.describe("sign-in page in French (TEST-03)", () => {
     await page.getByRole("button", { name: "Se connecter", exact: true }).click();
     const login = page.getByLabel(FRENCH.login, { exact: true });
     await expect(login).toHaveAttribute("aria-invalid", "true");
+    await expect(login).toBeFocused();
     await expect(page.locator(`#${await login.getAttribute("aria-describedby")}`)).toContainText("Saisis ton nom d’utilisateur.");
     await expect(page.getByText("Saisis ton mot de passe.")).toBeVisible();
+
+    // With only the username, the focus goes to the password.
+    await login.fill(alice.login);
+    await page.getByRole("button", { name: "Se connecter", exact: true }).click();
+    await expect(page.getByLabel("Mot de passe", { exact: true })).toBeFocused();
   });
 
   test("pauses a login after repeated failures, with a translated message", async ({ page }) => {

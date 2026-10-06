@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { EyeIcon, EyeOffIcon } from "@/components/icons/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { FieldError } from "@/components/ui/field-error";
+import { FormAlert } from "@/components/ui/form-alert";
 import { fieldLabel, primaryButton, textField } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { type CredentialsFormState, signInWithCredentials } from "./actions";
@@ -14,6 +15,10 @@ type CredentialsFormProps = {
   readonly t: Dictionary["signIn"];
 };
 
+/**
+ * Local sign-in form. The client length limits are twice the server's: a pasted value too
+ * long is kept and explained by the server, not silently cut.
+ */
 export function CredentialsForm({ callbackUrl, t }: CredentialsFormProps) {
   const [state, formAction] = useActionState<CredentialsFormState, FormData>(signInWithCredentials, {});
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -33,12 +38,7 @@ export function CredentialsForm({ callbackUrl, t }: CredentialsFormProps) {
 
   return (
     <form action={formAction} noValidate className="flex flex-col gap-4">
-      {state.error !== undefined && (
-        <p role="alert" className="flex gap-2 rounded-bouton border border-erreur bg-erreur-fond px-4 py-3 text-erreur">
-          <span aria-hidden="true">⚠</span>
-          {t.errors[state.error]}
-        </p>
-      )}
+      {state.error !== undefined && <FormAlert message={t.errors[state.error]} />}
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="login" className={fieldLabel}>
@@ -53,7 +53,7 @@ export function CredentialsForm({ callbackUrl, t }: CredentialsFormProps) {
           autoCapitalize="none"
           spellCheck={false}
           required
-          maxLength={LOGIN_MAX_LENGTH}
+          maxLength={LOGIN_MAX_LENGTH * 2}
           defaultValue={state.login}
           aria-invalid={loginError !== undefined}
           aria-describedby={loginError !== undefined ? "login-error" : undefined}
@@ -73,7 +73,7 @@ export function CredentialsForm({ callbackUrl, t }: CredentialsFormProps) {
             type={passwordVisible ? "text" : "password"}
             autoComplete="current-password"
             required
-            maxLength={PASSWORD_MAX_LENGTH}
+            maxLength={PASSWORD_MAX_LENGTH * 2}
             aria-invalid={passwordError !== undefined}
             aria-describedby={passwordError !== undefined ? "password-error" : undefined}
             className={`${textField} pr-14`}

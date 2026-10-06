@@ -5,8 +5,8 @@ export type Theme = (typeof THEMES)[number];
 export type ThemeChoice = Theme | "system";
 
 export const THEME_COOKIE = "theme";
-/** A year: the choice is a preference, not a session. */
-export const THEME_COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
+/** A year, for the theme and the language: preferences, not sessions. */
+export const PREFERENCE_COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
 
 export function parseThemeChoice(value: unknown): ThemeChoice {
   return value === "abysse" || value === "aube" ? value : "system";

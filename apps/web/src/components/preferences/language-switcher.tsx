@@ -23,7 +23,7 @@ export function LanguageSwitcher({ locale, t }: LanguageSwitcherProps) {
               lang={option}
               aria-label={t.languageNames[option]}
               aria-pressed={option === locale}
-              className="h-11 min-w-11 rounded-full px-2 uppercase text-brume aria-pressed:text-ecume hover:text-ecume"
+              className="h-11 min-w-11 rounded-full px-2 uppercase text-brume underline-offset-4 hover:text-ecume aria-pressed:text-ecume aria-pressed:underline aria-pressed:decoration-2"
             >
               {option}
             </button>
