@@ -10,7 +10,7 @@ import { format } from "@/i18n/format";
 import { CODE_INPUT_MAX_LENGTH } from "@/rooms/code-input";
 import { joinRoomAction, type JoinFormState } from "@/server/rooms/actions";
 
-/** Code field and the only red action of the home page (one acting red per screen). */
+/** Code field and its red action: the home page's join, and the "code not found" state. */
 export function JoinForm({ t }: { readonly t: Dictionary["home"] }) {
   const [state, formAction] = useActionState<JoinFormState, FormData>(joinRoomAction, {});
   const codeRef = useRef<HTMLInputElement>(null);
@@ -47,7 +47,7 @@ export function JoinForm({ t }: { readonly t: Dictionary["home"] }) {
         <FieldError id="room-code-error" message={format(t.codeErrors[state.error], { code: state.currentCode ?? "" })} />
       )}
       {state.error === "ALREADY_IN_ANOTHER_ROOM" && state.currentCode !== undefined && (
-        <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} text-sm`}>
+        <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} inline-flex min-h-11 items-center self-start text-sm`}>
           {format(t.goToRoom, { code: state.currentCode })}
         </Link>
       )}

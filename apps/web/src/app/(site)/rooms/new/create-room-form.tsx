@@ -20,7 +20,7 @@ export function CreateRoomForm({ t }: { readonly t: Dictionary["rooms"] }) {
             message={state.error === "ALREADY_IN_ROOM" ? format(t.alreadyInRoom, { code: state.currentCode ?? "" }) : t.changeErrors[state.error]}
           />
           {state.currentCode !== undefined && (
-            <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} self-start text-sm`}>
+            <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} inline-flex min-h-11 items-center self-start text-sm`}>
               {t.goToMyRoom}
             </Link>
           )}

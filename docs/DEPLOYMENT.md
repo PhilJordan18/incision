@@ -98,12 +98,12 @@ Permissions: GitHub requests **no scope** (public profile only), Discord only `i
 
 Rooms by code (CP-06) need no new variable or migration. Presence lives in the process memory, like the session registry: one App Service instance (ADR-0001); scaling out would split rooms between instances.
 
-**Limits** (in memory, reset by a restart): a socket may send 5 `room:watch` events per 10 seconds, one at a time; beyond that it is disconnected, so one client cannot drain the 5-connection database pool. An account may create, join or leave a room 10 times per minute. Broadcasts read a room once at a time and skip rooms nobody follows.
+**Limits** (in memory, reset by a restart): a socket may send 5 `room:watch` events per 10 seconds, one at a time, and beyond that it is disconnected; an account has at most 2 watches in progress across all its sockets, so neither one socket nor many sockets of one account can drain the 5-connection database pool. An account may create, join or leave a room 10 times per minute. Broadcasts read a room once at a time and skip rooms nobody follows.
 
 **Residual risks, accepted at the checkpoint:**
 
 - Code guessing (SALLE-10 not built): a signed-in account can try codes; private rooms answer exactly like unknown codes. With 31⁶ codes and about twenty open rooms, a hit takes millions of requests.
-- Socket handshakes are not limited per account (each reads `session_version` once).
+- Socket handshakes are not limited per account (each reads `session_version` once): many accounts, or a flood of handshakes, still share the one 5-connection pool of the single instance, like plain HTTP requests do.
 - Closed rooms and departed members stay in the database (no purge yet): about 700 bytes per room; the per-account limit bounds the growth.
 - A member who signs out stays in the room, shown offline, until they come back or the host leaves (kicking comes with SALLE-07).
 

@@ -1,5 +1,5 @@
 import { type ActiveMembership, findActiveMembership, findRoomByCode, readRoomSnapshot, type RoomSnapshot } from "@incision/database";
-import { type RoomCode, type RoomPhase } from "@incision/domain";
+import { admitsNewMembers, type AdmittingPhase, type RoomCode, type RoomPhase } from "@incision/domain";
 import { cache } from "react";
 import { authDatabase } from "@/server/auth/store";
 
@@ -7,7 +7,7 @@ import { authDatabase } from "@/server/auth/store";
 export type RoomPageState =
   | { readonly kind: "member"; readonly snapshot: RoomSnapshot; readonly memberId: string }
   | { readonly kind: "unknown" }
-  | { readonly kind: "notAdmitting"; readonly phase: Exclude<RoomPhase, "waiting" | "results"> }
+  | { readonly kind: "notAdmitting"; readonly phase: Exclude<RoomPhase, AdmittingPhase> }
   | { readonly kind: "inAnotherRoom"; readonly current: ActiveMembership }
   | { readonly kind: "join" };
 
@@ -26,7 +26,7 @@ export const loadRoomPage = cache(async (accountId: string, code: RoomCode): Pro
   if (room === undefined) {
     return { kind: "unknown" };
   }
-  if (room.phase !== "waiting" && room.phase !== "results") {
+  if (!admitsNewMembers(room.phase)) {
     return { kind: "notAdmitting", phase: room.phase };
   }
   return current === undefined ? { kind: "join" } : { kind: "inAnotherRoom", current };

@@ -103,13 +103,26 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(field).toBeFocused();
   });
 
-  test("answers an unknown room's page with one not-found page", async ({ browser }) => {
+  test("answers an unknown or malformed code with screen 15's state, drawn by the server", async ({ browser }) => {
     const page = await signedInPage(browser, bruno);
     const response = await page.goto("/rooms/ZZZZZZ");
-    expect(response?.status()).toBe(404);
-    await expect(page).toHaveTitle("Page introuvable · Incision");
+    // The server's HTML already holds the state and the theme attributes (DES-05).
+    const html = (await response?.text()) ?? "";
+    expect(html).toContain("Code introuvable");
+    expect(html).toMatch(/<html[^>]*data-theme-choice=/);
+    await expect(page).toHaveTitle("Code introuvable · Incision");
     await expect(page.getByRole("main")).toHaveCount(1);
     await expect(page.getByRole("banner")).toHaveCount(1);
+    await expect(page.getByText("Aucune salle ouverte n’a le code ZZZZZZ.")).toBeVisible();
+
+    // Its code field works like the home page's.
+    const code = await createRoom(await signedInPage(browser, alice));
+    await page.goto("/rooms/abc");
+    await expect(page.getByText("Ce lien ne mène à aucune salle.")).toBeVisible();
+    await page.getByLabel("Code de salle", { exact: true }).fill(code);
+    await page.getByRole("button", { name: "Rejoindre la salle" }).click();
+    await expect(page).toHaveURL(new RegExp(`/rooms/${code}$`));
+    await expect(crew(page)).toHaveCount(2);
   });
 
   test("keeps one room per person and offers to leave the current one", async ({ browser }) => {
@@ -160,7 +173,7 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await laptop.goto("/account");
     await laptop.getByRole("button", { name: "Se déconnecter" }).click();
 
-    await expect(host.getByRole("heading", { level: 1 })).toHaveText(/Tu es déconnecté/i);
+    await expect(host.getByRole("heading", { level: 1 })).toHaveText(/Reconnecte-toi/i);
     await host.getByRole("link", { name: "Me reconnecter" }).click();
     await expect(host).toHaveURL(new RegExp(`/sign-in\\?callbackUrl=%2Frooms%2F${code}$`));
     await host.getByLabel("Nom d’utilisateur", { exact: true }).fill(alice.login);

@@ -125,6 +125,8 @@ export async function createRoomAction(_previous: CreateRoomState, formData: For
   }
   if (!created.ok) {
     if (created.error !== "ALREADY_IN_ROOM") {
+      // CODE_ATTEMPTS_EXHAUSTED means a broken generator; ACCOUNT_NOT_FOUND a deleted account.
+      console.error("[rooms] create refused:", created.error);
       return { error: "UNAVAILABLE" };
     }
     const current = await findActiveMembership(db, accountId).catch((error: unknown) => {

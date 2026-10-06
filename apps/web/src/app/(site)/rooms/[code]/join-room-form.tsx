@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect } from "react";
 import { ParticipateCheckbox } from "@/components/rooms/participate-checkbox";
 import { SubmitButton } from "@/components/submit-button";
 import { FormAlert } from "@/components/ui/form-alert";
@@ -15,6 +16,13 @@ import { RoomCode } from "./room-code";
 /** Join panel of a room's page, for a signed-in account that is not a member yet. */
 export function JoinRoomForm({ code, t }: { readonly code: string; readonly t: Dictionary }) {
   const [state, formAction] = useActionState<JoinFormState, FormData>(joinRoomAction, {});
+  const router = useRouter();
+  // The room closed (or a race started) since this page was drawn: show its state instead.
+  useEffect(() => {
+    if (state.error === "ROOM_NOT_ADMITTING") {
+      router.refresh();
+    }
+  }, [state, router]);
   return (
     <>
       <PageHeading bold={t.rooms.joinHeadingBold} serif={t.rooms.joinHeadingSerif} />
@@ -29,7 +37,7 @@ export function JoinRoomForm({ code, t }: { readonly code: string; readonly t: D
             <div className="flex flex-col gap-2">
               <FormAlert message={format(t.home.codeErrors[state.error], { code: state.currentCode ?? "" })} />
               {state.error === "ALREADY_IN_ANOTHER_ROOM" && state.currentCode !== undefined && (
-                <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} self-start text-sm`}>
+                <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} inline-flex min-h-11 items-center self-start text-sm`}>
                   {format(t.home.goToRoom, { code: state.currentCode })}
                 </Link>
               )}

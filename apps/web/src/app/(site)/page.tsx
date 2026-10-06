@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { card, secondaryButton } from "@/components/ui/styles";
 import { getRequestDictionary } from "@/i18n/server";
-import { JoinForm } from "./_home/join-form";
+import { JoinForm } from "@/components/rooms/join-code-form";
 import { SeaRoutes } from "./_home/sea-routes";
 
 const VISIBILITIES = ["public", "code", "private"] as const;

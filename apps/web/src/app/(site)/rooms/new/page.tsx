@@ -24,7 +24,7 @@ export default async function NewRoomPage() {
     return (
       <StatePanel
         tone="warning"
-        label={t.rooms.alreadyInRoomLabel}
+        label={format(t.rooms.roomTitle, { code: current.code })}
         heading={{ bold: t.rooms.alreadyInRoomLabel }}
         actions={
           <>

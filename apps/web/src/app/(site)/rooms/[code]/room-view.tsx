@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatePanel } from "@/components/ui/state-panel";
@@ -38,20 +39,26 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
   const [connection, setConnection] = useState<Connection>("connecting");
   const [ending, setEnding] = useState<Ending | undefined>(undefined);
   const [copy, setCopy] = useState<CopyFeedback>(undefined);
-  const socketRef = useRef<Socket | undefined>(undefined);
+  const router = useRouter();
+  /** Asks for the room at once (the reconnection card's button). */
+  const retryNowRef = useRef<() => void>(() => undefined);
   // While this page leaves the room, the departure snapshot (without this member) must not
-  // replace the view before the redirect lands.
+  // replace the view before the redirect lands; it is kept in case the departure fails.
   const leavingRef = useRef(false);
+  const heldRef = useRef<PublicRoomSnapshot | undefined>(undefined);
 
   useEffect(() => {
     const socket = io({ reconnectionDelayMax: 5_000 });
-    socketRef.current = socket;
     let attempt = 0;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    // Answers to a watch sent before the last (re)connection are ignored.
+    let generation = 0;
     const keepNewest = (next: PublicRoomSnapshot) => {
-      if (!leavingRef.current) {
-        setSnapshot((current) => (next.revision >= current.revision ? next : current));
+      if (leavingRef.current) {
+        heldRef.current = next.revision >= (heldRef.current?.revision ?? -1) ? next : heldRef.current;
+        return;
       }
+      setSnapshot((current) => (next.revision >= current.revision ? next : current));
     };
 
     function retryLater(): void {
@@ -65,10 +72,19 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
       if (!socket.connected) {
         return;
       }
+      const sent = generation;
+      const current = (handle: () => void) => () => {
+        if (sent === generation) {
+          handle();
+        }
+      };
       socket
         .timeout(10_000)
         .emitWithAck(ROOM_WATCH_EVENT, { code: initial.code })
         .then((answer: unknown) => {
+          if (sent !== generation) {
+            return;
+          }
           const ack = roomWatchAckSchema.safeParse(answer);
           if (!ack.success) {
             retryLater();
@@ -77,20 +93,39 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
             keepNewest(ack.data.snapshot);
             setConnection("live");
           } else if (ack.data.error === "NOT_A_MEMBER") {
-            setEnding("notMember");
+            // Left from another tab, or the room closed while this page was away: the
+            // server's page says which (closed panel or join panel).
+            router.refresh();
           } else if (ack.data.error === "UNAUTHORIZED") {
             setEnding("signedOut");
           } else {
             retryLater();
           }
         })
-        .catch(retryLater);
+        .catch(current(retryLater));
     }
 
-    socket.on("connect", watch);
-    socket.on("disconnect", (reason) => {
+    retryNowRef.current = () => {
       clearTimeout(retry);
-      // The server cuts a socket whose session ended (sign-out, revocation, expiry).
+      attempt = 0;
+      if (socket.connected) {
+        watch();
+      } else {
+        // Skips the wait between the client's own reconnection attempts.
+        socket.disconnect().connect();
+      }
+    };
+
+    socket.on("connect", () => {
+      generation += 1;
+      clearTimeout(retry);
+      watch();
+    });
+    socket.on("disconnect", (reason) => {
+      generation += 1;
+      clearTimeout(retry);
+      // The server cuts a socket whose session ended (sign-out, revocation, expiry), and
+      // one that flooded it; neither is retried by the client.
       if (reason === "io server disconnect") {
         setEnding("signedOut");
       } else {
@@ -112,9 +147,20 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
     return () => {
       clearTimeout(retry);
       socket.close();
-      socketRef.current = undefined;
     };
-  }, [initial.code]);
+  }, [initial.code, router]);
+
+  const onLeaving = useCallback(() => {
+    leavingRef.current = true;
+  }, []);
+  const onLeaveFailed = useCallback(() => {
+    leavingRef.current = false;
+    const held = heldRef.current;
+    heldRef.current = undefined;
+    if (held !== undefined) {
+      setSnapshot((current) => (held.revision >= current.revision ? held : current));
+    }
+  }, []);
 
   useEffect(() => {
     if (copy === undefined) {
@@ -154,7 +200,7 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
         <div className="flex flex-col gap-3">
           <p className={monoLabel}>
             <span aria-hidden="true">[.</span>
-            {t.roomLabel}
+            {format(t.roomTitle, { code: snapshot.code })}
             <span aria-hidden="true">]</span>
           </p>
           <PageHeading bold={t.roomHeading} />
@@ -165,12 +211,8 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
             pendingLabel={t.leaving}
             errors={t.changeErrors}
             describedBy={self.isHost ? "host-leave-note" : undefined}
-            onLeaving={() => {
-              leavingRef.current = true;
-            }}
-            onFailed={() => {
-              leavingRef.current = false;
-            }}
+            onLeaving={onLeaving}
+            onFailed={onLeaveFailed}
           />
           {self.isHost && (
             <p id="host-leave-note" className="text-sm text-brume">
@@ -196,7 +238,7 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
             {t.reconnect.heading}
           </h2>
           <p className="text-embrun">{t.reconnect.body}</p>
-          <button type="button" onClick={() => socketRef.current?.connect()} className={`${discreetButton} self-start`}>
+          <button type="button" onClick={() => retryNowRef.current()} className={`${secondaryButton} self-start`}>
             {t.reconnect.retry}
           </button>
         </section>
@@ -264,7 +306,7 @@ function RoomEnding({ ending, code, t }: { readonly ending: Ending | "closed"; r
       return (
         <StatePanel
           tone="neutral"
-          label={t.closedLabel}
+          label={format(t.roomTitle, { code })}
           heading={{ bold: t.closedHeadingBold, serif: t.closedHeadingSerif }}
           headingId={STATE_HEADING_ID}
           actions={
