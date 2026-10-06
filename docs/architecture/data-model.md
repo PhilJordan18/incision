@@ -93,8 +93,11 @@ erDiagram
 Guaranteed by transactions, not by keys:
 
 - **Host still active.** The foreign key proves membership of the same room, not that the member has not left. `createRoomWithHost` creates the host as an active member in the same transaction; host succession (SALLE-08) must keep this rule.
+- **Closing a room.** Moving a room to `closed` must set `left_at` for its active members in the same transaction; otherwise those accounts stay blocked by the one-active-room index (CP-06, SALLE-08).
 - **Capacity.** The column bounds the setting; admitting participants up to it, under concurrency, belongs to CP-06 (lock the room, count, insert).
 - **Room creation.** Room, creator membership and host link are written in one transaction. A code collision retries the whole transaction (bounded); "already in a room" is reported from the unique index, which also covers concurrent requests.
+
+Known edge cases: an account already in a room whose generated codes all collide gets `CODE_ATTEMPTS_EXHAUSTED` rather than `ALREADY_IN_ROOM` (practically unreachable with 31⁶ codes); an account deleted while its room is being created surfaces the foreign-key error. `lobby_members.account_id` only has a partial index for active memberships; a plain index comes with account history or deletion.
 
 Deferred to their cards, by additive migrations: guest sessions and the guest/bot subject columns of members (AUTH-02, BOT-*), room settings (CONF-*), invitations and bans (SALLE-04/07), texts, races and results.
 

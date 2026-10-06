@@ -1,6 +1,6 @@
 # ADR-0003 — Auth.js v5 with JWT sessions and application tables
 
-- Status: **accepted for CP-04**, October 6, 2026, after an isolated spike (not merged). Real GitHub/Discord sign-ins are proven in CP-04.
+- Status: **accepted for CP-04**, October 5, 2026, after an isolated spike (not merged). Real GitHub/Discord sign-ins are proven in CP-04.
 - Requirements: AUTH-01, SEC-03, TEST-03; constrains SALLE-01, SEC-01, I18N-01. Choice D-14 (no email, separate accounts per provider).
 
 ## Context
