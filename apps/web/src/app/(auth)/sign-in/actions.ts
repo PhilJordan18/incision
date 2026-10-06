@@ -7,7 +7,7 @@ import { AuthError, CredentialsSignin } from "next-auth";
 import { z } from "zod";
 import { signIn } from "@/auth";
 import { safeRedirectPath } from "@/server/auth/safe-redirect";
-import type { SignInErrorKey } from "@/server/auth/sign-in-errors";
+import { type SignInErrorKey, signInErrorKey } from "@/server/auth/sign-in-errors";
 
 const FIELD_ERRORS = ["loginRequired", "loginTooLong", "passwordRequired", "passwordTooLong"] as const;
 type FieldError = (typeof FIELD_ERRORS)[number];
@@ -61,10 +61,7 @@ function validateFields(login: string, password: string): CredentialsFormState["
 
 function credentialsErrorKey(error: AuthError): SignInErrorKey {
   if (error instanceof CredentialsSignin) {
-    if (error.code === "busy") {
-      return "unavailable";
-    }
-    return error.code === "rate_limited" ? "rateLimited" : "invalidCredentials";
+    return signInErrorKey("CredentialsSignin", error.code) ?? "invalidCredentials";
   }
   // Database or configuration failure: not the user's credentials.
   return "unavailable";
