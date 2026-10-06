@@ -49,11 +49,30 @@ export function describeDatabaseError(error: unknown): string {
   if (error instanceof AggregateError && error.errors.length > 0) {
     return error.errors.map(describeDatabaseError).join("; ");
   }
+  // Drizzle wraps PostgreSQL errors in "Failed query: <sql> params: <values>": describe the
+  // PostgreSQL cause (code and reason) instead, never the wrapper's message.
+  // Other wrappers (e.g. pg-pool's connection timeout) keep their own, more precise message.
+  if (isQueryWrapper(error)) {
+    return error.cause instanceof Error ? describeDatabaseError(error.cause) : "query failed";
+  }
   if (error instanceof Error) {
-    const code = "code" in error && typeof error.code === "string" ? `${error.code} ` : "";
-    return `${code}${error.message}`.trim() || error.name;
+    const code = "code" in error && typeof error.code === "string" ? error.code : "";
+    // Data exceptions (class 22) quote the offending value, e.g. 22P02 for a malformed UUID.
+    if (code.startsWith("22")) {
+      return `${code} data exception`;
+    }
+    return `${code} ${error.message}`.trim() || error.name;
   }
   return "unknown error";
+}
+
+/**
+ * Judged by shape, not `instanceof DrizzleQueryError`: Next bundles its own copy of
+ * drizzle-orm while the custom server loads node_modules, and both share one pool, so an
+ * error may come from the other copy's class.
+ */
+function isQueryWrapper(error: unknown): error is Error & { readonly query: unknown; readonly params: unknown } {
+  return error instanceof Error && "query" in error && "params" in error;
 }
 
 function createPool(connectionString: string): pg.Pool {

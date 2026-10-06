@@ -33,15 +33,23 @@ Open `http://localhost:3000` to check the initial screen. `npm run dev -w @incis
 cp -n .env.example .env
 docker compose up -d db
 docker compose ps
+npm run db:migrate -w @incision/database
 ```
 
-The provided password is **for local development only**. Deployment will use a separate secret at the hosting provider, never committed. If port 5432 is already in use, change the exposed port in `compose.yaml` and the local connection URL together.
+`db:migrate` applies the versioned migrations to the database of `DATABASE_URL_UNPOOLED` (the local one by default). Database tests use a separate, disposable server that keeps its data in memory:
+
+```sh
+docker compose up -d db-test
+TEST_DATABASE_URL=postgresql://incision_test:incision_test_only@localhost:5433/postgres npm run test:db -w @incision/database
+```
+
+They only accept a `localhost` server and create and drop temporary `incision_test_*` databases there; they never use `DATABASE_URL` or Neon. The provided passwords are **for local development only**. Deployment will use a separate secret at the hosting provider, never committed. If port 5432 is already in use, change the exposed port in `compose.yaml` and the local connection URL together.
 
 ## 4. Add the application modules
 
-`packages/domain` (pure rules) and `packages/database` (`pg` pool, Drizzle to come) already exist; `packages/contracts` will be created with the first shared realtime events. Add dependencies with `npm install --workspace=<path>` and keep **stable versions locked by `package-lock.json`**; test migrations locally before applying them to a remote database.
+`packages/domain` (pure rules) and `packages/database` (Drizzle schema, migrations, room creation) already exist; `packages/contracts` will be created with the first shared realtime events. Add dependencies with `npm install --workspace=<path>` and keep **stable versions locked by `package-lock.json`**.
 
-The first schema must follow the [checkpoint slice of the data model](architecture/data-model.md#data-slice-for-checkpoint-1). Generate versioned migrations with Drizzle Kit (`generate`, then `migrate`); do not use `push` as a production mechanism. For this checkpoint, implement room creation/admission before the Socket.IO synchronisation of members; the full round state machine must not delay this minimal proof.
+To change the schema: edit `packages/database/src/schema`, run `npm run db:generate -w @incision/database`, review and commit the generated SQL, then run the database tests. CI fails if the schema and the migrations disagree. Never use `drizzle-kit push`, and never edit a migration that has been applied to a remote database. [The delivered schema](architecture/data-model.md#delivered-schema-cp-03-migration-0000_init) lists what exists today.
 
 ## 5. Checkpoint checks
 

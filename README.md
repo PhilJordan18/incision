@@ -1,6 +1,6 @@
 # INCISION — 剃 / SHAVE
 
-Typing race platform for students aged 12 to 17. The repository contains the Next.js skeleton, the local PostgreSQL environment and the architectural framing. Authentication, realtime rooms and deployment are still to be developed.
+Typing race platform for students aged 12 to 17. The repository contains the custom Next.js + Socket.IO server, its CI and Azure deployment pipeline, the PostgreSQL schema with versioned migrations, and the architectural framing. Authentication, realtime rooms and the race itself are still to be developed.
 
 ## Getting started
 
@@ -24,9 +24,9 @@ The art direction stays creative, but must meet the DES requirements: name/logo 
 ```text
 incision/
 ├── apps/web/                 Next.js and React (created); realtime to be developed
-├── packages/domain/          Pure rules: room, round, results (to be created)
+├── packages/domain/          Pure rules: room code, logins, display names (more to come)
 ├── packages/contracts/       Shared events and validation (to be created)
-├── packages/database/        Drizzle schema and PostgreSQL migrations (to be created)
+├── packages/database/        Drizzle schema, migrations, room creation, migrator
 ├── docs/                     Design and decisions
 ├── compose.yaml              Local PostgreSQL only
 ├── package.json              npm workspaces

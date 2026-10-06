@@ -18,10 +18,15 @@ fi
 
 # Manifests and TypeScript sources needed at runtime (tsx runs the custom server).
 cp package.json package-lock.json "$stage/"
+# drizzle/ holds the SQL migrations and scripts/ the migrator run by the migrate job.
 for workspace in packages/*; do
   mkdir -p "$stage/$workspace"
   cp "$workspace/package.json" "$stage/$workspace/"
-  cp -R "$workspace/src" "$stage/$workspace/"
+  for folder in src drizzle scripts; do
+    if [ -d "$workspace/$folder" ]; then
+      cp -R "$workspace/$folder" "$stage/$workspace/"
+    fi
+  done
 done
 mkdir -p "$stage/apps/web"
 cp apps/web/package.json apps/web/server.ts apps/web/next.config.ts apps/web/tsconfig.json "$stage/apps/web/"
