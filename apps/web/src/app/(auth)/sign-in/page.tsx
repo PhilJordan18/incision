@@ -57,6 +57,12 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
         <main id="main" tabIndex={-1} className="flex flex-1 items-center justify-center px-4 py-10 sm:px-8">
           <div className="flex w-full max-w-[440px] flex-col gap-6">
             <PageHeading bold={t.signIn.headingBold} serif={t.signIn.headingSerif} size="panel" />
+            {error !== undefined && (
+              <p role="alert" className="flex gap-2 rounded-bouton border border-erreur bg-erreur-fond px-4 py-3 text-erreur">
+                <span aria-hidden="true">⚠</span>
+                {t.signIn.errors[error]}
+              </p>
+            )}
             <ProviderButtons
               callbackUrl={callbackUrl}
               labels={{
@@ -73,7 +79,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
               {t.signIn.separator}
               <span aria-hidden="true" className="h-px grow bg-houle" />
             </p>
-            <CredentialsForm callbackUrl={callbackUrl} initialError={error} t={t.signIn} />
+            <CredentialsForm callbackUrl={callbackUrl} t={t.signIn} />
             <p className="text-[13px] leading-relaxed text-brume">{t.signIn.privacyNote}</p>
           </div>
         </main>

@@ -1,26 +1,35 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { LOGIN_MAX_LENGTH, PASSWORD_MAX_LENGTH } from "@incision/domain";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { EyeIcon, EyeOffIcon } from "@/components/icons/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { FieldError } from "@/components/ui/field-error";
 import { fieldLabel, primaryButton, textField } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
-import type { SignInErrorKey } from "@/server/auth/sign-in-errors";
 import { type CredentialsFormState, signInWithCredentials } from "./actions";
 
 type CredentialsFormProps = {
   readonly callbackUrl: string;
-  /** Error carried by an Auth.js redirect, shown until the next submission. */
-  readonly initialError?: SignInErrorKey;
   readonly t: Dictionary["signIn"];
 };
 
-export function CredentialsForm({ callbackUrl, initialError, t }: CredentialsFormProps) {
-  const [state, formAction] = useActionState<CredentialsFormState, FormData>(signInWithCredentials, { error: initialError });
+export function CredentialsForm({ callbackUrl, t }: CredentialsFormProps) {
+  const [state, formAction] = useActionState<CredentialsFormState, FormData>(signInWithCredentials, {});
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const loginRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const loginError = state.fieldErrors?.login;
   const passwordError = state.fieldErrors?.password;
+
+  // After a refused submission, move the keyboard focus to the first field to fix.
+  useEffect(() => {
+    if (loginError !== undefined) {
+      loginRef.current?.focus();
+    } else if (passwordError !== undefined) {
+      passwordRef.current?.focus();
+    }
+  }, [state, loginError, passwordError]);
 
   return (
     <form action={formAction} noValidate className="flex flex-col gap-4">
@@ -36,6 +45,7 @@ export function CredentialsForm({ callbackUrl, initialError, t }: CredentialsFor
           {t.loginLabel}
         </label>
         <input
+          ref={loginRef}
           id="login"
           name="login"
           type="text"
@@ -43,7 +53,7 @@ export function CredentialsForm({ callbackUrl, initialError, t }: CredentialsFor
           autoCapitalize="none"
           spellCheck={false}
           required
-          maxLength={64}
+          maxLength={LOGIN_MAX_LENGTH}
           defaultValue={state.login}
           aria-invalid={loginError !== undefined}
           aria-describedby={loginError !== undefined ? "login-error" : undefined}
@@ -57,12 +67,13 @@ export function CredentialsForm({ callbackUrl, initialError, t }: CredentialsFor
         </label>
         <div className="relative">
           <input
+            ref={passwordRef}
             id="password"
             name="password"
             type={passwordVisible ? "text" : "password"}
             autoComplete="current-password"
             required
-            maxLength={256}
+            maxLength={PASSWORD_MAX_LENGTH}
             aria-invalid={passwordError !== undefined}
             aria-describedby={passwordError !== undefined ? "password-error" : undefined}
             className={`${textField} pr-14`}

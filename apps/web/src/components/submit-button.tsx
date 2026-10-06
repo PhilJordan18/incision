@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 type SubmitButtonProps = {
@@ -12,11 +12,28 @@ type SubmitButtonProps = {
   readonly ariaLabel?: string;
 };
 
-/** Submit button of the enclosing form; disabled and relabelled while its action runs. */
+/**
+ * Submit button of the enclosing form, relabelled while its action runs. It stays
+ * focusable (`aria-disabled`, not `disabled`), so keyboard focus is not lost, and a second
+ * activation is ignored while the first one runs.
+ */
 export function SubmitButton({ label, pendingLabel, className, name, value, ariaLabel }: SubmitButtonProps) {
   const { pending } = useFormStatus();
+  function ignoreWhilePending(event: MouseEvent<HTMLButtonElement>): void {
+    if (pending) {
+      event.preventDefault();
+    }
+  }
   return (
-    <button type="submit" name={name} value={value} disabled={pending} aria-label={pending ? undefined : ariaLabel} className={className}>
+    <button
+      type="submit"
+      name={name}
+      value={value}
+      aria-disabled={pending}
+      onClick={ignoreWhilePending}
+      aria-label={pending ? undefined : ariaLabel}
+      className={`${className} aria-disabled:cursor-wait aria-disabled:opacity-80`}
+    >
       {pending ? pendingLabel : label}
     </button>
   );
