@@ -5,11 +5,11 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";
 
-// Separate entry point (`@incision/database/migrations`): the web app never bundles the migrator.
+// Not re-exported by the package index, so the web app never bundles the migrator.
 export const MIGRATIONS_FOLDER = path.join(import.meta.dirname, "..", "drizzle");
 
 /** Advisory lock shared by every Incision migrator: one migration run at a time per database. */
-const MIGRATION_LOCK_KEY = 1_646_910_403;
+export const MIGRATION_LOCK_KEY = 1_646_910_403;
 
 export type MigrationOptions = {
   /** Direct (unpooled) URL: session advisory locks do not survive a transaction pooler. */

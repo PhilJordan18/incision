@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
-import { describeDatabaseError, usesVerifiedTls } from "../src";
+import { assertMigrationTarget } from "../src/migration-target";
 import { runMigrations } from "../src/migrations";
+import { describeDatabaseError } from "../src/pool";
 
 // Usage: DATABASE_URL_UNPOOLED=... node --import tsx packages/database/scripts/migrate.ts
 // Local runs read the root .env; the deployment workflow passes the variable to this step only.
@@ -13,14 +14,7 @@ async function main(): Promise<void> {
   if (!connectionString) {
     throw new Error("DATABASE_URL_UNPOOLED is not set");
   }
-  const host = new URL(connectionString).hostname;
-  // A transaction pooler would keep the session advisory lock on a shared backend.
-  if (host.includes("-pooler")) {
-    throw new Error("DATABASE_URL_UNPOOLED points to a pooled endpoint; use the direct Neon URL");
-  }
-  if (!["localhost", "127.0.0.1", "::1"].includes(host) && !usesVerifiedTls(connectionString)) {
-    throw new Error("DATABASE_URL_UNPOOLED must use verified TLS (sslmode=verify-full) for a remote database");
-  }
+  assertMigrationTarget(connectionString);
   const { applied } = await runMigrations({ connectionString });
   console.log(`[migrate] ${applied} migration(s) applied`);
 }

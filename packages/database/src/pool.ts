@@ -49,6 +49,11 @@ export function describeDatabaseError(error: unknown): string {
   if (error instanceof AggregateError && error.errors.length > 0) {
     return error.errors.map(describeDatabaseError).join("; ");
   }
+  // Drizzle wraps PostgreSQL errors in "Failed query: <sql> params: <values>": describe the
+  // PostgreSQL cause (code and reason) instead, which also keeps parameter values out of logs.
+  if (error instanceof Error && error.cause !== undefined) {
+    return describeDatabaseError(error.cause);
+  }
   if (error instanceof Error) {
     const code = "code" in error && typeof error.code === "string" ? `${error.code} ` : "";
     return `${code}${error.message}`.trim() || error.name;

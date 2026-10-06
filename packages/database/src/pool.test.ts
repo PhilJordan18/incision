@@ -11,6 +11,12 @@ describe("describeDatabaseError", () => {
     );
   });
 
+  it("describes the PostgreSQL cause of a wrapped query error, without the query parameters", () => {
+    const cause = Object.assign(new Error('relation "missing" does not exist'), { code: "42P01" });
+    const wrapped = new Error("Failed query: select * from missing where secret = $1\nparams: hunter2", { cause });
+    expect(describeDatabaseError(wrapped)).toBe('42P01 relation "missing" does not exist');
+  });
+
   it("falls back to the error name when the message is empty", () => {
     expect(describeDatabaseError(new TypeError(""))).toBe("TypeError");
   });

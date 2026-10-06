@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
 import pg from "pg";
+import { parse } from "pg-connection-string";
 
 const TEMPORARY_NAME = /^incision_test_[0-9a-f]{12}$/;
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 export type TemporaryDatabase = { readonly url: string; readonly drop: () => Promise<void> };
 
@@ -11,12 +12,20 @@ export type TemporaryDatabase = { readonly url: string; readonly drop: () => Pro
  * tests create and drop databases, so there is no fallback to DATABASE_URL or Neon.
  */
 function testServerUrl(): URL {
-  const raw = process.env.TEST_DATABASE_URL;
+  return localTestServerUrl(process.env.TEST_DATABASE_URL);
+}
+
+/**
+ * Judged with pg's own parser: query parameters such as `?host=` override the URL's host
+ * for pg, so they are refused instead of being trusted.
+ */
+export function localTestServerUrl(raw: string | undefined): URL {
   if (!raw) {
     throw new Error("TEST_DATABASE_URL is required (a disposable local or CI PostgreSQL, see docs/SETUP.md)");
   }
   const url = new URL(raw);
-  if (!LOCAL_HOSTS.has(url.hostname)) {
+  const overrides = ["host", "hostaddr", "port"].filter((name) => url.searchParams.has(name));
+  if (overrides.length > 0 || !LOCAL_HOSTS.has(parse(raw).host ?? "")) {
     throw new Error("TEST_DATABASE_URL must point to localhost: database tests create and drop databases");
   }
   return url;

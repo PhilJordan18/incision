@@ -9,7 +9,13 @@ export function createDatabase(client: pg.Pool | pg.Client): Database {
   return drizzle({ client, schema });
 }
 
-/** Drizzle over the process-wide pool (pooled Neon URL in production). */
+const processGlobal = globalThis as typeof globalThis & { incisionDrizzle?: { pool: pg.Pool; db: Database } };
+
+/** Drizzle over the process-wide pool (pooled Neon URL in production), created once. */
 export function getDatabase(connectionString: string): Database {
-  return createDatabase(getDatabasePool(connectionString));
+  const pool = getDatabasePool(connectionString);
+  if (processGlobal.incisionDrizzle?.pool !== pool) {
+    processGlobal.incisionDrizzle = { pool, db: createDatabase(pool) };
+  }
+  return processGlobal.incisionDrizzle.db;
 }
