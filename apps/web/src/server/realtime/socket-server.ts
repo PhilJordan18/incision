@@ -1,19 +1,25 @@
 import type { Server as HttpServer } from "node:http";
 import { Server } from "socket.io";
-import { isAllowedOrigin } from "./origin";
+import { isAllowedHandshake } from "./origin";
 import { answerPing, PING_EVENT } from "./ping";
 
 type RealtimeOptions = {
   readonly allowedOrigin: string;
+  readonly isProduction: boolean;
 };
 
-export function attachRealtimeServer(httpServer: HttpServer, { allowedOrigin }: RealtimeOptions): Server {
+export function attachRealtimeServer(httpServer: HttpServer, { allowedOrigin, isProduction }: RealtimeOptions): Server {
   const io = new Server(httpServer, {
     serveClient: false,
-    // Next.js handles its own upgrade requests (dev reload); do not close them.
-    destroyUpgrade: false,
+    // Close upgrade requests nobody handles; in development Next's reload socket needs them open.
+    destroyUpgrade: isProduction,
     allowRequest: (request, callback) => {
-      callback(null, isAllowedOrigin(request.headers.origin, allowedOrigin));
+      const secFetchSite = request.headers["sec-fetch-site"];
+      const allowed = isAllowedHandshake(
+        { origin: request.headers.origin, secFetchSite: Array.isArray(secFetchSite) ? secFetchSite[0] : secFetchSite },
+        allowedOrigin,
+      );
+      callback(null, allowed);
     },
   });
 
