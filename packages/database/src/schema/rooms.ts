@@ -48,7 +48,10 @@ export const lobbyMembers = pgTable(
       .where(sql`${table.leftAt} is null`),
     index("lobby_members_active_by_lobby_idx").on(table.lobbyId, table.joinedAt).where(sql`${table.leftAt} is null`),
     check("lobby_members_left_after_joined", sql`${table.leftAt} is null or ${table.leftAt} >= ${table.joinedAt}`),
-    check("lobby_members_display_name_length", sql`char_length(${table.displayName}) between 1 and 40`),
+    check(
+      "lobby_members_display_name_length",
+      sql`char_length(${table.displayName}) between 1 and 40 and btrim(${table.displayName}) <> ''`,
+    ),
   ],
 );
 

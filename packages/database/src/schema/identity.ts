@@ -16,7 +16,10 @@ export const accounts = pgTable(
     displayName: text("display_name").notNull(),
     passwordHash: text("password_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     unique("accounts_login_canonical_unique").on(table.loginCanonical),
@@ -27,7 +30,11 @@ export const accounts = pgTable(
       sql`${table.login} ~ '^[A-Za-z0-9_-]{3,32}$' and ${table.loginCanonical} = lower(${table.login})`,
     ),
     check("accounts_password_requires_login", sql`${table.passwordHash} is null or ${table.loginCanonical} is not null`),
-    check("accounts_display_name_length", sql`char_length(${table.displayName}) between 1 and 40`),
+    check("accounts_password_hash_not_empty", sql`${table.passwordHash} is null or ${table.passwordHash} <> ''`),
+    check(
+      "accounts_display_name_length",
+      sql`char_length(${table.displayName}) between 1 and 40 and btrim(${table.displayName}) <> ''`,
+    ),
   ],
 );
 

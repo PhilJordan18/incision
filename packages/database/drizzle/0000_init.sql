@@ -14,7 +14,8 @@ CREATE TABLE "accounts" (
 	CONSTRAINT "accounts_login_pair" CHECK (("accounts"."login" is null) = ("accounts"."login_canonical" is null)),
 	CONSTRAINT "accounts_login_format" CHECK ("accounts"."login" ~ '^[A-Za-z0-9_-]{3,32}$' and "accounts"."login_canonical" = lower("accounts"."login")),
 	CONSTRAINT "accounts_password_requires_login" CHECK ("accounts"."password_hash" is null or "accounts"."login_canonical" is not null),
-	CONSTRAINT "accounts_display_name_length" CHECK (char_length("accounts"."display_name") between 1 and 40)
+	CONSTRAINT "accounts_password_hash_not_empty" CHECK ("accounts"."password_hash" is null or "accounts"."password_hash" <> ''),
+	CONSTRAINT "accounts_display_name_length" CHECK (char_length("accounts"."display_name") between 1 and 40 and btrim("accounts"."display_name") <> '')
 );
 --> statement-breakpoint
 CREATE TABLE "oauth_identities" (
@@ -56,7 +57,7 @@ CREATE TABLE "lobby_members" (
 	"left_at" timestamp with time zone,
 	CONSTRAINT "lobby_members_lobby_id_id_unique" UNIQUE("lobby_id","id"),
 	CONSTRAINT "lobby_members_left_after_joined" CHECK ("lobby_members"."left_at" is null or "lobby_members"."left_at" >= "lobby_members"."joined_at"),
-	CONSTRAINT "lobby_members_display_name_length" CHECK (char_length("lobby_members"."display_name") between 1 and 40)
+	CONSTRAINT "lobby_members_display_name_length" CHECK (char_length("lobby_members"."display_name") between 1 and 40 and btrim("lobby_members"."display_name") <> '')
 );
 --> statement-breakpoint
 ALTER TABLE "oauth_identities" ADD CONSTRAINT "oauth_identities_account_id_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

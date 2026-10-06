@@ -72,6 +72,24 @@ describe("accounts", () => {
     expect(await violation("insert into accounts (login, display_name) values ('alice', 'X')")).toBe("accounts_login_pair");
   });
 
+  it("rejects a blank display name and an empty password hash", async () => {
+    expect(await violation("insert into accounts (display_name) values ('   ')")).toBe("accounts_display_name_length");
+    expect(await violation("insert into accounts (login, login_canonical, display_name, password_hash) values ('carol', 'carol', 'Carol', '')")).toBe(
+      "accounts_password_hash_not_empty",
+    );
+  });
+
+  it("deletes an account's provider identities with it, but not an account with room memberships", async () => {
+    const accountId = await account("Leaver");
+    await client.query("insert into oauth_identities (account_id, provider, provider_subject) values ($1, 'discord', 'd-1')", [accountId]);
+    await client.query("delete from accounts where id = $1", [accountId]);
+    expect((await client.query("select 1 from oauth_identities where provider_subject = 'd-1'")).rowCount).toBe(0);
+
+    const member = await account("Member");
+    await lobbyWithMember("MBRS23", member);
+    expect(await violation("delete from accounts where id = $1", [member])).toBe("lobby_members_account_id_accounts_id_fk");
+  });
+
   it("refuses the same provider identity twice and two identities of one provider per account", async () => {
     const first = await account("First");
     const second = await account("Second");

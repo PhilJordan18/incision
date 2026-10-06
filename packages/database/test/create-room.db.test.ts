@@ -89,6 +89,19 @@ describe("createRoomWithHost", () => {
     expect(await counts()).toEqual({ lobbies: 2, members: 2 });
   });
 
+  it("lets two accounts racing on the same first code both succeed with distinct codes", async () => {
+    const [first, second] = await Promise.all([newAccount("Premier"), newAccount("Second")]);
+    const results = await Promise.all([
+      createRoomWithHost(db, input(first, codes("EFGHJK", "FGHJKM"))),
+      createRoomWithHost(db, input(second, codes("EFGHJK", "GHJKMN"))),
+    ]);
+    expect(results.every((result) => result.ok)).toBe(true);
+    const roomCodes = results.map((result) => (result.ok ? result.room.code : ""));
+    expect(new Set(roomCodes).size).toBe(2);
+    expect(roomCodes).toContain("EFGHJK");
+    expect(await counts()).toEqual({ lobbies: 2, members: 2 });
+  });
+
   it("stops after the bounded number of attempts when every code collides", async () => {
     await createRoomWithHost(db, input(await newAccount("Premier"), codes("ABCDEF")));
     const result = await createRoomWithHost(db, input(await newAccount("Second"), codes("ABCDEF")), 3);
