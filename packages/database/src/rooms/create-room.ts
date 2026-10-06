@@ -2,6 +2,7 @@ import { canonicalDisplayName, generateRoomCode, type RandomIndex, type RoomCode
 import { eq } from "drizzle-orm";
 import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
+import { firstRow } from "../rows";
 import { accounts, lobbies, lobbyMembers } from "../schema";
 
 export const ROOM_CODE_ATTEMPTS = 5;
@@ -83,12 +84,4 @@ async function insertRoom(tx: Transaction, input: CreateRoomInput, code: RoomCod
   await tx.update(lobbies).set({ hostMemberId: member.id }).where(eq(lobbies.id, lobby.id));
 
   return { ok: true, room: { id: lobby.id, code, hostMemberId: member.id } };
-}
-
-function firstRow<Row>(rows: Row[]): Row {
-  const [row] = rows;
-  if (row === undefined) {
-    throw new Error("INSERT ... RETURNING returned no row");
-  }
-  return row;
 }

@@ -1,5 +1,7 @@
 export * from "./client";
 export * from "./errors";
+export * from "./identity/accounts";
+export * from "./identity/password";
 export * from "./pool";
 export * from "./rooms/create-room";
 export * from "./schema";
