@@ -11,7 +11,12 @@ export function safeRedirectPath(value: unknown): string {
   }
   try {
     const url = new URL(value, "http://incision.invalid");
-    return url.origin === "http://incision.invalid" ? `${url.pathname}${url.search}` : DEFAULT_AFTER_SIGN_IN;
+    // Dot segments normalise "/..//evil.example" into "//evil.example": judge the result.
+    const path = `${url.pathname}${url.search}`;
+    if (url.origin !== "http://incision.invalid" || path.startsWith("//") || path.includes("\\")) {
+      return DEFAULT_AFTER_SIGN_IN;
+    }
+    return path;
   } catch {
     return DEFAULT_AFTER_SIGN_IN;
   }
