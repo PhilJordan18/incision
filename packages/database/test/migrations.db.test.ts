@@ -83,11 +83,12 @@ describe("runMigrations", () => {
     expect(Number(journal?.count)).toBe(0);
   });
 
-  it("fails when an applied migration was edited", async () => {
+  it("fails when an applied migration was edited, before applying the release's new ones", async () => {
     await runMigrations({ connectionString: database.url, migrationsFolder: migrationsFolder(["create table a (id integer);"]) });
-    const edited = migrationsFolder(["create table a (id integer); create table sneaky (id integer);"]);
+    const edited = migrationsFolder(["create table a (id integer); create table sneaky (id integer);", "create table newer (id integer);"]);
     await expect(runMigrations({ connectionString: database.url, migrationsFolder: edited })).rejects.toThrow(/differs from the applied one/);
     expect(await tableExists("sneaky")).toBe(false);
+    expect(await tableExists("newer")).toBe(false);
   });
 
   it("fails when a new migration is dated before the last applied one, instead of skipping it", async () => {
@@ -95,8 +96,10 @@ describe("runMigrations", () => {
     const older = migrationsFolder([
       { sql: "create table a (id integer);", when: 2_000 },
       { sql: "create table late (id integer);", when: 1_500 },
+      { sql: "create table newer (id integer);", when: 3_000 },
     ]);
     await expect(runMigrations({ connectionString: database.url, migrationsFolder: older })).rejects.toThrow(/was not applied/);
+    expect(await tableExists("newer")).toBe(false);
   });
 
   it("accepts a database that already has newer migrations, so an older release can be redeployed", async () => {

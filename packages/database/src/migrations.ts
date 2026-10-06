@@ -40,8 +40,11 @@ export async function runMigrations(options: MigrationOptions): Promise<{ readon
     try {
       const migrationsFolder = options.migrationsFolder ?? MIGRATIONS_FOLDER;
       const before = await countAppliedMigrations(client);
+      // Before: an edited or back-dated migration fails with nothing applied.
+      await assertJournalMatches(client, migrationsFolder, "applied-only");
       await migrate(drizzle({ client }), { migrationsFolder });
-      await assertJournalMatches(client, migrationsFolder);
+      // After: every migration of the release is now recorded with its hash.
+      await assertJournalMatches(client, migrationsFolder, "all");
       return { applied: (await countAppliedMigrations(client)) - before };
     } finally {
       await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]).catch(() => undefined);
@@ -68,16 +71,28 @@ async function acquireMigrationLock(client: pg.Client, waitMs: number): Promise<
 
 /**
  * Drizzle neither checks recorded hashes nor applies a migration dated before the last
- * applied one: both would silently skip SQL. Every local migration must therefore be
- * recorded with the same hash. Extra recorded migrations are allowed, so redeploying an
- * older release (rollback) still works.
+ * applied one: both would silently skip SQL. Local migrations must therefore be recorded
+ * with the same hash: before migrating, those dated up to the last recorded one; after,
+ * all of them. Extra recorded migrations are allowed, so redeploying an older release
+ * (rollback) still works.
  */
-async function assertJournalMatches(client: pg.Client, migrationsFolder: string): Promise<void> {
+async function assertJournalMatches(
+  client: pg.Client,
+  migrationsFolder: string,
+  scope: "applied-only" | "all",
+): Promise<void> {
+  if (scope === "applied-only" && (await countAppliedMigrations(client)) === 0) {
+    return;
+  }
   const recorded = await client.query<{ hash: string; created_at: string }>(
     "select hash, created_at from drizzle.__drizzle_migrations",
   );
   const recordedHashes = new Map(recorded.rows.map((row) => [Number(row.created_at), row.hash]));
+  const lastRecorded = Math.max(...recordedHashes.keys());
   for (const migration of readMigrationFiles({ migrationsFolder })) {
+    if (scope === "applied-only" && migration.folderMillis > lastRecorded) {
+      continue;
+    }
     const hash = recordedHashes.get(migration.folderMillis);
     if (hash === undefined) {
       throw new Error(`Migration dated ${migration.folderMillis} was not applied (dated before the last applied one?)`);
