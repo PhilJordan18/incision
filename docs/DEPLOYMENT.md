@@ -33,7 +33,7 @@ The pipeline is green only if production runs the expected commit, reaches Neon 
 | Configuration → Stack settings (tab) → Startup command | `npm run start -w @incision/web` |
 | Configuration → Health check (tab) → Path | `/api/health/live`, enabled after the first deployment. **Never `/api/health`**: it queries Neon, and a probe every minute would keep Neon's free compute awake around the clock and exhaust its monthly quota. |
 | Configuration → General settings | Always On, HTTPS only, TLS 1.3, FTP disabled, SCM basic auth enabled (publish profile) |
-| Environment variables → App settings | `APP_URL` (the `https://` default domain), `DATABASE_URL` (Neon pooled), `SCM_DO_BUILD_DURING_DEPLOYMENT=false`. The app never reads `DATABASE_URL_UNPOOLED`: once the GitHub secret below exists, it can be removed from App Service. |
+| Environment variables → App settings | `APP_URL` (the `https://` default domain), `DATABASE_URL` (Neon pooled), `SCM_DO_BUILD_DURING_DEPLOYMENT=false`. The app never reads `DATABASE_URL_UNPOOLED`: once the GitHub secret below exists, remove it from App Service. |
 | Monitoring → App Service logs | Application logging: File System, short retention, so Log stream shows the app's output |
 
 The process refuses to start in production without `APP_URL`, or without a `DATABASE_URL` that sets `sslmode=verify-full` (or `require`). Use `verify-full` for Neon.
@@ -45,7 +45,8 @@ App Service provides `PORT`. WebSockets are accepted by Linux App Service; the s
 - Deployment branches: `main` only.
 - Secret `AZURE_WEBAPP_PUBLISH_PROFILE`: content of the publish profile downloaded from the App Service overview. Never commit or paste the file; delete it after `gh secret set ... --env production`. Then delete any repository-level copy of the secret, which every branch's workflows could read.
 - Variable `APP_URL`: same value as the App Service setting.
-- Secret `DATABASE_URL_UNPOOLED`: Neon **direct** URL with `sslmode=verify-full` (or `require`), used only by the migrate step. Without it the migrate job fails and nothing is deployed.
+- Secret `DATABASE_URL_UNPOOLED`: Neon **direct** URL (Neon console → Connect, connection pooling off: the host has no `-pooler`) with `sslmode=verify-full` (`channel_binding=require` may stay), same database and role as the app, used only by the migrate step. Set it before the first promotion that contains migrations, typing the value at the prompt rather than on the command line: `gh secret set DATABASE_URL_UNPOOLED --env production -R PhilJordan18/incision`. Without it the migrate job fails and nothing is deployed (fix it, then *Re-run failed jobs*). Keep it **only** as a `production` environment secret: delete any repository-level copy, which workflows on every branch could read. Once it works, remove `DATABASE_URL_UNPOOLED` from App Service (this restarts the app).
+- Because migrate and deploy both use the `production` environment, each run records two deployments; required reviewers on that environment would mean two approvals per run.
 
 ## Database migrations
 
@@ -57,7 +58,11 @@ Rules for every schema change (see also [SETUP.md](SETUP.md)):
 - **Compatible with the running version**: migrations run before the new code, so the previous application keeps serving traffic on the new schema. Add first (nullable or defaulted columns, new tables); remove or rename only in a later release, after no deployed code uses the old shape.
 - **New enum values** go in their own release: PostgreSQL cannot use a value added in the same transaction (the migrator applies all pending migrations in one), so the first default, check or data using it comes in a later deployment.
 - **Additive is not automatically safe**: `ALTER TABLE` takes locks; adding a foreign key or check on a large table should use `NOT VALID` then `VALIDATE` in a later migration; `CREATE INDEX CONCURRENTLY` cannot run inside the migrator's transaction. Today's tables are small, but write migrations as if they were not.
-- **Recovery**: a failed migration rolls back and the deployment is skipped; fix forward with a new migration. If a migration succeeds but the deployment fails, the previous app keeps running on the additive schema; redeploy or revert as in [Rollback](#rollback). Before a risky migration, create a Neon backup branch.
+- **Recovery when migrate fails** (the transaction rolled back, nothing is recorded, deploy was skipped, the previous app keeps running):
+  - *Transient cause* (connection, Neon waking up, lock timeout, another migration holding the lock, missing secret): fix the cause if needed, then *Re-run failed jobs* on the same run. The log shows the PostgreSQL code and reason.
+  - *SQL or data error*: pending migrations run in order, so a new migration cannot fix one that fails before it. Correct or replace the failed migration itself (it was never applied remotely, so editing it is allowed) or revert the schema change, then promote again.
+- If a migration succeeds but the deployment fails, the previous app keeps running on the additive schema; redeploy or revert as in [Rollback](#rollback).
+- Migrate runs automatically on promotion: create a Neon backup branch **before** promoting a risky migration.
 
 ## Checking production
 
@@ -72,8 +77,8 @@ Logs: App Service → Log stream. Two endpoints, both without internal details:
 
 ## Rollback
 
-- **Application, fastest:** in Actions, open the last successful *Deploy* run of a good commit and re-run its *deploy* and *smoke* jobs: they redeploy that run's artifact. GitHub only allows re-runs for 30 days, which is also the artifact retention. Do not push to `main` until the fix lands, or the bad commit is deployed again.
-- **Application, always available:** revert the faulty change on `dev` (PR), then promote `dev` to `main`; the Deploy workflow ships the reverted tree.
+- **Application, fastest:** in Actions, open the last successful *Deploy* run of a good commit and re-run its *deploy* and *smoke* jobs: they redeploy that run's artifact. GitHub only allows re-runs for 30 days, which is also the artifact retention. Re-running deploy does not re-run migrate: the database stays on the newest schema, so only roll back to a release whose code still works on it (never past a migration that removed something). Do not push to `main` until the fix lands, or the bad commit is deployed again.
+- **Application, always available:** revert the faulty change on `dev` (PR), then promote `dev` to `main`; the Deploy workflow ships the reverted tree. Never revert a commit that contains an already applied migration: change the schema forward instead.
 - **Database:** migrations are forward-only and must stay compatible with the previous app version (add first, remove in a later release). Before a risky migration, create a Neon branch from the default branch (named `production` in recent Neon projects) as a backup. Neon Free can also restore within a short history window (6 hours at the time of writing); check it before relying on it.
 - **Credential leak:** App Service overview → *Reset publish profile*, then update the environment secret. Rotate Neon passwords from the Neon console and update the app settings.
 

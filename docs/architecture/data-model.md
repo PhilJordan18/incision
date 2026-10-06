@@ -1,6 +1,6 @@
 # PostgreSQL data model
 
-Conceptual model aligned on October 2, 2026, **not migrated**. Source: final brief and explicit choices in [EXIGENCES.md](../EXIGENCES.md). The main diagram is in [ARCHITECTURE.md](../ARCHITECTURE.md). UUID internal identifiers, server UTC dates, versioned Drizzle migrations.
+Conceptual model aligned on October 2, 2026. Only the subset described in [Delivered schema](#delivered-schema-cp-03-migration-0000_init) is migrated today. Source: final brief and explicit choices in [EXIGENCES.md](../EXIGENCES.md). The main diagram is in [ARCHITECTURE.md](../ARCHITECTURE.md). UUID internal identifiers, server UTC dates, versioned Drizzle migrations.
 
 ## Target tables
 
@@ -87,8 +87,8 @@ erDiagram
 |---|---|---|
 | `accounts` | id (UUID), login?, login_canonical?, display_name, password_hash?, created_at, updated_at | **No email column.** `login` 3–32 ASCII `[A-Za-z0-9_-]` with `login_canonical = lower(login)`, both or neither; canonical login unique; a password requires a login; display name 1–40 characters. |
 | `oauth_identities` | id, account_id → accounts (cascade), provider (`github`, `discord`), provider_subject, created_at | Unique (provider, provider_subject); one identity per provider per account. No provider tokens stored. |
-| `lobbies` | id, code, visibility (`public`, `code`, `private`; default `code`), capacity, phase (`waiting`, `countdown`, `racing`, `results`, `closed` = COURSE-01 states), host_member_id?, revision, created_at, closed_at? | Unique code matching the domain alphabet `^[2-9A-HJKMNP-Z]{6}$`; capacity 2..30; `closed_at` set exactly when the phase is `closed`; host is a member **of the same room** (composite foreign key `(id, host_member_id)` → `lobby_members(lobby_id, id)`, NO ACTION: a hosting member cannot be deleted, deleting the room cascades). |
-| `lobby_members` | id, lobby_id → lobbies (cascade), account_id → accounts (restrict), role (`participant`, `spectator`), display_name, display_name_canonical, joined_at, left_at? | **One active room per account** (unique index on account_id where left_at is null, SALLE-06); unique canonical display name per active room; `left_at ≥ joined_at`; index of active members by room and seniority. |
+| `lobbies` | id, code, visibility (`public`, `code`, `private`; default `code`), capacity, phase (`waiting`, `countdown`, `racing`, `results`, `closed` = COURSE-01 states), host_member_id?, revision, created_at, closed_at? | Unique code matching the domain alphabet `^[2-9A-HJKMNP-Z]{6}$`; capacity 2..30; `revision ≥ 0`; `closed_at` set exactly when the phase is `closed`; host is a member **of the same room** (composite foreign key `(id, host_member_id)` → `lobby_members(lobby_id, id)`, NO ACTION: a hosting member cannot be deleted, deleting the room cascades). |
+| `lobby_members` | id, lobby_id → lobbies (cascade), account_id → accounts (restrict), role (`participant`, `spectator`), display_name, display_name_canonical, joined_at, left_at? | **One active room per account** (unique index on account_id where left_at is null, SALLE-06); unique canonical display name per active room; display name 1–40 characters, not blank; `left_at ≥ joined_at`; index of active members by room and seniority. |
 
 Guaranteed by transactions, not by keys:
 
@@ -99,5 +99,5 @@ Guaranteed by transactions, not by keys:
 
 Known edge cases: an account already in a room whose generated codes all collide gets `CODE_ATTEMPTS_EXHAUSTED` rather than `ALREADY_IN_ROOM` (practically unreachable with 31⁶ codes); an account deleted while its room is being created surfaces the foreign-key error. `lobby_members.account_id` only has a partial index for active memberships; a plain index comes with account history or deletion.
 
-Deferred to their cards, by additive migrations: guest sessions and the guest/bot subject columns of members (AUTH-02, BOT-*), room settings (CONF-*), invitations and bans (SALLE-04/07), texts, races and results.
+Deferred to their cards, by additive migrations: account avatars (`avatar_key`, AUTH-04), guest sessions and the guest/bot subject columns of members (AUTH-02, BOT-*), room settings (CONF-*), invitations and bans (SALLE-04/07), texts, races and results.
 

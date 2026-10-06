@@ -1,6 +1,6 @@
 # Architecture — Incision
 
-Initial version aligned with the final brief, **October 2, 2026**. Design document, not proof that anything works. The repository still contains the Next.js skeleton; modules, migrations, sessions and events are still to be implemented.
+Initial version aligned with the final brief, **October 2, 2026**. Design document, not proof that anything works. Delivered so far: CI, the custom Next.js + Socket.IO server deployed on Azure App Service, and the PostgreSQL schema with versioned migrations; sessions, rooms and race events are still to be implemented.
 
 ## 1. Authority and scope
 
