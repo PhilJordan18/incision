@@ -1,9 +1,9 @@
-import { ROOM_CODE_ALPHABET, type RandomIndex } from "@incision/domain";
+import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, type RandomIndex } from "@incision/domain";
 import pg from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../src/client";
 import { runMigrations } from "../src/migrations";
-import { createRoomWithHost, type CreateRoomInput } from "../src/rooms/create-room";
+import { createRoomWithHost, ROOM_CODE_ATTEMPTS, type CreateRoomInput } from "../src/rooms/create-room";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let database: TemporaryDatabase;
@@ -37,7 +37,15 @@ function codes(...values: string[]): RandomIndex {
 
 async function newAccount(displayName = "Créateur"): Promise<string> {
   const result = await pool.query<{ id: string }>("insert into accounts (display_name) values ($1) returning id", [displayName]);
-  return result.rows[0]?.id ?? "";
+  const id = result.rows[0]?.id;
+  if (!id) throw new Error("no account id");
+  return id;
+}
+
+/** Wraps a picker to count how many characters were drawn. */
+function counted(randomIndex: RandomIndex): { randomIndex: RandomIndex; draws: () => number } {
+  let draws = 0;
+  return { randomIndex: (upperBound) => ((draws += 1), randomIndex(upperBound)), draws: () => draws };
 }
 
 function input(accountId: string, randomIndex: RandomIndex, overrides: Partial<CreateRoomInput> = {}): CreateRoomInput {
@@ -102,11 +110,23 @@ describe("createRoomWithHost", () => {
     expect(await counts()).toEqual({ lobbies: 2, members: 2 });
   });
 
-  it("stops after the bounded number of attempts when every code collides", async () => {
+  it("stops after the requested number of attempts when every code collides", async () => {
     await createRoomWithHost(db, input(await newAccount("Premier"), codes("ABCDEF")));
-    const result = await createRoomWithHost(db, input(await newAccount("Second"), codes("ABCDEF")), 3);
+    const picker = counted(codes("ABCDEF"));
+    const result = await createRoomWithHost(db, input(await newAccount("Second"), picker.randomIndex), 3);
     expect(result).toEqual({ ok: false, error: "CODE_ATTEMPTS_EXHAUSTED" });
+    expect(picker.draws()).toBe(3 * ROOM_CODE_LENGTH);
     expect(await counts()).toEqual({ lobbies: 1, members: 1 });
+  });
+
+  it("uses five attempts by default", async () => {
+    await createRoomWithHost(db, input(await newAccount("Premier"), codes("ABCDEF")));
+    const picker = counted(codes("ABCDEF"));
+    expect(await createRoomWithHost(db, input(await newAccount("Second"), picker.randomIndex))).toEqual({
+      ok: false,
+      error: "CODE_ATTEMPTS_EXHAUSTED",
+    });
+    expect(picker.draws()).toBe(ROOM_CODE_ATTEMPTS * ROOM_CODE_LENGTH);
   });
 
   it("reports an unknown account without writing anything", async () => {

@@ -18,7 +18,7 @@ afterAll(async () => {
   await database.drop();
 });
 
-/** Runs a statement inside a savepoint and returns the violated constraint, if any. */
+/** Runs a statement in a transaction that is always rolled back; returns the violated constraint, if any. */
 async function violation(sql: string, values: unknown[] = []): Promise<string | undefined> {
   await client.query("begin");
   try {
@@ -100,12 +100,14 @@ describe("accounts", () => {
 });
 
 describe("lobbies and members", () => {
-  it.each([
-    ["ABC0EF", "lobbies_code_format"],
-    ["abcdef", "lobbies_code_format"],
-    ["ABCDE", "lobbies_code_format"],
-  ])("rejects the code %s", async (code, constraint) => {
-    expect(await violation("insert into lobbies (code, capacity) values ($1, 4)", [code])).toBe(constraint);
+  it("accepts every character of the domain alphabet", async () => {
+    for (const code of ["ABCDEF", "GHJKMN", "PQRSTU", "VWXYZ2", "345678", "9ABCDE"]) {
+      expect(await violation("insert into lobbies (code, capacity) values ($1, 4)", [code])).toBeUndefined();
+    }
+  });
+
+  it.each(["ABC0EF", "ABCOEF", "ABC1EF", "ABCIEF", "ABCLEF", "abcdef", "ABCDE", "ABCDEFG"])("rejects the code %s", async (code) => {
+    expect(await violation("insert into lobbies (code, capacity) values ($1, 4)", [code])).toBe("lobbies_code_format");
   });
 
   it("rejects a duplicate code and a capacity outside 2..30", async () => {
@@ -140,7 +142,25 @@ describe("lobbies and members", () => {
     expect(members.rowCount).toBe(0);
   });
 
-  it("keeps the closing date consistent with the closed phase", async () => {
+  it("keeps the closing date consistent with the closed phase, both ways", async () => {
     expect(await violation("insert into lobbies (code, capacity, phase) values ('CXSD23', 4, 'closed')")).toBe("lobbies_closed_at_matches_phase");
+    expect(await violation("insert into lobbies (code, capacity, closed_at) values ('CXSD24', 4, now())")).toBe("lobbies_closed_at_matches_phase");
+  });
+
+  it("keeps active display names unique per room, not across rooms or after leaving", async () => {
+    const first = await lobbyWithMember("NAME23", await account("Host N1"));
+    const empty = await client.query<{ id: string }>("insert into lobbies (code, capacity) values ('NAME24', 4) returning id");
+    const join = "insert into lobby_members (lobby_id, account_id, role, display_name, display_name_canonical) values ($1, $2, 'participant', 'Host', 'host')";
+    expect(await violation(join, [first.lobbyId, await account("Twin")])).toBe("lobby_members_active_display_name_unique");
+    expect(await violation(join, [empty.rows[0]?.id, await account("Elsewhere")])).toBeUndefined();
+    await client.query("update lobby_members set left_at = now() where id = $1", [first.memberId]);
+    expect(await violation(join, [first.lobbyId, await account("After")])).toBeUndefined();
+  });
+
+  it("bounds member display names to 1..40 visible characters", async () => {
+    const { lobbyId } = await lobbyWithMember("SZXE23", await account("Sizer"));
+    const join = "insert into lobby_members (lobby_id, account_id, role, display_name, display_name_canonical) values ($1, $2, 'participant', $3, 'x')";
+    expect(await violation(join, [lobbyId, await account("Blank"), "  "])).toBe("lobby_members_display_name_length");
+    expect(await violation(join, [lobbyId, await account("Long"), "a".repeat(41)])).toBe("lobby_members_display_name_length");
   });
 });

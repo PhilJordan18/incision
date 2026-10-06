@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import pg from "pg";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MIGRATIONS_FOLDER, runMigrations } from "../src/migrations";
+import { existsSync } from "node:fs";
+import { MIGRATION_LOCK_KEY, MIGRATIONS_FOLDER, runMigrations } from "../src/migrations";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let database: TemporaryDatabase;
@@ -62,10 +63,12 @@ describe("runMigrations", () => {
     expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: 0 });
   });
 
-  it("serialises two concurrent migrators: the migration is applied exactly once", async () => {
+  it("serialises two concurrent migrators: a slow migration is applied exactly once", async () => {
+    // Without the lock, both runs would read an empty journal and the second CREATE TABLE would fail.
+    const slow = migrationsFolder(["select pg_sleep(1); create table slow (id integer primary key);"]);
     const results = await Promise.all([
-      runMigrations({ connectionString: database.url }),
-      runMigrations({ connectionString: database.url }),
+      runMigrations({ connectionString: database.url, migrationsFolder: slow }),
+      runMigrations({ connectionString: database.url, migrationsFolder: slow }),
     ]);
     expect(results.map((result) => result.applied).sort()).toEqual([0, 1]);
     const [journal] = await query<{ count: string }>("select count(*) as count from drizzle.__drizzle_migrations");
@@ -106,10 +109,10 @@ describe("runMigrations", () => {
     const holder = new pg.Client({ connectionString: database.url });
     await holder.connect();
     try {
-      await holder.query("select pg_advisory_lock(1646910403)");
+      await holder.query("select pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
       await expect(runMigrations({ connectionString: database.url, lockWaitMs: 500 })).rejects.toThrow(/holds the lock/);
       const [sessions] = await query<{ count: string }>(
-        "select count(*) as count from pg_stat_activity where application_name = 'incision-migrate'",
+        "select count(*) as count from pg_stat_activity where application_name = 'incision-migrate' and datname = current_database()",
       );
       expect(Number(sessions?.count)).toBe(0);
     } finally {
@@ -117,7 +120,8 @@ describe("runMigrations", () => {
     }
   });
 
-  it("ships its SQL in the package folder used by the release", () => {
+  it("reads the package's own migrations folder, which the release archive includes", () => {
     expect(MIGRATIONS_FOLDER.endsWith(path.join("packages", "database", "drizzle"))).toBe(true);
+    expect(existsSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"))).toBe(true);
   });
 });
