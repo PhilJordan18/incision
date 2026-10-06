@@ -102,6 +102,32 @@ describe("runMigrations", () => {
     expect(await tableExists("newer")).toBe(false);
   });
 
+  it("applies the new migration of the next release on a database at the previous one", async () => {
+    await runMigrations({ connectionString: database.url, migrationsFolder: migrationsFolder(["create table a (id integer);"]) });
+    const nextRelease = migrationsFolder(["create table a (id integer);", "create table b (id integer);"]);
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: nextRelease })).toEqual({ applied: 1 });
+    expect(await tableExists("b")).toBe(true);
+    const [journal] = await query<{ count: string }>("select count(*) as count from drizzle.__drizzle_migrations");
+    expect(Number(journal?.count)).toBe(2);
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: nextRelease })).toEqual({ applied: 0 });
+  });
+
+  it("fails before applying anything when the database has a migration the release replaced", async () => {
+    await runMigrations({
+      connectionString: database.url,
+      migrationsFolder: migrationsFolder([
+        { sql: "create table a (id integer);", when: 1_000 },
+        { sql: "create table b (id integer);", when: 2_000 },
+      ]),
+    });
+    const diverged = migrationsFolder([
+      { sql: "create table a (id integer);", when: 1_000 },
+      { sql: "create table c (id integer);", when: 3_000 },
+    ]);
+    await expect(runMigrations({ connectionString: database.url, migrationsFolder: diverged })).rejects.toThrow(/histories diverged/);
+    expect(await tableExists("c")).toBe(false);
+  });
+
   it("accepts a database that already has newer migrations, so an older release can be redeployed", async () => {
     await runMigrations({ connectionString: database.url, migrationsFolder: migrationsFolder(["create table a (id integer);", "create table b (id integer);"]) });
     const olderRelease = migrationsFolder(["create table a (id integer);"]);

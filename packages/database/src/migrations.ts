@@ -73,8 +73,9 @@ async function acquireMigrationLock(client: pg.Client, waitMs: number): Promise<
  * Drizzle neither checks recorded hashes nor applies a migration dated before the last
  * applied one: both would silently skip SQL. Local migrations must therefore be recorded
  * with the same hash: before migrating, those dated up to the last recorded one; after,
- * all of them. Extra recorded migrations are allowed, so redeploying an older release
- * (rollback) still works.
+ * all of them. Recorded migrations newer than the whole release are allowed, so
+ * redeploying an older release (rollback) still works; an unknown one older than the
+ * release's newest migration means the histories diverged.
  */
 async function assertJournalMatches(
   client: pg.Client,
@@ -89,7 +90,15 @@ async function assertJournalMatches(
   );
   const recordedHashes = new Map(recorded.rows.map((row) => [Number(row.created_at), row.hash]));
   const lastRecorded = Math.max(...recordedHashes.keys());
-  for (const migration of readMigrationFiles({ migrationsFolder })) {
+  const local = readMigrationFiles({ migrationsFolder });
+  const localDates = new Set(local.map((migration) => migration.folderMillis));
+  const newestLocal = Math.max(...localDates);
+  for (const date of recordedHashes.keys()) {
+    if (!localDates.has(date) && date < newestLocal) {
+      throw new Error(`Migration dated ${date} is applied but missing from this release: the migration histories diverged`);
+    }
+  }
+  for (const migration of local) {
     if (scope === "applied-only" && migration.folderMillis > lastRecorded) {
       continue;
     }
