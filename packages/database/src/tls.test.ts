@@ -20,6 +20,8 @@ describe("usesVerifiedTls", () => {
     "?sslmode=no-verify",
     "?sslmode=verify-full&sslmode=disable",
     "?sslmode=require&uselibpqcompat=true",
+    // Misspelled parameter: pg ignores it and would connect in clear text.
+    "?ssl_mode=require",
   ])("refuses %j", (query) => {
     expect(usesVerifiedTls(`${base}${query}`)).toBe(false);
   });

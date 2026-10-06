@@ -30,8 +30,18 @@ describe("parseServerEnv", () => {
     );
   });
 
+  it("accepts Neon's default production URL (sslmode=require with channel binding)", () => {
+    const env = parseServerEnv({
+      NODE_ENV: "production",
+      APP_URL: "https://incision.example",
+      DATABASE_URL: "postgresql://user:secret@ep-example-pooler.neon.tech/neondb?sslmode=require&channel_binding=require",
+    });
+    expect(env.isProduction).toBe(true);
+  });
+
   it.each([
     "postgresql://db.example/x",
+    "postgresql://db.example/x?ssl_mode=require",
     "postgresql://db.example/x?sslmode=disable",
     "postgresql://db.example/x?sslmode=verify-full&sslmode=disable",
     "not a url",
