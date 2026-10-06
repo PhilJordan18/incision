@@ -14,15 +14,21 @@ const POOL_OPTIONS = {
 
 // Next bundles route handlers separately from the custom server, so a module-level
 // variable would give each bundle its own pool. One pool per process instead.
-const processGlobal = globalThis as typeof globalThis & { incisionDatabasePool?: pg.Pool };
+const processGlobal = globalThis as typeof globalThis & {
+  incisionDatabase?: { readonly connectionString: string; readonly pool: pg.Pool };
+};
 
 /**
  * Process-wide pool for the application, created on first use. The app uses the
  * pooled Neon URL (`DATABASE_URL`); migrations use `DATABASE_URL_UNPOOLED`.
+ * A process talks to one database: another connection string is a programming error.
  */
 export function getDatabasePool(connectionString: string): pg.Pool {
-  processGlobal.incisionDatabasePool ??= createPool(connectionString);
-  return processGlobal.incisionDatabasePool;
+  processGlobal.incisionDatabase ??= { connectionString, pool: createPool(connectionString) };
+  if (processGlobal.incisionDatabase.connectionString !== connectionString) {
+    throw new Error("The database pool already exists for another connection string");
+  }
+  return processGlobal.incisionDatabase.pool;
 }
 
 export async function checkDatabaseConnection(pool: pg.Pool): Promise<DatabaseCheck> {

@@ -10,7 +10,28 @@ const serverEnvSchema = z
   .refine((env) => env.NODE_ENV !== "production" || env.APP_URL !== undefined, {
     message: "APP_URL is required in production",
     path: ["APP_URL"],
+  })
+  .refine((env) => env.NODE_ENV !== "production" || env.DATABASE_URL !== undefined, {
+    message: "DATABASE_URL is required in production",
+    path: ["DATABASE_URL"],
+  })
+  .refine((env) => env.NODE_ENV !== "production" || requiresVerifiedTls(env.DATABASE_URL), {
+    message: "DATABASE_URL must set sslmode=verify-full (or require) in production",
+    path: ["DATABASE_URL"],
   });
+
+/** Without sslmode, pg connects in clear text and would send the password unencrypted. */
+function requiresVerifiedTls(databaseUrl: string | undefined): boolean {
+  if (databaseUrl === undefined) {
+    return true;
+  }
+  try {
+    const sslMode = new URL(databaseUrl).searchParams.get("sslmode");
+    return sslMode === "verify-full" || sslMode === "require";
+  } catch {
+    return false;
+  }
+}
 
 export type ServerEnv = {
   readonly isProduction: boolean;

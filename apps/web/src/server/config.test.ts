@@ -12,13 +12,32 @@ describe("parseServerEnv", () => {
   });
 
   it("keeps only the origin of APP_URL", () => {
-    const env = parseServerEnv({ NODE_ENV: "production", PORT: "8080", APP_URL: "https://incision.example/path" });
+    const env = parseServerEnv({
+      NODE_ENV: "production",
+      PORT: "8080",
+      APP_URL: "https://incision.example/path",
+      DATABASE_URL: "postgresql://db.example/incision?sslmode=verify-full",
+    });
     expect(env).toMatchObject({ isProduction: true, port: 8080, appOrigin: "https://incision.example" });
   });
 
-  it("requires APP_URL in production", () => {
-    expect(() => parseServerEnv({ NODE_ENV: "production" })).toThrow(/APP_URL/);
+  it("requires APP_URL and DATABASE_URL in production", () => {
+    expect(() =>
+      parseServerEnv({ NODE_ENV: "production", DATABASE_URL: "postgresql://db.example/x?sslmode=require" }),
+    ).toThrow(/APP_URL/);
+    expect(() => parseServerEnv({ NODE_ENV: "production", APP_URL: "https://incision.example" })).toThrow(
+      /DATABASE_URL/,
+    );
   });
+
+  it.each(["postgresql://db.example/x", "postgresql://db.example/x?sslmode=disable", "not a url"])(
+    "requires TLS for the production database (%s)",
+    (databaseUrl) => {
+      expect(() =>
+        parseServerEnv({ NODE_ENV: "production", APP_URL: "https://incision.example", DATABASE_URL: databaseUrl }),
+      ).toThrow(/DATABASE_URL must set sslmode/);
+    },
+  );
 
   it.each([{ PORT: "0" }, { PORT: "abc" }, { APP_URL: "ftp://incision.example" }, { NODE_ENV: "staging" }])(
     "rejects an invalid value (%o)",

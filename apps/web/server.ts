@@ -9,10 +9,11 @@ import { attachRealtimeServer } from "./src/server/realtime/socket-server";
 async function main(): Promise<void> {
   loadLocalEnvFile();
   const env = parseServerEnv(process.env);
-  process.env.APP_COMMIT_SHA ??= readDeployedCommit();
+  // Internal hand-off to the health routes, which Next bundles separately; not configuration.
+  process.env.INCISION_DEPLOYED_COMMIT = readDeployedCommit();
 
   const httpServer = createServer();
-  const app = next({ dev: !env.isProduction, dir: __dirname, httpServer });
+  const app = next({ dev: !env.isProduction, dir: __dirname, httpServer, port: env.port });
   const handle = app.getRequestHandler();
   await app.prepare();
 
@@ -20,12 +21,21 @@ async function main(): Promise<void> {
     void handle(request, response);
   });
   // Attached after Next so Socket.IO can intercept its own path and pass the rest on.
-  attachRealtimeServer(httpServer, { allowedOrigin: env.appOrigin });
+  const io = attachRealtimeServer(httpServer, { allowedOrigin: env.appOrigin, isProduction: env.isProduction });
 
   httpServer.listen(env.port, () => {
     console.log(`[server] ${env.isProduction ? "production" : "development"} on port ${env.port}`);
   });
+
+  // App Service sends SIGTERM before replacing the process: stop accepting work, then exit.
+  process.once("SIGTERM", () => {
+    console.log("[server] SIGTERM received, closing");
+    setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
+    void io.close(() => process.exit(0));
+  });
 }
+
+const SHUTDOWN_GRACE_MS = 10_000;
 
 /** Local runs share the root `.env` with Docker Compose; App Service injects app settings instead. */
 function loadLocalEnvFile(): void {
