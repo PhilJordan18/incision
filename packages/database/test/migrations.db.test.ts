@@ -31,12 +31,24 @@ async function tableExists(name: string): Promise<boolean> {
   return row?.exists === true;
 }
 
-/** Writes a Drizzle migrations folder with the given SQL files, in order. */
-function migrationsFolder(files: readonly string[]): string {
+type FixtureMigration = { readonly sql: string; readonly when: number };
+
+const folders: string[] = [];
+
+afterEach(() => {
+  folders.splice(0).forEach((folder) => rmSync(folder, { recursive: true, force: true }));
+});
+
+/** Writes a Drizzle migrations folder with the given SQL and timestamps, in journal order. */
+function migrationsFolder(migrations: readonly (string | FixtureMigration)[]): string {
   const folder = mkdtempSync(path.join(tmpdir(), "incision-migrations-"));
+  folders.push(folder);
   mkdirSync(path.join(folder, "meta"));
-  const entries = files.map((_, index) => ({ idx: index, version: "7", when: 1_000 + index, tag: `000${index}_fixture`, breakpoints: true }));
-  files.forEach((sql, index) => writeFileSync(path.join(folder, `000${index}_fixture.sql`), sql));
+  const fixtures = migrations.map((migration, index) =>
+    typeof migration === "string" ? { sql: migration, when: 1_000 + index } : migration,
+  );
+  const entries = fixtures.map((fixture, index) => ({ idx: index, version: "7", when: fixture.when, tag: `000${index}_fixture`, breakpoints: true }));
+  fixtures.forEach((fixture, index) => writeFileSync(path.join(folder, `000${index}_fixture.sql`), fixture.sql));
   writeFileSync(path.join(folder, "meta", "_journal.json"), JSON.stringify({ version: "7", dialect: "postgresql", entries }));
   return folder;
 }
@@ -62,14 +74,32 @@ describe("runMigrations", () => {
 
   it("applies nothing when one pending migration fails", async () => {
     const folder = migrationsFolder(["create table fixture_ok (id integer primary key);", "create table broken (;"]);
-    try {
-      await expect(runMigrations({ connectionString: database.url, migrationsFolder: folder })).rejects.toThrow();
-      expect(await tableExists("fixture_ok")).toBe(false);
-      const [journal] = await query<{ count: string }>("select count(*) as count from drizzle.__drizzle_migrations");
-      expect(Number(journal?.count)).toBe(0);
-    } finally {
-      rmSync(folder, { recursive: true, force: true });
-    }
+    await expect(runMigrations({ connectionString: database.url, migrationsFolder: folder })).rejects.toThrow();
+    expect(await tableExists("fixture_ok")).toBe(false);
+    const [journal] = await query<{ count: string }>("select count(*) as count from drizzle.__drizzle_migrations");
+    expect(Number(journal?.count)).toBe(0);
+  });
+
+  it("fails when an applied migration was edited", async () => {
+    await runMigrations({ connectionString: database.url, migrationsFolder: migrationsFolder(["create table a (id integer);"]) });
+    const edited = migrationsFolder(["create table a (id integer); create table sneaky (id integer);"]);
+    await expect(runMigrations({ connectionString: database.url, migrationsFolder: edited })).rejects.toThrow(/differs from the applied one/);
+    expect(await tableExists("sneaky")).toBe(false);
+  });
+
+  it("fails when a new migration is dated before the last applied one, instead of skipping it", async () => {
+    await runMigrations({ connectionString: database.url, migrationsFolder: migrationsFolder([{ sql: "create table a (id integer);", when: 2_000 }]) });
+    const older = migrationsFolder([
+      { sql: "create table a (id integer);", when: 2_000 },
+      { sql: "create table late (id integer);", when: 1_500 },
+    ]);
+    await expect(runMigrations({ connectionString: database.url, migrationsFolder: older })).rejects.toThrow(/was not applied/);
+  });
+
+  it("accepts a database that already has newer migrations, so an older release can be redeployed", async () => {
+    await runMigrations({ connectionString: database.url, migrationsFolder: migrationsFolder(["create table a (id integer);", "create table b (id integer);"]) });
+    const olderRelease = migrationsFolder(["create table a (id integer);"]);
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: olderRelease })).toEqual({ applied: 0 });
   });
 
   it("gives up after the lock wait when another migration holds the lock, and closes its connection", async () => {

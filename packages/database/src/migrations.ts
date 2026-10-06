@@ -1,6 +1,7 @@
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { readMigrationFiles } from "drizzle-orm/migrator";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";
 
@@ -37,8 +38,10 @@ export async function runMigrations(options: MigrationOptions): Promise<{ readon
   try {
     await acquireMigrationLock(client, options.lockWaitMs ?? 60_000);
     try {
+      const migrationsFolder = options.migrationsFolder ?? MIGRATIONS_FOLDER;
       const before = await countAppliedMigrations(client);
-      await migrate(drizzle({ client }), { migrationsFolder: options.migrationsFolder ?? MIGRATIONS_FOLDER });
+      await migrate(drizzle({ client }), { migrationsFolder });
+      await assertJournalMatches(client, migrationsFolder);
       return { applied: (await countAppliedMigrations(client)) - before };
     } finally {
       await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]).catch(() => undefined);
@@ -60,6 +63,28 @@ async function acquireMigrationLock(client: pg.Client, waitMs: number): Promise<
       throw new Error(`Another migration holds the lock; gave up after ${waitMs} ms`);
     }
     await delay(250);
+  }
+}
+
+/**
+ * Drizzle neither checks recorded hashes nor applies a migration dated before the last
+ * applied one: both would silently skip SQL. Every local migration must therefore be
+ * recorded with the same hash. Extra recorded migrations are allowed, so redeploying an
+ * older release (rollback) still works.
+ */
+async function assertJournalMatches(client: pg.Client, migrationsFolder: string): Promise<void> {
+  const recorded = await client.query<{ hash: string; created_at: string }>(
+    "select hash, created_at from drizzle.__drizzle_migrations",
+  );
+  const recordedHashes = new Map(recorded.rows.map((row) => [Number(row.created_at), row.hash]));
+  for (const migration of readMigrationFiles({ migrationsFolder })) {
+    const hash = recordedHashes.get(migration.folderMillis);
+    if (hash === undefined) {
+      throw new Error(`Migration dated ${migration.folderMillis} was not applied (dated before the last applied one?)`);
+    }
+    if (hash !== migration.hash) {
+      throw new Error(`Migration dated ${migration.folderMillis} differs from the applied one: never edit an applied migration`);
+    }
   }
 }
 

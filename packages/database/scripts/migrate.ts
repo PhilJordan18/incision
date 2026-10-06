@@ -14,6 +14,10 @@ async function main(): Promise<void> {
     throw new Error("DATABASE_URL_UNPOOLED is not set");
   }
   const host = new URL(connectionString).hostname;
+  // A transaction pooler would keep the session advisory lock on a shared backend.
+  if (host.includes("-pooler")) {
+    throw new Error("DATABASE_URL_UNPOOLED points to a pooled endpoint; use the direct Neon URL");
+  }
   if (!["localhost", "127.0.0.1", "::1"].includes(host) && !usesVerifiedTls(connectionString)) {
     throw new Error("DATABASE_URL_UNPOOLED must use verified TLS (sslmode=verify-full) for a remote database");
   }
