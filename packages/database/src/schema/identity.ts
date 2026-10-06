@@ -19,7 +19,7 @@ export const accounts = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
-      .$onUpdate(() => new Date()),
+      .$onUpdate(() => sql`now()`),
   },
   (table) => [
     unique("accounts_login_canonical_unique").on(table.loginCanonical),

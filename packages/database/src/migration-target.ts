@@ -8,7 +8,8 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
  * Uses pg's own parser, so `?host=` cannot make a remote server look local.
  */
 export function assertMigrationTarget(connectionString: string): void {
-  const host = parse(connectionString).host ?? "";
+  // pg keeps the host's case; DNS does not care.
+  const host = (parse(connectionString).host ?? "").toLowerCase();
   // A transaction pooler would keep the session advisory lock on a shared backend.
   if (host.includes("-pooler")) {
     throw new Error("DATABASE_URL_UNPOOLED points to a pooled endpoint; use the direct Neon URL");

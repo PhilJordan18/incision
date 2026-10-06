@@ -1,3 +1,4 @@
+import { DrizzleQueryError } from "drizzle-orm/errors";
 import pg from "pg";
 
 export type DatabaseCheck =
@@ -51,8 +52,9 @@ export function describeDatabaseError(error: unknown): string {
   }
   // Drizzle wraps PostgreSQL errors in "Failed query: <sql> params: <values>": describe the
   // PostgreSQL cause (code and reason) instead, which also keeps parameter values out of logs.
-  if (error instanceof Error && error.cause !== undefined) {
-    return describeDatabaseError(error.cause);
+  // Other wrappers (e.g. pg-pool's connection timeout) keep their own, more precise message.
+  if (error instanceof DrizzleQueryError) {
+    return error.cause instanceof Error ? describeDatabaseError(error.cause) : "query failed";
   }
   if (error instanceof Error) {
     const code = "code" in error && typeof error.code === "string" ? `${error.code} ` : "";

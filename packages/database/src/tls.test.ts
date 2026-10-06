@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { usesVerifiedTls } from "./tls";
 
@@ -24,5 +27,11 @@ describe("usesVerifiedTls", () => {
     "?ssl_mode=require",
   ])("refuses %j", (query) => {
     expect(usesVerifiedTls(`${base}${query}`)).toBe(false);
+  });
+
+  it.each(["verify-ca", "require"])("refuses libpq-compatible %s, which skips the host name check", (mode) => {
+    const rootCert = path.join(mkdtempSync(path.join(tmpdir(), "incision-tls-")), "root.crt");
+    writeFileSync(rootCert, "placeholder certificate");
+    expect(usesVerifiedTls(`${base}?uselibpqcompat=true&sslmode=${mode}&sslrootcert=${rootCert}`)).toBe(false);
   });
 });

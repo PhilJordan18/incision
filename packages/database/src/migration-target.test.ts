@@ -13,8 +13,8 @@ describe("assertMigrationTarget", () => {
     expect(() => assertMigrationTarget(url)).not.toThrow();
   });
 
-  it("refuses a pooled Neon endpoint", () => {
-    expect(() => assertMigrationTarget("postgresql://u:p@ep-cool-1-pooler.neon.tech/db?sslmode=verify-full")).toThrow(/pooled/);
+  it.each(["ep-cool-1-pooler.neon.tech", "EP-COOL-1-POOLER.neon.tech"])("refuses the pooled Neon endpoint %s", (host) => {
+    expect(() => assertMigrationTarget(`postgresql://u:p@${host}/db?sslmode=verify-full`)).toThrow(/pooled/);
   });
 
   it.each([

@@ -1,3 +1,4 @@
+import { DrizzleQueryError } from "drizzle-orm/errors";
 import { describe, expect, it } from "vitest";
 import { describeDatabaseError } from "./pool";
 
@@ -13,8 +14,15 @@ describe("describeDatabaseError", () => {
 
   it("describes the PostgreSQL cause of a wrapped query error, without the query parameters", () => {
     const cause = Object.assign(new Error('relation "missing" does not exist'), { code: "42P01" });
-    const wrapped = new Error("Failed query: select * from missing where secret = $1\nparams: hunter2", { cause });
+    const wrapped = new DrizzleQueryError("select * from missing where secret = $1", ["hunter2"], cause);
     expect(describeDatabaseError(wrapped)).toBe('42P01 relation "missing" does not exist');
+  });
+
+  it("keeps the message of other wrappers, such as pg-pool's connection timeout", () => {
+    const timeout = new Error("Connection terminated due to connection timeout", {
+      cause: new Error("Connection terminated unexpectedly"),
+    });
+    expect(describeDatabaseError(timeout)).toBe("Connection terminated due to connection timeout");
   });
 
   it("falls back to the error name when the message is empty", () => {
