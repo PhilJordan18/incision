@@ -1,5 +1,4 @@
 import { and, eq, sql } from "drizzle-orm";
-import { TransactionRollbackError } from "drizzle-orm/errors";
 import type { Database } from "../client";
 import { firstRow } from "../rows";
 import { accounts, oauthIdentities, oauthProvider } from "../schema";
@@ -16,6 +15,13 @@ export type OAuthSignIn = {
   /** Valid display name (D-14), written only if the account is created now. */
   readonly initialDisplayName: string;
 };
+
+/**
+ * Thrown inside the transaction to roll it back when a concurrent sign-in won. Our own
+ * class, created and caught by this module: Next bundles its own copy of drizzle-orm, so
+ * drizzle's TransactionRollbackError may come from another copy than the one imported here.
+ */
+class LostSignInRace extends Error {}
 
 /**
  * Finds the account of a provider identity (AUTH-01), or creates the account and the
@@ -43,12 +49,12 @@ export async function findOrCreateOAuthAccount(db: Database, signIn: OAuthSignIn
         .onConflictDoNothing({ target: [oauthIdentities.provider, oauthIdentities.providerSubject] })
         .returning({ id: oauthIdentities.id });
       if (identities.length === 0) {
-        tx.rollback();
+        throw new LostSignInRace();
       }
       return account;
     });
   } catch (error: unknown) {
-    if (!(error instanceof TransactionRollbackError)) {
+    if (!(error instanceof LostSignInRace)) {
       throw error;
     }
   }
