@@ -6,10 +6,11 @@ export const DISPLAY_NAME_MAX_LENGTH = 40;
 
 /**
  * Control, format (zero-width, joiners, bidi overrides), private-use and unassigned
- * characters, default-ignorable ones (variation selectors, Hangul fillers...) and the
- * blank braille pattern: all render as nothing or as an unchanged neighbour.
+ * characters, default-ignorable ones (variation selectors, Hangul fillers...) and blank
+ * glyphs (braille blank, musical null notehead, Khitan filler): all render as nothing or
+ * as an unchanged neighbour.
  */
-const INVISIBLE_OR_UNASSIGNED = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}\p{Default_Ignorable_Code_Point}\u2800]/u;
+const INVISIBLE_OR_UNASSIGNED = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}\p{Default_Ignorable_Code_Point}\u2800\u{1D159}\u{16FE4}]/u;
 /** A combining mark with no base character to attach to. */
 const LEADING_MARK = /^\p{M}/u;
 

@@ -31,6 +31,8 @@ describe("parseDisplayName", () => {
     ["Hangul filler", "\u3164"],
     ["halfwidth Hangul filler", "\uFFA0"],
     ["blank braille pattern", "\u2800"],
+    ["musical null notehead", "Ho\u{1D159}st"],
+    ["Khitan small script filler", "Ho\u{16FE4}st"],
     ["combining grapheme joiner", "Host\u034F"],
     ["variation selector", "Host\uFE0F"],
     ["supplementary variation selector", "Host\u{E0100}"],
