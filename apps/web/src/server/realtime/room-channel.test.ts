@@ -4,9 +4,9 @@ import type { ActiveMembership, RoomSnapshot } from "@incision/database";
 import type { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT } from "../../rooms/protocol";
+import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, WATCH_LIMIT } from "../../rooms/protocol";
 import type { RoomEvents } from "../rooms/room-events";
-import { ACCOUNT_WATCHES_IN_FLIGHT, registerRoomChannel, WATCH_LIMIT } from "./room-channel";
+import { ACCOUNT_WATCHES_IN_FLIGHT, registerRoomChannel } from "./room-channel";
 import { RoomPresence } from "./room-presence";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
@@ -342,5 +342,54 @@ describe("room channel", () => {
       Array.from({ length: ACCOUNT_WATCHES_IN_FLIGHT }, () => expect.objectContaining({ ok: true })),
     );
     expect(vi.mocked(findActiveMembership).mock.calls.length).toBe(ACCOUNT_WATCHES_IN_FLIGHT);
+  });
+
+  it("tells the others when a member's only socket fails to follow the room", async () => {
+    const alice = await open("session=alice");
+    await watch(alice);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Bob's watch reads the room slowly; meanwhile a change shows him online…
+    let failRead: (error: Error) => void = () => undefined;
+    const original = readRoomSnapshot;
+    readRoomSnapshot = vi.fn(async (lobbyId: string) => {
+      readRoomSnapshot = original;
+      await new Promise<void>((_resolve, reject) => {
+        failRead = reject;
+      });
+      return snapshots.get(lobbyId);
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const bob = await open("session=bob");
+    const answer = watch(bob);
+    await until(() => presence.onlineMembers("lobby-1").has("member-b"));
+    const online = nextSnapshot(alice, 1_000);
+    events.emit("changed", "lobby-1");
+    expect(await online).toMatchObject({ members: [{ memberId: "member-a" }, { memberId: "member-b", online: true }] });
+    // …then the read fails: Alice must learn that Bob is not there after all.
+    const offline = nextSnapshot(alice, 1_000);
+    failRead(new Error("database unreachable"));
+    expect(await answer).toEqual({ ok: false, error: "UNAVAILABLE" });
+    expect(await offline).toMatchObject({ members: [{ memberId: "member-a" }, { memberId: "member-b", online: false }] });
+  });
+
+  it("drops a second tab whose watch read the room before its member left", async () => {
+    const bob1 = await open("session=bob");
+    await watch(bob1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const held = holdNextRead();
+    const bob2 = await open("session=bob");
+    const answer = watch(bob2);
+    await until(() => held.started);
+    // Bob leaves while his second tab is still reading the room.
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), revision: 2, members: [member("member-a", ALICE, "Alice", true)] });
+    events.emit("changed", "lobby-1");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    held.release();
+    await answer;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const nothing = nextSnapshot(bob2);
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), revision: 3 });
+    events.emit("changed", "lobby-1");
+    expect(await nothing).toBe("silent");
   });
 });

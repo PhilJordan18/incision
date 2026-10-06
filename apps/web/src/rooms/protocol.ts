@@ -10,6 +10,12 @@ export const ROOM_SNAPSHOT_EVENT = "room:snapshot";
 
 export const roomWatchPayloadSchema = z.object({ code: z.string().min(1).max(16) }).strict();
 
+/**
+ * `room:watch` events a socket may send per window. A page sends one per connection and a
+ * few retries; the server cuts a socket that sends more, and the page keeps below it.
+ */
+export const WATCH_LIMIT = { maxWatches: 5, windowMs: 10_000 } as const;
+
 /** What every member of a room sees; no account id, only member ids. */
 export const roomSnapshotSchema = z.object({
   code: z.string(),

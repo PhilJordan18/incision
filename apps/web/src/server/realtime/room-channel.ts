@@ -2,7 +2,7 @@ import type { EventEmitter } from "node:events";
 import { describeDatabaseError, type ActiveMembership, type RoomSnapshot } from "@incision/database";
 import { parseRoomCode } from "@incision/domain";
 import type { Server, Socket } from "socket.io";
-import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema } from "../../rooms/protocol";
+import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
 import { publicSnapshot } from "../../rooms/public-snapshot";
 import type { RoomEvents } from "../rooms/room-events";
 import type { RoomPresence } from "./room-presence";
@@ -19,12 +19,6 @@ export type RoomChannelDependencies = {
   readonly readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
   readonly now?: () => number;
 };
-
-/**
- * `room:watch` events a socket may send per window. A page sends one per connection
- * (and a few retries); more is abuse: each watch reads the shared database pool.
- */
-export const WATCH_LIMIT = { maxWatches: 5, windowMs: 10_000 } as const;
 
 /**
  * Watches one account may have in progress at once, across all its sockets: many sockets
@@ -56,6 +50,8 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
   // One snapshot read per room at a time; changes during a read trigger one more read.
   const broadcasting = new Map<string, { again: boolean }>();
   const watchesInFlight = new Map<string, number>();
+  // Newest revision broadcast per followed room, to catch a watch that read an older one.
+  const lastBroadcast = new Map<string, number>();
 
   function scheduleBroadcast(lobbyId: string): void {
     const running = broadcasting.get(lobbyId);
@@ -79,6 +75,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
 
   async function broadcast(lobbyId: string): Promise<void> {
     if ((io.sockets.adapter.rooms.get(channelOf(lobbyId))?.size ?? 0) === 0) {
+      lastBroadcast.delete(lobbyId);
       return;
     }
     let snapshot: RoomSnapshot | undefined;
@@ -95,6 +92,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     // Everyone following the room gets the snapshot, including the members who just left
     // or whose room closed: that is how their pages learn it. Then they stop following.
     io.to(channelOf(lobbyId)).emit(ROOM_SNAPSHOT_EVENT, publicSnapshot(snapshot, presence.onlineMembers(lobbyId)));
+    lastBroadcast.set(lobbyId, Math.max(snapshot.revision, lastBroadcast.get(lobbyId) ?? -1));
     for (const socket of await io.in(channelOf(lobbyId)).fetchSockets()) {
       const watched = watchedRoomOf(socket.data);
       // A read that started before this member joined must not drop its socket.
@@ -218,7 +216,9 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     if (socket.connected) {
       socket.data.room = { ...room, since: snapshot.revision } satisfies WatchedRoom;
     }
-    if (cameOnline) {
+    // A broadcast newer than this read went out meanwhile and skipped this socket: one more
+    // tells it (and drops it if the member left in between).
+    if (cameOnline || (lastBroadcast.get(room.lobbyId) ?? -1) > snapshot.revision) {
       scheduleBroadcast(room.lobbyId);
     }
     return {
