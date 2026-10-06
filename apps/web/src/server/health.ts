@@ -3,10 +3,12 @@ import { checkDatabaseConnection, describeDatabaseError, getDatabasePool } from 
 export type DatabaseStatus = "up" | "down" | "not_configured";
 
 /**
- * Anonymous callers share one probe at a time and its result for 30 s, so the public
- * endpoint can neither flood the pool nor keep Neon's compute awake.
+ * Neon's free compute sleeps after a few idle minutes and its monthly hours are limited.
+ * A healthy result is reused for an hour, so periodic anonymous calls cannot keep it
+ * awake; a failure is retried after 30 s. A new process (each deployment) always probes
+ * afresh, and callers share one probe at a time.
  */
-const PROBE_TTL_MS = 30_000;
+const PROBE_TTL_MS = { up: 60 * 60_000, down: 30_000 } as const;
 
 let lastProbe: { readonly status: "up" | "down"; readonly at: number } | undefined;
 let probeInFlight: Promise<"up" | "down"> | undefined;
@@ -20,7 +22,7 @@ export async function readDatabaseStatus(databaseUrl: string | undefined): Promi
   if (!databaseUrl) {
     return "not_configured";
   }
-  if (lastProbe && Date.now() - lastProbe.at < PROBE_TTL_MS) {
+  if (lastProbe && Date.now() - lastProbe.at < PROBE_TTL_MS[lastProbe.status]) {
     return lastProbe.status;
   }
   probeInFlight ??= probeDatabase(databaseUrl).finally(() => {

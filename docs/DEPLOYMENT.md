@@ -54,7 +54,7 @@ npm run smoke -w @incision/web -- https://<default-domain> --database up
 Logs: App Service → Log stream. Two endpoints, both without internal details:
 
 - `/api/health/live`: liveness for Azure, `status` and `commit`, never touches the database.
-- `/api/health`: readiness for the smoke test and humans, adds `database` (`up`, `down`, `not_configured`; probed at most every 10 s). It answers 200 while the process runs, with `status: "degraded"` when Neon does not answer.
+- `/api/health`: readiness for the smoke test and humans, adds `database` (`up`, `down`, `not_configured`). Neon is queried at most once an hour while it answers and every 30 s while it does not; each new deployment probes afresh. It answers 200 while the process runs, with `status: "degraded"` when Neon does not answer.
 
 ## Rollback
 
