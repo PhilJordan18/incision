@@ -30,12 +30,17 @@ describe("parseServerEnv", () => {
     );
   });
 
-  it.each(["postgresql://db.example/x", "postgresql://db.example/x?sslmode=disable", "not a url"])(
+  it.each([
+    "postgresql://db.example/x",
+    "postgresql://db.example/x?sslmode=disable",
+    "postgresql://db.example/x?sslmode=verify-full&sslmode=disable",
+    "not a url",
+  ])(
     "requires TLS for the production database (%s)",
     (databaseUrl) => {
       expect(() =>
         parseServerEnv({ NODE_ENV: "production", APP_URL: "https://incision.example", DATABASE_URL: databaseUrl }),
-      ).toThrow(/DATABASE_URL must set sslmode/);
+      ).toThrow(/DATABASE_URL must use verified TLS/);
     },
   );
 
