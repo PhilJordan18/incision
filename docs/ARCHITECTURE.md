@@ -1,6 +1,6 @@
 # Architecture — Incision
 
-Initial version aligned with the final brief, **October 2, 2026**. Design document, not proof that anything works. Delivered so far: CI, the custom Next.js + Socket.IO server deployed on Azure App Service, and the PostgreSQL schema with versioned migrations; sessions, rooms and race events are still to be implemented.
+Initial version aligned with the final brief, **October 2, 2026**. Design document, not proof that anything works. Delivered so far: CI, the custom Next.js + Socket.IO server deployed on Azure App Service, the PostgreSQL schema with versioned migrations, and authentication (Auth.js sessions checked on HTTP and Socket.IO); rooms and race events are still to be implemented.
 
 ## 1. Authority and scope
 
@@ -52,7 +52,7 @@ Server use cases orchestrate rules and transactions. The domain depends on neith
 | Hosting | D-13 / [ADR-0002](adr/0002-hosting.md): Azure App Service (Linux, Node 24, one B2 instance, student credit) + Neon PostgreSQL free plan; zip deployment of `main` by GitHub Actions. | Smoke test on every deployment: deployed commit, Neon reachable, WebSocket ping ([DEPLOYMENT.md](DEPLOYMENT.md)). Teacher accepted the managed server for TECH-05. |
 | Realtime | Socket.IO on the same domain as Next.js; single instance. | Two-browser production prototype; [ADR-0001](adr/0001-realtime.md). |
 | TS execution | Node 24 / npm; `tsx` for the custom server in dev and when launching the Next build in production. Packages exporting their TS sources, `transpilePackages` on the Next side. | `tsx` becomes a runtime dependency. Test a clean install and dev reload; no `output: standalone`. Done in CP-02: `apps/web/server.ts`, packaged release tested in production mode. |
-| Authentication | [ADR-0003](adr/0003-authentication.md): Auth.js v5 (`next-auth@5.0.0-beta.32`, pinned), JWT sessions without adapter, GitHub + Discord + Credentials; our `accounts`/`oauth_identities` tables (no email); local passwords hashed with scrypt. | Spike of October 5 proved identity, no-email token and Socket.IO session decoding on Next 16; real GitHub/Discord sign-ins, expiry and socket revocation are proven in CP-04. |
+| Authentication | [ADR-0003](adr/0003-authentication.md): Auth.js v5 (`next-auth@5.0.0-beta.32`, pinned), JWT sessions without adapter, GitHub + Discord + Credentials; our `accounts`/`oauth_identities` tables (no email); local passwords hashed with scrypt. | CP-04: sessions bound to `accounts.session_version`, 24 h from sign-in, revoked on sign-out on HTTP and Socket.IO (unit, PostgreSQL and Playwright tests). Real GitHub/Discord sign-ins still to be proven locally and in production. |
 | Privacy | OAuth identity per provider + stable identifier, with no email stored; no automatic merging by nickname or email. | Linking a provider requires an account session and OAuth proof. No fake email to work around a library. |
 | Validation / tests | Zod at every boundary, Vitest for pure rules, Playwright for user flows; SQL tests on real PostgreSQL. | Socket.IO contracts, admission concurrency, local test accounts. |
 | UI | Centralised FR/EN dictionaries; locale in a cookie, browser default; system theme then saved preference, initialised before display. | Translated metadata/errors, persistence, no flash; tokens taken from the complete art direction. |
@@ -81,7 +81,7 @@ erDiagram
   races ||--o{ race_bonus_events : logs
 ```
 
-This diagram is the target model. What is migrated today is described in [the delivered schema](architecture/data-model.md#delivered-schema-cp-03-migration-0000_init). The member describes presence in a room; the entrant is an independent historical snapshot. The account links results to the personal history. Room results may keep an anonymised snapshot of guests/bots to render a complete chart, with no account and no personal history for guests. See [constraints, retention and transactions](architecture/data-model.md).
+This diagram is the target model. What is migrated today is described in [the delivered schema](architecture/data-model.md#delivered-schema). The member describes presence in a room; the entrant is an independent historical snapshot. The account links results to the personal history. Room results may keep an anonymised snapshot of guests/bots to render a complete chart, with no account and no personal history for guests. See [constraints, retention and transactions](architecture/data-model.md).
 
 ## 5. Race state machine — COURSE-01
 

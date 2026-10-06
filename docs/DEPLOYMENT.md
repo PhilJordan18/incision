@@ -33,10 +33,10 @@ The pipeline is green only if production runs the expected commit, reaches Neon 
 | Configuration → Stack settings (tab) → Startup command | `npm run start -w @incision/web` |
 | Configuration → Health check (tab) → Path | `/api/health/live`, enabled after the first deployment. **Never `/api/health`**: it queries Neon, and a probe every minute would keep Neon's free compute awake around the clock and exhaust its monthly quota. |
 | Configuration → General settings | Always On, HTTPS only, TLS 1.3, FTP disabled, SCM basic auth enabled (publish profile) |
-| Environment variables → App settings | `APP_URL` (the `https://` default domain), `DATABASE_URL` (Neon pooled), `SCM_DO_BUILD_DURING_DEPLOYMENT=false`. The app never reads `DATABASE_URL_UNPOOLED`: once the GitHub secret below exists, remove it from App Service. |
+| Environment variables → App settings | `APP_URL` (the `https://` default domain), `DATABASE_URL` (Neon pooled), `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, and for authentication `AUTH_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `TRUSTED_PROXY_HOPS=1` (see [Authentication](#authentication)). The app never reads `DATABASE_URL_UNPOOLED`: once the GitHub secret below exists, remove it from App Service. |
 | Monitoring → App Service logs | Application logging: File System, short retention, so Log stream shows the app's output |
 
-The process refuses to start in production without `APP_URL`, or without a `DATABASE_URL` that sets `sslmode=verify-full` (or `require`). Use `verify-full` for Neon.
+The process refuses to start in production when one of these variables is missing or empty, when `AUTH_URL` differs from `APP_URL`, when `AUTH_SECRET` has fewer than 32 characters, when `APP_URL` is not HTTPS (a `localhost` URL is allowed for local production builds), or when a remote `DATABASE_URL` does not set `sslmode=verify-full` (or `require`). Use `verify-full` for Neon. **Set the authentication variables before promoting CP-04 to `main`**: otherwise the new release does not start and the smoke test fails (the previous one has already been replaced).
 
 App Service provides `PORT`. WebSockets are accepted by Linux App Service; the smoke test proves it on every deployment.
 
@@ -66,6 +66,41 @@ Rules for every schema change (see also [SETUP.md](SETUP.md)):
   - *Journal check failure* (an applied migration was edited, a new one is dated before the last applied one, e.g. after merging two branches that each generated a migration, or an applied migration is missing from a release that has newer ones): the check runs before anything is applied, so nothing changed. Restore the applied migration's SQL, snapshot and journal entry, regenerate the newer migrations on top of the current journal, then promote again.
 - If a migration succeeds but the deployment fails, the previous app keeps running on the additive schema; redeploy or revert as in [Rollback](#rollback).
 - Migrate runs automatically on promotion: create a Neon backup branch **before** promoting a risky migration.
+
+## Authentication
+
+Auth.js v5 with JWT sessions ([ADR-0003](adr/0003-authentication.md)). Variable **names** only; values live in App Service and in the local `.env`, never in the repository or a chat.
+
+| Variable | Production value | Notes |
+|---|---|---|
+| `AUTH_URL` | exactly `APP_URL`, e.g. `https://<default-domain>` | Origin only, no path. Auth.js builds its callback URLs from it; it also makes the cookies `__Secure-`/`__Host-` over HTTPS. |
+| `AUTH_SECRET` | 32 random bytes: `openssl rand -base64 32` | One per environment. Changing it signs everybody out (no rotation list at the checkpoint). Socket.IO decrypts the same cookie with it. |
+| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | production GitHub OAuth app | GitHub allows one callback URL per OAuth app: one app for production, another for local development. |
+| `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET` | Discord application | One application can list both redirect URLs. |
+| `TRUSTED_PROXY_HOPS` | `1` | Azure's front end appends the client address to `X-Forwarded-For`; only that last entry is trusted, the ones a client writes are ignored. `0` locally. |
+
+Exact callback URLs to register:
+
+| Provider | Production | Local |
+|---|---|---|
+| GitHub (*Authorization callback URL*) | `https://<default-domain>/api/auth/callback/github` | `http://localhost:3000/api/auth/callback/github` |
+| Discord (*OAuth2 → Redirects*) | `https://<default-domain>/api/auth/callback/discord` | `http://localhost:3000/api/auth/callback/discord` |
+
+Permissions: GitHub requests **no scope** (public profile only), Discord only `identify`. No email is requested, stored or logged; the provider's name only seeds the display name of a new account.
+
+**Sessions.** A session lasts **24 hours from sign-in**, whatever the activity: Auth.js re-issues its cookie when the session is read, but every check also compares the sign-in time with the 24-hour limit, so the cookie can never extend it. There is no "remember me". Each request carrying a session cookie reads the account's `session_version` (one indexed query); requests without a session cookie, such as Always On and the liveness probe, never touch the database. **Sign-out ends every session of the account** on every device: it increments `session_version` and closes the account's sockets. If the database cannot be reached, protected pages refuse the session and Auth.js clears the cookie: users sign in again once Neon answers. A failed sign-out says so and keeps the session.
+
+**Rate limits** (in memory, one instance): 5 failed local sign-ins per login per 15 minutes, 100 per address per 15 minutes (a whole class may share one school address). A restart resets them.
+
+**Verifying real OAuth sign-ins** (manual; the automated tests stop at the provider's authorisation page): locally with the development apps, then in production after deployment — sign in with GitHub, sign out, sign in with Discord, sign out; check that `/account` shows a display name, that `/api/auth/session` returns only `user.id` and `expires`, and that the Log stream shows no email, token or profile. Cancel once on each provider's consent screen: the sign-in page must show the translated "cancelled or failed" message.
+
+## Demo accounts
+
+Two fictitious local accounts, listed with their passwords in the [README](../README.md#demo-accounts), serve demonstrations and the Playwright tests. Their passwords are public on purpose and used nowhere else; they are not technical secrets. The seed (`packages/database/src/identity/demo-accounts.ts`) only creates missing accounts and never modifies an existing one (an account with a demo login whose password differs is reported as a conflict). It never runs at application start-up.
+
+- Local: `npm run db:seed:demo -w @incision/database` (uses `DATABASE_URL_UNPOOLED` from `.env`; refuses a remote database without `--remote`).
+- CI: the E2E run seeds its own disposable database.
+- **Production, only on Philippe's explicit approval:** Actions → *Seed demo accounts* → *Run workflow* on `main`, typing `seed production demo accounts`. It runs the last successful deployment's release, like the migrate job, with `DATABASE_URL_UNPOOLED` from the `production` environment, and logs `created`, `unchanged` or `conflict` for each login.
 
 ## Checking production
 
