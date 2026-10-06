@@ -1,6 +1,6 @@
 // Rebuilds the disposable E2E database before the server starts (playwright.config.ts):
 // drop, create, migrate, seed the demo accounts. Local servers only.
-import { createDatabase, isLocalDatabase } from "@incision/database";
+import { createDatabase, describeDatabaseError, isLocalDatabase } from "@incision/database";
 import { seedDemoAccounts } from "@incision/database/demo-accounts";
 import { runMigrations } from "@incision/database/migrations";
 import pg from "pg";
@@ -36,6 +36,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error("[e2e] database preparation failed:", error instanceof Error ? error.message : error);
+  // A refused connection (test database not started) is an AggregateError with an empty message.
+  console.error("[e2e] database preparation failed:", describeDatabaseError(error));
   process.exit(1);
 });
