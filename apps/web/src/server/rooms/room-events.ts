@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-type RoomEvents = { changed: [lobbyId: string] };
+export type RoomEvents = { changed: [lobbyId: string] };
 
 const processGlobal = globalThis as typeof globalThis & { incisionRoomEvents?: EventEmitter<RoomEvents> };
 
