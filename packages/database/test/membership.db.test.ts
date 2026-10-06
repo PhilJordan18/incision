@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../src/client";
 import { runMigrations } from "../src/migrations";
 import { createRoomWithHost } from "../src/rooms/create-room";
-import { findActiveMembership, joinRoomByCode, leaveCurrentRoom, localDisplayName, readRoomSnapshot } from "../src/rooms/membership";
+import { findActiveMembership, joinRoomByCode, leaveCurrentRoom, readRoomSnapshot } from "../src/rooms/membership";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let database: TemporaryDatabase;
@@ -60,6 +60,41 @@ async function room(value: string, options: { capacity?: number; host?: string }
   return { lobbyId: created.room.id, hostId };
 }
 
+/** Resolves once at least `count` queries of this database wait on a lock. */
+async function waitForBlockedQueries(count: number): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const result = await pool.query<{ count: string }>(
+      "select count(*) as count from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
+    );
+    if (Number(result.rows[0]?.count) >= count) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`Fewer than ${count} queries blocked on a lock`);
+}
+
+/**
+ * Starts the calls in order while `lobby_members` is locked, each one until it waits on
+ * that lock, then releases them together: a deterministic interleaving of transactions.
+ */
+async function startTogether<T>(calls: ReadonlyArray<() => Promise<T>>): Promise<T[]> {
+  const blocker = await pool.connect();
+  try {
+    await blocker.query("begin");
+    await blocker.query("lock table lobby_members in access exclusive mode");
+    const pending: Promise<T>[] = [];
+    for (const [index, call] of calls.entries()) {
+      pending.push(call());
+      await waitForBlockedQueries(index + 1);
+    }
+    await blocker.query("commit");
+    return await Promise.all(pending);
+  } finally {
+    blocker.release();
+  }
+}
+
 describe("joinRoomByCode", () => {
   it("admits an account, and a second join from another tab returns the same member", async () => {
     const { lobbyId } = await room("ABCDEF");
@@ -83,8 +118,10 @@ describe("joinRoomByCode", () => {
   it("admits only while waiting or at results", async () => {
     const { lobbyId } = await room("ABCDEF");
     const bob = await account("Bob");
-    await pool.query("update lobbies set phase = 'racing' where id = $1", [lobbyId]);
-    expect(await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_ADMITTING" });
+    for (const phase of ["countdown", "racing"]) {
+      await pool.query("update lobbies set phase = $2 where id = $1", [lobbyId, phase]);
+      expect(await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_ADMITTING" });
+    }
     await pool.query("update lobbies set phase = 'results' where id = $1", [lobbyId]);
     expect(await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" })).toMatchObject({ ok: true });
   });
@@ -97,6 +134,22 @@ describe("joinRoomByCode", () => {
     expect(results.filter((result) => !result.ok && result.error === "ROOM_FULL")).toHaveLength(3);
     const spectator = await account("Spectatrice");
     expect(await joinRoomByCode(db, { accountId: spectator, code: code("ABCDEF"), role: "spectator" })).toMatchObject({ ok: true });
+  });
+
+  it("leaves participant places to participants when spectators are already in", async () => {
+    await room("ABCDEF", { capacity: 2 });
+    const spectator = await account("Spectatrice");
+    const first = await account("Bob");
+    const second = await account("Clo");
+    expect(await joinRoomByCode(db, { accountId: spectator, code: code("ABCDEF"), role: "spectator" })).toMatchObject({ ok: true });
+    expect(await joinRoomByCode(db, { accountId: first, code: code("ABCDEF"), role: "participant" })).toMatchObject({ ok: true });
+    expect(await joinRoomByCode(db, { accountId: second, code: code("ABCDEF"), role: "participant" })).toEqual({ ok: false, error: "ROOM_FULL" });
+  });
+
+  it("refuses an account that no longer exists", async () => {
+    await room("ABCDEF");
+    const missing = "00000000-0000-4000-8000-000000000000";
+    expect(await joinRoomByCode(db, { accountId: missing, code: code("ABCDEF"), role: "participant" })).toEqual({ ok: false, error: "ACCOUNT_NOT_FOUND" });
   });
 
   it("refuses an account already in another room and names that room", async () => {
@@ -115,8 +168,10 @@ describe("joinRoomByCode", () => {
     await room("ABCDEF");
     await room("BCDEFG");
     const bob = await account("Bob");
-    const results = await Promise.all(
-      ["ABCDEF", "BCDEFG"].map((value) => joinRoomByCode(db, { accountId: bob, code: code(value), role: "participant" })),
+    // Both joins lock their room, then read the account's membership at the same moment:
+    // only the one-active-room index can stop the second (the unique-violation fallback).
+    const results = await startTogether(
+      ["ABCDEF", "BCDEFG"].map((value) => () => joinRoomByCode(db, { accountId: bob, code: code(value), role: "participant" })),
     );
     expect(results.filter((result) => result.ok)).toHaveLength(1);
     expect(results.find((result) => !result.ok)).toMatchObject({ error: "ALREADY_IN_ANOTHER_ROOM" });
@@ -129,6 +184,22 @@ describe("joinRoomByCode", () => {
     expect((await readRoomSnapshot(db, lobbyId))?.members.map((member) => member.displayName)).toEqual(["Hôte", "Hôte 2"]);
     const stored = await pool.query<{ display_name: string }>("select display_name from accounts where id = $1", [twin]);
     expect(stored.rows[0]?.display_name).toBe("Hôte");
+  });
+
+  it("gives distinct local names, in admission order, to homonyms joining at the same time", async () => {
+    const { lobbyId } = await room("ABCDEF", { capacity: 10 });
+    const twins = await Promise.all(Array.from({ length: 6 }, () => account("Bob")));
+    const results = await Promise.all(twins.map((accountId) => joinRoomByCode(db, { accountId, code: code("ABCDEF"), role: "participant" })));
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect((await readRoomSnapshot(db, lobbyId))?.members.map((member) => member.displayName)).toEqual([
+      "Hôte",
+      "Bob",
+      "Bob 2",
+      "Bob 3",
+      "Bob 4",
+      "Bob 5",
+      "Bob 6",
+    ]);
   });
 });
 
@@ -159,15 +230,42 @@ describe("leaveCurrentRoom", () => {
     expect(await joinRoomByCode(db, { accountId: other, code: code("ABCDEF"), role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_ADMITTING" });
   });
 
+  it("closes the room even when a join commits while the host's departure waits for the room", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF");
+    const bob = await account("Bob");
+    // The departure starts first, then the join takes the room lock before it: the
+    // departure's time must still come after the join (left_at >= joined_at).
+    const [left, joined] = await startTogether<unknown>([
+      () => leaveCurrentRoom(db, hostId),
+      () => joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" }),
+    ]);
+    expect(joined).toMatchObject({ ok: true });
+    expect(left).toEqual({ lobbyId, closed: true });
+    expect(await findActiveMembership(db, bob)).toBeUndefined();
+  });
+
+  it("lets two tabs leave the same room once", async () => {
+    const { lobbyId } = await room("ABCDEF");
+    const bob = await account("Bob");
+    await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" });
+    const before = (await readRoomSnapshot(db, lobbyId))?.revision ?? 0;
+    const results = await startTogether([() => leaveCurrentRoom(db, bob), () => leaveCurrentRoom(db, bob)]);
+    expect(results.filter((result) => result !== undefined)).toEqual([{ lobbyId, closed: false }]);
+    expect((await readRoomSnapshot(db, lobbyId))?.revision).toBe(before + 1);
+  });
+
+  it("closes the room once when the host leaves from two tabs", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF");
+    const results = await startTogether([() => leaveCurrentRoom(db, hostId), () => leaveCurrentRoom(db, hostId)]);
+    expect(results.filter((result) => result !== undefined)).toEqual([{ lobbyId, closed: true }]);
+    const closed = await pool.query<{ ok: boolean }>(
+      "select l.closed_at >= m.left_at as ok from lobbies l join lobby_members m on m.id = l.host_member_id where l.id = $1",
+      [lobbyId],
+    );
+    expect(closed.rows[0]?.ok).toBe(true);
+  });
+
   it("does nothing for an account in no room", async () => {
     expect(await leaveCurrentRoom(db, await account("Seul"))).toBeUndefined();
-  });
-});
-
-describe("localDisplayName", () => {
-  it("keeps 40 characters at most when it adds a suffix", () => {
-    const long = "x".repeat(40);
-    expect(localDisplayName(long, new Set([long]))).toBe(`${"x".repeat(38)} 2`);
-    expect(localDisplayName("Bob", new Set(["bob", "bob 2"]))).toBe("Bob 3");
   });
 });

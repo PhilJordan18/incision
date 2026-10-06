@@ -1,3 +1,4 @@
+import { MEMBER_ROLES, ROOM_PHASES } from "@incision/domain";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -18,8 +19,8 @@ import { accounts } from "./identity";
 
 export const lobbyVisibility = pgEnum("lobby_visibility", ["public", "code", "private"]);
 /** COURSE-01 states: EN_ATTENTE, DECOMPTE, EN_COURSE, RESULTATS, FERMEE. */
-export const lobbyPhase = pgEnum("lobby_phase", ["waiting", "countdown", "racing", "results", "closed"]);
-export const memberRole = pgEnum("member_role", ["participant", "spectator"]);
+export const lobbyPhase = pgEnum("lobby_phase", ROOM_PHASES);
+export const memberRole = pgEnum("member_role", MEMBER_ROLES);
 
 /** Presence of an account in a room. Leaving sets `left_at`; rows are kept. */
 export const lobbyMembers = pgTable(
