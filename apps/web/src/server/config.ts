@@ -16,7 +16,7 @@ const REQUIRED_IN_PRODUCTION = [
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-const nonEmpty = z.string().min(1, "must not be empty");
+const nonEmpty = z.string().min(1);
 
 const serverEnvSchema = z
   .object({
@@ -75,7 +75,9 @@ export type ServerEnv = {
 
 /** Validates the environment at start-up. Error messages name variables, never their values. */
 export function parseServerEnv(env: Record<string, string | undefined>): ServerEnv {
-  const result = serverEnvSchema.safeParse(env);
+  // An empty value (a blank line copied from .env.example, an empty app setting) is unset.
+  const set = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== ""));
+  const result = serverEnvSchema.safeParse(set);
   if (!result.success) {
     const problems = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
     throw new Error(`Invalid server environment: ${problems.join("; ")}`);

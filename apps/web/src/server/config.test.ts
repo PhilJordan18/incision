@@ -70,9 +70,17 @@ describe("parseServerEnv", () => {
     expect(() => parseServerEnv({ ...production, AUTH_URL: authUrl })).toThrow(/AUTH_URL: must equal APP_URL/);
   });
 
-  it("refuses a short AUTH_SECRET or an empty provider secret", () => {
+  it("refuses a short AUTH_SECRET, and an empty value as a missing one", () => {
     expect(() => parseServerEnv({ ...production, AUTH_SECRET: "too-short" })).toThrow(/AUTH_SECRET: must have at least 32/);
-    expect(() => parseServerEnv({ ...production, AUTH_DISCORD_SECRET: "" })).toThrow(/AUTH_DISCORD_SECRET: must not be empty/);
+    expect(() => parseServerEnv({ ...production, AUTH_DISCORD_SECRET: "" })).toThrow(/AUTH_DISCORD_SECRET: is required in production/);
+  });
+
+  it("starts in development with the blank values of .env.example", () => {
+    const blank = { AUTH_SECRET: "", AUTH_GITHUB_ID: "", AUTH_GITHUB_SECRET: "", AUTH_DISCORD_ID: "", AUTH_DISCORD_SECRET: "" };
+    expect(parseServerEnv({ ...blank, AUTH_URL: "http://localhost:3000", TRUSTED_PROXY_HOPS: "0" })).toMatchObject({
+      isProduction: false,
+      authSecret: undefined,
+    });
   });
 
   it("requires HTTPS in production, except for a local production build", () => {
