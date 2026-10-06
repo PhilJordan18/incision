@@ -1,0 +1,11 @@
+## Design (obligatoire)
+
+Le dossier `design/` (copie de `incision-design/`) est la source de vérité visuelle du site.
+
+- Avant de créer ou modifier une page ou un composant, lis `design/README.md`, puis ouvre l'image `design/screens/NN-*.png` et la maquette `design/wireframes-html/NN-*.html` de l'écran concerné.
+- Les couleurs, polices, rayons et durées viennent uniquement de `design/tokens.css` (importé dans `app/globals.css`). N'écris jamais de couleur hexadécimale dans un composant ; utilise les classes Tailwind générées (`bg-abysse`, `text-ecume`, `border-houle`, `bg-action`, `text-ligne`, `text-moi`…).
+- Respecte les 10 règles de la section 1 du README (un seul rouge qui agit, `#BC0404` réservé au logo, couleurs vives réservées aux coureurs, rien ne bouge près du texte à taper, erreurs jamais signalées par la couleur seule, cibles ≥ 44 px).
+- Logos : `design/logo/*.svg`, à copier dans `public/` sans les modifier.
+- Polices via `next/font/google` : Big Shoulders Display (800, 900), Instrument Serif (400, normal et italique), Geist (400–700), Geist Mono (400, 500). Les exposer sous `--font-display`, `--font-serif`, `--font-sans`, `--font-mono`.
+- Si une demande contredit le design, signale-le avant de coder. Pour une nouveauté (couleur, composant), propose d'abord l'ajout dans `tokens.css` et le README.
+- Avant de dire qu'un écran est terminé, fais la liste de vérification de la section 7 du README et compare une capture à 1440, 1024 et 390 px avec l'image de référence.

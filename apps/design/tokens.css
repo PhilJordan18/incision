@@ -1,0 +1,98 @@
+/* =====================================================================
+   INCISION — jetons de design (source de vérité)
+   À importer dans app/globals.css :  @import "tailwindcss"; @import "./tokens.css";
+   Tailwind v4 : chaque variable --color-* devient une classe (bg-abysse,
+   text-ecume, border-houle…), --font-* devient font-display, font-mono…
+   NE JAMAIS écrire une couleur hexadécimale ailleurs que dans ce fichier.
+   ===================================================================== */
+
+@theme {
+  /* ---------- Neutres de nuit (thème Abysse, par défaut) ---------- */
+  --color-abysse: #05070D;   /* fond de page */
+  --color-nuit: #0C1424;     /* surface : cartes, champs, panneaux */
+  --color-mer: #0B1A30;      /* fond de la piste de course */
+  --color-sillage: #16233A;  /* séparateurs fins, piste vide, bouton désactivé */
+  --color-houle: #22324D;    /* bordures */
+  --color-ombre: #4A5A73;    /* texte retiré (Arcade), barré */
+  --color-voile: #6B7C96;    /* texte à venir estompé, désactivé */
+  --color-brume: #8A9BB5;    /* texte secondaire, étiquettes */
+  --color-embrun: #C9D3E1;   /* texte secondaire fort, liens au repos */
+  --color-ecume: #EEF2F7;    /* texte principal */
+
+  /* ---------- Rouge : arrivée, action, erreur ---------- */
+  --color-redline: #BC0404;  /* LOGO SEULEMENT (3,0:1 sur Abysse : jamais du texte) */
+  --color-action: #D41F27;   /* bouton primaire, texte blanc 5,2:1 */
+  --color-ligne: #EB3B44;    /* ligne d'arrivée, survol primaire, texte rouge sur nuit 5,0:1 */
+  --color-erreur: #FF8A90;   /* texte et contour d'erreur */
+  --color-erreur-fond: #3A1219; /* fond du caractère faux, badge DNF */
+
+  /* ---------- Lumières des coureurs ---------- */
+  --color-moi: #5BD6FF;      /* moi, focus clavier, sélection */
+  --color-or: #FFB347;       /* 1er, record, avertissement */
+  --color-juste: #5BE3A6;    /* caractère juste, « prêt », voisin */
+  --color-arcade: #B48CFF;   /* mode Arcade, bonus, voisin */
+  --color-point-logo: #06A0FF; /* point central de l'icône seulement */
+
+  /* ---------- Typographie ---------- */
+  --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif; /* 800–900, MAJUSCULES */
+  --font-serif: "Instrument Serif", Georgia, serif;                    /* 1 mot clé en italique, ambiance */
+  --font-sans: "Geist", "Helvetica Neue", sans-serif;                  /* interface */
+  --font-mono: "Geist Mono", ui-monospace, monospace;                  /* texte à taper, étiquettes [.X] */
+
+  /* ---------- Rayons ---------- */
+  --radius-puce: 6px;
+  --radius-bouton: 8px;
+  --radius-carte: 12px;
+
+  /* ---------- Mouvement ---------- */
+  --ease-incision: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-court: 200ms;
+  --duration-moyen: 400ms;
+  --duration-depassement: 600ms;
+
+  /* ---------- Mise en page ---------- */
+  --container-page: 1344px;  /* max-w-page */
+}
+
+/* ---------- Variante claire « Aube » (exigée par le cahier) ----------
+   Activer avec <html data-theme="aube">. Mêmes rôles, accents assombris. */
+[data-theme="aube"] {
+  --color-abysse: #F3F5F8;
+  --color-nuit: #FFFFFF;
+  --color-mer: #E6EBF2;
+  --color-sillage: #E1E6EE;
+  --color-houle: #C9D3E1;
+  --color-ombre: #8A9BB5;
+  --color-voile: #6B7C96;
+  --color-brume: #4A5A73;
+  --color-embrun: #22324D;
+  --color-ecume: #0A1020;
+  --color-action: #C81E25;
+  --color-ligne: #C81E25;
+  --color-erreur: #B3141C;
+  --color-erreur-fond: #FCE4E6;
+  --color-moi: #0077A8;
+  --color-or: #A15C00;
+  --color-juste: #08784A;
+  --color-arcade: #6A3FC8;
+}
+
+/* ---------- Base ---------- */
+html { background: var(--color-abysse); color: var(--color-ecume); font-family: var(--font-sans); }
+body { margin: 0; font-size: 16px; line-height: 1.5; }
+:focus-visible { outline: 3px solid var(--color-moi); outline-offset: 3px; }
+
+/* Étiquette en crochets : [.SALLE 4B] */
+.etiquette { font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-brume); }
+
+/* Texte de course */
+.course-texte   { font-family: var(--font-mono); font-size: 26px; line-height: 2.1; color: var(--color-brume); }
+.course-juste   { color: var(--color-ecume); text-decoration: underline 3px var(--color-juste); text-underline-offset: 7px; }
+.course-erreur  { background: var(--color-erreur-fond); color: var(--color-erreur); text-decoration: underline wavy var(--color-erreur); text-underline-offset: 7px; }
+.course-bloque  { background: var(--color-erreur-fond); color: var(--color-erreur); outline: 2px solid var(--color-erreur); border-radius: 3px; }
+.course-curseur { border-left: 2px solid var(--color-ecume); }
+.course-retire  { color: var(--color-ombre); text-decoration: line-through; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 150ms !important; }
+}
