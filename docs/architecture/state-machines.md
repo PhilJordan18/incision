@@ -1,88 +1,88 @@
-# États, présence et classement
+# States, presence and ranking
 
-Alignement du 2 octobre 2026. L'[énoncé final](../Web-V-Travail-de-session.pdf) remplace les anciens délais et classements. Le serveur valide rôle, identité, phase et révision avant chaque transition.
+Alignment of October 2, 2026. The [final brief](../Web-V-Travail-de-session.pdf) replaces the former delays and rankings. The server validates role, identity, phase and revision before each transition.
 
-## 1. Salle et manche
+## 1. Room and round
 
-La salle persiste entre les courses. Sa phase suit exactement la séquence métier COURSE-01, représentée dans [ARCHITECTURE.md](../ARCHITECTURE.md). La configuration mutable de salle devient un snapshot de manche au lancement.
+The room persists between races. Its phase follows exactly the COURSE-01 business sequence, shown in [ARCHITECTURE.md](../ARCHITECTURE.md), with the official state names EN_ATTENTE (waiting), DECOMPTE (countdown), EN_COURSE (racing), RESULTATS (results) and FERMEE (closed). The room's mutable configuration becomes a round snapshot at start.
 
-| Transition | Garde et effet |
+| Transition | Guard and effect |
 |---|---|
-| Création → EN_ATTENTE | Compte authentifié uniquement; il devient hôte participant ou spectateur. Code de 6 caractères. |
-| EN_ATTENTE → DECOMPTE | Hôte, 2..capacité participants dont au moins un humain présent; bots inclus, spectateurs exclus. Figer texte/configuration/entrants; révéler le texte maintenant, jamais avant. |
-| DECOMPTE → EN_COURSE | Horloge serveur après **3 secondes**, départ commun. Aucune frappe anticipée acceptée. |
-| EN_COURSE → RESULTATS | Tous FINISHED/ABANDONED, ou timer expiré; attribuer TIMED_OUT aux entrants encore actifs, puis persister une fois. |
-| RESULTATS → EN_ATTENTE | Hôte prépare une nouvelle manche avec les membres restants; configuration de nouveau modifiable. |
-| EN_ATTENTE/RESULTATS → FERMEE | Fermeture par l'hôte; invalider liens et admissions, libérer les présences. |
-| Toute phase ouverte → FERMEE | Après départ/expiration de l'hôte, aucun successeur humain connecté : fermer selon SALLE-08. Si course active, conserver une trace d'interruption, sans faux résultat achevé. |
+| Creation → EN_ATTENTE | Authenticated account only; it becomes the host, as participant or spectator. 6-character code. |
+| EN_ATTENTE → DECOMPTE | Host, 2..capacity participants including at least one present human; bots included, spectators excluded. Freeze text/configuration/entrants; reveal the text now, never before. |
+| DECOMPTE → EN_COURSE | Server clock after **3 seconds**, common start. No early keystroke accepted. |
+| EN_COURSE → RESULTATS | All FINISHED/ABANDONED, or timer expired; assign TIMED_OUT to the entrants still active, then persist once. |
+| RESULTATS → EN_ATTENTE | The host prepares a new round with the remaining members; configuration editable again. |
+| EN_ATTENTE/RESULTATS → FERMEE | Closure by the host; invalidate links and admissions, release the presences. |
+| Any open phase → FERMEE | After the host's departure/expiry, no connected human successor: close according to SALLE-08. If a race is active, keep a trace of the interruption, without a fake completed result. |
 
-Choix de portée : pas de bouton « annuler la course en cours pour changer les réglages » avant les obligations finales. L'hôte peut partir et transmettre son rôle; les réglages se changent entre les manches. Pas d'hôte système ni de départ automatique de matchmaking. Un contrôle « prêt » n'est pas requis par COURSE-02 et n'est pas ajouté comme condition obligatoire.
+Scope choice: no "cancel the current race to change the settings" button before the final obligations. The host can leave and hand over their role; settings are changed between rounds. No system host and no automatic matchmaking start. A "ready" check is not required by COURSE-02 and is not added as a mandatory condition.
 
-## 2. Admission et présence
+## 2. Admission and presence
 
-| État de salle | Nouvelle personne | Même membre qui se reconnecte |
+| Room state | New person | Same member reconnecting |
 |---|---|---|
-| EN_ATTENTE / RESULTATS | Oui, selon visibilité, capacité, bannissement et unicité. | Snapshot de la salle; même membre dans la période de grâce. |
-| DECOMPTE / EN_COURSE | Non, **même pour un nouveau spectateur**. | Oui pendant 30 secondes, pour la place déjà détenue; sinon plus de reprise de cette manche. |
-| FERMEE | Non. | Historique accessible au compte selon ses droits, mais pas de réadmission. |
+| EN_ATTENTE / RESULTATS | Yes, depending on visibility, capacity, ban and uniqueness. | Room snapshot; same member within the grace period. |
+| DECOMPTE / EN_COURSE | No, **not even as a new spectator**. | Yes for 30 seconds, for the spot already held; after that, no more resumption of this round. |
+| FERMEE | No. | History accessible to the account according to its rights, but no readmission. |
 
-PUBLIC : accès direct/code, explorateur et quickplay. CODE : code/lien sans référencement. PRIVATE : lien seulement, jamais code. Les trois politiques ne sont pas deux variantes d'une « salle privée ».
+PUBLIC: direct access/code, explorer and quickplay. CODE: code/link without listing. PRIVATE: link only, never code. The three policies are not two variants of a "private room".
 
-Une personne est représentée par une identité de compte ou un cookie invité signé. Plusieurs sockets/onglets se rattachent au même membre. Seule la fermeture de la dernière connexion commence la grâce. Pour la saisie, une seule connexion détient le contrôle d'un entrant à la fois; le second onglet observe ou demande le transfert explicite du contrôle.
+A person is represented by an account identity or a signed guest cookie. Several sockets/tabs attach to the same member. Only closing the last connection starts the grace period. For input, only one connection controls an entrant at a time; the second tab observes or requests an explicit transfer of control.
 
-## 3. Coureur et déconnexion
+## 3. Runner and disconnection
 
 ```mermaid
 stateDiagram-v2
   [*] --> INSCRIT
-  INSCRIT --> ACTIF: départ
-  INSCRIT --> ABANDONED: départ volontaire pendant le décompte
-  ACTIF --> FINISHED: cible effective terminée
-  ACTIF --> TIMED_OUT: timer atteint
-  ACTIF --> ABANDONED: abandon confirmé ou grâce expirée
+  INSCRIT --> ACTIF: start
+  INSCRIT --> ABANDONED: voluntary leave during the countdown
+  ACTIF --> FINISHED: effective target completed
+  ACTIF --> TIMED_OUT: timer reached
+  ACTIF --> ABANDONED: confirmed abandonment or grace period expired
   FINISHED --> [*]
   TIMED_OUT --> [*]
   ABANDONED --> [*]
 ```
 
-Connexion orthogonale : CONNECTED → GRACE → CONNECTED, ou GRACE → EXPIRED. Le temps de grâce est **30 000 ms**, en attente aussi par choix de conception. Retour accepté jusqu'à l'échéance incluse si la phase le permet; événement reçu après l'échéance refusé. Le serveur compare l'horloge à l'échéance, même si son traitement du timer est retardé.
+In this diagram, INSCRIT means registered and ACTIF means active. Orthogonal connection state: CONNECTED → GRACE → CONNECTED, or GRACE → EXPIRED. The grace period is **30 000 ms**, also while waiting, as a design choice. A return is accepted up to and including the deadline if the phase allows it; an event received after the deadline is refused. The server compares the clock with the deadline, even if its processing of the timer is delayed.
 
-- La course continue pendant la coupure; la progression acceptée est conservée.
-- Expiration de grâce : ABANDONED, motif DISCONNECTION_TIMEOUT, progression figée à la dernière saisie acceptée.
-- Timer de course expirant **avant** la grâce : TIMED_OUT, même si l'entrant est momentanément absent. Une déconnexion ne devient pas un abandon avant les 30 secondes.
-- Pour deux échéances identiques, traiter d'abord la fin du temps de course : choix déterministe documenté.
-- Départ volontaire de salle en course ou abandon confirmé : ABANDONED immédiatement, sans reprendre cette manche.
-- Un résultat terminal est immuable. Les paquets retardés/rejoués n'améliorent jamais le rang ni le résultat.
-- Coupure pendant le décompte : l'entrant reste inscrit, la grâce commence, la course démarre à l'heure prévue. Une reprise valide rejoint le temps courant, pas un nouveau départ.
+- The race continues during the disconnection; accepted progress is kept.
+- Grace period expiry: ABANDONED, reason DISCONNECTION_TIMEOUT, progress frozen at the last accepted input.
+- Race timer expiring **before** the grace period: TIMED_OUT, even if the entrant is momentarily absent. A disconnection does not become an abandonment before the 30 seconds.
+- For two identical deadlines, process the end of the race time first: documented deterministic choice.
+- Voluntary departure from the room during a race, or confirmed abandonment: ABANDONED immediately, without resuming this round.
+- A terminal result is immutable. Delayed/replayed packets never improve the rank or the result.
+- Disconnection during the countdown: the entrant stays registered, the grace period starts, the race starts at the scheduled time. A valid resumption joins at the current time, not at a new start.
 
-## 4. Hôte
+## 4. Host
 
-Départ volontaire : transférer au plus ancien humain **encore connecté au réseau**, participant ou spectateur; égalité départagée par identifiant stable. Un bot n'est jamais éligible. Si aucun humain ne reste, fermer la salle.
+Voluntary departure: transfer to the most senior human **still connected to the network**, participant or spectator; ties broken by stable identifier. A bot is never eligible. If no human remains, close the room.
 
-Interprétation de SALLE-08 : un invité déjà présent peut hériter du rôle, puisqu'il est humain; AUTH-03 interdit de **créer**, pas explicitement d'hériter. Cette interprétation est consignée dans EXIGENCES et peut être ajustée si le prof précise « compte authentifié ». Ne pas y ajouter un successeur préféré qui contourne l'ancienneté imposée.
+Interpretation of SALLE-08: a guest already present can inherit the role, since they are human; AUTH-03 forbids **creating**, not explicitly inheriting. This interpretation is recorded in EXIGENCES and may be adjusted if the teacher specifies "authenticated account". Do not add a preferred successor that bypasses the imposed seniority.
 
-Coupure courte : conserver le rôle pendant les 30 secondes; les actions d'hôte restent indisponibles durant cette absence. Expiration : même traitement qu'un départ. La sélection et l'écriture du nouvel hôte sont atomiques. La fermeture d'un onglet ne provoque pas de succession si une autre connexion du même membre est active.
+Short disconnection: keep the role for the 30 seconds; host actions stay unavailable during this absence. Expiry: same handling as a departure. Selecting and writing the new host are atomic. Closing a tab does not trigger a succession if another connection of the same member is active.
 
-## 5. Classement et bonus
+## 5. Ranking and bonuses
 
-1. FINISHED : temps serveur d'arrivée croissant.
-2. TIMED_OUT : fraction de progression décroissante.
-3. ABANDONED : fraction de progression figée au moment de l'abandon, décroissante.
+1. FINISHED: increasing server arrival time.
+2. TIMED_OUT: decreasing progress fraction.
+3. ABANDONED: progress fraction frozen at the time of abandonment, decreasing.
 
-Égalités exactes : précision décroissante puis identifiant stable; ces critères ne peuvent jamais faire passer un abandonnant devant un finisseur. Le MPM reste une statistique, pas le premier critère des finisseurs.
+Exact ties: decreasing accuracy, then stable identifier; these criteria can never place an abandoning entrant ahead of a finisher. MPM remains a statistic, not the first criterion for finishers.
 
-Progression = avancement validé / longueur effective individuelle. Les bonus modifient uniquement le texte restant; ni retrait de frappes déjà validées ni crédit artificiel de MPM. Un seuil de bonus déjà franchi ne se redéclenche pas si le meneur change ou si sa progression recule après ajout de mots. Règles initiales des bonus dans EXIGENCES.
+Progress = validated advancement / individual effective length. Bonuses only change the remaining text; no removal of already validated keystrokes and no artificial MPM credit. A bonus threshold already crossed does not trigger again if the leader changes or if their progress goes back after words are added. Initial bonus rules in EXIGENCES.
 
-## 6. Tests de frontières prévus
+## 6. Planned boundary tests
 
-- 1 humain + 1 bot accepté; 2 bots refusés; hôte spectateur non compté.
-- Capacité 30, 31e refusé; spectateur non compté; admissions concurrentes sans dépassement.
-- Code privé refusé; invitation réutilisée par même identité/IP, refusée par autre IP ou autre identité derrière le même NAT.
-- Admission pendant décompte/course refusée; reprise d'un membre existant autorisée dans la grâce.
-- Retour à 29 999 / 30 000 / 30 001 ms; timer de course avant/après grâce; deux onglets.
-- Succession à un spectateur ou invité ancien; aucun humain restant; expulsions et liens révoqués.
-- Départ reçu deux fois, finalisation reçue deux fois, message d'une ancienne course, bonus reçu deux fois.
-- Finisseur plus lent en MPM mais arrivé avant un autre : son temps d'arrivée reste prioritaire.
-- Mode libre, correction obligatoire, Unicode, zéro frappe, bonus modifiant la cible et MPM cohérents.
+- 1 human + 1 bot accepted; 2 bots refused; spectator host not counted.
+- Capacity 30, 31st refused; spectator not counted; concurrent admissions without exceeding capacity.
+- Private code refused; invitation reused by the same identity/IP, refused from another IP or for another identity behind the same NAT.
+- Admission during countdown/race refused; resumption by an existing member allowed within the grace period.
+- Return at 29 999 / 30 000 / 30 001 ms; race timer before/after the grace period; two tabs.
+- Succession to a senior spectator or guest; no human remaining; kicks and revoked links.
+- Start received twice, finalisation received twice, message from an old race, bonus received twice.
+- Finisher slower in MPM but arrived before another: their arrival time keeps priority.
+- Free mode, mandatory correction, Unicode, zero keystrokes, bonus changing the target and consistent MPM.
 
-Au checkpoint, automatiser prioritairement identité/permissions, code, admission, unicité multi-onglet et présence. Les tests de course deviennent obligatoires avec l'implémentation correspondante.
+At the checkpoint, automate first identity/permissions, code, admission, multi-tab uniqueness and presence. Race tests become mandatory with the corresponding implementation.

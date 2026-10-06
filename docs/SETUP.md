@@ -1,33 +1,33 @@
-# Installer et lancer le projet
+# Install and run the project
 
-Ce guide part d'une copie du dépôt `incision/`. L'application Next.js existe déjà dans `apps/web`; les commandes ci-dessous préparent un environnement local. Elles ne publient pas le site.
+This guide starts from a copy of the `incision/` repository. The Next.js application already exists in `apps/web`; the commands below prepare a local environment. They do not publish the site.
 
-## Outils
+## Tools
 
-Utiliser Node.js 24, npm 11, Git et Docker. Démarrer Docker Desktop pour la base locale. GitHub héberge le dépôt; la CI/CD et le serveur HTTPS restent à configurer. Philippe confirme le 3 octobre que le cégep ne fournit pas de serveur et que le budget est de **0 $ à débourser**. Première piste : VM sous Azure for Students, si admissibilité et crédit confirmés, sans conversion payante. Voir [le plan d'hébergement](architecture/verification.md#hébergement-sans-dépense). Un éditeur avec support TypeScript est recommandé.
+Use Node.js 24, npm 11, Git and Docker. Start Docker Desktop for the local database. GitHub hosts the repository; CI/CD and the HTTPS server are still to be configured. On October 3, Philippe confirmed that the cégep does not provide a server and that the budget is **$0 out of pocket**. First option: a VM under Azure for Students, if eligibility and credit are confirmed, without converting to a paid plan. See [the hosting plan](architecture/verification.md#hosting-without-spending). An editor with TypeScript support is recommended.
 
-## 1. Se placer à la racine du dépôt
+## 1. Go to the repository root
 
-Sur cette machine, depuis le Terminal :
+On this machine, from the Terminal:
 
 ```sh
 cd ~/Projects/incision
 ```
 
-Sur une autre machine, cloner d'abord le dépôt GitHub et entrer dans son dossier. Ne jamais commiter `.env`; le fichier est ignoré par Git.
+On another machine, first clone the GitHub repository and enter its folder. Never commit `.env`; the file is ignored by Git.
 
-## 2. Installer les dépendances et lancer Next.js
+## 2. Install the dependencies and run Next.js
 
 ```sh
 npm ci
 npm run dev -w @incision/web
 ```
 
-Ouvrir `http://localhost:3000` pour vérifier l'écran initial. React, Next.js, TypeScript, Tailwind CSS et l'App Router sont installés. Le serveur temps réel et l'authentification ne sont **pas encore implémentés**.
+Open `http://localhost:3000` to check the initial screen. React, Next.js, TypeScript, Tailwind CSS and the App Router are installed. The realtime server and authentication are **not implemented yet**.
 
-**Contrainte TypeScript stricte.** Le code produit utilise `.ts`/`.tsx`; la configuration PostCSS est en JSON. `tsconfig.json` désactive `allowJs`. Les fichiers JavaScript des dépendances dans `node_modules` ne sont pas du code rédigé pour ce projet.
+**Strict TypeScript constraint.** Product code uses `.ts`/`.tsx`; the PostCSS configuration is in JSON. `tsconfig.json` disables `allowJs`. The JavaScript files of the dependencies in `node_modules` are not code written for this project.
 
-## 3. Démarrer PostgreSQL local
+## 3. Start local PostgreSQL
 
 ```sh
 cp -n .env.example .env
@@ -35,28 +35,28 @@ docker compose up -d db
 docker compose ps
 ```
 
-Le mot de passe fourni est **uniquement pour le développement local**. Le déploiement utilisera un secret distinct chez l'hébergeur, jamais commité. Si le port 5432 est occupé, modifier le port exposé dans `compose.yaml` et l'URL locale de connexion de concert.
+The provided password is **for local development only**. Deployment will use a separate secret at the hosting provider, never committed. If port 5432 is already in use, change the exposed port in `compose.yaml` and the local connection URL together.
 
-## 4. Ajouter les modules de l'application
+## 4. Add the application modules
 
-Créer ensuite `packages/domain`, `packages/contracts` et `packages/database` avec leurs propres `package.json` TypeScript. Installer `drizzle-orm` et `pg` dans le module de base de données, puis `drizzle-kit` et `@types/pg` comme dépendances de développement. Choisir des versions **stables verrouillées par `package-lock.json`**, vérifiées au moment de l'installation, et tester les migrations avant application à une base distante.
+Then create `packages/domain`, `packages/contracts` and `packages/database`, each with its own TypeScript `package.json`. Install `drizzle-orm` and `pg` in the database module, then `drizzle-kit` and `@types/pg` as development dependencies. Choose **stable versions locked by `package-lock.json`**, checked at installation time, and test migrations before applying them to a remote database.
 
-Le premier schéma doit suivre la [coupe checkpoint du modèle de données](architecture/data-model.md#coupe-de-données-pour-le-checkpoint-1). Générer des migrations versionnées avec Drizzle Kit (`generate`, puis `migrate`); ne pas utiliser `push` comme mécanisme de production. Pour ce checkpoint, implémenter la création/admission de salle avant la synchronisation Socket.IO des membres; la machine complète de manche ne doit pas retarder cette preuve minimale. Les scripts `next dev` et `next start` actuels ne lancent pas Socket.IO : ils devront être adaptés lorsque le serveur personnalisé sera ajouté.
+The first schema must follow the [checkpoint slice of the data model](architecture/data-model.md#data-slice-for-checkpoint-1). Generate versioned migrations with Drizzle Kit (`generate`, then `migrate`); do not use `push` as a production mechanism. For this checkpoint, implement room creation/admission before the Socket.IO synchronisation of members; the full round state machine must not delay this minimal proof. The current `next dev` and `next start` scripts do not start Socket.IO: they will have to be adapted when the custom server is added.
 
-## 5. Vérifications du checkpoint
+## 5. Checkpoint checks
 
-La cible est démontrable, pas seulement documentée :
+The target is demonstrable, not just documented:
 
-1. Serveur HTTPS public, authentification **GitHub et Discord**, PostgreSQL et migrations fonctionnels. Connexion locale également prévue pour les tests Playwright.
-2. Salle créée puis rejointe par code, deux navigateurs synchronisés en temps réel.
-3. `docs/ARCHITECTURE.md` : modèle de données, machine à états, ADR temps réel et approche des bots; `docs/DEMARCHE-CREATIVE.md` complet avec preuves humaines de nom/logo et identité appliquée.
-4. CI à chaque push : lint, TypeScript, tests et build; déploiement automatique après succès.
-5. Langue et thème accessibles dans les pages existantes; `docs/EXIGENCES.md` listant tous les IDs officiels, états sincères et tests réels.
+1. Public HTTPS server, **GitHub and Discord** authentication, working PostgreSQL and migrations. Local sign-in also planned for Playwright tests.
+2. Room created then joined by code, two browsers synchronised in real time.
+3. `docs/ARCHITECTURE.md`: data model, state machine, realtime ADR and bot approach; complete `docs/DEMARCHE-CREATIVE.md` with human evidence for the name/logo and the applied identity.
+4. CI on every push: lint, TypeScript, tests and build; automatic deployment after success.
+5. Language and theme accessible on the existing pages; `docs/EXIGENCES.md` listing all official IDs, honest statuses and real tests.
 
-Les points 1, 2 et 4 demandent encore une implémentation et une configuration externe. Ne pas les présenter comme acquis parce que ces documents existent. Pour le squelette actuel, lancer `npm run lint -w @incision/web` et `npm run build -w @incision/web`.
+Points 1, 2 and 4 still require implementation and external configuration. Do not present them as achieved because these documents exist. For the current skeleton, run `npm run lint -w @incision/web` and `npm run build -w @incision/web`.
 
-## Références officielles
+## Official references
 
 - [Next.js — `create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app)
 - [npm — workspaces](https://docs.npmjs.com/cli/v11/using-npm/workspaces/)
-- [Drizzle — PostgreSQL](https://orm.drizzle.team/docs/get-started/postgresql-new) et [migrations](https://orm.drizzle.team/docs/migrations)
+- [Drizzle — PostgreSQL](https://orm.drizzle.team/docs/get-started/postgresql-new) and [migrations](https://orm.drizzle.team/docs/migrations)

@@ -1,12 +1,12 @@
-# Index de l'architecture
+# Architecture index
 
-La référence d'entrée demandée par l'énoncé est désormais [docs/ARCHITECTURE.md](../ARCHITECTURE.md), alignée le 2 octobre 2026. Les anciennes règles incompatibles avec l'énoncé final ont été remplacées; le cahier remis demeure inchangé.
+The entry reference required by the brief is now [docs/ARCHITECTURE.md](../ARCHITECTURE.md), aligned on October 2, 2026. The old rules that were incompatible with the final brief have been replaced; the submitted specification remains unchanged.
 
-- [Architecture, diagrammes et approche des bots](../ARCHITECTURE.md)
-- [Modèle de données, contraintes et transactions](data-model.md)
-- [Machines à états et cas limites](state-machines.md)
-- [ADR-0001 : temps réel](../adr/0001-temps-reel.md)
-- [Plan et preuves du checkpoint puis de la remise finale](verification.md)
-- [Matrice des 90 exigences et décisions d'interprétation](../EXIGENCES.md)
+- [Architecture, diagrams and bots approach](../ARCHITECTURE.md)
+- [Data model, constraints and transactions](data-model.md)
+- [State machines and edge cases](state-machines.md)
+- [ADR-0001: realtime](../adr/0001-realtime.md)
+- [Plan and evidence for the checkpoint, then the final submission](verification.md)
+- [Requirements matrix of the 90 requirements and interpretation decisions](../EXIGENCES.md)
 
-Les documents décrivent la cible. Ils ne prouvent ni migration exécutée, ni authentification, ni application déployée. Le statut de livraison se trouve dans la matrice; ne pas reprendre les anciens identifiants du cahier (`ID-*`, `SAL-*`, `RAC-*`) à la place des identifiants officiels (`AUTH-*`, `SALLE-*`, `COURSE-*`).
+The documents describe the target. They prove neither an executed migration, nor authentication, nor a deployed application. The delivery status is in the requirements matrix; do not reuse the specification's old identifiers (`ID-*`, `SAL-*`, `RAC-*`) instead of the official identifiers (`AUTH-*`, `SALLE-*`, `COURSE-*`).

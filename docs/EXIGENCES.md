@@ -1,190 +1,190 @@
-# Matrice des exigences — énoncé final
+# Requirements matrix — final brief
 
-État observé le **2 octobre 2026**, actualisé le **3 octobre** pour la DA complète, les décisions de Philippe et l'hébergement. Les **90 identifiants officiels** ci-dessous proviennent de [Web-V-Travail-de-session.pdf](Web-V-Travail-de-session.pdf). Cette matrice remplace les anciens IDs du cahier pour le suivi de réalisation, sans modifier le [cahier remis](cahier-des-charges-incision.pdf).
+Status observed on **October 2, 2026**, updated on **October 3** for the complete art direction, Philippe's decisions and hosting. The **90 official identifiers** below come from [Web-V-Travail-de-session.pdf](Web-V-Travail-de-session.pdf). This requirements matrix replaces the specification's old IDs for tracking implementation, without modifying the [submitted specification](cahier-des-charges-incision.pdf).
 
-**Statuts :** complet = comportement livré et vérifié; partiel = une partie seulement existe; non fait = pas d'implémentation vérifiée. Une décision décrite dans l'architecture ne rend pas sa fonctionnalité complète. « — » dans les tests signifie **aucun test associé existant**, pas un test réussi. Les tests mentionnés dans les notes sont à écrire.
+**Statuses:** complete = behaviour delivered and verified; partial = only part of it exists; not done = no verified implementation. These labels translate the original French statuses one to one: complet → complete, partiel → partial, non fait → not done. A decision described in the architecture does not make its feature complete. "—" in the tests column means **no existing associated test**, not a passing test. The tests mentioned in the notes are still to be written.
 
-## Technique
+## Technical
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| TECH-01 | Next.js App Router et React, stable actuelle | partiel | apps/web/package.json; apps/web/src/app | — | Squelette installé; version stable à revérifier à la livraison. |
-| TECH-02 | TS uniquement, strict, aucun any explicite | partiel | apps/web/tsconfig.json; apps/web/eslint.config.ts | — | Configurations TS/JSON; règle no-explicit-any en erreur et vérification automatisée à garantir. |
-| TECH-03 | Tailwind CSS | partiel | apps/web/src/app/globals.css; apps/web/postcss.config.json | — | Intégré au gabarit, pas encore appliqué à l'interface produit. |
-| TECH-04 | PostgreSQL, ORM, migrations, seed textes/comptes/historique | partiel | compose.yaml | — | BD locale prévue; Drizzle, migrations et seed non créés. |
-| TECH-05 | Serveur/VPS, HTTPS public au checkpoint et à la finale | non fait | — | — | Cégep indisponible; piste VM Azure for Students à vérifier; repli PaaS soumis à accord du prof. |
-| TECH-06 | Progression temps réel, transport libre | non fait | — | — | Socket.IO retenu; ADR-0001, pas de serveur implémenté. |
-| TECH-07 | Schémas sur toutes les entrées serveur | non fait | — | — | Zod prévu pour HTTP, actions et événements. |
-| TECH-08 | Serveur à charge ou cégep; autres services gratuits | non fait | — | — | Contrainte personnelle : 0 $ à débourser. Crédit étudiant possible, sans conversion payante; infrastructure à vérifier. |
-| TECH-09 | GitHub Actions : lint, tsc sans émission, unités à chaque push | non fait | — | — | Aucun workflow; build supplémentaire et déploiement après succès prévus. |
-| TECH-10 | .env.example complet, aucun secret commité | partiel | .env.example; .gitignore | — | Variables BD locales seulement; compléter avec OAuth, sessions, HTTPS et déploiement. |
+| TECH-01 | Next.js App Router and React, current stable version | partial | apps/web/package.json; apps/web/src/app | — | Skeleton installed; stable version to be re-checked at delivery. |
+| TECH-02 | TS only, strict, no explicit any | partial | apps/web/tsconfig.json; apps/web/eslint.config.ts | — | TS/JSON configurations; no-explicit-any rule set to error and automated check still to be guaranteed. |
+| TECH-03 | Tailwind CSS | partial | apps/web/src/app/globals.css; apps/web/postcss.config.json | — | Integrated in the template, not yet applied to the product interface. |
+| TECH-04 | PostgreSQL, ORM, migrations, seed of texts/accounts/history | partial | compose.yaml | — | Local database planned; Drizzle, migrations and seed not created. |
+| TECH-05 | Server/VPS, public HTTPS at the checkpoint and at the final | not done | — | — | Cégep unavailable; Azure for Students VM option to be verified; PaaS fallback subject to the teacher's agreement. |
+| TECH-06 | Realtime progress, free choice of transport | not done | — | — | Socket.IO selected; ADR-0001, no server implemented. |
+| TECH-07 | Schemas on all server inputs | not done | — | — | Zod planned for HTTP, actions and events. |
+| TECH-08 | Server at own expense or cégep; other services free | not done | — | — | Personal constraint: $0 out of pocket. Student credit possible, without paid conversion; infrastructure to be verified. |
+| TECH-09 | GitHub Actions: lint, tsc without emit, unit tests on every push | not done | — | — | No workflow; additional build and deployment after success planned. |
+| TECH-10 | Complete .env.example, no committed secret | partial | .env.example; .gitignore | — | Local database variables only; to be completed with OAuth, sessions, HTTPS and deployment. |
 
 ## Design
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| DES-01 | Nom original créé par l'étudiant sans IA, démarche écrite | partiel | docs/da/da_incision.pdf | — | Incision confirmé par Philippe le 3 octobre; démarche présente pp.10–11; entrée Markdown absente. |
-| DES-02 | Logo étudiant sans IA, croquis, app et favicon | partiel | docs/da/da_incision.pdf | — | Concept et déclinaisons pp.14–15; croquis de l'étudiant et export source à fournir/vérifier, app non intégrée. |
-| DES-03 | DA préalable, moodboard 3–5 refs, palette, typographies | partiel | docs/da/da_incision.pdf | — | 24 pages complètes : cinq références, palette p.16, typographies p.17; entrée Markdown et adaptations ci-dessous restantes. |
-| DES-04 | Design propre, piste signature, pas de gabarit générique | non fait | — | — | Intention de route verticale conservée; aucun écran produit implémenté. |
-| DES-05 | Clair/sombre, défaut système, sélecteur sans flash | non fait | — | — | Les styles système du gabarit ne suffisent pas; pas d'exception mono-thème décidée. |
-| DES-06 | Pages ≥360 px; message clavier physique à la place de la course mobile | non fait | — | — | Remplace l'ancienne proposition « téléphone spectateur ». |
+| DES-01 | Original name created by the student without AI, written process | partial | docs/da/da_incision.pdf | — | Incision confirmed by Philippe on October 3; process present pp.10–11; Markdown entry missing. |
+| DES-02 | Student logo without AI, sketches, app and favicon | partial | docs/da/da_incision.pdf | — | Concept and variations pp.14–15; student's sketches and source export to be provided/verified, app not integrated. |
+| DES-03 | Prior art direction, moodboard of 3–5 refs, palette, typefaces | partial | docs/da/da_incision.pdf | — | 24 complete pages: five references, palette p.16, typefaces p.17; Markdown entry and adaptations below remaining. |
+| DES-04 | Own design, signature track, no generic template | not done | — | — | Vertical road intention kept; no product screen implemented. |
+| DES-05 | Light/dark, system default, flash-free selector | not done | — | — | The template's system styles are not enough; no single-theme exception decided. |
+| DES-06 | Pages ≥360 px; physical keyboard message instead of the race on mobile | not done | — | — | Replaces the former "spectator phone" proposal. |
 
-## Identité
+## Identity
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| AUTH-01 | OAuth GitHub ET Discord; identifiants locaux permis | non fait | — | — | Les deux OAuth sont requis au checkpoint; local également retenu pour TEST-03. |
-| AUTH-02 | Invité avec pseudo 3–20 caractères et cookie signé | non fait | — | — | Identité distincte du socket; décisions D-04, D-07. |
-| AUTH-03 | Invité sans création de salle, photo ni historique persistant | non fait | — | — | Avatar généré; aucun transfert d'historique invité au compte. D-03/D-08. |
-| AUTH-04 | Photo JPEG/PNG/WebP ≤2 Mo, validation serveur, redimensionnement | non fait | — | — | Stockage persistant local envisageable, pas de service payant nécessaire. |
-| AUTH-05 | Modification du pseudo d'affichage | non fait | — | — | Séparé de l'identifiant local et du sujet OAuth. |
-| AUTH-06 | Profil : meilleurs/moyens MPM, précision, courses/victoires, courbe | non fait | — | — | Profil personnel d'abord; réseau social hors périmètre noté. |
+| AUTH-01 | GitHub AND Discord OAuth; local credentials allowed | not done | — | — | Both OAuth providers are required at the checkpoint; local credentials also selected for TEST-03. |
+| AUTH-02 | Guest with a 3–20 character nickname and a signed cookie | not done | — | — | Identity distinct from the socket; decisions D-04, D-07. |
+| AUTH-03 | Guest without room creation, photo or persistent history | not done | — | — | Generated avatar; no transfer of guest history to the account. D-03/D-08. |
+| AUTH-04 | JPEG/PNG/WebP photo ≤2 MB, server validation, resizing | not done | — | — | Local persistent storage possible, no paid service needed. |
+| AUTH-05 | Editing the display name | not done | — | — | Separate from the local identifier and the OAuth subject. |
+| AUTH-06 | Profile: best/average MPM, accuracy, races/wins, curve | not done | — | — | Personal profile first; social network outside the graded scope. |
 
-## Salles
+## Rooms
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| SALLE-01 | Compte crée, devient hôte participant ou spectateur | non fait | — | — | Priorité checkpoint. |
-| SALLE-02 | Code unique de 6 caractères sans 0/O/1/I/L | non fait | — | — | Stocké lisible, génération aléatoire; D-01. |
-| SALLE-03 | PUBLIC / CODE / PRIVATE et accès correspondants | non fait | — | — | PRIVATE refuse toujours le code seul. |
-| SALLE-04 | Invitations fortes, suivi, liaison IP, reprise, révocation | non fait | — | — | 32 octets aléatoires; IP + session pour distinguer une classe sous NAT; D-02. |
-| SALLE-05 | Capacité 2–30 participants, bots inclus, spectateurs exclus | non fait | — | — | Remplace 50 humains; verrou de salle à l'admission. |
-| SALLE-06 | Une seule salle par personne, contrainte BD, pas de doublon onglet | non fait | — | — | Index uniques partiels par compte/session invitée; D-04. |
-| SALLE-07 | Expulsion participant/spectateur, réadmission interdite | non fait | — | — | Bannissement par identité et révocation des liens; pas par IP de classe entière. |
-| SALLE-08 | Succession au plus ancien humain connecté, sinon fermeture | non fait | — | — | Invité présent éligible selon interprétation D-03; aucun successeur préféré. |
-| SALLE-09 | Admission seulement en attente ou aux résultats | non fait | — | — | Pas de nouveau spectateur en course; reconnexion d'un membre distincte. |
-| SALLE-10 | Limiter tentatives de code par IP | non fait | — | — | Valeur initiale proposée 10/min; proxy connu, tests de dépassement. |
+| SALLE-01 | An account creates a room and becomes the host as participant or spectator | not done | — | — | Checkpoint priority. |
+| SALLE-02 | Unique 6-character code without 0/O/1/I/L | not done | — | — | Stored readable, random generation; D-01. |
+| SALLE-03 | PUBLIC / CODE / PRIVATE and the matching access | not done | — | — | PRIVATE always refuses the code alone. |
+| SALLE-04 | Strong invitations, tracking, IP binding, resumption, revocation | not done | — | — | 32 random bytes; IP + session to distinguish a class behind NAT; D-02. |
+| SALLE-05 | Capacity of 2–30 participants, bots included, spectators excluded | not done | — | — | Replaces 50 humans; room lock on admission. |
+| SALLE-06 | Only one room per person, database constraint, no duplicate through tabs | not done | — | — | Partial unique indexes per account/guest session; D-04. |
+| SALLE-07 | Kicking a participant/spectator, readmission forbidden | not done | — | — | Ban by identity and revocation of the links; not by IP for an entire class. |
+| SALLE-08 | Succession to the most senior connected human, otherwise closure | not done | — | — | Present guest eligible under interpretation D-03; no preferred successor. |
+| SALLE-09 | Admission only while waiting or at results | not done | — | — | No new spectator during a race; a member's reconnection is a separate case. |
+| SALLE-10 | Limit code attempts per IP | not done | — | — | Proposed initial value 10/min; known proxy, tests for exceeding the limit. |
 
-## Rejoindre
+## Joining
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| JOIN-01 | Champ de code dès l'accueil | non fait | — | — | Priorité checkpoint. |
-| JOIN-02 | Explorateur public temps réel, données et filtres langue/complexité | non fait | — | — | Développement après la coupe par code. |
-| JOIN-03 | Quickplay vers salle la plus remplie, puis la plus ancienne | non fait | — | — | D-05; si aucune : proposer création au compte, état vide à l'invité. |
+| JOIN-01 | Code field from the home page | not done | — | — | Checkpoint priority. |
+| JOIN-02 | Realtime public explorer, data and language/complexity filters | not done | — | — | Development after the by-code slice. |
+| JOIN-03 | Quickplay to the fullest room, then the oldest | not done | — | — | D-05; if none: offer creation to the account, empty state to the guest. |
 
 ## Configuration
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| CONF-01 | Aucun timer ou 30 secondes à 10 minutes | non fait | — | — | Estimation automatique ancienne non requise et différée. |
-| CONF-02 | Texte FR/EN indépendant de l'interface | non fait | — | — | Deux paramètres distincts. |
-| CONF-03 | Corpus cohérent en BD ou mots aléatoires du dictionnaire | non fait | — | — | Provenance des corpus/dictionnaires à fournir. |
-| CONF-04 | Nombre de mots configurable | non fait | — | — | D-10 : découpe aux frontières de mots; borne de sécurité documentée avant implémentation. |
-| CONF-05 | Trois complexités aux critères mesurables | non fait | — | — | D-10 définit les critères initiaux. |
-| CONF-06 | Ponctuation, nombres, majuscules, accents FR | non fait | — | — | Transformation déterministe avant snapshot; tester toutes combinaisons supportées. |
-| CONF-07 | Caractères inclus/exclus en aléatoire; décision pour cohérent | non fait | — | — | Désactivé en cohérent; refuser une combinaison aléatoire impossible, D-10. |
-| CONF-08 | Correction obligatoire ou libre | non fait | — | — | Même validateur serveur, règles de compteurs explicites D-09. |
-| CONF-09 | Bonus activés ou non | non fait | — | — | Aucun bonus attribué si désactivés. |
-| CONF-10 | Ajouter/retirer bots, choisir niveau | non fait | — | — | Cinq profils et capacité commune. |
-| CONF-11 | Visibilité et capacité configurables | non fait | — | — | Ne pas accepter une capacité inférieure aux participants présents. |
-| CONF-12 | Configuration synchronisée pour tous | non fait | — | — | Révision monotone, snapshot et autorisation hôte. |
+| CONF-01 | No timer, or 30 seconds to 10 minutes | not done | — | — | Former automatic estimate not required and deferred. |
+| CONF-02 | FR/EN text independent of the interface | not done | — | — | Two separate parameters. |
+| CONF-03 | Coherent corpus in the database or random dictionary words | not done | — | — | Provenance of the corpora/dictionaries to be provided. |
+| CONF-04 | Configurable word count | not done | — | — | D-10: cut at word boundaries; safety limit documented before implementation. |
+| CONF-05 | Three complexities with measurable criteria | not done | — | — | D-10 defines the initial criteria. |
+| CONF-06 | Punctuation, numbers, capitals, FR accents | not done | — | — | Deterministic transformation before the snapshot; test all supported combinations. |
+| CONF-07 | Included/excluded characters in random mode; decision for coherent mode | not done | — | — | Disabled in coherent mode; refuse an impossible random combination, D-10. |
+| CONF-08 | Mandatory or free correction | not done | — | — | Same server validator, explicit counter rules D-09. |
+| CONF-09 | Bonuses enabled or not | not done | — | — | No bonus awarded if disabled. |
+| CONF-10 | Add/remove bots, choose the level | not done | — | — | Five profiles and shared capacity. |
+| CONF-11 | Configurable visibility and capacity | not done | — | — | Do not accept a capacity lower than the participants present. |
+| CONF-12 | Configuration synchronised for everyone | not done | — | — | Monotonic revision, snapshot and host authorisation. |
 
-## Course
+## Race
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| COURSE-01 | États explicites et machine documentée | partiel | docs/ARCHITECTURE.md; docs/architecture/state-machines.md | — | Diagramme présent; moteur non implémenté. |
-| COURSE-02 | Départ hôte : au moins 2 participants dont 1 humain | non fait | — | — | Bots comptés, spectateurs non; pas de statut prêt obligatoire ajouté. |
-| COURSE-03 | Décompte synchronisé 3,2,1; texte révélé à son début | non fait | — | — | Remplace l'ancien décompte de 5 secondes. |
-| COURSE-04 | Saisie, feedback, MPM/précision directs, collage désactivé | non fait | — | — | Collage bloqué côté UI, validation/anti-sauts côté serveur. |
-| COURSE-05 | Piste avatars/noms/MPM, joueur local, spectateurs, ~4 MAJ/s | non fait | — | — | Interpolation; piste verticale de la DA. |
-| COURSE-06 | Serveur autoritaire sur temps/progrès/rang/bonus | non fait | — | — | Lots séquencés et limites plausibles; aucune garantie anti-triche absolue. |
-| COURSE-07 | Abandon avec confirmation | non fait | — | — | Terminal pour la manche. |
-| COURSE-08 | Reprise sous 30 secondes sinon abandon | non fait | — | — | D-06, tests aux frontières et course finie avant reprise. |
-| COURSE-09 | Fin quand tous terminés/abandonnés ou timer atteint | non fait | — | — | Finalisation idempotente. |
-| COURSE-10 | Finisseurs par arrivée, temps écoulé par progrès, abandons ensuite | non fait | — | — | MPM ne classe plus les finisseurs; D-09. |
-| COURSE-11 | Résultats : relancer/configurer/fermer; autres restent/partent | non fait | — | — | Salle persistante, manches distinctes. |
+| COURSE-01 | Explicit states and documented machine | partial | docs/ARCHITECTURE.md; docs/architecture/state-machines.md | — | Diagram present; engine not implemented. |
+| COURSE-02 | Host start: at least 2 participants including 1 human | not done | — | — | Bots counted, spectators not; no mandatory ready status added. |
+| COURSE-03 | Synchronised 3,2,1 countdown; text revealed at its start | not done | — | — | Replaces the former 5-second countdown. |
+| COURSE-04 | Input, feedback, live MPM/accuracy, paste disabled | not done | — | — | Paste blocked on the UI side, validation/anti-jump on the server side. |
+| COURSE-05 | Track with avatars/names/MPM, local player, spectators, ~4 updates/s | not done | — | — | Interpolation; vertical track from the art direction. |
+| COURSE-06 | Authoritative server for time/progress/rank/bonuses | not done | — | — | Sequenced batches and plausibility limits; no absolute anti-cheat guarantee. |
+| COURSE-07 | Abandonment with confirmation | not done | — | — | Terminal for the round. |
+| COURSE-08 | Resumption within 30 seconds, otherwise abandonment | not done | — | — | D-06, boundary tests and race finished before resumption. |
+| COURSE-09 | End when all have finished/abandoned or the timer is reached | not done | — | — | Idempotent finalisation. |
+| COURSE-10 | Finishers by arrival, timed out by progress, abandonments last | not done | — | — | MPM no longer ranks finishers; D-09. |
+| COURSE-11 | Results: restart/configure/close; others stay/leave | not done | — | — | Persistent room, distinct rounds. |
 
-## Bots et bonus
+## Bots and bonuses
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| BOT-01 | Cinq niveaux avec paramètres documentés | non fait | — | — | Profils initiaux décrits dans ARCHITECTURE, moteur absent. |
-| BOT-02 | Vitesse variable, hésitations et difficulté | non fait | — | — | Simulation à graine; aucune cadence constante. |
-| BOT-03 | Erreurs, coût de correction, respect du mode | non fait | — | — | Même moteur métier que les humains. |
-| BOT-04 | Identification visuelle et application bonus/malus | non fait | — | — | Pas de privilège de score pour un bot. |
-| BOT-05 | Déterminisme par graine et tests unitaires | non fait | — | — | Seed et horloge injectées, tests de répétabilité prévus. |
-| BONUS-01 | Attribution aux retardataires aux seuils 25/50/75 %, max 3 | non fait | — | — | D-11 : derniers ex æquo ou écart strictement >25 points. |
-| BONUS-02 | Au moins 3 types, aide et ralentissement | non fait | — | — | Proposition -3 mots, +3 mots et brouillard 3 s; D-11. |
-| BONUS-03 | Annonce visuelle activation et cible | non fait | — | — | Pas uniquement une annonce sonore. |
-| BONUS-04 | Progression/MPM cohérents si longueur modifiée | non fait | — | — | Cible effective, seules frappes réelles comptées; D-09/D-11. |
+| BOT-01 | Five levels with documented parameters | not done | — | — | Initial profiles described in ARCHITECTURE, engine missing. |
+| BOT-02 | Variable speed, hesitations and difficulty | not done | — | — | Seeded simulation; no constant cadence. |
+| BOT-03 | Errors, correction cost, respect of the mode | not done | — | — | Same business engine as humans. |
+| BOT-04 | Visual identification and bonus/malus application | not done | — | — | No score privilege for a bot. |
+| BOT-05 | Determinism by seed and unit tests | not done | — | — | Injected seed and clock, repeatability tests planned. |
+| BONUS-01 | Award to trailing players at the 25/50/75% thresholds, max 3 | not done | — | — | D-11: tied last players or gap strictly >25 points. |
+| BONUS-02 | At least 3 types, help and slowdown | not done | — | — | Proposal: -3 words, +3 words and 3 s fog; D-11. |
+| BONUS-03 | Visual announcement of the activation and the target | not done | — | — | Not only an audio announcement. |
+| BONUS-04 | Consistent progress/MPM if the length is changed | not done | — | — | Effective target, only real keystrokes counted; D-09/D-11. |
 
-## Résultats et historique
+## Results and history
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| RES-01 | Podium des trois premiers | non fait | — | — | Afficher seulement les places existantes si deux participants. |
-| RES-02 | Tableau complet MPM/brut/précision/erreurs/temps/statut/bonus | non fait | — | — | Trois statuts officiels, champs conservés dans les résultats. |
-| RES-03 | Courbe MPM de tous et carte des touches manquées personnelles | non fait | — | — | Séries et erreurs agrégées prévues, pas calculées depuis un score final seul. |
-| RES-04 | Indicateur de record personnel | non fait | — | — | D-12 : records finis, segments avec/sans bonus et mode d'erreur. |
-| RES-05 | Résultats humains connectés persistés, séries MPM comprises | non fait | — | — | D-08 : snapshots des autres pour restituer la course complète. |
-| HIST-01 | Historique personnel paginé des courses terminées | non fait | — | — | Index compte/course, pas de liste non bornée. |
-| HIST-02 | Réaffichage complet d'une page de résultats | non fait | — | — | Snapshot immuable indépendant du lobby courant. |
+| RES-01 | Podium of the top three | not done | — | — | Show only the existing places if there are two participants. |
+| RES-02 | Complete table MPM/gross/accuracy/errors/time/status/bonuses | not done | — | — | Three official statuses, fields kept in the results. |
+| RES-03 | MPM curve for everyone and personal map of missed keys | not done | — | — | Series and aggregated errors planned, not computed from a final score alone. |
+| RES-04 | Personal record indicator | not done | — | — | D-12: records on finished races, segmented with/without bonuses and by error mode. |
+| RES-05 | Results of connected humans persisted, MPM series included | not done | — | — | D-08: snapshots of the others to render the complete race. |
+| HIST-01 | Paginated personal history of finished races | not done | — | — | Account/race index, no unbounded list. |
+| HIST-02 | Full redisplay of a results page | not done | — | — | Immutable snapshot independent of the current lobby. |
 
-## Langues, tests, performance, accessibilité et sécurité
+## Languages, tests, performance, accessibility and security
 
-| ID | Attendu résumé | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
+| ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| I18N-01 | Toute l'UI FR/EN, erreurs/vides/métadonnées compris | non fait | — | — | Pas de chaînes métier en dur. |
-| I18N-02 | Sélecteur partout, choix conservé, défaut navigateur | non fait | — | — | Requis sur les pages existantes dès le checkpoint. |
-| I18N-03 | Dates et nombres selon locale | non fait | — | — | Utiliser Intl et tests FR/EN. |
-| TEST-01 | Tests unitaires des règles | non fait | — | — | Vitest prévu; zéro test métier existant. |
-| TEST-02 | E2E Playwright | non fait | — | — | Deux contextes navigateur indépendants pour la salle. |
-| TEST-03 | E2E via nom d'utilisateur/mot de passe | non fait | — | — | Seed isolé; ne pas automatiser la connexion aux sites OAuth. |
-| PERF-01 | Lighthouse ≥90 dans chaque catégorie sur l'accueil | non fait | — | — | Mesure production à conserver; pas de score présumé. |
-| PERF-02 | Trafic de progression limité, pas de SQL par frappe | non fait | — | — | Proposition 10 envois/s/joueur, lots, mémoire serveur. |
-| PERF-03 | Piste fluide à capacité maximale | non fait | — | — | Test 30 participants; quota spectateurs séparé si nécessaire et documenté. |
-| A11Y-01 | Contraste WCAG AA dans les deux thèmes | non fait | — | — | Vérifier les tokens réels, pas seulement le moodboard. |
-| A11Y-02 | HTML sémantique actions/liens/titres/zones/tableaux | non fait | — | — | Revue de chaque écran produit. |
-| A11Y-03 | Alternatives d'images, labels de champs | non fait | — | — | Icônes décoratives distinguées du contenu. |
-| A11Y-04 | Parcours clavier et focus visible | non fait | — | — | Test de parcours et dialogues. |
-| SEC-01 | Autorisation serveur de toute action hôte | non fait | — | — | À vérifier à chaque commande, pas uniquement au handshake socket. |
-| SEC-02 | Upload : taille et type réel serveur | non fait | — | — | Décodage/réencodage, pas confiance en extension ou MIME annoncé. |
-| SEC-03 | Hash de mot de passe adapté, aucun clair stocké/journalisé | non fait | — | — | scrypt retenu; paramètres et protections login à vérifier à l'implémentation. |
+| I18N-01 | Whole UI in FR/EN, errors/empty states/metadata included | not done | — | — | No hard-coded business strings. |
+| I18N-02 | Selector everywhere, choice kept, browser default | not done | — | — | Required on the existing pages from the checkpoint. |
+| I18N-03 | Dates and numbers according to the locale | not done | — | — | Use Intl and FR/EN tests. |
+| TEST-01 | Unit tests of the rules | not done | — | — | Vitest planned; zero existing business test. |
+| TEST-02 | Playwright E2E | not done | — | — | Two independent browser contexts for the room. |
+| TEST-03 | E2E through username/password | not done | — | — | Isolated seed; do not automate sign-in on OAuth sites. |
+| PERF-01 | Lighthouse ≥90 in every category on the home page | not done | — | — | Production measurement to keep; no presumed score. |
+| PERF-02 | Limited progress traffic, no SQL per keystroke | not done | — | — | Proposal: 10 sends/s/player, batches, server memory. |
+| PERF-03 | Smooth track at maximum capacity | not done | — | — | 30-participant test; separate spectator quota if needed and documented. |
+| A11Y-01 | WCAG AA contrast in both themes | not done | — | — | Check the real tokens, not only the moodboard. |
+| A11Y-02 | Semantic HTML for actions/links/headings/regions/tables | not done | — | — | Review of each product screen. |
+| A11Y-03 | Image alternatives, field labels | not done | — | — | Decorative icons distinguished from content. |
+| A11Y-04 | Keyboard navigation and visible focus | not done | — | — | Test of navigation paths and dialogs. |
+| SEC-01 | Server authorisation of every host action | not done | — | — | To be checked on every command, not only at the socket handshake. |
+| SEC-02 | Upload: size and real type checked on the server | not done | — | — | Decoding/re-encoding, no trust in the extension or the declared MIME type. |
+| SEC-03 | Suitable password hash, no plaintext stored/logged | not done | — | — | scrypt selected; parameters and login protections to be verified at implementation. |
 
-## Écarts avec le cahier remis
+## Deviations from the submitted specification
 
-| Ancien choix | Nouvelle règle prioritaire |
+| Former choice | New priority rule |
 |---|---|
-| Charge de référence 50 humains | Capacité produit 2..30 participants; bots compris, spectateurs exclus (SALLE-05). Une charge supérieure reste un test interne éventuel, pas une nouvelle capacité promise. |
-| Reprise jusqu'à 5 minutes; décompte 5 secondes | 30 secondes et 3 secondes (COURSE-08/03). |
-| Finisseurs classés au MPM net | Finisseurs classés au temps d'arrivée (COURSE-10); formules de l'annexe A. |
-| Quatre bots | Cinq niveaux et déterminisme par seed (BOT-01/05). |
-| Invité avec photo et historique récupérable | Avatar généré, aucun historique personnel persistant (AUTH-03). |
-| Privé accessible par code; spectateur admis pendant course | Trois visibilités; privé par lien seulement; admissions hors course uniquement. |
-| Invitation simplement consommée | Liaison au premier usage à une IP; reprise par le titulaire; révocation et fermeture (SALLE-04). |
-| Successeur choisi ou hôte système | Plus ancien humain connecté, sinon fermeture (SALLE-08); quickplay propose la création au compte (JOIN-03). |
-| Téléphone spectateur | Message conseillant le clavier physique à la place de la course mobile (DES-06). |
-| OAuth reporté après checkpoint | GitHub et Discord requis par AUTH-01 et §7.1. |
+| Reference load of 50 humans | Product capacity of 2..30 participants; bots included, spectators excluded (SALLE-05). A higher load remains a possible internal test, not a new promised capacity. |
+| Resumption up to 5 minutes; 5-second countdown | 30 seconds and 3 seconds (COURSE-08/03). |
+| Finishers ranked by net MPM | Finishers ranked by arrival time (COURSE-10); Appendix A formulas. |
+| Four bots | Five levels and determinism by seed (BOT-01/05). |
+| Guest with photo and recoverable history | Generated avatar, no persistent personal history (AUTH-03). |
+| Private room accessible by code; spectator admitted during a race | Three visibilities; private by link only; admissions outside races only. |
+| Invitation simply consumed | Bound to an IP at first use; resumption by the holder; revocation and closure (SALLE-04). |
+| Chosen successor or system host | Most senior connected human, otherwise closure (SALLE-08); quickplay offers creation to the account (JOIN-03). |
+| Spectator phone | Message recommending a physical keyboard instead of the race on mobile (DES-06). |
+| OAuth postponed until after the checkpoint | GitHub and Discord required by AUTH-01 and §7.1. |
 
-Conservés sans élargissement : TypeScript/Next/React/Tailwind, PostgreSQL/Drizzle, validation serveur, CI, déploiement automatique convenu, inspiration visuelle et piste verticale. Différés : timer estimé, texte saisi par l'hôte, profils publics, récupération d'historique invité, annulation volontaire en course, autres extras non notés. Aucune refonte du cahier déjà évalué.
+Kept without widening: TypeScript/Next/React/Tailwind, PostgreSQL/Drizzle, server validation, CI, agreed automatic deployment, visual inspiration and vertical track. Deferred: estimated timer, text typed in by the host, public profiles, recovery of guest history, voluntary cancellation during a race, other ungraded extras. No rewrite of the already graded specification.
 
-## Choix d'interprétation — §2.2 de l'énoncé
+## Interpretation choices — brief §2.2
 
-Ces décisions sont des choix du projet, pas des phrases attribuées au prof. Elles seront testées avec leurs fonctionnalités; une clarification du prof les remplacera explicitement.
+These decisions are project choices, not statements attributed to the teacher. They will be tested with their features; a clarification from the teacher will explicitly replace them.
 
-- **D-01 — Codes.** Uniques même parmi les salles conservées; génération cryptographique et retry sur collision. Alphabet non ambigu, entrée normalisée en majuscules. Limite initiale 10 essais/IP/minute, messages ne divulguant pas les salles privées.
-- **D-02 — Invitations.** Jeton 256 bits, digest en BD; premier usage lié à l'IP et au membre/session. Cela empêche deux élèves sous la même IP de partager une invitation. Reconnexion par même identité et IP; une autre IP est refusée conformément au texte. Liens valides tant que la salle est ouverte et non révoqués, pas d'expiration arbitraire à 24 h pendant la salle.
-- **D-03 — Succession.** « Humain connecté » désigne une présence réseau active, compte ou invité. AUTH-03 interdit à l'invité de créer, pas d'hériter. Le plus ancien humain devient hôte; sinon fermeture. Point à clarifier avec le prof si son intention était « compte authentifié »; aucune dépendance du prototype n'exige d'attendre cette réponse.
-- **D-04 — Identité.** Un compte ou une session invitée ne peut occuper qu'une salle; index uniques partiels en BD. Un cookie effacé ne permet pas de reconnaître une personne anonyme. Multi-onglet = même membre, pas capacité supplémentaire. Pseudo invité 3..20 caractères Unicode, normalisé NFKC/trim; canonisation locale en minuscules, accents conservés. Pas de modification du pseudo global pour une collision locale.
-- **D-05 — Quickplay.** « Proche de sa capacité » = moins de places participants libres, puis salle la plus ancienne, puis ID stable. Revalider phase/capacité au moment d'admettre; réessayer une autre candidate en cas de concurrence. Ne pas créer de salle automatiquement sans action du compte.
-- **D-06 — Reprise.** Grâce de 30 secondes après perte du dernier socket; reprise acceptée jusqu'à l'échéance incluse. Si la course finit au timer avant l'expiration, statut temps écoulé; sinon abandon au délai. À égalité exacte des échéances, le timer de course prime. Coupure de l'hôte : même grâce, puis succession. Panne complète du processus : course interrompue, pas de promesse de reprise exacte ni de faux résultats.
-- **D-07 — Sessions et rétention.** Invité : expiration après 24 h d'inactivité, suppression après fin de présence; données de salle/invitations/bans purgées au plus tard 24 h après fermeture. Session de compte : durée courte proposée de 24 h, gérée par la bibliothèque; pas de « remember me » prioritaire. Politique post-correction à arrêter avant usage réel en école.
-- **D-08 — Invités et graphiques.** Pas de profil ni historique personnel invité. Pour HIST-02/RES-03, les résultats enregistrés pour un compte conservent les séries de tous les entrants; l'invité est anonymisé, sans lien vers son cookie, et n'est pas recherchable. La carte thermique reste personnelle. Un invité voit ses résultats en mémoire tant que la salle les présente, sans historique ultérieur.
-- **D-09 — Mesure.** Compter les caractères saisis (espaces inclus), pas les touches de navigation/suppression. Une mauvaise insertion compte comme erreur même corrigée; une nouvelle insertion correcte compte comme frappe correcte. Utiliser la même segmentation Unicode normalisée pour cible, saisie et compteurs. En mode libre, un caractère erroné accepté fait avancer l'offset validé par le serveur sans augmenter les frappes correctes; c'est cette position validée qui détermine progression/fin, la précision pénalisant les erreurs. En correction obligatoire, pas d'avancement au-delà de l'erreur. Zéro frappe/temps nul : afficher zéro, jamais NaN/Infinity. Départage de rang exact : précision puis ID stable, après les trois groupes imposés et leur critère principal.
-- **D-10 — Textes.** Caractères inclus/exclus désactivés en cohérent; transformations ponctuation/nombres/casse/accents appliquées avant snapshot. Nombre de mots compté par tokens séparés par espaces après normalisation; choisir/découper un passage au nombre demandé, refuser s'il n'existe pas de contenu compatible. Aléatoire : exclure les caractères interdits, garantir les caractères demandés dans le résultat, refuser la configuration impossible. Critères initiaux hors options : facile, mots ≤5 lettres et vocabulaire courant; moyen ≤9 lettres et vocabulaire courant/étendu; difficile autorise mots >9 lettres et vocabulaire rare. Les listes de fréquence, bornes de longueur et métriques exactes seront versionnées avec le corpus, avant de déclarer CONF-05 complet.
-- **D-11 — Bonus.** À chaque premier franchissement du meneur de 25/50/75 %, évaluer les entrants actifs : derniers ex æquo ou à plus de 25 points de progression derrière. Au plus une attribution par entrant/jalon, trois au total; pas de bonus si personne n'est réellement derrière. Activation manuelle par défaut, option automatique héritée du cahier. Trois effets proposés : retirer jusqu'à 3 mots non commencés à soi; ajouter 3 mots au meneur actif; brouillard des mots à venir du meneur pendant 3 secondes. Effets interdits sur un résultat terminal, aucun mot déjà saisi supprimé, un texte garde au moins sa partie en cours; une activation devenue sans cible valide est refusée. Bots soumis aux mêmes règles. Franchissements mémorisés pour éviter les doublons après recul de progression; sélecteur pseudo-aléatoire à graine, effets temporaires non cumulés au-delà de leur durée initiale.
-- **D-12 — Records.** Record personnel de MPM sur courses terminées, séparé avec/sans bonus et par mode d'erreur pour ne pas comparer des conditions incompatibles. Agrégats du profil explicitement étiquetés; pas de classement scolaire ni de jugement automatisé sur un élève.
+- **D-01 — Codes.** Unique even among retained rooms; cryptographic generation and retry on collision. Unambiguous alphabet, input normalised to uppercase. Initial limit of 10 attempts/IP/minute, messages that do not disclose private rooms.
+- **D-02 — Invitations.** 256-bit token, digest in the database; first use bound to the IP and to the member/session. This prevents two students behind the same IP from sharing an invitation. Reconnection by the same identity and IP; another IP is refused in accordance with the text. Links valid as long as the room is open and they are not revoked; no arbitrary 24 h expiry while the room exists.
+- **D-03 — Succession.** "Connected human" means an active network presence, account or guest. AUTH-03 forbids the guest from creating, not from inheriting. The most senior human becomes the host; otherwise closure. Point to clarify with the teacher if their intent was "authenticated account"; no prototype dependency requires waiting for this answer.
+- **D-04 — Identity.** An account or a guest session can occupy only one room; partial unique indexes in the database. A cleared cookie does not make it possible to recognise an anonymous person. Multi-tab = same member, not extra capacity. Guest nickname of 3..20 Unicode characters, normalised with NFKC/trim; local canonicalisation in lowercase, accents kept. No change to the global nickname because of a local collision.
+- **D-05 — Quickplay.** "Close to its capacity" = fewest free participant spots, then oldest room, then stable ID. Revalidate phase/capacity at admission time; try another candidate in case of concurrency. Do not create a room automatically without an action from the account.
+- **D-06 — Resumption.** 30-second grace period after the last socket is lost; resumption accepted up to and including the deadline. If the race ends on the timer before the expiry, timed-out status; otherwise abandonment at the deadline. For exactly equal deadlines, the race timer takes precedence. Host disconnection: same grace period, then succession. Complete process crash: race interrupted, no promise of exact resumption and no fake results.
+- **D-07 — Sessions and retention.** Guest: expiry after 24 h of inactivity, deletion after the end of presence; room/invitation/ban data purged no later than 24 h after closure. Account session: proposed short duration of 24 h, managed by the library; no "remember me" as a priority. Post-grading policy to be settled before real use in a school.
+- **D-08 — Guests and charts.** No guest profile or personal history. For HIST-02/RES-03, the results recorded for an account keep the series of all entrants; the guest is anonymised, with no link to their cookie, and is not searchable. The heatmap remains personal. A guest sees their results in memory as long as the room shows them, with no later history.
+- **D-09 — Measurement.** Count typed characters (spaces included), not navigation/deletion keys. A wrong insertion counts as an error even if corrected; a new correct insertion counts as a correct keystroke. Use the same normalised Unicode segmentation for the target, the input and the counters. In free mode, an accepted wrong character advances the server-validated offset without increasing correct keystrokes; this validated position determines progress/finish, with accuracy penalising the errors. In mandatory correction mode, no advancing beyond the error. Zero keystrokes/zero time: display zero, never NaN/Infinity. Exact rank tie-break: accuracy then stable ID, after the three imposed groups and their main criterion.
+- **D-10 — Texts.** Included/excluded characters disabled in coherent mode; punctuation/numbers/case/accents transformations applied before the snapshot. Word count measured as space-separated tokens after normalisation; choose/cut a passage to the requested number, refuse if no compatible content exists. Random: exclude the forbidden characters, guarantee the requested characters in the result, refuse an impossible configuration. Initial criteria outside options: easy, words ≤5 letters and common vocabulary; medium ≤9 letters and common/extended vocabulary; hard allows words >9 letters and rare vocabulary. The frequency lists, length limits and exact metrics will be versioned with the corpus before CONF-05 is declared complete.
+- **D-11 — Bonuses.** At each first crossing of 25/50/75% by the leader, evaluate the active entrants: tied last, or more than 25 progress points behind. At most one award per entrant/milestone, three in total; no bonus if nobody is really behind. Manual activation by default, automatic option inherited from the specification. Three proposed effects: remove up to 3 not-yet-started words from one's own text; add 3 words to the active leader; fog over the leader's upcoming words for 3 seconds. Effects forbidden on a terminal result, no already typed word removed, a text keeps at least its part in progress; an activation that no longer has a valid target is refused. Bots subject to the same rules. Crossings memorised to avoid duplicates after progress goes back; seeded pseudo-random selector, temporary effects not stacked beyond their initial duration.
+- **D-12 — Records.** Personal MPM record on finished races, separated with/without bonuses and by error mode so as not to compare incompatible conditions. Profile aggregates explicitly labelled; no school ranking and no automated judgement of a student.
 
-## Vigilances non résolues par du code
+## Watch points not resolved by code
 
-1. **DA V3 complète reçue :** 24 pages lues le 3 octobre. La direction choisie reste intacte. Adapter dans le produit les anciens exemples : 50/32 → maximum 30 participants; 5→1 → 3→1 pour chiffres et sons; exemple de code B7K4P → six caractères. Les orbites « prêts » restent une idée visuelle, pas une condition de départ supplémentaire imposée. Les autres coureurs estompés doivent rester identifiables/consultables; le thème système reste le défaut technique. DEMARCHE-CREATIVE.md, croquis humains, exports logo et sources sonores encore à compléter. Le PDF n'est pas modifié.
-2. **Nom confirmé :** Philippe maintient **Incision** le 3 octobre, distingue son produit d'Incision Academy et ne souhaite pas de renommage. Décision actée; ne plus traiter ce sujet comme un blocage de développement. La recherche déjà consignée reste une trace, pas une validation de DES-01 par l'enseignant ni une conclusion juridique.
-3. **Hébergement :** Philippe confirme l'absence de serveur du cégep et de budget personnel. Priorité de recherche : Azure for Students, sans carte ni conversion payante; admissibilité et crédit non vérifiés. Repli Render Free + Neon Free si accepté pour TECH-05. Aucune dépense ni ressource distante créée; [comparaison et limites](architecture/verification.md#hébergement-sans-dépense).
-4. **OAuth :** créer/configurer les applications GitHub et Discord et leurs retours localhost/production. Ne jamais déposer leurs secrets dans les cartes ni le dépôt.
+1. **Complete art direction V3 received:** 24 pages read on October 3. The chosen direction stays intact. Adapt the old examples in the product: 50/32 → maximum of 30 participants; 5→1 → 3→1 for digits and sounds; code example B7K4P → six characters. The "ready" orbits remain a visual idea, not an additional imposed start condition. The other, faded runners must remain identifiable/viewable; the system theme remains the technical default. DEMARCHE-CREATIVE.md, human sketches, logo exports and sound sources still to be completed. The PDF is not modified.
+2. **Name confirmed:** Philippe keeps **Incision** on October 3, distinguishes his product from Incision Academy and does not want a rename. Decision recorded; no longer treat this topic as a development blocker. The research already recorded remains a trace, not a validation of DES-01 by the teacher nor a legal conclusion.
+3. **Hosting:** Philippe confirms there is no cégep server and no personal budget. Research priority: Azure for Students, without a card or paid conversion; eligibility and credit not verified. Render Free + Neon Free fallback if accepted for TECH-05. No expense and no remote resource created; [comparison and limits](architecture/verification.md#hosting-without-spending).
+4. **OAuth:** create/configure the GitHub and Discord applications and their localhost/production callbacks. Never put their secrets in the cards or the repository.
 
-## Entretien de la matrice
+## Maintaining the requirements matrix
 
-Chaque carte cite les IDs officiels, un résultat observable, les refus attendus et ses tests. À la fusion, remplacer les fichiers projetés par les vrais chemins et les « — » par les tests réellement exécutés. La conception seule ne valide pas les fonctionnalités. Les quatre documents finaux obligatoires sont ARCHITECTURE, EXIGENCES, DEMARCHE-CREATIVE et IA; les deux derniers ne sont pas encore complets/créés.
+Each card cites the official IDs, an observable result, the expected refusals and its tests. On merge, replace the projected files with the real paths and the "—" with the tests actually run. Design alone does not validate features. The four mandatory final documents are ARCHITECTURE, EXIGENCES, DEMARCHE-CREATIVE and IA; the last two are not yet complete/created.
