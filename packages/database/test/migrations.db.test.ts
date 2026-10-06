@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import pg from "pg";
@@ -32,6 +32,35 @@ async function tableExists(name: string): Promise<boolean> {
   return row?.exists === true;
 }
 
+/** Number of migrations shipped by the package (entries of its Drizzle journal). */
+function releasedMigrationCount(): number {
+  const journal: unknown = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"), "utf8"));
+  if (typeof journal !== "object" || journal === null || !("entries" in journal) || !Array.isArray(journal.entries)) {
+    throw new Error("Unexpected Drizzle journal shape");
+  }
+  return journal.entries.length;
+}
+
+/** Copy of the package's migrations folder truncated after `lastTag`, i.e. an earlier release. */
+function releasedMigrationsUpTo(lastTag: string): string {
+  const journal = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"), "utf8")) as {
+    entries: { tag: string }[];
+  };
+  const last = journal.entries.findIndex((entry) => entry.tag === lastTag);
+  if (last === -1) {
+    throw new Error(`No migration tagged ${lastTag}`);
+  }
+  const entries = journal.entries.slice(0, last + 1);
+  const folder = mkdtempSync(path.join(tmpdir(), "incision-release-"));
+  folders.push(folder);
+  mkdirSync(path.join(folder, "meta"));
+  for (const entry of entries) {
+    writeFileSync(path.join(folder, `${entry.tag}.sql`), readFileSync(path.join(MIGRATIONS_FOLDER, `${entry.tag}.sql`)));
+  }
+  writeFileSync(path.join(folder, "meta", "_journal.json"), JSON.stringify({ ...journal, entries }));
+  return folder;
+}
+
 type FixtureMigration = { readonly sql: string; readonly when: number };
 
 const folders: string[] = [];
@@ -56,11 +85,20 @@ function migrationsFolder(migrations: readonly (string | FixtureMigration)[]): s
 
 describe("runMigrations", () => {
   it("builds the schema on an empty database, then a second run applies nothing", async () => {
-    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: 1 });
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() });
     for (const table of ["accounts", "oauth_identities", "lobbies", "lobby_members"]) {
       expect(await tableExists(table)).toBe(true);
     }
     expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: 0 });
+  });
+
+  it("upgrades a database at the CP-03 release: existing accounts get session version 1", async () => {
+    const cp03Release = releasedMigrationsUpTo("0000_init");
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: cp03Release })).toEqual({ applied: 1 });
+    await query("insert into accounts (display_name) values ('Before CP-04')");
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 1 });
+    const [row] = await query<{ session_version: number }>("select session_version from accounts");
+    expect(row?.session_version).toBe(1);
   });
 
   it("serialises two concurrent migrators: a slow migration is applied exactly once", async () => {

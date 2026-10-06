@@ -1,0 +1,3 @@
+ALTER TABLE "accounts" ADD COLUMN "session_version" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "accounts" ADD CONSTRAINT "accounts_password_hash_format" CHECK ("accounts"."password_hash" is null or "accounts"."password_hash" ~ '^scrypt\$[0-9]{2}\$[0-9]{1,2}\$[0-9]\$[A-Za-z0-9_-]{22}\$[A-Za-z0-9_-]{43}$');--> statement-breakpoint
+ALTER TABLE "accounts" ADD CONSTRAINT "accounts_session_version_positive" CHECK ("accounts"."session_version" >= 1);

@@ -6,6 +6,9 @@ import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database
 let database: TemporaryDatabase;
 let client: pg.Client;
 
+/** Shaped like hashPassword's output (the database checks the shape, not the cryptography). */
+const WELL_FORMED_HASH = `scrypt$15$8$3$${"A".repeat(22)}$${"A".repeat(43)}`;
+
 beforeAll(async () => {
   database = await createTemporaryDatabase();
   await runMigrations({ connectionString: database.url });
@@ -68,15 +71,36 @@ describe("accounts", () => {
   });
 
   it("requires a local login for a password and both login columns together", async () => {
-    expect(await violation("insert into accounts (display_name, password_hash) values ('X', 'hash')")).toBe("accounts_password_requires_login");
+    expect(await violation("insert into accounts (display_name, password_hash) values ('X', $1)", [WELL_FORMED_HASH])).toBe(
+      "accounts_password_requires_login",
+    );
     expect(await violation("insert into accounts (login, display_name) values ('alice', 'X')")).toBe("accounts_login_pair");
   });
 
   it("rejects a blank display name and an empty password hash", async () => {
     expect(await violation("insert into accounts (display_name) values ('   ')")).toBe("accounts_display_name_length");
+    // Both the format and the not-empty checks refuse it; PostgreSQL reports them by name order.
     expect(await violation("insert into accounts (login, login_canonical, display_name, password_hash) values ('carol', 'carol', 'Carol', '')")).toBe(
-      "accounts_password_hash_not_empty",
+      "accounts_password_hash_format",
     );
+  });
+
+  it("accepts only password hashes shaped like hashPassword's output", async () => {
+    await client.query("insert into accounts (login, login_canonical, display_name, password_hash) values ('dave', 'dave', 'Dave', $1)", [
+      WELL_FORMED_HASH,
+    ]);
+    for (const hash of ["hunter2", `${WELL_FORMED_HASH}x`, WELL_FORMED_HASH.replace("scrypt$", "bcrypt$"), `x${WELL_FORMED_HASH}`]) {
+      expect(await violation("insert into accounts (login, login_canonical, display_name, password_hash) values ('erin', 'erin', 'Erin', $1)", [hash])).toBe(
+        "accounts_password_hash_format",
+      );
+    }
+  });
+
+  it("starts session versions at 1, also for rows inserted without the column, and refuses 0", async () => {
+    const accountId = await account("Frank");
+    const [row] = (await client.query<{ session_version: number }>("select session_version from accounts where id = $1", [accountId])).rows;
+    expect(row?.session_version).toBe(1);
+    expect(await violation("update accounts set session_version = 0 where id = $1", [accountId])).toBe("accounts_session_version_positive");
   });
 
   it("deletes an account's provider identities with it, but not an account with room memberships", async () => {
