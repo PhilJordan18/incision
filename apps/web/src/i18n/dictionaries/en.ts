@@ -12,7 +12,6 @@ export const en: Dictionary = {
     account: "My account",
   },
   home: {
-    title: "Home",
     tagline: "Real-time multiplayer typing race.",
     signInCta: "Sign in",
     accountCta: "Go to my account",
@@ -20,17 +19,15 @@ export const en: Dictionary = {
   signIn: {
     title: "Sign in",
     intro: "Sign in with GitHub, Discord or a local account.",
-    providersLabel: "Sign-in providers",
+    providersHeading: "With a provider",
     continueWithGitHub: "Continue with GitHub",
     continueWithDiscord: "Continue with Discord",
     redirecting: "Redirecting…",
-    separator: "or",
-    localHeading: "Local account",
+    localHeading: "With a local account",
     loginLabel: "Username",
     passwordLabel: "Password",
     submit: "Sign in",
     submitting: "Signing in…",
-    errorSummary: "Sign-in failed",
     errors: {
       loginRequired: "Enter your username.",
       loginTooLong: "The username has at most 32 characters.",
@@ -54,5 +51,16 @@ export const en: Dictionary = {
     signOut: "Sign out",
     signingOut: "Signing out…",
     signOutScope: "Signing out ends all your open sessions, on every device.",
+    signOutFailed: "Signing out failed. Try again.",
+  },
+  notFound: {
+    title: "Page not found",
+    body: "This page does not exist or is no longer available.",
+    backHome: "Back to the home page",
+  },
+  errorBoundary: {
+    title: "Something went wrong",
+    body: "The page could not be displayed.",
+    retry: "Try again",
   },
 };

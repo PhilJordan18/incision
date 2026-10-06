@@ -11,7 +11,6 @@ export const fr = {
     account: "Mon compte",
   },
   home: {
-    title: "Accueil",
     tagline: "Course de dactylographie multijoueur en temps réel.",
     signInCta: "Se connecter",
     accountCta: "Voir mon compte",
@@ -19,17 +18,15 @@ export const fr = {
   signIn: {
     title: "Connexion",
     intro: "Connectez-vous avec GitHub, Discord ou un compte local.",
-    providersLabel: "Fournisseurs de connexion",
+    providersHeading: "Avec un fournisseur",
     continueWithGitHub: "Continuer avec GitHub",
     continueWithDiscord: "Continuer avec Discord",
     redirecting: "Redirection…",
-    separator: "ou",
-    localHeading: "Compte local",
+    localHeading: "Avec un compte local",
     loginLabel: "Identifiant",
     passwordLabel: "Mot de passe",
     submit: "Se connecter",
     submitting: "Connexion…",
-    errorSummary: "La connexion a échoué",
     errors: {
       loginRequired: "Saisissez votre identifiant.",
       loginTooLong: "L’identifiant compte au plus 32 caractères.",
@@ -53,6 +50,17 @@ export const fr = {
     signOut: "Se déconnecter",
     signingOut: "Déconnexion…",
     signOutScope: "La déconnexion ferme toutes vos sessions ouvertes, sur tous vos appareils.",
+    signOutFailed: "La déconnexion a échoué. Réessayez.",
+  },
+  notFound: {
+    title: "Page introuvable",
+    body: "Cette page n’existe pas ou n’est plus disponible.",
+    backHome: "Retour à l’accueil",
+  },
+  errorBoundary: {
+    title: "Une erreur est survenue",
+    body: "La page n’a pas pu s’afficher.",
+    retry: "Réessayer",
   },
 } as const;
 
