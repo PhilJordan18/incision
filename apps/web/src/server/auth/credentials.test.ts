@@ -18,8 +18,9 @@ function dependencies(overrides: Partial<CredentialsDependencies> = {}): Credent
       loginAtAddress: new AttemptLimiter({ maxFailures: 2, windowMs: 60_000 }),
       login: new AttemptLimiter({ maxFailures: 4, windowMs: 60_000 }),
       address: new AttemptLimiter({ maxFailures: 3, windowMs: 60_000 }),
+      addressAttempts: new AttemptLimiter({ maxFailures: 6, windowMs: 60_000 }),
     },
-    verifications: { inFlight: 0, max: 8 },
+    verifications: { inFlight: 0, perAddress: new Map(), max: { process: 8, perAddress: 8 } },
     ...overrides,
   };
 }
@@ -102,7 +103,7 @@ describe("authorizeCredentials", () => {
   });
 
   it("refuses new attempts while too many password checks are running", async () => {
-    const deps = dependencies({ verifications: { inFlight: 0, max: 2 } });
+    const deps = dependencies({ verifications: { inFlight: 0, perAddress: new Map(), max: { process: 2, perAddress: 8 } } });
     const burst = await Promise.allSettled(
       ["u1", "u2", "u3", "u4", "u5"].map((login, index) => authorizeCredentials({ login, password: "x" }, request(`203.0.113.${index}`), deps)),
     );
@@ -111,11 +112,39 @@ describe("authorizeCredentials", () => {
     expect(deps.verifications.inFlight).toBe(0);
   });
 
-  it("does not count a successful sign-in against the limits", async () => {
+  it("does not count a successful sign-in as a failure", async () => {
     const deps = dependencies();
     for (let attempt = 0; attempt < 4; attempt += 1) {
       await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request(), deps)).resolves.toEqual({ id: accountId });
     }
+  });
+
+  it("limits the checks of one address, successful ones included, without refusing other addresses", async () => {
+    // Failure limits out of the way: this test is about concurrency and attempts.
+    const loose = { maxFailures: 50, windowMs: 60_000 };
+    const deps = dependencies({
+      limiters: {
+        loginAtAddress: new AttemptLimiter(loose),
+        login: new AttemptLimiter(loose),
+        address: new AttemptLimiter(loose),
+        addressAttempts: new AttemptLimiter({ maxFailures: 4, windowMs: 60_000 }),
+      },
+      verifications: { inFlight: 0, perAddress: new Map(), max: { process: 3, perAddress: 2 } },
+    });
+    // A flood of correct sign-ins from one address (the demo passwords are public).
+    const flood = await Promise.allSettled(
+      Array.from({ length: 5 }, () => authorizeCredentials({ login: "alice", password: "correct horse" }, request("198.51.100.66"), deps)),
+    );
+    expect(flood.filter((result) => result.status === "rejected" && result.reason instanceof ServerBusy)).toHaveLength(3);
+    // While two of them run, another address still gets a slot.
+    const [floodA, floodB] = [
+      authorizeCredentials({ login: "alice", password: "correct horse" }, request("198.51.100.66"), deps),
+      authorizeCredentials({ login: "alice", password: "correct horse" }, request("198.51.100.66"), deps),
+    ];
+    await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request("203.0.113.7"), deps)).resolves.toEqual({ id: accountId });
+    await Promise.all([floodA, floodB]);
+    // Four checked attempts from that address in the window: the next one is refused.
+    await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request("198.51.100.66"), deps)).rejects.toBeInstanceOf(TooManyAttempts);
   });
 
   it("lets a database failure surface as an error, not as a wrong password", async () => {
