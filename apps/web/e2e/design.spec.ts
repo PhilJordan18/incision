@@ -69,7 +69,7 @@ test.describe("language (I18N-02)", () => {
 test.describe("home (screen 01, JOIN-01)", () => {
   test("checks the room code with the domain rule and explains the error", async ({ page }) => {
     await page.goto("/");
-    const code = page.getByLabel("Code de salle");
+    const code = page.getByLabel("Code de salle", { exact: true });
     await code.fill("ABC");
     await page.getByRole("button", { name: "Rejoindre la salle" }).click();
     await expect(code).toHaveAttribute("aria-invalid", "true");
