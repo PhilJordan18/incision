@@ -37,6 +37,7 @@ describe("checkSession", () => {
     ["a missing version", { sub: accountId, authTime: signedInAt }],
     ["a version of 0", { ...claims, sessionVersion: 0 }],
     ["a fractional sign-in time", { ...claims, authTime: 1.5 }],
+    ["a sign-in time in the future", { ...claims, authTime: Math.floor(during / 1000) + 3600 }],
     ["a string", "token"],
   ])("refuses malformed claims (%s) without reading the database", async (_label, payload) => {
     const readVersion = vi.fn(async () => 3);
