@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incision · Accueil</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&amp;family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#05070D}
+a{color:#C9D3E1;text-decoration:none}a:hover{color:#EEF2F7}
+</style>
+</head>
+<body>
+
+<div style="min-height: 900px; background: radial-gradient(ellipse 50% 45% at 72% 30%, rgba(235, 59, 68, 0.18), rgba(5, 7, 13, 0) 70%), radial-gradient(ellipse 55% 60% at 70% 60%, rgba(34, 82, 150, 0.35), rgba(5, 7, 13, 0) 72%), #05070D; color: #EEF2F7; font-family: Geist, 'Helvetica Neue', sans-serif">
+  <header style="max-width: 1344px; margin: 0 auto; padding: 24px 48px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+    <a href="#" style="display: flex; align-items: center; gap: 12px"><img src="../logo/ico-red.svg" alt="" style="width: 40px; height: 40px"><img src="../logo/wm-white.svg" alt="Incision" style="width: 128px; height: 27px"></a>
+    <nav aria-label="Navigation principale" style="display: flex; flex-wrap: wrap; gap: 36px; font-family: 'Geist Mono', monospace; font-size: 13px; letter-spacing: 0.22em">
+      <a href="04-jouer.html" style="color: #EEF2F7">JOUER</a><a href="11-stats.html">STATISTIQUES</a><a href="12-profil.html">PROFIL</a>
+    </nav>
+    <div style="display: flex; gap: 10px; align-items: center">
+      <button type="button" aria-label="Langue de l'interface" style="height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.14em">FR / EN</button>
+      <button type="button" aria-label="Passer au thème Aube" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; display: grid; place-items: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"/></svg></button>
+      <a href="02-connexion.html" style="height: 44px; padding: 0 20px; border-radius: 22px; background: #EEF2F7; color: #05070D; display: flex; align-items: center; font-weight: 600; font-size: 15px">Se connecter</a>
+    </div>
+  </header>
+
+  <main style="max-width: 1344px; margin: 0 auto; padding: 40px 48px 56px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr)); gap: 40px; align-items: center">
+    <section style="display: flex; flex-direction: column; gap: 26px">
+      <span style="font-family: 'Geist Mono', monospace; font-size: 13px; letter-spacing: 0.22em; color: #8A9BB5">[.47 SALLES OUVERTES]</span>
+      <h1 style="margin: 0; font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 900; font-size: 120px; line-height: 0.86; text-transform: uppercase">Tape.<br>Dépasse.<br><em style="font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-style: italic; text-transform: none">arrive.</em></h1>
+      <p style="margin: 0; max-width: 480px; font-size: 19px; line-height: 1.5; color: #C9D3E1">Une course de frappe en temps réel pour toute la classe. Même texte pour tous, ta position en direct, tes progrès d'une fois à l'autre.</p>
+      <form style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end">
+        <a href="04-jouer.html" style="height: 56px; padding: 0 26px; border-radius: 8px; background: #D41F27; color: #FFFFFF; display: flex; align-items: center; font-weight: 600; font-size: 16px">Trouver une salle</a>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="code" style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: #8A9BB5">CODE DE SALLE</label>
+          <div style="display: flex; gap: 8px">
+            <input id="code" placeholder="B7K4P" maxlength="5" style="width: 150px; height: 56px; box-sizing: border-box; padding: 0 16px; border-radius: 8px; border: 1px solid #22324D; background: #0C1424; color: #EEF2F7; font-family: 'Geist Mono', monospace; font-size: 20px; letter-spacing: 0.2em; text-transform: uppercase">
+            <button type="submit" style="height: 56px; padding: 0 20px; border-radius: 8px; border: 1px solid #EEF2F7; background: transparent; color: #EEF2F7; font-weight: 600; font-size: 15px">Rejoindre</button>
+          </div>
+        </div>
+      </form>
+      <a href="03-invite.html" style="font-size: 14px; color: #8A9BB5; text-decoration: underline; text-underline-offset: 4px">Jouer sans compte, comme invité</a>
+    </section>
+
+    <section aria-label="Salles publiques en direct" style="position: relative; height: 560px">
+      <svg viewBox="0 0 640 560" width="100%" height="560" fill="none" aria-hidden="true" style="position: absolute; inset: 0">
+        <g stroke="#8A9BB5" stroke-opacity="0.28" stroke-dasharray="2 8"><circle cx="320" cy="300" r="260"/><circle cx="320" cy="300" r="180"/><circle cx="320" cy="300" r="100"/></g>
+        <path d="M20 72 L620 56" stroke="#EB3B44" stroke-width="3"/>
+        <g stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 11">
+          <path d="M80 560 C 120 420, 220 300, 300 64" stroke="#B48CFF" stroke-opacity="0.75"/>
+          <path d="M250 560 C 260 420, 300 300, 312 64" stroke="#FFB347" stroke-opacity="0.75"/>
+          <path d="M420 560 C 400 420, 340 300, 322 64" stroke="#5BD6FF" stroke-opacity="0.75"/>
+          <path d="M600 560 C 560 420, 420 300, 330 64" stroke="#5BE3A6" stroke-opacity="0.75"/>
+        </g>
+      </svg>
+      <a href="06-salle.html" style="position: absolute; left: 30%; top: 44%; display: flex; align-items: center; gap: 10px; min-height: 44px; font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: #FFB347"><i style="width: 14px; height: 14px; border-radius: 50%; background: #FFB347; box-shadow: 0 0 0 8px rgba(255, 179, 71, 0.18)"></i>[.SALLE 4B · 18 COUREURS]</a>
+      <a href="06-salle.html" style="position: absolute; left: 56%; top: 62%; display: flex; align-items: center; gap: 10px; min-height: 44px; font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: #5BE3A6"><i style="width: 14px; height: 14px; border-radius: 50%; background: #5BE3A6; box-shadow: 0 0 0 8px rgba(91, 227, 166, 0.18)"></i>[.SPRINT ACCENTS · 6]</a>
+      <a href="06-salle.html" style="position: absolute; left: 66%; top: 30%; display: flex; align-items: center; gap: 10px; min-height: 44px; font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: #B48CFF"><i style="width: 14px; height: 14px; border-radius: 50%; background: #B48CFF; box-shadow: 0 0 0 8px rgba(180, 140, 255, 0.18)"></i>[.ARCADE · 11]</a>
+      <span style="position: absolute; right: 0; bottom: 0; font-size: 13px; color: #8A9BB5">Clique une lumière pour rejoindre une salle publique.</span>
+    </section>
+  </main>
+
+  <section style="max-width: 1344px; margin: 0 auto; padding: 0 48px 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 16px">
+    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 20px; border: 1px solid #22324D; border-radius: 12px; background: rgba(12, 20, 36, 0.8)"><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 28px; color: #5BD6FF">01</span><span style="display: flex; flex-direction: column; gap: 4px"><b>Salle publique</b><span style="font-size: 14px; color: #8A9BB5">Visible dans la liste, ouverte à tous.</span></span></div>
+    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 20px; border: 1px solid #22324D; border-radius: 12px; background: rgba(12, 20, 36, 0.8)"><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 28px; color: #5BD6FF">02</span><span style="display: flex; flex-direction: column; gap: 4px"><b>Salle privée</b><span style="font-size: 14px; color: #8A9BB5">Cachée, on entre avec un code de 5 caractères.</span></span></div>
+    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 20px; border: 1px solid #22324D; border-radius: 12px; background: rgba(12, 20, 36, 0.8)"><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 28px; color: #5BD6FF">03</span><span style="display: flex; flex-direction: column; gap: 4px"><b>Sur invitation</b><span style="font-size: 14px; color: #8A9BB5">Un lien personnel, utilisable une seule fois.</span></span></div>
+  </section>
+</div>
+</body>
+</html>

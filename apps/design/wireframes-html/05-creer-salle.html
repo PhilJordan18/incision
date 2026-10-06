@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incision · Créer une salle</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&amp;family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#05070D}
+a{color:#C9D3E1;text-decoration:none}a:hover{color:#EEF2F7}
+</style>
+</head>
+<body>
+
+<div style="min-height: 1100px; background: #05070D; color: #EEF2F7; font-family: Geist, 'Helvetica Neue', sans-serif">
+  <header style="border-bottom: 1px solid #16233A">
+    <div style="max-width: 1344px; margin: 0 auto; padding: 18px 48px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+      <a href="04-jouer.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>Retour</a>
+      <span style="display: flex; align-items: center; gap: 12px"><img src="../logo/ico-red.svg" alt="" style="width: 30px; height: 30px"><img src="../logo/wm-white.svg" alt="Incision" style="width: 96px; height: 20px"></span>
+      <span style="width: 80px"></span>
+    </div>
+  </header>
+
+  <main style="max-width: 1344px; margin: 0 auto; padding: 36px 48px 56px; display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+    <form style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+      <h1 style="margin: 0; font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 64px; line-height: 0.9; text-transform: uppercase">Préparer la <em style="font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-style: italic; text-transform: none">traversée</em></h1>
+
+      <fieldset style="margin: 0; padding: 22px; border-radius: 12px; border: 1px solid #22324D; background: #0C1424; display: flex; flex-direction: column; gap: 14px">
+        <legend style="padding: 0 6px; font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #5BD6FF">01 · ACCÈS</legend>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 10px">
+          <label style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 8px; border: 1px solid #22324D"><span style="display: flex; gap: 10px; align-items: center; font-weight: 600"><input type="radio" name="acces" style="accent-color: #D41F27; width: 18px; height: 18px">Publique</span><span style="font-size: 13px; color: #8A9BB5">Visible dans la liste</span></label>
+          <label style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 8px; border: 2px solid #EEF2F7; background: #16233A"><span style="display: flex; gap: 10px; align-items: center; font-weight: 600"><input type="radio" name="acces" checked style="accent-color: #D41F27; width: 18px; height: 18px">Privée</span><span style="font-size: 13px; color: #C9D3E1">Code à 5 caractères</span></label>
+          <label style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 8px; border: 1px solid #22324D"><span style="display: flex; gap: 10px; align-items: center; font-weight: 600"><input type="radio" name="acces" style="accent-color: #D41F27; width: 18px; height: 18px">Sur invitation</span><span style="font-size: 13px; color: #8A9BB5">Liens à usage unique</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset style="margin: 0; padding: 22px; border-radius: 12px; border: 1px solid #22324D; background: #0C1424; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 18px">
+        <legend style="padding: 0 6px; font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #5BD6FF">02 · RÈGLES DE LA MANCHE</legend>
+        <div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 14px; font-weight: 500">Mode</span>
+          <div role="radiogroup" aria-label="Mode" style="display: grid; grid-template-columns: repeat(3, auto); padding: 4px; border-radius: 8px; border: 1px solid #22324D; background: #05070D">
+            <button type="button" role="radio" aria-checked="true" style="height: 40px; padding: 0 12px; border: none; border-radius: 6px; background: #EEF2F7; color: #05070D; font-weight: 600; font-size: 14px">Entraînement</button>
+            <button type="button" role="radio" aria-checked="false" style="height: 40px; padding: 0 12px; border: none; border-radius: 6px; background: transparent; color: #C9D3E1; font-size: 14px">Évaluation</button>
+            <button type="button" role="radio" aria-checked="false" style="height: 40px; padding: 0 12px; border: none; border-radius: 6px; background: transparent; color: #C9D3E1; font-size: 14px">Arcade</button>
+          </div>
+          <span style="font-size: 12px; color: #8A9BB5">Bonus seulement en Arcade. Résultats séparés par mode.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 14px; font-weight: 500">Erreurs</span>
+          <div role="radiogroup" aria-label="Gestion des erreurs" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 4px; border-radius: 8px; border: 1px solid #22324D; background: #05070D">
+            <button type="button" role="radio" aria-checked="true" style="height: 40px; border: none; border-radius: 6px; background: #EEF2F7; color: #05070D; font-weight: 600; font-size: 14px">Frappe libre</button>
+            <button type="button" role="radio" aria-checked="false" style="height: 40px; border: none; border-radius: 6px; background: transparent; color: #C9D3E1; font-size: 14px">Frappe bloquée</button>
+          </div>
+          <span style="font-size: 12px; color: #8A9BB5">Libre : l'erreur reste visible et compte. Bloquée : corriger pour avancer.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><label for="duree" style="font-size: 14px; font-weight: 500">Durée maximale</label>
+          <select id="duree" style="height: 48px; padding: 0 12px; border-radius: 8px; border: 1px solid #22324D; background: #05070D; color: #EEF2F7; font-size: 15px"><option>Automatique · 2 min 40 (estimée)</option><option>Manuelle</option></select>
+        </div>
+        <label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; align-self: end"><input type="checkbox" checked style="width: 20px; height: 20px; accent-color: #D41F27">Je participe à la course (sinon : spectateur)</label>
+      </fieldset>
+
+      <fieldset style="margin: 0; padding: 22px; border-radius: 12px; border: 1px solid #22324D; background: #0C1424; display: flex; flex-direction: column; gap: 16px">
+        <legend style="padding: 0 6px; font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #5BD6FF">03 · TEXTE</legend>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 14px">
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="src" style="font-size: 14px; font-weight: 500">Source</label><select id="src" style="height: 48px; padding: 0 12px; border-radius: 8px; border: 1px solid #22324D; background: #05070D; color: #EEF2F7; font-size: 15px"><option>Catalogue · texte cohérent</option><option>Catalogue · exercice ciblé</option><option>Mon texte</option></select></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="lang" style="font-size: 14px; font-weight: 500">Langue du texte</label><select id="lang" style="height: 48px; padding: 0 12px; border-radius: 8px; border: 1px solid #22324D; background: #05070D; color: #EEF2F7; font-size: 15px"><option>Français</option><option>Anglais</option></select></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="mots" style="font-size: 14px; font-weight: 500">Longueur (mots)</label><input id="mots" type="number" value="120" min="10" max="1000" style="height: 48px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid #22324D; background: #05070D; color: #EEF2F7; font-family: 'Geist Mono', monospace; font-size: 16px"></div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button type="button" aria-pressed="true" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #5BD6FF; background: rgba(91, 214, 255, 0.12); color: #5BD6FF; font-size: 14px">✓ Accents</button>
+          <button type="button" aria-pressed="true" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #5BD6FF; background: rgba(91, 214, 255, 0.12); color: #5BD6FF; font-size: 14px">✓ Ponctuation</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 14px">Chiffres</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 14px">Caractères spéciaux</button>
+        </div>
+        <div style="padding: 14px 16px; border-radius: 8px; background: #05070D; border: 1px solid #16233A; font-family: 'Geist Mono', monospace; font-size: 15px; line-height: 1.8; color: #C9D3E1">Aperçu : « La mer était calme ce matin-là, et pourtant l'équipage savait que la traversée serait longue… »</div>
+      </fieldset>
+
+      <fieldset style="margin: 0; padding: 22px; border-radius: 12px; border: 1px solid #22324D; background: #0C1424; display: flex; flex-direction: column; gap: 14px">
+        <legend style="padding: 0 6px; font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #5BD6FF">04 · BOTS</legend>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 10px">
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 8px; border: 1px solid #22324D"><b>Mousse</b><span style="font-size: 12px; color: #8A9BB5">≈ 20 WPM · se trompe souvent</span><span style="display: flex; align-items: center; gap: 8px"><button type="button" aria-label="Retirer un Mousse" style="width: 36px; height: 36px; border-radius: 6px; border: 1px solid #22324D; background: transparent; color: #EEF2F7">−</button><span style="font-family: 'Geist Mono', monospace">0</span><button type="button" aria-label="Ajouter un Mousse" style="width: 36px; height: 36px; border-radius: 6px; border: 1px solid #22324D; background: transparent; color: #EEF2F7">+</button></span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 8px; border: 2px solid #EEF2F7"><b>Matelot</b><span style="font-size: 12px; color: #8A9BB5">≈ 40 WPM · régulier</span><span style="display: flex; align-items: center; gap: 8px"><button type="button" aria-label="Retirer un Matelot" style="width: 36px; height: 36px; border-radius: 6px; border: 1px solid #22324D; background: transparent; color: #EEF2F7">−</button><span style="font-family: 'Geist Mono', monospace">1</span><button type="button" aria-label="Ajouter un Matelot" style="width: 36px; height: 36px; border-radius: 6px; border: 1px solid #22324D; background: transparent; color: #EEF2F7">+</button></span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 8px; border: 1px solid #22324D"><b>Capitaine</b><span style="font-size: 12px; color: #8A9BB5">≈ 65 WPM · accélère</span><span style="display: flex; align-items: center; gap: 8px"><button type="button" aria-label="Retirer un Capitaine" style="width: 36px; height: 36px; border-radius: 6px; border: 1px solid #22324D; background: transparent; color: #EEF2F7">−</button><span style="font-family: 'Geist Mono', monospace">0</span><button type="button" aria-label="Ajouter un Capitaine" style="width: 36px; height: 36px; border-radius: 6px; border: 1px solid #22324D; background: transparent; color: #EEF2F7">+</button></span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 8px; border: 1px solid #22324D"><b>Empereur</b><span style="font-size: 12px; color: #8A9BB5">≈ 95 WPM · rarement en erreur</span><span style="display: flex; align-items: center; gap: 8px"><button type="button" aria-label="Retirer un Empereur" style="width: 36px; height: 36px; border-radius: 6px; border: 1px solid #22324D; background: transparent; color: #EEF2F7">−</button><span style="font-family: 'Geist Mono', monospace">0</span><button type="button" aria-label="Ajouter un Empereur" style="width: 36px; height: 36px; border-radius: 6px; border: 1px solid #22324D; background: transparent; color: #EEF2F7">+</button></span></div>
+        </div>
+      </fieldset>
+    </form>
+
+    <aside aria-label="Récapitulatif" style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 14px; padding: 24px; border-radius: 12px; border: 1px solid #22324D; background: #0C1424">
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #EB3B44">RÉCAPITULATIF</span>
+      <dl style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; font-size: 15px">
+        <dt style="color: #8A9BB5">Accès</dt><dd style="margin: 0">Privée · code</dd>
+        <dt style="color: #8A9BB5">Mode</dt><dd style="margin: 0">Entraînement</dd>
+        <dt style="color: #8A9BB5">Erreurs</dt><dd style="margin: 0">Frappe libre</dd>
+        <dt style="color: #8A9BB5">Texte</dt><dd style="margin: 0">FR · 120 mots · accents, ponctuation</dd>
+        <dt style="color: #8A9BB5">Durée</dt><dd style="margin: 0">Auto · 2 min 40</dd>
+        <dt style="color: #8A9BB5">Bots</dt><dd style="margin: 0">1 Matelot</dd>
+        <dt style="color: #8A9BB5">Toi</dt><dd style="margin: 0">Coureur et hôte</dd>
+      </dl>
+      <span style="font-size: 13px; line-height: 1.5; color: #8A9BB5">Ces réglages se verrouillent au départ de chaque manche, puis se modifient entre deux manches.</span>
+      <a href="06-salle.html" style="height: 56px; border-radius: 8px; background: #D41F27; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px">Ouvrir la salle</a>
+    </aside>
+  </main>
+</div>
+</body>
+</html>
