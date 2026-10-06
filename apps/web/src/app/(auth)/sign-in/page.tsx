@@ -38,7 +38,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
     // comes first and the panel is left out, so the first screen is the form.
     <div className="flex min-h-screen flex-col min-[1080px]:flex-row">
       <SkipLink label={t.layout.skipToContent} />
-      <aside className="red-mist relative hidden min-h-screen flex-[0_1_40%] flex-col justify-between gap-8 overflow-hidden border-r border-houle bg-nuit px-12 py-10 min-[1080px]:flex">
+      <aside className="red-mist relative hidden min-h-screen flex-[0_1_40%] flex-col justify-between gap-8 overflow-hidden border-r border-houle bg-nuit px-12 pt-6 pb-10 min-[1080px]:flex">
         <LogoLink label={t.layout.homeLink} size="panel" />
         <div className="relative flex flex-col items-center gap-7">
           <svg viewBox="0 0 360 360" fill="none" aria-hidden="true" focusable="false" className="absolute -top-20 left-1/2 size-[360px] -translate-x-1/2">

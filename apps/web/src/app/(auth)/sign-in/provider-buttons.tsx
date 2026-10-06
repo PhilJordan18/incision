@@ -15,28 +15,26 @@ const PROVIDERS = [
 export function ProviderButtons({ callbackUrl, t }: ProviderButtonsProps) {
   return (
     <ul aria-label={t.providersLabel} className="grid grid-cols-2 gap-2.5">
-      {PROVIDERS.map(({ id, Icon, label, aria }) => {
-        return (
-          <li key={id}>
-            <form action={signInWithProvider}>
-              <input type="hidden" name="callbackUrl" value={callbackUrl} />
-              <SubmitButton
-                name="provider"
-                value={id}
-                ariaLabel={t[aria]}
-                label={
-                  <>
-                    <Icon />
-                    {t[label]}
-                  </>
-                }
-                pendingLabel={t.redirecting}
-                className={`${surfaceButton} w-full`}
-              />
-            </form>
-          </li>
-        );
-      })}
+      {PROVIDERS.map(({ id, Icon, label, aria }) => (
+        <li key={id}>
+          <form action={signInWithProvider}>
+            <input type="hidden" name="callbackUrl" value={callbackUrl} />
+            <SubmitButton
+              name="provider"
+              value={id}
+              ariaLabel={t[aria]}
+              label={
+                <>
+                  <Icon />
+                  {t[label]}
+                </>
+              }
+              pendingLabel={t.redirecting}
+              className={`${surfaceButton} w-full`}
+            />
+          </form>
+        </li>
+      ))}
     </ul>
   );
 }
