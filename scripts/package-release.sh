@@ -26,11 +26,13 @@ done
 mkdir -p "$stage/apps/web"
 cp apps/web/package.json apps/web/server.ts apps/web/next.config.ts apps/web/tsconfig.json "$stage/apps/web/"
 cp -R apps/web/src apps/web/public "$stage/apps/web/"
-rsync -a --exclude cache apps/web/.next "$stage/apps/web/"
+rsync -a --exclude cache --exclude "trace*" apps/web/.next "$stage/apps/web/"
 printf '{"commit":"%s","builtAt":"%s"}\n' "$commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$stage/apps/web/build-info.json"
 
 # Production dependencies only, built for the machine running this script (Linux x64 in CI).
 (cd "$stage" && npm ci --omit=dev --no-audit --no-fund)
+# App Service runs glibc; the lockfile cannot exclude musl builds, so drop them (about 115 MB).
+rm -rf "$stage"/node_modules/@next/swc-linux-*-musl "$stage"/node_modules/@img/*linuxmusl*
 
 # Zip deployment does not reliably keep symlinks: replace workspace links with copies.
 for link in "$stage"/node_modules/@incision/*; do
