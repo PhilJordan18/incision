@@ -15,7 +15,7 @@ export async function signInWithCredentials(page: Page, login: string, password:
   await page.getByRole("button", { name: labels.submit, exact: true }).click();
 }
 
-export const FRENCH: FormLabels = { login: "Identifiant", password: "Mot de passe", submit: "Se connecter" };
+export const FRENCH: FormLabels = { login: "Nom d’utilisateur", password: "Mot de passe", submit: "Se connecter" };
 export const ENGLISH: FormLabels = { login: "Username", password: "Password", submit: "Sign in" };
 
 /** The session cookie as a Cookie header, as a browser would send it on a later request. */
