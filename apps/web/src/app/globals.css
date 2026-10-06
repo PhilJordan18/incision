@@ -1,26 +1,41 @@
 @import "tailwindcss";
+/* Design tokens (colours, fonts, radii, motion): the only place colours are written. */
+@import "../../../design/tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Elements for one theme only, e.g. the white wordmark on Abysse, the black one on Aube. */
+[data-theme="aube"] .only-abysse,
+:root:not([data-theme="aube"]) .only-aube {
+  display: none;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Signature: the icon turns slowly (1 turn / 12 s); still when motion is reduced. */
+@keyframes incision-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.icon-slow-spin {
+  animation: incision-spin 12s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-slow-spin {
+    animation: none;
+  }
+}
+
+/* One "Red Line mist" per screen: a red halo at 15–25 % behind what matters;
+   the low end on Aube, where red reads stronger on a light background. */
+.red-mist {
+  --mist-strength: 22%;
+  background-image: radial-gradient(
+    ellipse 60% 50% at var(--mist-x, 50%) var(--mist-y, 45%),
+    color-mix(in srgb, var(--color-redline) var(--mist-strength), transparent),
+    transparent 70%
+  );
+}
+
+[data-theme="aube"] .red-mist {
+  --mist-strength: 15%;
 }
