@@ -1,23 +1,37 @@
 /**
  * Display names (account nickname, room presence). Unicode is allowed; uniqueness inside
- * a room compares a canonical form: trimmed, NFKC, lowercase, accents kept (D-04).
+ * a room compares a canonical form: normalised, lowercase, accents kept (D-04, D-14).
  */
 export const DISPLAY_NAME_MAX_LENGTH = 40;
+
+/** Control, format (zero-width, joiners, bidi overrides), private-use and unassigned characters. */
+const INVISIBLE_OR_UNASSIGNED = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}]/u;
 
 export type DisplayNameParseResult =
   | { readonly ok: true; readonly value: string }
   | { readonly ok: false; readonly error: "INVALID_DISPLAY_NAME" };
 
-/** NFKC, trimmed, inner whitespace collapsed; 1 to 40 code points, no control characters. */
+/**
+ * NFKC, trimmed, inner whitespace collapsed; 1 to 40 code points (PostgreSQL `char_length`).
+ * Invisible characters are refused because they would let a name look identical to
+ * another one in the same room; emoji joined with U+200D are refused for the same reason.
+ */
 export function parseDisplayName(input: string): DisplayNameParseResult {
-  const value = input.normalize("NFKC").trim().replace(/\s+/gu, " ");
+  if (!input.isWellFormed()) {
+    return { ok: false, error: "INVALID_DISPLAY_NAME" };
+  }
+  const value = normaliseDisplayName(input);
   const length = [...value].length;
-  if (length === 0 || length > DISPLAY_NAME_MAX_LENGTH || /\p{Cc}/u.test(value)) {
+  if (length === 0 || length > DISPLAY_NAME_MAX_LENGTH || INVISIBLE_OR_UNASSIGNED.test(value)) {
     return { ok: false, error: "INVALID_DISPLAY_NAME" };
   }
   return { ok: true, value };
 }
 
 export function canonicalDisplayName(displayName: string): string {
-  return displayName.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
+  return normaliseDisplayName(displayName).toLowerCase();
+}
+
+function normaliseDisplayName(input: string): string {
+  return input.normalize("NFKC").trim().replace(/\s+/gu, " ");
 }

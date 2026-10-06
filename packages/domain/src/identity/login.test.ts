@@ -7,9 +7,13 @@ describe("parseLogin", () => {
   });
 
   it("gives the same canonical key regardless of case", () => {
-    const upper = parseLogin("ALICE");
-    const lower = parseLogin("alice");
-    expect(upper.ok && lower.ok && upper.value.canonical === lower.value.canonical).toBe(true);
+    expect(parseLogin("ALICE")).toEqual({ ok: true, value: { login: "ALICE", canonical: "alice" } });
+    expect(parseLogin("alice")).toEqual({ ok: true, value: { login: "alice", canonical: "alice" } });
+  });
+
+  it("accepts the 3 and 32 character bounds", () => {
+    expect(parseLogin("abc")).toMatchObject({ ok: true });
+    expect(parseLogin("a".repeat(32))).toMatchObject({ ok: true });
   });
 
   it.each(["ab", "a".repeat(33), "with space", "émile", "a@b", "", "   "])("rejects %j", (input) => {
