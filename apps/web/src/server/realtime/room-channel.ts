@@ -1,13 +1,8 @@
-import type { ActiveMembership, RoomSnapshot } from "@incision/database";
-import { publicSnapshot } from "../../rooms/public-snapshot";
 import type { EventEmitter } from "node:events";
+import type { ActiveMembership, RoomSnapshot } from "@incision/database";
 import type { Server, Socket } from "socket.io";
-import {
-  ROOM_SNAPSHOT_EVENT,
-  ROOM_WATCH_EVENT,
-  type RoomWatchAck,
-  roomWatchPayloadSchema,
-} from "../../rooms/protocol";
+import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema } from "../../rooms/protocol";
+import { publicSnapshot } from "../../rooms/public-snapshot";
 import type { RoomPresence } from "./room-presence";
 import type { SessionRegistry } from "./session-registry";
 import { currentSession } from "./socket-server";

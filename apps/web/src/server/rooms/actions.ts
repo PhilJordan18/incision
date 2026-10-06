@@ -28,6 +28,7 @@ export type JoinFormState = {
 };
 
 const roleSchema = z.enum(["participant", "spectator"]).catch("participant");
+const returnToSchema = z.string().transform(safeRedirectPath).catch("/");
 
 /**
  * Join a room by code (JOIN-01, SALLE-06/09): the code is checked with the domain rule,
@@ -104,6 +105,5 @@ export async function leaveRoomAction(formData: FormData): Promise<void> {
   if (left !== undefined) {
     notifyRoomChanged(left.lobbyId);
   }
-  const returnTo = formData.get("returnTo");
-  redirect(typeof returnTo === "string" ? safeRedirectPath(returnTo) : "/");
+  redirect(returnToSchema.parse(formData.get("returnTo")));
 }
