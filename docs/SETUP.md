@@ -23,7 +23,7 @@ npm ci
 npm run dev -w @incision/web
 ```
 
-Open `http://localhost:3000` to check the initial screen. React, Next.js, TypeScript, Tailwind CSS and the App Router are installed. The realtime server and authentication are **not implemented yet**.
+Open `http://localhost:3000` to check the initial screen. `npm run dev -w @incision/web` starts the custom server, which serves Next.js and Socket.IO on the same port and reads the root `.env`. `http://localhost:3000/api/health` reports the database state. Authentication is **not implemented yet**.
 
 **Strict TypeScript constraint.** Product code uses `.ts`/`.tsx`; the PostCSS configuration is in JSON. `tsconfig.json` disables `allowJs`. The JavaScript files of the dependencies in `node_modules` are not code written for this project.
 
@@ -39,9 +39,9 @@ The provided password is **for local development only**. Deployment will use a s
 
 ## 4. Add the application modules
 
-Then create `packages/domain`, `packages/contracts` and `packages/database`, each with its own TypeScript `package.json`. Install `drizzle-orm` and `pg` in the database module, then `drizzle-kit` and `@types/pg` as development dependencies. Choose **stable versions locked by `package-lock.json`**, checked at installation time, and test migrations before applying them to a remote database.
+`packages/domain` (pure rules) and `packages/database` (`pg` pool, Drizzle to come) already exist; `packages/contracts` will be created with the first shared realtime events. Add dependencies with `npm install --workspace=<path>` and keep **stable versions locked by `package-lock.json`**; test migrations locally before applying them to a remote database.
 
-The first schema must follow the [checkpoint slice of the data model](architecture/data-model.md#data-slice-for-checkpoint-1). Generate versioned migrations with Drizzle Kit (`generate`, then `migrate`); do not use `push` as a production mechanism. For this checkpoint, implement room creation/admission before the Socket.IO synchronisation of members; the full round state machine must not delay this minimal proof. The current `next dev` and `next start` scripts do not start Socket.IO: they will have to be adapted when the custom server is added.
+The first schema must follow the [checkpoint slice of the data model](architecture/data-model.md#data-slice-for-checkpoint-1). Generate versioned migrations with Drizzle Kit (`generate`, then `migrate`); do not use `push` as a production mechanism. For this checkpoint, implement room creation/admission before the Socket.IO synchronisation of members; the full round state machine must not delay this minimal proof.
 
 ## 5. Checkpoint checks
 
@@ -53,7 +53,7 @@ The target is demonstrable, not just documented:
 4. CI on every push: lint, TypeScript, tests and build; automatic deployment after success.
 5. Language and theme accessible on the existing pages; `docs/EXIGENCES.md` listing all official IDs, honest statuses and real tests.
 
-Points 1, 2 and 4 still require implementation and external configuration. Do not present them as achieved because these documents exist. For the current skeleton, run `npm run lint -w @incision/web` and `npm run build -w @incision/web`.
+Points 1 and 2 still require implementation. Do not present them as achieved because these documents exist. From the root, run `npm run check:no-js`, `npm run lint`, `npm run typecheck`, `npm test` and `npm run build`; deployment follows [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Official references
 

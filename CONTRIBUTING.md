@@ -40,7 +40,7 @@ These rules aim at readability and correctness. A reasoned, tested exception is 
 
 ## Git and commits
 
-Create working branches from `dev` (`feat/…`, `fix/…`, `docs/…`). Verified changes are merged into `dev`; a stable release then goes from `dev` to `main`. Do not develop directly on these two branches, nor rewrite their published history. CI runs on every push and PR; only `main`, published after checks, automatically feeds production. Branch protection and the deployment workflow still have to be configured; do not assume they are active.
+Create working branches from `dev` (`feat/…`, `fix/…`, `docs/…`). Verified changes are merged into `dev`; a stable release then goes from `dev` to `main`. Do not develop directly on these two branches, nor rewrite their published history. CI runs on every push and PR; only `main`, published after checks, automatically feeds production. The deployment workflow is described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); branch protection still has to be configured, do not assume it is active.
 
 Write focused commits in English using **Conventional Commits**: `type(scope): short description`. Usual types: `feat` (feature), `fix`, `docs`, `test`, `refactor` (no behaviour change), `perf`, `chore`, `build` and `ci`. The scope is optional but useful: `auth`, `rooms`, `db`, `web`, `docs`.
 
