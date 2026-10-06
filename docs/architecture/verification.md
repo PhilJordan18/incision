@@ -4,7 +4,7 @@ Updated on **October 3, 2026**, following Philippe's clarifications: checkpoint 
 
 ## What actually exists
 
-Next.js skeleton, TypeScript/Tailwind, npm workspaces, local PostgreSQL through Compose, contribution rules and design. **Not yet**: authentication, Drizzle migrations, Socket.IO server, business tests, GitHub Actions or a verified HTTPS URL. The added documents do not replace this evidence.
+Next.js skeleton, TypeScript/Tailwind, npm workspaces, local PostgreSQL through Compose, contribution rules and design. **Since October 5**: CI on every push and PR (lint, type check, unit tests, build) and a first tested domain rule (room code). **Not yet**: authentication, Drizzle migrations, Socket.IO server, most business tests or a verified HTTPS URL. The added documents do not replace this evidence.
 
 | Line graded at the checkpoint | Observed situation | Closing condition |
 |---|---|---|
