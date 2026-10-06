@@ -5,6 +5,7 @@ import { createRoomWithHost, findActiveMembership, joinRoomByCode, leaveCurrentR
 import { parseRoomCode, ROOM_MAX_CAPACITY, type RoomCodeError } from "@incision/domain";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { CODE_INPUT_MAX_LENGTH } from "@/rooms/code-input";
 import { safeRedirectPath } from "@/server/auth/safe-redirect";
 import { getAccountSession, requireAccountSession } from "@/server/auth/session";
 import { authDatabase } from "@/server/auth/store";
@@ -35,7 +36,7 @@ const roleSchema = z.enum(["participant", "spectator"]).catch("participant");
  */
 export async function joinRoomAction(_previous: JoinFormState, formData: FormData): Promise<JoinFormState> {
   const input = formData.get("code");
-  const typed = typeof input === "string" ? input.slice(0, 32) : "";
+  const typed = typeof input === "string" ? input.slice(0, CODE_INPUT_MAX_LENGTH) : "";
   const parsed = parseRoomCode(typed);
   if (!parsed.ok) {
     return { error: parsed.error, code: typed };

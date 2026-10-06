@@ -9,12 +9,12 @@ import {
 import { parseServerEnv } from "../config";
 import type { SessionStore } from "./session-callbacks";
 
+let databaseUrl: string | undefined;
+
 /**
  * Database of the process, opened on first use: only requests that carry a session or
  * sign in reach it, so anonymous traffic and the liveness probe never touch Neon.
  */
-let databaseUrl: string | undefined;
-
 export function authDatabase(): Database {
   databaseUrl ??= parseServerEnv(process.env).databaseUrl;
   if (databaseUrl === undefined) {

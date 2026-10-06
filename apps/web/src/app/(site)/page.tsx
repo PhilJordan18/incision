@@ -26,7 +26,7 @@ export default async function Home() {
             {t.home.createRoom}
           </Link>
         </section>
-        <div className="red-mist flex justify-center [--mist-x:50%] [--mist-y:15%]">
+        <div className="red-mist flex justify-center [--mist-x:50%] [--mist-y:40%]">
           <SeaRoutes />
         </div>
       </div>

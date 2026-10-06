@@ -76,7 +76,7 @@ export const en: Dictionary = {
   },
   authError: {
     title: "Sign-in failed",
-    label: "Sign-in",
+    label: "Authentication error",
     headingBold: "Sign-in",
     headingSerif: "failed",
     accessDenied: "Sign-in was refused or cancelled. You can try again another way.",
@@ -141,6 +141,11 @@ export const en: Dictionary = {
     headingSerif: "course",
     body: "This page does not exist or is no longer available.",
     backHome: "Back to the home page",
+  },
+  globalError: {
+    title: "Damage",
+    body: "The site could not be displayed. Try again in a moment.",
+    retry: "Try again",
   },
   errorBoundary: {
     label: "Error",

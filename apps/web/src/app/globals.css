@@ -25,6 +25,11 @@
   }
 }
 
+/* Skip-link target: focused to move the reading position, not a control to highlight. */
+main[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
 /* One "Red Line mist" per screen: a red halo at 15–25 % behind what matters;
    the low end on Aube, where red reads stronger on a light background. */
 .red-mist {

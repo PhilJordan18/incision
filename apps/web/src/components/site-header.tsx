@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AccountLink } from "@/components/account-link";
 import { LogoLink } from "@/components/brand/logo";
 import { LanguageSwitcher } from "@/components/preferences/language-switcher";
 import { ThemeToggle } from "@/components/preferences/theme-toggle";
@@ -17,14 +17,9 @@ export function SiteHeader({ locale, t, signedIn }: SiteHeaderProps) {
       <LogoLink label={t.layout.homeLink} />
       <div className="flex flex-wrap items-center gap-2.5">
         <LanguageSwitcher locale={locale} t={t.layout} />
-        <ThemeToggle labels={{ toAube: t.layout.themeToAube, toAbysse: t.layout.themeToAbysse }} />
+        <ThemeToggle t={t.layout} />
         <nav aria-label={t.layout.mainNavigation}>
-          <Link
-            href={signedIn ? "/account" : "/sign-in"}
-            className="inline-flex h-11 items-center rounded-full bg-ecume px-5 text-[15px] font-semibold text-abysse"
-          >
-            {signedIn ? t.layout.account : t.layout.signIn}
-          </Link>
+          <AccountLink href={signedIn ? "/account" : "/sign-in"} label={signedIn ? t.layout.account : t.layout.signIn} />
         </nav>
       </div>
     </header>

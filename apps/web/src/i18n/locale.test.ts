@@ -1,3 +1,4 @@
+import { LOGIN_MAX_LENGTH, PASSWORD_MAX_LENGTH } from "@incision/domain";
 import { describe, expect, it } from "vitest";
 import { getDictionary } from "./dictionaries";
 import { LOCALES, resolveLocale } from "./locale";
@@ -27,6 +28,14 @@ describe("resolveLocale", () => {
 });
 
 describe("dictionaries", () => {
+  it("state the same length limits as the domain rules in every language", () => {
+    for (const locale of LOCALES) {
+      const { errors } = getDictionary(locale).signIn;
+      expect(errors.loginTooLong).toContain(String(LOGIN_MAX_LENGTH));
+      expect(errors.passwordTooLong).toContain(String(PASSWORD_MAX_LENGTH));
+    }
+  });
+
   /** Leaf strings of a dictionary, by dotted path. */
   function leaves(value: unknown, prefix = ""): [string, unknown][] {
     if (typeof value !== "object" || value === null) {

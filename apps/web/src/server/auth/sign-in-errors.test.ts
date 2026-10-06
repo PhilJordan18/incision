@@ -8,6 +8,7 @@ describe("signInErrorKey", () => {
     ["CredentialsSignin", "invalid_credentials", "invalidCredentials"],
     ["CredentialsSignin", "credentials", "invalidCredentials"],
     ["CredentialsSignin", "rate_limited", "rateLimited"],
+    ["CredentialsSignin", "busy", "unavailable"],
     ["OAuthCallbackError", undefined, "providerFailed"],
     ["AccessDenied", undefined, "providerFailed"],
     ["Configuration", undefined, "unavailable"],

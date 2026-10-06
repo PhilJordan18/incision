@@ -23,9 +23,10 @@ export async function signOutEverywhere(accountId: string, dependencies: Revocat
 }
 
 /**
- * Auth.js `events.signOut`, for the built-in POST /api/auth/signout. Only a session
- * that is still valid revokes: an old, already revoked cookie must not let its holder
- * sign the account out again and again.
+ * Auth.js `events.signOut`, defence in depth: the built-in POST /api/auth/signout is
+ * refused, and the account action revokes before calling `signOut()`, so this normally
+ * finds the session already revoked. Only a session that is still valid revokes: an old,
+ * already revoked cookie must not let its holder sign the account out again and again.
  */
 export async function revokeOnSignOutEvent(
   message: { readonly token?: unknown },

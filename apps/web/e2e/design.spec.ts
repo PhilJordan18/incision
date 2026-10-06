@@ -22,16 +22,17 @@ async function expectNoHorizontalScroll(page: Page): Promise<void> {
 }
 
 test.describe("theme (DES-05)", () => {
-  test("follows the system before any choice, without waiting for React", async ({ browser, baseURL }) => {
+  test("follows the system before any choice, from the inline script alone", async ({ browser, baseURL }) => {
     for (const [colorScheme, theme] of [
       ["light", "aube"],
       ["dark", "abysse"],
     ] as const) {
-      const context = await browser.newContext({ colorScheme, locale: "fr-CA", javaScriptEnabled: true });
+      const context = await browser.newContext({ colorScheme, locale: "fr-CA" });
+      // No application script can run: only the inline script in the HTML can set the theme.
+      await context.route("**/_next/static/**/*.js", (route) => route.abort());
       const page = await context.newPage();
-      // The theme must be set by the inline script while the HTML is parsed.
-      await page.goto(baseURL ?? "", { waitUntil: "commit" });
-      await page.waitForFunction(() => document.body !== null);
+      await page.goto(baseURL ?? "");
+      await expect(page.locator("html")).toHaveAttribute("data-theme-choice", "system");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await context.close();
     }
@@ -73,6 +74,7 @@ test.describe("home (screen 01, JOIN-01)", () => {
     await code.fill("ABC");
     await page.getByRole("button", { name: "Rejoindre la salle" }).click();
     await expect(code).toHaveAttribute("aria-invalid", "true");
+    await expect(code).toBeFocused();
     await expect(page.getByText("Un code compte 6 caractères.")).toBeVisible();
     await code.fill("OOOOOO");
     await page.getByRole("button", { name: "Rejoindre la salle" }).click();
@@ -101,11 +103,14 @@ test.describe("layout and accessibility (DES-06, A11Y)", () => {
     });
   }
 
-  test("has no WCAG A/AA violation on the account page", async ({ page }) => {
-    await signInWithCredentials(page, bruno.login, bruno.password);
-    await expect(page).toHaveURL(/\/account$/);
-    await expectNoAccessibilityViolation(page);
-  });
+  for (const theme of ["abysse", "aube"] as const) {
+    test(`has no WCAG A/AA violation on the account page in ${theme}`, async ({ page, context, baseURL }) => {
+      await context.addCookies([{ name: "theme", value: theme, url: baseURL ?? "" }]);
+      await signInWithCredentials(page, bruno.login, bruno.password);
+      await expect(page).toHaveURL(/\/account$/);
+      await expectNoAccessibilityViolation(page);
+    });
+  }
 
   test("fits 360 px without horizontal scrolling", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });

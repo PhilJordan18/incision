@@ -12,6 +12,9 @@ export function signInErrorKey(error: unknown, code: unknown): SignInErrorKey | 
     return undefined;
   }
   if (error === "CredentialsSignin") {
+    if (code === "busy") {
+      return "unavailable";
+    }
     return code === "rate_limited" ? "rateLimited" : "invalidCredentials";
   }
   return PROVIDER_ERRORS.has(error) ? "providerFailed" : "unavailable";

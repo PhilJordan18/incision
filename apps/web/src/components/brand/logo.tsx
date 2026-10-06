@@ -14,10 +14,10 @@ const SIZES = {
 export function LogoLink({ label, size = "header" }: { readonly label: string; readonly size?: keyof typeof SIZES }) {
   const { icon, wordmark } = SIZES[size];
   return (
-    <Link href="/" aria-label={label} className="flex shrink-0 items-center gap-3 rounded-bouton">
-      <Image src="/brand/ico-red.svg" alt="" width={icon} height={icon} unoptimized priority />
-      <Image src="/brand/wm-white.svg" alt="" {...wordmark} unoptimized priority className="only-abysse" />
-      <Image src="/brand/wm-black.svg" alt="" {...wordmark} unoptimized priority className="only-aube" />
+    <Link href="/" aria-label={label} className="flex min-h-11 shrink-0 items-center gap-3 self-start rounded-bouton">
+      <Image src="/brand/ico-red.svg" alt="" width={icon} height={icon} unoptimized />
+      <Image src="/brand/wm-white.svg" alt="" {...wordmark} unoptimized className="only-abysse" />
+      <Image src="/brand/wm-black.svg" alt="" {...wordmark} unoptimized className="only-aube" />
     </Link>
   );
 }

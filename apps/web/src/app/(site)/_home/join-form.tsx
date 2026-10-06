@@ -1,6 +1,5 @@
 "use client";
 
-import { ROOM_CODE_LENGTH } from "@incision/domain";
 import Link from "next/link";
 import { useActionState, useEffect, useRef } from "react";
 import { SubmitButton } from "@/components/submit-button";
@@ -8,6 +7,7 @@ import { FieldError } from "@/components/ui/field-error";
 import { inlineLink, monoLabel, primaryButton, textFieldBase } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
+import { CODE_INPUT_MAX_LENGTH } from "@/rooms/code-input";
 import { joinRoomAction, type JoinFormState } from "@/server/rooms/actions";
 
 /** Code field and the only red action of the home page (one acting red per screen). */
@@ -33,7 +33,7 @@ export function JoinForm({ t }: { readonly t: Dictionary["home"] }) {
           name="code"
           defaultValue={state.code}
           placeholder={t.codePlaceholder}
-          maxLength={ROOM_CODE_LENGTH + 2}
+          maxLength={CODE_INPUT_MAX_LENGTH}
           autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}
