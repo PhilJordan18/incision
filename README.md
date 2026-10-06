@@ -8,6 +8,7 @@ Typing race platform for students aged 12 to 17. The repository contains the Nex
 2. Consult [the architecture aligned with the final brief](docs/ARCHITECTURE.md) and [the checkpoint plan](docs/architecture/verification.md).
 3. Use [the data model](docs/architecture/data-model.md), [the state machines](docs/architecture/state-machines.md) and [the realtime ADR](docs/adr/0001-realtime.md) as design contracts for development.
 4. Follow the [contribution guide](CONTRIBUTING.md) for code, checks and commits.
+5. Deploy and operate production with [the deployment guide](docs/DEPLOYMENT.md).
 
 ## Sources and authority
 

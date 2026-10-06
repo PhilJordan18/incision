@@ -12,11 +12,11 @@ The checkpoint requires room members synchronised across browsers, not yet the w
 
 ## Decision
 
-**One Node process** runs Next.js and Socket.IO on the same HTTP server, behind the HTTPS reverse proxy. One instance initially; presence/race state in memory. PostgreSQL stores identities, rooms, configuration, invitations and results. No paid realtime service and no separate service at the checkpoint.
+**One Node process** runs Next.js and Socket.IO on the same HTTP server, behind the HTTPS front end of Azure App Service ([ADR-0002](0002-hosting.md)). One instance initially; presence/race state in memory. PostgreSQL stores identities, rooms, configuration, invitations and results. No paid realtime service and no separate service at the checkpoint.
 
 Pure rules live in the business modules; Socket.IO is an adapter. The custom server uses TypeScript run with `tsx`, planned as a production dependency. Next compiles its pages, not this server. TS packages are consumed through `transpilePackages` in Next and through `tsx` on the server side; this complete path must be tested before the features.
 
-**Do not use `output: standalone` with this custom server.** The current `next dev` / `next start` scripts do not start any Socket.IO: a successful Next build does not prove that the setup is feasible.
+**Do not use `output: standalone` with this custom server.** `apps/web/server.ts` starts Next.js and Socket.IO together, with `tsx` in development and production (`npm run dev` / `npm run start` in `@incision/web`).
 
 ## Alternatives
 
@@ -27,11 +27,12 @@ Pure rules live in the business modules; Socket.IO is an adapter. The custom ser
 | Socket.IO + Next in the same process | Same origin, rooms and reconnection available, one delivery | Selected; requires a persistent server and a start-up prototype. |
 | Next and a separate Socket.IO service | Independent deployment/load | Two services, shared authentication and extra operations with no measured need. |
 
-TECH-05 requires a server. The priority option becomes a VM under Azure for Students credit, subject to eligibility, credit and available capacity. No move to a paid offer is allowed. If this option fails, Render Free + Neon Free is a technical fallback, not an administered VPS: get the teacher's agreement on TECH-05 before declaring it compliant. The architecture stays portable between these environments; durable local storage is only possible on the VM, not on Render Free. See [limits and checks](../architecture/verification.md#hosting-without-spending).
+TECH-05 requires a server. Hosting is decided in [ADR-0002](0002-hosting.md) (D-13): Azure App Service with one instance and Neon PostgreSQL, accepted by the teacher on October 5. The single-instance assumption of this ADR holds there; durable files must not rely on the App Service disk.
 
 ## Contracts, authorisation and ordering
 
 - Handshake: verify the account session or the signed guest cookie, and the origin; refuse an expired identity. The identity is application-level, never `socket.id`.
+- Origin rule (CP-02): the handshake is refused when `Origin` is present and differs from `APP_URL`, or when the browser marks the request `Sec-Fetch-Site: cross-site`. A missing `Origin` (Socket.IO's first same-origin polling GET, or a non-browser client) is accepted. HTTP long-polling stays enabled as a fallback for school networks that block WebSocket; JSONP polling is refused. Session and guest cookies must be `SameSite=Lax` or `Strict` (AUTH-01/02).
 - Each command is validated by a Zod schema, with an operation identifier, room/race and sequence as applicable. Authorisation on **every action**, not only at connection. No client decides its role or its Socket.IO group.
 - Durable mutations: PostgreSQL lock/transaction, then acknowledgement and broadcast **after commit**. Repeated operations remain idempotent.
 - Snapshot on entry/resumption, then events with a monotonic revision. Missing revision: resynchronisation, no trust in the client's ordering.
