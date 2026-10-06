@@ -7,8 +7,10 @@ describe("parseDisplayName", () => {
   });
 
   it("counts code points like PostgreSQL char_length, so 40 astral characters fit", () => {
-    const astral = "𝒜".repeat(DISPLAY_NAME_MAX_LENGTH);
-    expect(parseDisplayName(astral)).toEqual({ ok: true, value: astral.normalize("NFKC") });
+    // U+20000 stays astral after NFKC: 40 code points but 80 UTF-16 units.
+    const astral = "\u{20000}".repeat(DISPLAY_NAME_MAX_LENGTH);
+    expect(astral).toHaveLength(2 * DISPLAY_NAME_MAX_LENGTH);
+    expect(parseDisplayName(astral)).toEqual({ ok: true, value: astral });
     expect(parseDisplayName("a".repeat(DISPLAY_NAME_MAX_LENGTH))).toMatchObject({ ok: true });
   });
 
@@ -26,6 +28,15 @@ describe("parseDisplayName", () => {
     ["unassigned", "Host\u0378"],
     ["lone surrogate", "Bob\uD800"],
     ["emoji zero-width joiner", "👩\u200D💻"],
+    ["Hangul filler", "\u3164"],
+    ["halfwidth Hangul filler", "\uFFA0"],
+    ["blank braille pattern", "\u2800"],
+    ["combining grapheme joiner", "Host\u034F"],
+    ["variation selector", "Host\uFE0F"],
+    ["supplementary variation selector", "Host\u{E0100}"],
+    ["Khmer inherent vowel", "Host\u17B4"],
+    ["Mongolian free variation selector", "Host\u180B"],
+    ["leading combining mark", "\u0301Host"],
   ])("rejects a name with %s", (_label, input) => {
     expect(parseDisplayName(input)).toEqual({ ok: false, error: "INVALID_DISPLAY_NAME" });
   });
