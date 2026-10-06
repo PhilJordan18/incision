@@ -1,0 +1,506 @@
+{
+  "id": "dbea34b5-fcaf-4918-831b-3b4b7ec1e55d",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.accounts": {
+      "name": "accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "login": {
+          "name": "login",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "login_canonical": {
+          "name": "login_canonical",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "accounts_login_canonical_unique": {
+          "name": "accounts_login_canonical_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "login_canonical"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "accounts_login_pair": {
+          "name": "accounts_login_pair",
+          "value": "(\"accounts\".\"login\" is null) = (\"accounts\".\"login_canonical\" is null)"
+        },
+        "accounts_login_format": {
+          "name": "accounts_login_format",
+          "value": "\"accounts\".\"login\" ~ '^[A-Za-z0-9_-]{3,32}$' and \"accounts\".\"login_canonical\" = lower(\"accounts\".\"login\")"
+        },
+        "accounts_password_requires_login": {
+          "name": "accounts_password_requires_login",
+          "value": "\"accounts\".\"password_hash\" is null or \"accounts\".\"login_canonical\" is not null"
+        },
+        "accounts_display_name_length": {
+          "name": "accounts_display_name_length",
+          "value": "char_length(\"accounts\".\"display_name\") between 1 and 40"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.oauth_identities": {
+      "name": "oauth_identities",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "oauth_provider",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_subject": {
+          "name": "provider_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "oauth_identities_account_id_accounts_id_fk": {
+          "name": "oauth_identities_account_id_accounts_id_fk",
+          "tableFrom": "oauth_identities",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "oauth_identities_provider_subject_unique": {
+          "name": "oauth_identities_provider_subject_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "provider",
+            "provider_subject"
+          ]
+        },
+        "oauth_identities_account_provider_unique": {
+          "name": "oauth_identities_account_provider_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "account_id",
+            "provider"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "oauth_identities_subject_not_empty": {
+          "name": "oauth_identities_subject_not_empty",
+          "value": "char_length(\"oauth_identities\".\"provider_subject\") > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lobbies": {
+      "name": "lobbies",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "lobby_visibility",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'code'"
+        },
+        "capacity": {
+          "name": "capacity",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phase": {
+          "name": "phase",
+          "type": "lobby_phase",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'waiting'"
+        },
+        "host_member_id": {
+          "name": "host_member_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "lobbies_host_member_fk": {
+          "name": "lobbies_host_member_fk",
+          "tableFrom": "lobbies",
+          "tableTo": "lobby_members",
+          "columnsFrom": [
+            "id",
+            "host_member_id"
+          ],
+          "columnsTo": [
+            "lobby_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lobbies_code_unique": {
+          "name": "lobbies_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lobbies_code_format": {
+          "name": "lobbies_code_format",
+          "value": "\"lobbies\".\"code\" ~ '^[2-9A-HJKMNP-Z]{6}$'"
+        },
+        "lobbies_capacity_range": {
+          "name": "lobbies_capacity_range",
+          "value": "\"lobbies\".\"capacity\" between 2 and 30"
+        },
+        "lobbies_revision_non_negative": {
+          "name": "lobbies_revision_non_negative",
+          "value": "\"lobbies\".\"revision\" >= 0"
+        },
+        "lobbies_closed_at_matches_phase": {
+          "name": "lobbies_closed_at_matches_phase",
+          "value": "(\"lobbies\".\"phase\" = 'closed') = (\"lobbies\".\"closed_at\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lobby_members": {
+      "name": "lobby_members",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "lobby_id": {
+          "name": "lobby_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "member_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name_canonical": {
+          "name": "display_name_canonical",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "left_at": {
+          "name": "left_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "lobby_members_active_account_unique": {
+          "name": "lobby_members_active_account_unique",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"lobby_members\".\"left_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lobby_members_active_display_name_unique": {
+          "name": "lobby_members_active_display_name_unique",
+          "columns": [
+            {
+              "expression": "lobby_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "display_name_canonical",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"lobby_members\".\"left_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lobby_members_active_by_lobby_idx": {
+          "name": "lobby_members_active_by_lobby_idx",
+          "columns": [
+            {
+              "expression": "lobby_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "joined_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"lobby_members\".\"left_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lobby_members_lobby_id_lobbies_id_fk": {
+          "name": "lobby_members_lobby_id_lobbies_id_fk",
+          "tableFrom": "lobby_members",
+          "tableTo": "lobbies",
+          "columnsFrom": [
+            "lobby_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "lobby_members_account_id_accounts_id_fk": {
+          "name": "lobby_members_account_id_accounts_id_fk",
+          "tableFrom": "lobby_members",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lobby_members_lobby_id_id_unique": {
+          "name": "lobby_members_lobby_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "lobby_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lobby_members_left_after_joined": {
+          "name": "lobby_members_left_after_joined",
+          "value": "\"lobby_members\".\"left_at\" is null or \"lobby_members\".\"left_at\" >= \"lobby_members\".\"joined_at\""
+        },
+        "lobby_members_display_name_length": {
+          "name": "lobby_members_display_name_length",
+          "value": "char_length(\"lobby_members\".\"display_name\") between 1 and 40"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.oauth_provider": {
+      "name": "oauth_provider",
+      "schema": "public",
+      "values": [
+        "github",
+        "discord"
+      ]
+    },
+    "public.lobby_phase": {
+      "name": "lobby_phase",
+      "schema": "public",
+      "values": [
+        "waiting",
+        "countdown",
+        "racing",
+        "results",
+        "closed"
+      ]
+    },
+    "public.lobby_visibility": {
+      "name": "lobby_visibility",
+      "schema": "public",
+      "values": [
+        "public",
+        "code",
+        "private"
+      ]
+    },
+    "public.member_role": {
+      "name": "member_role",
+      "schema": "public",
+      "values": [
+        "participant",
+        "spectator"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
