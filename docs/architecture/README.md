@@ -6,6 +6,8 @@ The entry reference required by the brief is now [docs/ARCHITECTURE.md](../ARCHI
 - [Data model, constraints and transactions](data-model.md)
 - [State machines and edge cases](state-machines.md)
 - [ADR-0001: realtime](../adr/0001-realtime.md)
+- [ADR-0002: hosting](../adr/0002-hosting.md)
+- [ADR-0003: authentication](../adr/0003-authentication.md)
 - [Plan and evidence for the checkpoint, then the final submission](verification.md)
 - [Requirements matrix of the 90 requirements and interpretation decisions](../EXIGENCES.md)
 
