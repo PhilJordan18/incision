@@ -40,7 +40,7 @@ export async function runMigrations(options: MigrationOptions): Promise<{ readon
     try {
       const migrationsFolder = options.migrationsFolder ?? MIGRATIONS_FOLDER;
       const before = await countAppliedMigrations(client);
-      // Before: an edited or back-dated migration fails with nothing applied.
+      // Before: an edited, back-dated or diverged migration history fails with nothing applied.
       await assertJournalMatches(client, migrationsFolder, "applied-only");
       await migrate(drizzle({ client }), { migrationsFolder });
       // After: every migration of the release is now recorded with its hash.

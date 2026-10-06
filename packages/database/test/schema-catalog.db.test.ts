@@ -6,7 +6,14 @@ import { MIGRATIONS_FOLDER, runMigrations } from "../src/migrations";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 type Named = Record<string, unknown>;
-type SnapshotColumn = { readonly name: string; readonly type: string; readonly notNull: boolean };
+type SnapshotColumn = {
+  readonly name: string;
+  readonly type: string;
+  readonly typeSchema?: string;
+  readonly notNull: boolean;
+  /** Numbers for numeric defaults, SQL text otherwise. */
+  readonly default?: string | number;
+};
 type SnapshotIndex = { readonly name: string; readonly isUnique: boolean; readonly where?: string };
 type SnapshotForeignKey = { readonly name: string; readonly onDelete?: string; readonly onUpdate?: string };
 type SnapshotTable = {
@@ -56,26 +63,54 @@ const REFERENTIAL_ACTIONS: Record<string, string> = {
   d: "set default",
 };
 
+/**
+ * PostgreSQL prints defaults as text, and an enum default with its cast
+ * (`'waiting'::lobby_phase`); the snapshot stores `0` and `'waiting'`. Other types may need a spelling map when a card first uses them
+ * (e.g. varchar(40) is printed character varying(40)).
+ */
+function snapshotDefault(column: SnapshotColumn): string | null {
+  if (column.default === undefined) {
+    return null;
+  }
+  const text = String(column.default);
+  return column.typeSchema === undefined ? text : `${text}::${column.type}`;
+}
+
 // The CI drift check compares the schema with the snapshot, not with the SQL: this test
 // catches a migration edited by hand that no longer creates what the snapshot describes.
-// It compares names, tables, column types and nullability, index uniqueness and partial
-// predicates, and foreign-key actions; check expressions are covered by behaviour tests.
+// Compared: the exact table set, column types, nullability and defaults, index uniqueness
+// and partiality, foreign-key actions, and the names of every constraint and index.
+// Not compared: index and key columns, primary keys, check expressions (behaviour tests).
 describe("migrated catalog", () => {
-  it("has exactly the snapshot's tables, with the same column types and nullability", async () => {
-    const columns = await client.query<{ table_name: string; name: string; type: string; not_null: boolean }>(
-      `select c.relname as table_name, a.attname as name, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as not_null
-       from pg_attribute a join pg_class c on c.oid = a.attrelid
+  it("has exactly the snapshot's tables, with the same column types, nullability and defaults", async () => {
+    const columns = await client.query<{
+      table_name: string;
+      name: string;
+      type: string;
+      not_null: boolean;
+      default_value: string | null;
+    }>(
+      `select c.relname as table_name, a.attname as name, format_type(a.atttypid, a.atttypmod) as type,
+              a.attnotnull as not_null, pg_get_expr(d.adbin, d.adrelid) as default_value
+       from pg_attribute a
+       join pg_class c on c.oid = a.attrelid
+       left join pg_attrdef d on d.adrelid = a.attrelid and d.adnum = a.attnum
        where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped`,
     );
-    const actual = new Map<string, Record<string, { type: string; notNull: boolean }>>();
+    type Column = { type: string; notNull: boolean; default: string | null };
+    const actual = new Map<string, Record<string, Column>>();
     for (const row of columns.rows) {
-      actual.set(row.table_name, { ...actual.get(row.table_name), [row.name]: { type: row.type, notNull: row.not_null } });
+      const column: Column = { type: row.type, notNull: row.not_null, default: row.default_value };
+      actual.set(row.table_name, { ...actual.get(row.table_name), [row.name]: column });
     }
     const tables = Object.values(latestSnapshot().tables);
     expect([...actual.keys()].sort()).toEqual(tables.map((table) => table.name).sort());
     for (const table of tables) {
       const expected = Object.fromEntries(
-        Object.values(table.columns).map((column) => [column.name, { type: column.type, notNull: column.notNull }]),
+        Object.values(table.columns).map((column) => [
+          column.name,
+          { type: column.type, notNull: column.notNull, default: snapshotDefault(column) },
+        ]),
       );
       expect({ table: table.name, columns: actual.get(table.name) }).toEqual({ table: table.name, columns: expected });
     }
