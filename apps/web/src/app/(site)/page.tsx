@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { card, secondaryButton } from "@/components/ui/styles";
 import { getRequestDictionary } from "@/i18n/server";
-import { JoinForm } from "@/components/rooms/join-code-form";
+import { JoinCodeForm } from "@/components/rooms/join-code-form";
 import { SeaRoutes } from "./_home/sea-routes";
 
 const VISIBILITIES = ["public", "code", "private"] as const;
@@ -21,7 +21,7 @@ export default async function Home() {
             <em className="font-serif font-normal normal-case italic">{t.home.titleSerif}</em>
           </h1>
           <p className="max-w-[480px] text-[19px] leading-normal text-embrun">{t.home.description}</p>
-          <JoinForm t={t.home} />
+          <JoinCodeForm t={t.home} />
           <Link href="/rooms/new" className={`${secondaryButton} self-start`}>
             {t.home.createRoom}
           </Link>

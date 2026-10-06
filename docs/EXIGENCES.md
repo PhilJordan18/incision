@@ -60,7 +60,7 @@ Status observed on **October 2, 2026**, updated on **October 3** for the complet
 
 | ID | Expected (summary) | Status | Main existing files | Associated tests | Notes and choices |
 |---|---|---|---|---|---|
-| JOIN-01 | Code field from the home page | complete | apps/web/src/app/(site)/_home; apps/web/src/server/rooms/actions.ts | e2e/design.spec.ts (domain rule, translated errors); e2e/rooms.spec.ts (join live, unknown code, focus) | The home field checks the code with the domain rule on the server, signs the visitor in first when needed, then admits the account in one transaction; invalid, unknown, closed or full rooms get a translated error and the focus returns to the field. A link to an unknown or malformed code shows screen 15's "code not found" state with the code field. |
+| JOIN-01 | Code field from the home page | complete | apps/web/src/components/rooms/join-code-form.tsx; apps/web/src/server/rooms/actions.ts | e2e/design.spec.ts (domain rule, translated errors); e2e/rooms.spec.ts (join live, unknown code, focus) | The home field checks the code with the domain rule on the server, signs the visitor in first when needed, then admits the account in one transaction; invalid, unknown, closed or full rooms get a translated error and the focus returns to the field. A link to an unknown or malformed code shows screen 15's "code not found" state with the code field. |
 | JOIN-02 | Realtime public explorer, data and language/complexity filters | not done | — | — | Development after the by-code slice. |
 | JOIN-03 | Quickplay to the fullest room, then the oldest | not done | — | — | D-05; if none: offer creation to the account, empty state to the guest. |
 

@@ -10,7 +10,14 @@ import { StatePanel } from "@/components/ui/state-panel";
 import { card, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
-import { type PublicRoomSnapshot, ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, roomSnapshotSchema, roomWatchAckSchema } from "@/rooms/protocol";
+import {
+  type PublicRoomSnapshot,
+  ROOM_SNAPSHOT_EVENT,
+  ROOM_WATCH_EVENT,
+  roomSnapshotSchema,
+  roomWatchAckSchema,
+  WATCH_LIMIT,
+} from "@/rooms/protocol";
 import { RoomCode } from "./room-code";
 
 type Connection = "connecting" | "live" | "reconnecting";
@@ -28,6 +35,7 @@ type RoomViewProps = {
 const RETRY_DELAYS_MS = [1_000, 2_000, 5_000, 10_000];
 const COPY_FEEDBACK_MS = 4_000;
 const STATE_HEADING_ID = "room-state-heading";
+const ROOM_HEADING_ID = "room-heading";
 
 /**
  * Waiting room (screen 06, checkpoint subset): the code to share and the crew, kept live
@@ -53,6 +61,10 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
     let retry: ReturnType<typeof setTimeout> | undefined;
     // Answers to a watch sent before the last (re)connection are ignored.
     let generation = 0;
+    // The page stays under the server's limit (one watch at a time, a few per window) so
+    // that impatient retries are never mistaken for a flood.
+    let inFlight = false;
+    let sentAt: number[] = [];
     const keepNewest = (next: PublicRoomSnapshot) => {
       if (leavingRef.current) {
         heldRef.current = next.revision >= (heldRef.current?.revision ?? -1) ? next : heldRef.current;
@@ -69,9 +81,19 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
     }
 
     function watch(): void {
-      if (!socket.connected) {
+      if (!socket.connected || inFlight) {
         return;
       }
+      const now = Date.now();
+      sentAt = sentAt.filter((time) => now - time < WATCH_LIMIT.windowMs);
+      const oldest = sentAt[0];
+      if (oldest !== undefined && sentAt.length >= WATCH_LIMIT.maxWatches - 1) {
+        clearTimeout(retry);
+        retry = setTimeout(watch, WATCH_LIMIT.windowMs - (now - oldest));
+        return;
+      }
+      sentAt.push(now);
+      inFlight = true;
       const sent = generation;
       const current = (handle: () => void) => () => {
         if (sent === generation) {
@@ -85,6 +107,7 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
           if (sent !== generation) {
             return;
           }
+          inFlight = false;
           const ack = roomWatchAckSchema.safeParse(answer);
           if (!ack.success) {
             retryLater();
@@ -102,7 +125,12 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
             retryLater();
           }
         })
-        .catch(current(retryLater));
+        .catch(
+          current(() => {
+            inFlight = false;
+            retryLater();
+          }),
+        );
     }
 
     retryNowRef.current = () => {
@@ -117,12 +145,16 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
     };
 
     socket.on("connect", () => {
+      // A new connection is a new socket on the server, with its own budget.
       generation += 1;
+      inFlight = false;
+      sentAt = [];
       clearTimeout(retry);
       watch();
     });
     socket.on("disconnect", (reason) => {
       generation += 1;
+      inFlight = false;
       clearTimeout(retry);
       // The server cuts a socket whose session ended (sign-out, revocation, expiry), and
       // one that flooded it; neither is retried by the client.
@@ -180,6 +212,20 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
     }
   }, [shownEnding]);
 
+  // When the reconnection card (and maybe its focused button) goes away, focus would fall
+  // back to the page: put it on the room's heading instead.
+  const wasReconnecting = useRef(false);
+  useEffect(() => {
+    if (connection === "reconnecting") {
+      wasReconnecting.current = true;
+    } else if (connection === "live" && wasReconnecting.current) {
+      wasReconnecting.current = false;
+      if (document.activeElement === null || document.activeElement === document.body) {
+        document.getElementById(ROOM_HEADING_ID)?.focus();
+      }
+    }
+  }, [connection]);
+
   async function copyCode(): Promise<void> {
     try {
       await navigator.clipboard.writeText(snapshot.code);
@@ -203,7 +249,7 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
             {format(t.roomTitle, { code: snapshot.code })}
             <span aria-hidden="true">]</span>
           </p>
-          <PageHeading bold={t.roomHeading} />
+          <PageHeading bold={t.roomHeading} id={ROOM_HEADING_ID} />
         </div>
         <div className="flex max-w-xs flex-col gap-2">
           <LeaveRoomForm

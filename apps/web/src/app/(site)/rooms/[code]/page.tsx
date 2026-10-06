@@ -2,7 +2,7 @@ import { parseRoomCode } from "@incision/domain";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { JoinForm } from "@/components/rooms/join-code-form";
+import { JoinCodeForm } from "@/components/rooms/join-code-form";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { StatePanel } from "@/components/ui/state-panel";
 import { discreetButton, secondaryButton } from "@/components/ui/styles";
@@ -19,7 +19,8 @@ export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): 
   const [{ t }, { code }, session] = await Promise.all([getRequestDictionary(), params, getAccountSession()]);
   const parsed = parseRoomCode(code);
   if (!parsed.ok || (session !== null && (await loadRoomPage(session.accountId, parsed.code)).kind === "unknown")) {
-    return { title: t.rooms.unknownHeading };
+    // Answered with 200 (no notFound(), see apps/web/AGENTS.md): keep it out of indexes.
+    return { title: t.rooms.unknownHeading, robots: { index: false } };
   }
   return { title: format(t.rooms.roomTitle, { code: parsed.code }) };
 }
@@ -129,7 +130,7 @@ function UnknownRoom({ t, code }: { readonly t: Dictionary; readonly code?: stri
     >
       <div className="flex flex-col gap-5">
         <p>{code === undefined ? t.rooms.invalid : format(t.rooms.unknown, { code })}</p>
-        <JoinForm t={t.home} />
+        <JoinCodeForm t={t.home} />
       </div>
     </StatePanel>
   );

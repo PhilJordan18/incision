@@ -11,7 +11,7 @@ import { CODE_INPUT_MAX_LENGTH } from "@/rooms/code-input";
 import { joinRoomAction, type JoinFormState } from "@/server/rooms/actions";
 
 /** Code field and its red action: the home page's join, and the "code not found" state. */
-export function JoinForm({ t }: { readonly t: Dictionary["home"] }) {
+export function JoinCodeForm({ t }: { readonly t: Dictionary["home"] }) {
   const [state, formAction] = useActionState<JoinFormState, FormData>(joinRoomAction, {});
   const codeRef = useRef<HTMLInputElement>(null);
   // After a refused code, give the keyboard focus back to the field.
