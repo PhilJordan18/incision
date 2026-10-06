@@ -1,69 +1,72 @@
 # Modèle de données PostgreSQL
 
-Statut : **modèle conceptuel**, avant migrations Drizzle. Les noms ci-dessous sont des propositions techniques; les règles du cahier restent l'autorité. UUID pour les identifiants internes, horodatages UTC côté serveur et contraintes SQL pour les invariants durables.
+Modèle conceptuel aligné le 2 octobre 2026, **non migré**. Source : énoncé final et choix explicites dans [EXIGENCES.md](../EXIGENCES.md). Le diagramme principal est dans [ARCHITECTURE.md](../ARCHITECTURE.md). Identifiants internes UUID, dates UTC serveur, migrations Drizzle versionnées.
 
-## Relations principales
+## Tables cibles
 
-```mermaid
-erDiagram
-  accounts ||--o{ oauth_identities : associe
-  accounts ||--o{ auth_sessions : ouvre
-  accounts o|--o{ lobbies : heberge
-  accounts o|--o{ texts : redige
-  accounts o|--o{ lobby_members : participe
-  guest_sessions o|--o{ lobby_members : rejoint
-  lobbies ||--|| lobby_settings : configure
-  lobbies ||--o{ lobby_members : accueille
-  lobbies ||--o{ lobby_invitations : emet
-  lobbies ||--o{ races : organise
-  texts ||--o{ races : fournit
-  races ||--o{ race_entrants : inclut
-  lobby_members ||--o{ race_entrants : participe
-  race_entrants ||--o| race_results : obtient
-  race_entrants ||--o| race_progress_checkpoints : reprend
-  races ||--o{ race_bonus_events : journalise
-```
-
-## Tables et contraintes
-
-| Table | Champs structurants | Contraintes et raison |
+| Table | Champs structurants | Invariants |
 |---|---|---|
-| `accounts` | `id`, `username`, `username_canonical`, `password_hash?`, `avatar_url?`, `stats_visibility`, dates | `username_canonical` unique globalement; `password_hash` nul seulement pour un compte OAuth. Aucun courriel. Statistiques privées par défaut. |
-| `oauth_identities` | `account_id`, `provider` (`GITHUB`/`DISCORD`), `provider_subject` | Couple fournisseur + sujet unique. Une identité externe ne peut pas appartenir à deux comptes. Pas de courriel fournisseur conservé. |
-| `auth_sessions` | `account_id`, `token_hash`, `expires_at`, `remember_me`, `revoked_at?` | Jeton brut uniquement en cookie sécurisé; valeur hachée en BD. Durée « se souvenir de moi » de 30 jours : hypothèse H-05. |
-| `guest_sessions` | `id`, `token_hash`, `expires_at`, `claimed_by_account_id?` | Identité temporaire prouvée par session. Sa durée de vie doit couvrir au minimum la reprise de cinq minutes. Le rattachement futur des résultats exige la preuve de possession de cette session. |
-| `lobbies` | `id`, `visibility`, `admission_policy`, `code_digest?`, `host_kind`, `host_account_id?`, `preferred_successor_member_id?`, `status`, dates | Salle persistante entre les manches. `visibility` (`PUBLIC`/`PRIVATE`) détermine le référencement; `admission_policy` distingue accès par code et par invitation, sans présumer qu'ils sont toujours cumulables. Pour le checkpoint, salle privée admise par code. `host_kind` vaut `ACCOUNT` ou `SYSTEM`; `host_account_id` est non nul seulement pour `ACCOUNT`. Le successeur désigné doit être un compte actif de cette salle. Le système peut piloter une salle créée par matchmaking ou terminer une manche sans successeur, jamais un invité ou un bot. Code à faible entropie : HMAC indexable + limitation des tentatives. |
-| `lobby_settings` | `lobby_id`, `revision`, `mode`, `error_mode`, `timer_kind`, `manual_duration_ms?`, `text_id?`, `bonus_policy` | Une configuration courante par salle. Révision incrémentée par le serveur; verrouillée au début du compte à rebours et copiée dans la manche. `mode` initial : `STANDARD` ou `ARCADE`. Bonus manuels par défaut; automatique sur choix de l'hôte en Arcade. |
-| `lobby_members` | `id`, `lobby_id`, `account_id?`, `guest_session_id?`, `bot_level?`, `display_name`, `avatar_url?`, `is_ready`, `joined_at`, `left_at?` | Exactement **un** sujet : compte, invité ou bot (`CHECK`); `bot_level` appartient à `1..4`. Le pseudo et l'avatar d'un invité sont propres à cette salle (`ID-06`). Un pseudo affiché unique parmi les membres actifs d'une salle. Un invité peut donc porter ailleurs le même pseudo; création de compte = contrôle d'unicité global. Index d'ordre `joined_at` pour la succession. |
-| `lobby_invitations` | `id`, `lobby_id`, `token_hash`, `expires_at`, `consumed_at?`, `created_by_account_id` | Jeton aléatoire fort, haché, usage unique et transactionnel. L'expiration à 24 h est l'hypothèse H-01. Le retour dans la salle s'appuie ensuite sur la session, pas sur l'invitation. |
-| `texts` | `id`, `content`, `language`, `word_count`, `difficulty?`, `scope`, `owner_account_id?`, `rights_reference?` | `CATALOG` : contenu autorisé et provenance vérifiable. `PRIVATE` : saisie par l'hôte, jamais publiée dans le catalogue. La version exacte utilisée est figée dans la manche. |
-| `races` | `id`, `lobby_id`, `round_no`, `status`, `mode`, `error_mode`, `timer_kind`, `duration_ms`, `text_id`, `text_snapshot`, `countdown_at`, `started_at?`, `ended_at?`, `cancelled_at?`, `config_revision` | `(lobby_id, round_no)` unique. La manche fige texte et configuration, même si la salle change ensuite. Une course annulée n'a aucun résultat officiel. |
-| `race_entrants` | `id`, `race_id`, `lobby_member_id`, `display_name_snapshot`, `entrant_kind`, `effective_target_chars`, `joined_at` | Ensemble immuable des **identités** de coureurs prêts au départ; `(race_id, lobby_member_id)` est unique. La cible effective peut changer en Arcade et chaque changement est journalisé. Le départ d'un membre après la manche ne retire pas sa ligne historique. Les spectateurs n'ont pas d'entrant. |
-| `race_progress_checkpoints` | `race_entrant_id`, `validated_offset`, compteurs de frappe, `effective_target_chars`, `last_progress_at`, `updated_at` | Dernier état validé, persistant par lots et à la déconnexion/fin; pas une ligne SQL à chaque touche. Un redémarrage serveur peut perdre au maximum l'intervalle non encore synchronisé : limite à tester et documenter. |
-| `race_results` | `race_entrant_id`, `outcome`, `elapsed_ms`, `progress_chars`, `correct_keystrokes`, `total_keystrokes`, `gross_wpm`, `accuracy`, `net_wpm`, `rank` | Au plus un résultat par entrant. `outcome` = `FINISHED`, `DNF_TIMEOUT`, `DNF_DISCONNECTED` ou `DNF_ABANDONED`. Les compteurs bruts permettent de recalculer le score si la règle de correction est précisée. |
-| `race_bonus_events` | `race_id`, `actor_entrant_id?`, `target_entrant_id`, `bonus_type`, `rules_version`, `started_at`, `ended_at`, `payload` | Historique des effets Arcade pour comprendre un résultat modifié; aucune entrée en mode `STANDARD`. Types et ciblage exacts à confirmer. |
+| `accounts` | id, login?, login_canonical?, display_name, password_hash?, avatar_key?, dates | Identifiant local unique, distinct du pseudo modifiable. Compte OAuth sans mot de passe permis. Pas de courriel conservé selon le cahier; pas de récupération par courriel. |
+| `oauth_identities` | account_id, provider, provider_subject | Couple fournisseur + sujet unique; GitHub et Discord. Pas de fusion automatique par pseudo. Les jetons fournisseur ne sont pas conservés s'ils ne servent qu'à la connexion. |
+| `guest_sessions` | id, secret_digest, expires_at | Cookie signé prouvant une identité invitée; aucune photo téléversée, aucun historique personnel. Le pseudo appartient à la présence en salle. |
+| `lobbies` | id, code, visibility, capacity, host_member_id, phase, created_at, closed_at?, revision | Code 6 caractères non ambigus unique; visibilité PUBLIC / CODE / PRIVATE. Capacité 2..30 participants, bots inclus, spectateurs exclus. Hôte humain actif de cette salle. |
+| `lobby_settings` | lobby_id, revision, max_duration_ms?, language, text_kind, word_count, complexity, options, error_mode, bonuses_enabled, bonus_activation | Une configuration par salle. Timer nul ou 30 000..600 000 ms. Options validées par schéma; version figée au départ. Activation manuelle par défaut, automatique facultative. |
+| `lobby_members` | id, lobby_id, account_id?, guest_session_id?, bot_level?, role, display_name, display_name_canonical, joined_at, left_at? | Exactement un sujet : compte / invité / bot. Bot parmi cinq niveaux, rôle participant. Un humain est participant ou spectateur. Déconnexion temporaire ≠ départ. |
+| `lobby_invitations` | id, lobby_id, token_digest, bound_member_id?, bound_ip_digest?, bound_at?, revoked_at? | Jeton aléatoire de 32 octets. Premier usage lie l'IP et la session humaine; réutilisation par cette identité/IP permise. Révocation sur expulsion, invalidation à fermeture. |
+| `lobby_bans` | lobby_id, account_id? ou guest_session_id?, created_at | Empêche toute réadmission de cette identité dans cette salle, par code, lien ou accès direct. Pas de bannissement global par IP d'une classe entière. |
+| `texts` | id, content, language, word_count, complexity, rights_reference | Corpus réel en base, provenance vérifiable. Dictionnaires versionnés/seedés pour le mode aléatoire. Pas de texte utilisateur obligatoire. |
+| `races` | id, lobby_id, round_no, state, config_snapshot, text_snapshot, seed, rules_version, countdown_at, started_at?, ended_at?, interruption_reason? | Manche historique distincte de la salle; unique (lobby_id, round_no). Snapshot du texte généré même sans text_id de corpus. |
+| `race_entrants` | id, race_id, member_id?, account_id?, kind, name_snapshot, avatar_snapshot, target_snapshot, effective_target_chars | Identités figées au départ, sans spectateurs; member_id nullable après purge de salle. account_id permet l'historique du compte. Invité archivé sous un libellé anonymisé sans guest_session_id. |
+| `race_results` | entrant_id, outcome, elapsed_ms, progress_chars, target_chars, correct_inputs, total_inputs, errors, net_mpm, gross_mpm, accuracy, rank, abandonment_reason? | Un résultat final par entrant. Statuts FINISHED / TIMED_OUT / ABANDONED; une expiration réseau est un motif d'abandon, pas une quatrième catégorie de classement. |
+| `race_mpm_samples` | entrant_id, elapsed_ms, net_mpm, gross_mpm | Série temporelle persistée pour restituer le graphique collectif; clé (entrant_id, elapsed_ms). Échantillonnage proposé : 1 Hz + échantillon final. |
+| `race_key_errors` | entrant_id, expected_key, error_count | Agrégats pour la carte thermique du joueur; pas de journal brut durable de toutes ses touches. Accès personnel. |
+| `race_bonus_events` | id, race_id, checkpoint, recipient_id, target_id?, type, granted_at, activated_at?, payload | Attribution idempotente par course/jalon/bénéficiaire; au plus 3 bonus par entrant. Changements de cible et effets temporaires rejouables. |
 
-## Calcul, confidentialité et performance
+Le schéma d'authentification dépend du prototype Auth.js. Avec des sessions JWT, une table `auth_sessions` n'est **pas** une obligation conceptuelle; ne pas mélanger les deux stratégies. Le cookie invité reste distinct et signé. Aucune migration ne sera déclarée conforme avant exécution sur PostgreSQL.
 
-- WPM brut = caractères pris en compte ÷ 5 ÷ minutes; précision = frappes correctes ÷ frappes comptées; WPM net = WPM brut × précision. La définition exacte des corrections demeure à préciser et devra être figée dans des tests communs aux deux modes d'erreur.
-- Les finisseurs sont classés avant tous les DNF; finisseurs par WPM net, DNF par progression puis critères de départage documentés dans la machine à états. Les résultats Arcade et Standard, puis les modes d'erreur, ne partagent pas un même record.
-- En Arcade, un bonus peut changer la cible individuelle. La piste peut afficher `validated_offset / effective_target_chars` pour l'avancement visuel; le critère exact de départage des DNF sur cibles différentes est **à confirmer**, plutôt que d'imposer silencieusement une comparaison de caractères bruts.
-- Les classements en direct sont une projection compacte en mémoire du serveur. PostgreSQL contient l'historique, les invitations, la configuration et des checkpoints de progression. Il n'est pas le bus de chaque touche.
-- L'historique d'un compte suit ses `lobby_members` et ses `race_entrants`; les résultats d'invité rattachés après création de compte suivent `guest_sessions.claimed_by_account_id`. Une demande de rattachement non prouvée est refusée.
-- La carte thermique, si livrée, demeure privée. Les statistiques publiques sont calculées selon `stats_visibility`; aucun résultat d'un mineur n'est rendu public simplement parce qu'un compte existe.
-- Les colonnes de profil ou de session ne stockent pas d'adresse courriel. Les textes privés ne doivent pas être exposés par les routes du catalogue.
-- Index à prévoir au minimum : compte par `username_canonical`, OAuth par `(provider, provider_subject)`, salle ouverte par visibilité, code actif, membres par salle/date d'entrée, manche par salle/numéro, résultats par entrant et compte rattaché, invitation par empreinte du jeton.
+## Unicité, identité et concurrence
+
+- `UNIQUE(account_id) WHERE left_at IS NULL` et `UNIQUE(guest_session_id) WHERE left_at IS NULL` sur les membres : **une salle active par identité**, y compris spectateur (SALLE-06). Les NULL des bots ne créent pas de collision.
+- Un second onglet retrouve le même membre. Une reconnexion pendant la grâce réutilise sa ligne; après un vrai départ, une réadmission autorisée crée une nouvelle présence et donc une nouvelle ancienneté.
+- `UNIQUE(lobby_id, display_name_canonical) WHERE left_at IS NULL` : désambiguïsation locale des pseudos. Le compte ne change pas silencieusement son pseudo global pour une collision locale.
+- Canonisation proposée : trim, NFKC, minuscules; accents conservés. Valider longueur et caractères de contrôle après normalisation; ne pas assimiler toutes les écritures visuellement proches. Le pseudo invité compte 3..20 caractères Unicode selon la convention de segmentation documentée.
+- `UNIQUE(code)` avec alphabet `23456789ABCDEFGHJKMNPQRSTUVWXYZ`. Code stocké lisible : ce n'est pas un secret d'authentification; la protection repose sur visibilité, permissions et limitation par IP. Une salle PRIVATE refuse le code.
+- La capacité ne peut pas être garantie par un simple CHECK inter-lignes : verrouiller la salle, compter ses participants actifs, puis insérer/changer de rôle dans la même transaction.
+- L'hôte doit référencer un membre de **la même salle**, humain et actif. Contrainte composite ou validation transactionnelle; créer salle, membre créateur et lien d'hôte atomiquement.
+- Les onglets ne sont pas des participants supplémentaires. On ne peut garantir l'unicité d'une personne anonyme ayant effacé son cookie ou changé de navigateur : le périmètre de SALLE-06 est l'identité prouvée.
+
+## Invitations et IP
+
+Le jeton d'invitation est haché en base. L'IP est normalisée puis représentée par une empreinte HMAC contextualisée par salle; sa valeur brute n'est pas exposée dans la liste des invitations. Seuls les en-têtes d'un reverse proxy connu sont fiables.
+
+L'IP seule ne prouve pas l'identité : plusieurs élèves peuvent partager la même IP publique. On lie donc également le lien au membre/session du premier usage. Même IP + autre cookie n'admet pas un second invité. Un changement d'IP est refusé, conformément à SALLE-04, même s'il gêne une reconnexion Wi-Fi/mobile. Cette contrainte et la gestion d'un cookie perdu doivent être expliquées à l'utilisateur.
 
 ## Transactions critiques
 
-1. **Invitation** : vérifier expiration + non-usage, créer le membre, puis consommer le jeton dans une seule transaction. Un deuxième usage concurrent échoue.
-2. **Départ** : verrouiller la salle et sa révision, vérifier hôte + deux coureurs prêts/connectés, figer configuration/texte/entrants, créer la manche `COUNTDOWN`.
-3. **Fin** : fermer l'ensemble des entrants, écrire une seule fois les résultats et passer `FINISHED` dans une transaction idempotente.
-4. **Annulation** : passer `CANCELLED` et supprimer/ignorer tout résultat provisoire non officiel; une manche annulée ne contribue jamais à l'historique statistique.
-5. **Transfert d'hôte** : choisir seulement un compte membre présent, par sélection préalable valide ou ancienneté; empêcher deux hôtes simultanés lors de départs concurrents.
+1. **Créer / rejoindre / changer de salle** : identité, visibilité, bannissement, phase et capacité vérifiés; contraintes d'unicité globales. Un changement proposé est confirmé avant de quitter la salle actuelle. Les verrous de deux salles sont pris dans un ordre stable.
+2. **Consommer une invitation** : verrouiller invitation/salle, lier IP + membre une seule fois et admettre atomiquement; une répétition valide retourne le même membre.
+3. **Expulser / partir** : marquer left_at, ajouter le bannissement si expulsion, révoquer les liens associés, puis sélectionner l'hôte suivant ou fermer. Diffuser après commit.
+4. **Démarrer** : hôte autorisé, phase EN_ATTENTE, au moins deux participants dont un humain présent; figer configuration/texte/entrants et démarrer le décompte. Un double clic ne crée pas deux courses.
+5. **Terminer** : finalisation idempotente des résultats, séries, erreurs et bonus; passer aux résultats dans la même transaction. Les tentatives répétées n'ajoutent ni victoires ni échantillons en double.
+
+## Calculs et historique
+
+Appliquer l'annexe A : MPM net = (caractères correctement tapés / 5) / minutes; brut = (caractères tapés / 5) / minutes; précision = corrects / total × 100; progression = caractères validés / cible effective. Espaces compris. Ne pas multiplier une seconde fois le MPM net par la précision.
+
+Le temps est celui du serveur depuis le départ, pas seulement le temps connecté. Distinguer compteurs de saisie et avancement dans le texte. Suppression, correction, accents composés et mode libre nécessitent des tests de référence; décisions détaillées dans EXIGENCES. Aucun bonus ne crédite de frappes jamais effectuées.
+
+Classement : FINISHED par arrivée, puis TIMED_OUT par progression, puis ABANDONED par progression figée. Le profil et l'historique appartiennent au compte; pas de recherche de profils publics imposée. Les snapshots anonymisés des invités/bots ne permettent pas de consulter un historique personnel d'invité.
+
+## Rétention et exploitation proposées
+
+- Sessions invitées : expiration après 24 h d'inactivité, prolongée uniquement par activité authentifiée; purge après expiration et fin de présence. Fermer/purger les salles vides, invitations/IP et bans au plus tard 24 h après fermeture.
+- Conserver les snapshots anonymisés utiles aux résultats des comptes; ne pas conserver les liens vers l'identité invitée. Ne pas promouvoir un ancien historique invité à la création d'un compte.
+- Pour les comptes, rétention pendant le projet jusqu'à la correction; politique après correction à décider avant usage scolaire réel. Ce choix technique n'est pas une certification juridique.
+- Progression vivante en mémoire, pas d'écriture à chaque touche. Connexion perdue : état conservé pendant la grâce; résultat/séries écrits en fin de course. Une panne du processus n'a pas de reprise exacte garantie dans cette version : marquer la course interrompue et ne pas inventer ses résultats.
+- Index : membres actifs, OAuth, code, exploration publique (phase/visibilité/dates), courses par salle, entrants par compte/course et séries par entrant/temps. Pagination d'historique; chargements groupés évitant N+1.
 
 ## Coupe de données pour le checkpoint 1
 
-La première migration ne doit pas implémenter toutes ces tables simplement parce qu'elles figurent dans le modèle final. Pour démontrer **authentification + salle créée/rejointe par code**, la coupe minimale envisagée est `accounts`, `auth_sessions`, `guest_sessions` si l'accès invité est livré, `lobbies` et `lobby_members`; `lobby_settings` n'est nécessaire dès cette coupe que si la configuration est déjà modifiable. Le schéma réel, ses contraintes et ses migrations n'existent pas encore. OAuth, textes, manches, bots, bonus et statistiques demeurent dans le modèle cible, pas dans la preuve minimale du checkpoint.
+Comptes, identités GitHub/Discord, sessions invitées si livrées, salles, configuration minimale et membres : ces éléments constituent la première migration. Contraintes d'unicité globale, appartenance et capacité dès l'admission, pas une correction tardive. OAuth **n'est plus reporté**.
 
-Le code de salle n'est actuellement représenté que par `code_digest`. Avant d'implémenter le partage après rechargement de la page hôte, décider et tester comment le code lisible lui sera de nouveau présenté sans affaiblir sa vérification. De même, avant de promettre une reprise de course après redémarrage du serveur, préciser quels états terminaux et délais de reconnexion doivent être durablement enregistrés en plus des checkpoints de progression.
+Un seed initial permet une démonstration reproductible avec comptes locaux non réels. Corpus puis historique de démonstration sont ajoutés avec les tables de jeu; TECH-04 reste partiel tant que le seed complet demandé n'existe pas. Ne pas créer les tables du jeu uniquement pour remplir le diagramme.
