@@ -18,11 +18,11 @@ describe("GET /api/health/live", () => {
 });
 
 describe("GET /api/health", () => {
-  it("reports a missing database configuration without failing", async () => {
+  it("reports a missing database configuration as degraded, without failing", async () => {
     vi.stubEnv("DATABASE_URL", undefined);
     const response = await readiness();
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ status: "ok", database: "not_configured" });
+    expect(await response.json()).toMatchObject({ status: "degraded", database: "not_configured" });
   });
 
   it("reports an unreachable database as degraded, without throwing or leaking it", async () => {

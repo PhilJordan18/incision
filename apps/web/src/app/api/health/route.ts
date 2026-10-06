@@ -9,7 +9,8 @@ import { deployedCommit, readDatabaseStatus } from "@/server/health";
 export async function GET(): Promise<Response> {
   const database = await readDatabaseStatus(parseServerEnv(process.env).databaseUrl);
   return Response.json(
-    { status: database === "down" ? "degraded" : "ok", commit: deployedCommit(), database },
+    // Ready only when the database answers; a missing configuration is degraded too.
+    { status: database === "up" ? "ok" : "degraded", commit: deployedCommit(), database },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
