@@ -3,13 +3,15 @@ type PageHeadingProps = {
   /** The single Instrument Serif word of a title (design rule 6), if any. */
   readonly serif?: string;
   readonly size?: "page" | "panel";
+  /** Lets a view move the focus to this heading when it replaces the content. */
+  readonly id?: string;
 };
 
 /** Big Shoulders in capitals, with one word in Instrument Serif italic. */
-export function PageHeading({ bold, serif, size = "page" }: PageHeadingProps) {
+export function PageHeading({ bold, serif, size = "page", id }: PageHeadingProps) {
   const scale = size === "page" ? "text-5xl sm:text-[64px] leading-[0.9]" : "text-[44px] sm:text-[56px] leading-[0.95]";
   return (
-    <h1 className={`font-display font-black uppercase ${scale}`}>
+    <h1 id={id} tabIndex={id === undefined ? undefined : -1} className={`font-display font-black uppercase outline-none ${scale}`}>
       {bold}
       {serif ? (
         <>

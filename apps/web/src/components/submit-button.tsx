@@ -10,6 +10,8 @@ type SubmitButtonProps = {
   readonly name?: string;
   readonly value?: string;
   readonly ariaLabel?: string;
+  /** Id of a note that explains the consequence of this action. */
+  readonly describedBy?: string;
 };
 
 /**
@@ -17,7 +19,7 @@ type SubmitButtonProps = {
  * focusable (`aria-disabled`, not `disabled`), so keyboard focus is not lost, and a second
  * activation is ignored while the first one runs.
  */
-export function SubmitButton({ label, pendingLabel, className, name, value, ariaLabel }: SubmitButtonProps) {
+export function SubmitButton({ label, pendingLabel, className, name, value, ariaLabel, describedBy }: SubmitButtonProps) {
   const { pending } = useFormStatus();
   function ignoreWhilePending(event: MouseEvent<HTMLButtonElement>): void {
     if (pending) {
@@ -32,6 +34,7 @@ export function SubmitButton({ label, pendingLabel, className, name, value, aria
       aria-disabled={pending}
       onClick={ignoreWhilePending}
       aria-label={pending ? undefined : ariaLabel}
+      aria-describedby={describedBy}
       className={`${className} aria-disabled:cursor-wait aria-disabled:opacity-80`}
     >
       {pending ? pendingLabel : label}

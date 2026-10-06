@@ -1,28 +1,31 @@
-import { findActiveMembership, findRoomByCode, readRoomSnapshot } from "@incision/database";
 import { parseRoomCode } from "@incision/domain";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { StatePanel } from "@/components/ui/state-panel";
-import { secondaryButton } from "@/components/ui/styles";
+import { discreetButton, secondaryButton } from "@/components/ui/styles";
 import { format } from "@/i18n/format";
 import { getRequestDictionary } from "@/i18n/server";
 import { publicSnapshot } from "@/rooms/public-snapshot";
-import { requireAccountSession } from "@/server/auth/session";
-import { authDatabase } from "@/server/auth/store";
+import { getAccountSession, requireAccountSession } from "@/server/auth/session";
 import { JoinRoomForm } from "./join-room-form";
+import { loadRoomPage } from "./load-room";
 import { RoomView } from "./room-view";
 
 export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): Promise<Metadata> {
-  const [{ t }, { code }] = await Promise.all([getRequestDictionary(), params]);
-  return { title: format(t.rooms.roomTitle, { code: code.toUpperCase() }) };
+  const [{ t }, { code }, session] = await Promise.all([getRequestDictionary(), params, getAccountSession()]);
+  const parsed = parseRoomCode(code);
+  if (!parsed.ok || (session !== null && (await loadRoomPage(session.accountId, parsed.code)).kind === "unknown")) {
+    return { title: t.notFound.title };
+  }
+  return { title: format(t.rooms.roomTitle, { code: parsed.code }) };
 }
 
 /**
  * A room's page (SALLE-01/02, JOIN-01). Members see the live waiting room; other signed-in
- * accounts can join it, or are offered to leave the room they are in (SALLE-06). Nothing
- * changes on a GET: joining and leaving are server actions.
+ * accounts can join an admitting room, or are offered to leave the room they are in
+ * (SALLE-06). Nothing changes on a GET: joining and leaving are server actions.
  */
 export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
   const { code: raw } = await params;
@@ -33,45 +36,72 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
   if (raw !== parsed.code) {
     redirect(`/rooms/${parsed.code}`);
   }
-  const { accountId } = await requireAccountSession(`/rooms/${parsed.code}`);
-  const db = authDatabase();
-  const [{ t }, current] = await Promise.all([getRequestDictionary(), findActiveMembership(db, accountId)]);
+  const code = parsed.code;
+  const { accountId } = await requireAccountSession(`/rooms/${code}`);
+  const [{ t }, state] = await Promise.all([getRequestDictionary(), loadRoomPage(accountId, code)]);
 
-  if (current?.code === parsed.code) {
-    const snapshot = await readRoomSnapshot(db, current.lobbyId);
-    if (snapshot === undefined) {
-      notFound();
+  switch (state.kind) {
+    case "unknown":
+      return notFound();
+    case "member":
+      // Presence comes with the socket; the first render shows nobody online yet.
+      return <RoomView initial={publicSnapshot(state.snapshot, new Set())} selfMemberId={state.memberId} t={t.rooms} />;
+    case "notAdmitting": {
+      const closed = state.phase === "closed";
+      return (
+        <StatePanel
+          tone={closed ? "neutral" : "warning"}
+          label={closed ? t.rooms.closedLabel : t.rooms.racingLabel}
+          heading={
+            closed
+              ? { bold: t.rooms.closedHeadingBold, serif: t.rooms.closedHeadingSerif }
+              : { bold: t.rooms.racingHeadingBold, serif: t.rooms.racingHeadingSerif }
+          }
+          actions={
+            <>
+              <Link href="/rooms/new" className={secondaryButton}>
+                {t.rooms.createRoom}
+              </Link>
+              <Link href="/" className={discreetButton}>
+                {t.rooms.backHome}
+              </Link>
+            </>
+          }
+        >
+          <p>{format(closed ? t.rooms.closed : t.rooms.racing, { code })}</p>
+        </StatePanel>
+      );
     }
-    // Presence comes with the socket; the first render shows nobody online yet.
-    return <RoomView initial={publicSnapshot(snapshot, new Set())} selfMemberId={current.memberId} t={t.rooms} />;
+    case "inAnotherRoom":
+      return (
+        <StatePanel
+          tone="warning"
+          label={t.rooms.alreadyInRoomLabel}
+          heading={{ bold: t.rooms.alreadyInRoomLabel }}
+          actions={
+            <>
+              <Link href={`/rooms/${state.current.code}`} className={secondaryButton}>
+                {t.rooms.goToMyRoom}
+              </Link>
+              <LeaveRoomForm
+                label={format(t.rooms.leaveAndJoin, { code: state.current.code })}
+                pendingLabel={t.rooms.leaving}
+                errors={t.rooms.changeErrors}
+                returnTo={`/rooms/${code}`}
+                describedBy={state.current.isHost ? "host-leave-note" : undefined}
+              />
+            </>
+          }
+        >
+          <p>{format(t.rooms.alreadyInRoom, { code: state.current.code })}</p>
+          {state.current.isHost && (
+            <p id="host-leave-note" className="mt-2 text-sm text-brume">
+              {t.rooms.hostLeaveNote}
+            </p>
+          )}
+        </StatePanel>
+      );
+    case "join":
+      return <JoinRoomForm code={code} t={t} />;
   }
-
-  const room = await findRoomByCode(db, parsed.code);
-  if (room === undefined) {
-    notFound();
-  }
-  if (current !== undefined) {
-    return (
-      <StatePanel
-        tone="warning"
-        label={t.rooms.alreadyInRoomLabel}
-        heading={{ bold: t.rooms.joinHeadingBold, serif: parsed.code }}
-        actions={
-          <>
-            <Link href={`/rooms/${current.code}`} className={secondaryButton}>
-              {t.rooms.goToMyRoom}
-            </Link>
-            <LeaveRoomForm
-              label={format(t.rooms.leaveAndJoin, { code: current.code })}
-              pendingLabel={t.rooms.leaving}
-              returnTo={`/rooms/${parsed.code}`}
-            />
-          </>
-        }
-      >
-        <p>{format(t.rooms.alreadyInRoom, { code: current.code })}</p>
-      </StatePanel>
-    );
-  }
-  return <JoinRoomForm code={parsed.code} t={t} />;
 }

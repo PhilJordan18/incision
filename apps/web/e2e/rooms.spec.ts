@@ -1,5 +1,5 @@
 import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { expectNoAccessibilityViolation, expectNoHorizontalScroll, query, signInWithCredentials } from "./support";
 
 const [alice, bruno] = DEMO_ACCOUNTS;
@@ -9,10 +9,17 @@ if (alice === undefined || bruno === undefined) {
 
 test.use({ locale: "fr-CA" });
 
+const contexts: BrowserContext[] = [];
+
 // Each test starts with no room: the demo accounts are shared by every spec.
 test.beforeEach(async () => {
   await query("update lobbies set host_member_id = null");
   await query("delete from lobbies");
+});
+
+// Their sockets must not outlive the test.
+test.afterEach(async () => {
+  await Promise.all(contexts.splice(0).map((context) => context.close()));
 });
 
 async function signedInPage(
@@ -24,6 +31,7 @@ async function signedInPage(
     locale: "fr-CA",
     ...(options.width === undefined ? {} : { viewport: { width: options.width, height: 800 } }),
   });
+  contexts.push(context);
   if (options.theme !== undefined) {
     await context.addCookies([{ name: "theme", value: options.theme, url: test.info().project.use.baseURL ?? "" }]);
   }
@@ -33,9 +41,12 @@ async function signedInPage(
   return page;
 }
 
-async function createRoom(page: Page, role: "Je participe" | "Je regarde" = "Je participe"): Promise<string> {
+async function createRoom(page: Page, role: "participant" | "spectator" = "participant"): Promise<string> {
   await page.goto("/rooms/new");
-  await page.getByText(role, { exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Préparer la traversée/i);
+  if (role === "spectator") {
+    await page.getByLabel("Je participe à la course (sinon : spectateur)").uncheck();
+  }
   await page.getByRole("button", { name: "Ouvrir la salle" }).click();
   await expect(page).toHaveURL(/\/rooms\/[2-9A-HJKMNP-Z]{6}$/);
   const code = page.url().split("/").at(-1) ?? "";
@@ -53,6 +64,7 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     const code = await createRoom(host);
     await expect(crew(host)).toHaveCount(1);
     await expect(crew(host).first()).toContainText("Hôte");
+    await expect(host.getByRole("region", { name: "Code de la salle" })).toContainText(code);
 
     const guest = await signedInPage(browser, bruno);
     await guest.goto("/");
@@ -71,11 +83,14 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(crew(secondTab)).toHaveCount(2);
     await expect(crew(host)).toHaveCount(2);
 
-    // B leaves: A sees it at once.
+    // B leaves: A sees it at once; B's other tab says so and offers to come back.
     await guest.getByRole("button", { name: "Quitter la salle" }).click();
     await expect(guest).toHaveURL(/\/$/);
     await expect(crew(host)).toHaveCount(1);
-    await expect(secondTab.getByRole("main").getByRole("alert")).toContainText("Tu ne fais plus partie de cette salle.");
+    await expect(secondTab.getByRole("heading", { level: 1 })).toHaveText(/Tu as quitté la salle/i);
+    await expect(secondTab.getByRole("heading", { level: 1 })).toBeFocused();
+    await secondTab.getByRole("link", { name: "Rejoindre à nouveau" }).click();
+    await expect(secondTab.getByRole("button", { name: "Rejoindre la salle" })).toBeVisible();
   });
 
   test("refuses unknown and invalid codes with translated messages", async ({ browser }) => {
@@ -88,6 +103,15 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(field).toBeFocused();
   });
 
+  test("answers an unknown room's page with one not-found page", async ({ browser }) => {
+    const page = await signedInPage(browser, bruno);
+    const response = await page.goto("/rooms/ZZZZZZ");
+    expect(response?.status()).toBe(404);
+    await expect(page).toHaveTitle("Page introuvable · Incision");
+    await expect(page.getByRole("main")).toHaveCount(1);
+    await expect(page.getByRole("banner")).toHaveCount(1);
+  });
+
   test("keeps one room per person and offers to leave the current one", async ({ browser }) => {
     const host = await signedInPage(browser, alice);
     const code = await createRoom(host);
@@ -96,7 +120,10 @@ test.describe("rooms by code with live presence (CP-06)", () => {
 
     await other.goto(`/rooms/${code}`);
     await expect(other.getByText(`Tu es déjà dans la salle ${otherCode}.`)).toBeVisible();
-    await other.getByRole("button", { name: `Quitter la salle ${otherCode} et revenir ici` }).click();
+    // Bruno hosts his room: the button says what leaving does.
+    const leave = other.getByRole("button", { name: `Quitter la salle ${otherCode} et revenir ici` });
+    await expect(leave).toHaveAccessibleDescription("Si tu quittes en tant qu’hôte, la salle se ferme pour tout le monde.");
+    await leave.click();
     await expect(other).toHaveURL(new RegExp(`/rooms/${code}$`));
     await other.getByRole("button", { name: "Rejoindre la salle" }).click();
     await expect(crew(other)).toHaveCount(2);
@@ -105,17 +132,42 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(other.getByText(`Tu es déjà dans la salle ${code}.`)).toBeVisible();
   });
 
-  test("closes the room for everyone when the host leaves", async ({ browser }) => {
+  test("closes the room for everyone when the host leaves, and says so to latecomers", async ({ browser }) => {
     const host = await signedInPage(browser, alice);
-    const code = await createRoom(host, "Je regarde");
+    const code = await createRoom(host, "spectator");
     await expect(crew(host).first()).toContainText("spectateur");
     const guest = await signedInPage(browser, bruno);
     await guest.goto(`/rooms/${code}`);
+    await guest.getByLabel("Je participe à la course (sinon : spectateur)").uncheck();
     await guest.getByRole("button", { name: "Rejoindre la salle" }).click();
     await expect(crew(guest)).toHaveCount(2);
+    await expect(crew(guest).filter({ hasText: bruno.displayName })).toContainText("spectateur");
 
     await host.getByRole("button", { name: "Quitter la salle" }).click();
-    await expect(guest.getByRole("main").getByRole("alert")).toContainText("L’hôte a quitté la salle : elle est fermée.");
+    await expect(guest.getByRole("heading", { level: 1 })).toHaveText(/Salle fermée/i);
+    await expect(guest.getByText(`L’hôte a quitté la salle ${code} : elle est fermée pour tout le monde.`)).toBeVisible();
+
+    // An old link to the room shows the closed state, without a join button.
+    await guest.goto(`/rooms/${code}`);
+    await expect(guest.getByRole("heading", { level: 1 })).toHaveText(/Salle fermée/i);
+    await expect(guest.getByRole("button", { name: "Rejoindre la salle" })).toHaveCount(0);
+  });
+
+  test("tells a member whose session ended elsewhere how to come back", async ({ browser }) => {
+    const host = await signedInPage(browser, alice);
+    const code = await createRoom(host);
+    const laptop = await signedInPage(browser, alice);
+    await laptop.goto("/account");
+    await laptop.getByRole("button", { name: "Se déconnecter" }).click();
+
+    await expect(host.getByRole("heading", { level: 1 })).toHaveText(/Tu es déconnecté/i);
+    await host.getByRole("link", { name: "Me reconnecter" }).click();
+    await expect(host).toHaveURL(new RegExp(`/sign-in\\?callbackUrl=%2Frooms%2F${code}$`));
+    await host.getByLabel("Nom d’utilisateur", { exact: true }).fill(alice.login);
+    await host.getByLabel("Mot de passe", { exact: true }).fill(alice.password);
+    await host.getByRole("button", { name: "Se connecter", exact: true }).click();
+    await expect(host).toHaveURL(new RegExp(`/rooms/${code}$`));
+    await expect(host.getByText("[.En direct]")).toBeVisible();
   });
 
   test("needs a session to create or open a room", async ({ page }) => {

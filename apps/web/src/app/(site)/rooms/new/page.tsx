@@ -25,17 +25,28 @@ export default async function NewRoomPage() {
       <StatePanel
         tone="warning"
         label={t.rooms.alreadyInRoomLabel}
-        heading={{ bold: t.rooms.newHeadingBold, serif: t.rooms.newHeadingSerif }}
+        heading={{ bold: t.rooms.alreadyInRoomLabel }}
         actions={
           <>
             <Link href={`/rooms/${current.code}`} className={secondaryButton}>
               {t.rooms.goToMyRoom}
             </Link>
-            <LeaveRoomForm label={format(t.rooms.leaveMyRoom, { code: current.code })} pendingLabel={t.rooms.leaving} returnTo="/rooms/new" />
+            <LeaveRoomForm
+              label={format(t.rooms.leaveMyRoom, { code: current.code })}
+              pendingLabel={t.rooms.leaving}
+              errors={t.rooms.changeErrors}
+              returnTo="/rooms/new"
+              describedBy={current.isHost ? "host-leave-note" : undefined}
+            />
           </>
         }
       >
         <p>{format(t.rooms.alreadyInRoom, { code: current.code })}</p>
+        {current.isHost && (
+          <p id="host-leave-note" className="mt-2 text-sm text-brume">
+            {t.rooms.hostLeaveNote}
+          </p>
+        )}
       </StatePanel>
     );
   }

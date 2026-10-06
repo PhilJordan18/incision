@@ -9,6 +9,8 @@ type StatePanelProps = {
   readonly heading: { readonly bold: string; readonly serif?: string };
   readonly children: ReactNode;
   readonly actions: ReactNode;
+  /** Id of the heading, for a view that moves the focus to it. */
+  readonly headingId?: string;
 };
 
 const TONES = {
@@ -18,7 +20,7 @@ const TONES = {
 } as const;
 
 /** System states (screen 15): what happens, why, and what to do. */
-export function StatePanel({ label, tone, heading, children, actions }: StatePanelProps) {
+export function StatePanel({ label, tone, heading, children, actions, headingId }: StatePanelProps) {
   const style = TONES[tone];
   return (
     <section className={`${card} ${style.border} flex max-w-xl flex-col gap-4`}>
@@ -26,7 +28,7 @@ export function StatePanel({ label, tone, heading, children, actions }: StatePan
         <span aria-hidden="true">{style.sign} </span>
         {label}
       </p>
-      <PageHeading bold={heading.bold} serif={heading.serif} size="panel" />
+      <PageHeading bold={heading.bold} serif={heading.serif} size="panel" id={headingId} />
       <div className="text-embrun">{children}</div>
       <div className="flex flex-wrap gap-3">{actions}</div>
     </section>
