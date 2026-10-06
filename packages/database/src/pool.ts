@@ -41,22 +41,39 @@ export async function checkDatabaseConnection(pool: pg.Pool): Promise<DatabaseCh
 }
 
 /**
- * Short, log-safe description of a connection error: codes and messages only, never
- * the connection string. Node reports a refused IPv4 + IPv6 connection as an
- * AggregateError whose own message is empty.
+ * Short, log-safe description of a database error: codes and messages only, never the
+ * connection string. Node reports a refused IPv4 + IPv6 connection as an AggregateError
+ * whose own message is empty.
  */
 export function describeDatabaseError(error: unknown): string {
-  if (error instanceof AggregateError && error.errors.length > 0) {
-    return error.errors.map(describeDatabaseError).join("; ");
+  return describe(error, 0);
+}
+
+/** Wrapped causes are followed this deep at most, so a cyclic `cause` cannot loop. */
+const MAX_CAUSE_DEPTH = 5;
+
+function describe(error: unknown, depth: number): string {
+  if (depth > MAX_CAUSE_DEPTH) {
+    return "nested error";
   }
-  // Drizzle wraps PostgreSQL errors in "Failed query: <sql> params: <values>": describe the
-  // PostgreSQL cause (code and reason) instead, never the wrapper's message.
+  if (error instanceof AggregateError && error.errors.length > 0) {
+    return error.errors.map((inner: unknown) => describe(inner, depth + 1)).join("; ");
+  }
+  // Drizzle wraps PostgreSQL errors in "Failed query: <sql> params: <values>": never print
+  // the wrapper's message. With parameters, a PostgreSQL server message may quote one (a
+  // cast, a RAISE, a tsquery...), so only its identifying fields are kept; client-side
+  // causes (connection reset, timeout) never contain them and keep their message.
   // Other wrappers (e.g. pg-pool's connection timeout) keep their own, more precise message.
   if (isQueryWrapper(error)) {
-    return error.cause instanceof Error ? describeDatabaseError(error.cause) : "query failed";
+    if (!(error.cause instanceof Error)) {
+      return "query failed";
+    }
+    return hasParameters(error) && isServerError(error.cause)
+      ? describeFields(error.cause)
+      : describe(error.cause, depth + 1);
   }
   if (error instanceof Error) {
-    const code = "code" in error && typeof error.code === "string" ? error.code : "";
+    const code = codeOf(error);
     // Data exceptions (class 22) quote the offending value, e.g. 22P02 for a malformed UUID.
     if (code.startsWith("22")) {
       return `${code} data exception`;
@@ -64,6 +81,34 @@ export function describeDatabaseError(error: unknown): string {
     return `${code} ${error.message}`.trim() || error.name;
   }
   return "unknown error";
+}
+
+/** SQLSTATE and the names PostgreSQL reports (constraint, table, column), without the message. */
+function describeFields(error: Error): string {
+  const names: string[] = [];
+  if ("constraint" in error && typeof error.constraint === "string") {
+    names.push(`constraint ${error.constraint}`);
+  }
+  if ("table" in error && typeof error.table === "string") {
+    names.push(`table ${error.table}`);
+  }
+  if ("column" in error && typeof error.column === "string") {
+    names.push(`column ${error.column}`);
+  }
+  return [codeOf(error) || error.name, ...names].join(" ");
+}
+
+/** pg's DatabaseError, i.e. an error reported by the PostgreSQL server, carries a severity. */
+function isServerError(error: Error): boolean {
+  return "severity" in error && typeof error.severity === "string";
+}
+
+function codeOf(error: Error): string {
+  return "code" in error && typeof error.code === "string" ? error.code : "";
+}
+
+function hasParameters(error: { readonly params: unknown }): boolean {
+  return !Array.isArray(error.params) || error.params.length > 0;
 }
 
 /**
