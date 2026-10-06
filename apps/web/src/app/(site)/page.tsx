@@ -1,4 +1,5 @@
-import { card } from "@/components/ui/styles";
+import Link from "next/link";
+import { card, secondaryButton } from "@/components/ui/styles";
 import { getRequestDictionary } from "@/i18n/server";
 import { JoinForm } from "./_home/join-form";
 import { SeaRoutes } from "./_home/sea-routes";
@@ -21,6 +22,9 @@ export default async function Home() {
           </h1>
           <p className="max-w-[480px] text-[19px] leading-normal text-embrun">{t.home.description}</p>
           <JoinForm t={t.home} />
+          <Link href="/rooms/new" className={`${secondaryButton} self-start`}>
+            {t.home.createRoom}
+          </Link>
         </section>
         <div className="red-mist flex justify-center [--mist-x:50%] [--mist-y:15%]">
           <SeaRoutes />
