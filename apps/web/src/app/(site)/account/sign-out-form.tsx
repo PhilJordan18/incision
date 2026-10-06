@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { SubmitButton } from "@/components/submit-button";
+import { secondaryButton } from "@/components/ui/styles";
 import { signOutEverywhereAction, type SignOutState } from "./actions";
 
 type SignOutFormProps = {
@@ -13,11 +14,12 @@ export function SignOutForm({ labels }: SignOutFormProps) {
   return (
     <form action={formAction} className="flex flex-col gap-3">
       {state.failed && (
-        <p role="alert" className="text-red-700 dark:text-red-300">
+        <p role="alert" className="flex gap-2 text-erreur">
+          <span aria-hidden="true">⚠</span>
           {labels.signOutFailed}
         </p>
       )}
-      <SubmitButton label={labels.signOut} pendingLabel={labels.signingOut} />
+      <SubmitButton label={labels.signOut} pendingLabel={labels.signingOut} className={`${secondaryButton} self-start`} />
     </form>
   );
 }

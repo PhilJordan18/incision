@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useSyncExternalStore } from "react";
+import { StatePanel } from "@/components/ui/state-panel";
+import { discreetButton, secondaryButton } from "@/components/ui/styles";
 import { getDictionary } from "@/i18n/dictionaries";
 import { DEFAULT_LOCALE, isLocale } from "@/i18n/locale";
 
@@ -18,18 +21,22 @@ export default function ErrorBoundary({ retry }: { readonly error: Error & { dig
   const lang = useDocumentLocale();
   const t = getDictionary(isLocale(lang) ? lang : DEFAULT_LOCALE).errorBoundary;
   return (
-    <>
-      <h1 className="text-3xl font-bold">{t.title}</h1>
+    <StatePanel
+      tone="error"
+      label={t.label}
+      heading={{ bold: t.title }}
+      actions={
+        <>
+          <button type="button" onClick={retry} className={secondaryButton}>
+            {t.retry}
+          </button>
+          <Link href="/" className={discreetButton}>
+            {t.backHome}
+          </Link>
+        </>
+      }
+    >
       <p role="alert">{t.body}</p>
-      <p>
-        <button
-          type="button"
-          onClick={retry}
-          className="min-h-11 rounded-md bg-foreground px-4 py-2 font-medium text-background focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        >
-          {t.retry}
-        </button>
-      </p>
-    </>
+    </StatePanel>
   );
 }

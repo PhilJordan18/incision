@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { StatePanel } from "@/components/ui/state-panel";
+import { secondaryButton } from "@/components/ui/styles";
 import { getRequestDictionary } from "@/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,14 +13,17 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AuthErrorPage({ searchParams }: PageProps<"/auth/error">) {
   const [{ t }, params] = await Promise.all([getRequestDictionary(), searchParams]);
   return (
-    <>
-      <h1 className="text-3xl font-bold">{t.authError.title}</h1>
-      <p role="alert">{params.error === "AccessDenied" ? t.authError.accessDenied : t.authError.generic}</p>
-      <p>
-        <Link href="/sign-in" className="underline underline-offset-4 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+    <StatePanel
+      tone="error"
+      label={t.authError.label}
+      heading={{ bold: t.authError.headingBold, serif: t.authError.headingSerif }}
+      actions={
+        <Link href="/sign-in" className={secondaryButton}>
           {t.authError.backToSignIn}
         </Link>
-      </p>
-    </>
+      }
+    >
+      <p role="alert">{params.error === "AccessDenied" ? t.authError.accessDenied : t.authError.generic}</p>
+    </StatePanel>
   );
 }
