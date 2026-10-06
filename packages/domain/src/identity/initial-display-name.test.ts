@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { initialDisplayName } from "./initial-display-name";
+import { firstValidDisplayName, initialDisplayName } from "./initial-display-name";
 
 const github = { provider: "github", subject: "583231" };
+
+describe("firstValidDisplayName", () => {
+  it("skips an invalid provider name in favour of the login", () => {
+    expect(firstValidDisplayName(["👩\u200D💻", "octocat"])).toBe("octocat");
+    expect(firstValidDisplayName([null, undefined])).toBeUndefined();
+  });
+});
 
 describe("initialDisplayName", () => {
   it("takes the first valid candidate, normalised", () => {

@@ -1,5 +1,6 @@
 "use server";
 
+import { OAUTH_PROVIDERS } from "@incision/database";
 import { LOGIN_MAX_LENGTH, PASSWORD_MAX_LENGTH } from "@incision/domain";
 import { redirect } from "next/navigation";
 import { AuthError, CredentialsSignin } from "next-auth";
@@ -8,7 +9,13 @@ import { signIn } from "@/auth";
 import { safeRedirectPath } from "@/server/auth/safe-redirect";
 import type { SignInErrorKey } from "@/server/auth/sign-in-errors";
 
-type FieldError = "loginRequired" | "loginTooLong" | "passwordRequired" | "passwordTooLong";
+const FIELD_ERRORS = ["loginRequired", "loginTooLong", "passwordRequired", "passwordTooLong"] as const;
+type FieldError = (typeof FIELD_ERRORS)[number];
+
+const credentialsFormSchema = z.object({
+  login: z.string().trim().min(1, "loginRequired").max(LOGIN_MAX_LENGTH, "loginTooLong"),
+  password: z.string().min(1, "passwordRequired").max(PASSWORD_MAX_LENGTH, "passwordTooLong"),
+});
 
 export type CredentialsFormState = {
   readonly error?: SignInErrorKey;
@@ -41,12 +48,15 @@ export async function signInWithCredentials(_previous: CredentialsFormState, for
 }
 
 function validateFields(login: string, password: string): CredentialsFormState["fieldErrors"] {
-  const loginError = login.trim() === "" ? "loginRequired" : login.trim().length > LOGIN_MAX_LENGTH ? "loginTooLong" : undefined;
-  const passwordError = password === "" ? "passwordRequired" : password.length > PASSWORD_MAX_LENGTH ? "passwordTooLong" : undefined;
-  if (loginError === undefined && passwordError === undefined) {
+  const parsed = credentialsFormSchema.safeParse({ login, password });
+  if (parsed.success) {
     return undefined;
   }
-  return { login: loginError, password: passwordError };
+  const errorOf = (field: "login" | "password") => {
+    const message = parsed.error.issues.find((issue) => issue.path[0] === field)?.message;
+    return FIELD_ERRORS.find((known) => known === message);
+  };
+  return { login: errorOf("login"), password: errorOf("password") };
 }
 
 function credentialsErrorKey(error: AuthError): SignInErrorKey {
@@ -57,7 +67,7 @@ function credentialsErrorKey(error: AuthError): SignInErrorKey {
   return "unavailable";
 }
 
-const providerSchema = z.enum(["github", "discord"]);
+const providerSchema = z.enum(OAUTH_PROVIDERS);
 
 /** Starts a GitHub or Discord sign-in: Auth.js answers with a redirect to the provider. */
 export async function signInWithProvider(formData: FormData): Promise<void> {
