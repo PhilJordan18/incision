@@ -1,6 +1,6 @@
 import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
 import { type Browser, expect, type Page, test } from "@playwright/test";
-import { query, signInWithCredentials } from "./support";
+import { expectNoAccessibilityViolation, expectNoHorizontalScroll, query, signInWithCredentials } from "./support";
 
 const [alice, bruno] = DEMO_ACCOUNTS;
 if (alice === undefined || bruno === undefined) {
@@ -15,8 +15,18 @@ test.beforeEach(async () => {
   await query("delete from lobbies");
 });
 
-async function signedInPage(browser: Browser, account: { login: string; password: string }): Promise<Page> {
-  const context = await browser.newContext({ locale: "fr-CA" });
+async function signedInPage(
+  browser: Browser,
+  account: { login: string; password: string },
+  options: { theme?: "abysse" | "aube"; width?: number } = {},
+): Promise<Page> {
+  const context = await browser.newContext({
+    locale: "fr-CA",
+    ...(options.width === undefined ? {} : { viewport: { width: options.width, height: 800 } }),
+  });
+  if (options.theme !== undefined) {
+    await context.addCookies([{ name: "theme", value: options.theme, url: test.info().project.use.baseURL ?? "" }]);
+  }
   const page = await context.newPage();
   await signInWithCredentials(page, account.login, account.password);
   await expect(page).toHaveURL(/\/account$/);
@@ -114,4 +124,22 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await page.goto("/rooms/B7K4PQ");
     await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Frooms%2FB7K4PQ$/);
   });
+
+  for (const theme of ["abysse", "aube"] as const) {
+    test(`room pages have no WCAG A/AA violation and fit 360 px in ${theme}`, async ({ browser }) => {
+      const host = await signedInPage(browser, alice, { theme, width: 360 });
+      await host.goto("/rooms/new");
+      await expectNoAccessibilityViolation(host);
+      await expectNoHorizontalScroll(host);
+      const code = await createRoom(host);
+      await expectNoAccessibilityViolation(host);
+      await expectNoHorizontalScroll(host);
+
+      const guest = await signedInPage(browser, bruno, { theme, width: 360 });
+      await guest.goto(`/rooms/${code}`);
+      await expect(guest.getByRole("button", { name: "Rejoindre la salle" })).toBeVisible();
+      await expectNoAccessibilityViolation(guest);
+      await expectNoHorizontalScroll(guest);
+    });
+  }
 });

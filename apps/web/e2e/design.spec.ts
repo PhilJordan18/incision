@@ -1,7 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
-import { expect, type Page, test } from "@playwright/test";
-import { signInWithCredentials } from "./support";
+import { expect, test } from "@playwright/test";
+import { expectNoAccessibilityViolation, expectNoHorizontalScroll, signInWithCredentials } from "./support";
 
 const [, bruno] = DEMO_ACCOUNTS;
 if (bruno === undefined) {
@@ -9,17 +8,6 @@ if (bruno === undefined) {
 }
 
 test.use({ locale: "fr-CA" });
-
-/** WCAG 2.1 A and AA rules, contrast included (A11Y-01 to A11Y-04, DA p.26). */
-async function expectNoAccessibilityViolation(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-  expect(results.violations.map(({ id, nodes }) => `${id}: ${nodes.map((node) => node.target.join(" ")).join(", ")}`)).toEqual([]);
-}
-
-async function expectNoHorizontalScroll(page: Page): Promise<void> {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow).toBeLessThanOrEqual(0);
-}
 
 test.describe("theme (DES-05)", () => {
   test("follows the system before any choice, from the inline script alone", async ({ browser, baseURL }) => {
@@ -81,7 +69,8 @@ test.describe("home (screen 01, JOIN-01)", () => {
     await expect(page.getByText("Le code n’utilise que des lettres et des chiffres, sans 0, O, 1, I ni L.")).toBeVisible();
     await code.fill(" b7k4pq ");
     await page.getByRole("button", { name: "Rejoindre la salle" }).click();
-    await expect(page).toHaveURL(/\/rooms\/B7K4PQ$/);
+    // A valid code without a session: sign in first, then back to the room (CP-06).
+    await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Frooms%2FB7K4PQ$/);
   });
 
   test("shows Philippe's logo, the favicon and a single red action", async ({ page }) => {
