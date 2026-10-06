@@ -32,10 +32,27 @@ for (const provider of PROVIDERS) {
   });
 }
 
-test("brings a cancelled provider sign-in back to the sign-in page with a translated message", async ({ page }) => {
-  // What Auth.js does when the provider redirects back with an error.
-  await page.goto("/sign-in?error=OAuthCallbackError");
+test("brings a cancelled GitHub sign-in back to the sign-in page with a translated message", async ({ page, baseURL }) => {
+  // The simulated provider answers like GitHub when the user clicks "Cancel": back to
+  // our callback with error=access_denied, which Auth.js handles for real.
+  await page.route("https://github.com/**", async (route) => {
+    const state = new URL(route.request().url()).searchParams.get("state") ?? "";
+    const callback = new URL(`${baseURL ?? ""}/api/auth/callback/github`);
+    callback.search = new URLSearchParams({ error: "access_denied", state }).toString();
+    await route.fulfill({ status: 302, headers: { location: callback.toString() } });
+  });
+  await page.goto("/sign-in");
+  await page.getByRole("button", { name: PROVIDERS[0].button }).click();
+  await expect(page).toHaveURL(/\/sign-in\?/);
   await expect(page.getByRole("main").getByRole("alert")).toHaveText("La connexion avec le fournisseur a été annulée ou a échoué. Réessayez.");
+});
+
+test("shows Auth.js' refused-access errors on the translated error page", async ({ page }) => {
   await page.goto("/auth/error?error=AccessDenied");
   await expect(page.getByRole("main").getByRole("alert")).toHaveText("La connexion a été refusée ou annulée.");
+});
+
+test("refuses the built-in sign-out endpoint: signing out goes through the account page", async ({ request }) => {
+  const response = await request.post("/api/auth/signout", { form: { csrfToken: "irrelevant" } });
+  expect(response.status()).toBe(405);
 });
