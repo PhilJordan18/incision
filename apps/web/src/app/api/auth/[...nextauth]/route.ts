@@ -9,7 +9,8 @@ export const { GET } = handlers;
  * still clear the cookie, leaving the other devices signed in: it is refused.
  */
 export function POST(request: NextRequest): Promise<Response> | Response {
-  if (request.nextUrl.pathname.endsWith("/signout")) {
+  // Auth.js also accepts a trailing slash.
+  if (/\/signout\/?$/.test(request.nextUrl.pathname)) {
     return Response.json({ error: "SIGN_OUT_FROM_THE_ACCOUNT_PAGE" }, { status: 405 });
   }
   return handlers.POST(request);

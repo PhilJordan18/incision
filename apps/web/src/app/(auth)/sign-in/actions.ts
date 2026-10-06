@@ -61,6 +61,9 @@ function validateFields(login: string, password: string): CredentialsFormState["
 
 function credentialsErrorKey(error: AuthError): SignInErrorKey {
   if (error instanceof CredentialsSignin) {
+    if (error.code === "busy") {
+      return "unavailable";
+    }
     return error.code === "rate_limited" ? "rateLimited" : "invalidCredentials";
   }
   // Database or configuration failure: not the user's credentials.
