@@ -81,7 +81,7 @@ erDiagram
   races ||--o{ race_bonus_events : logs
 ```
 
-The member describes presence in a room; the entrant is an independent historical snapshot. The account links results to the personal history. Room results may keep an anonymised snapshot of guests/bots to render a complete chart, with no account and no personal history for guests. See [constraints, retention and transactions](architecture/data-model.md).
+This diagram is the target model. What is migrated today is described in [the delivered schema](architecture/data-model.md#delivered-schema-cp-03-migration-0000_init). The member describes presence in a room; the entrant is an independent historical snapshot. The account links results to the personal history. Room results may keep an anonymised snapshot of guests/bots to render a complete chart, with no account and no personal history for guests. See [constraints, retention and transactions](architecture/data-model.md).
 
 ## 5. Race state machine — COURSE-01
 
