@@ -78,8 +78,9 @@ async function waitForBlockedQueries(count: number): Promise<void> {
  * Starts the calls in order while `lobby_members` is locked, each one until it waits on
  * that lock, then releases them together: a deterministic interleaving of transactions.
  */
-async function startTogether<T>(calls: ReadonlyArray<() => Promise<T>>): Promise<T[]> {
-  const blocker = await pool.connect();
+async function startTogether<T>(calls: ReadonlyArray<() => Promise<T>>, on: pg.Pool = pool): Promise<T[]> {
+  const blocker = await on.connect();
+  let committed = false;
   try {
     await blocker.query("begin");
     await blocker.query("lock table lobby_members in access exclusive mode");
@@ -89,9 +90,11 @@ async function startTogether<T>(calls: ReadonlyArray<() => Promise<T>>): Promise
       await waitForBlockedQueries(index + 1);
     }
     await blocker.query("commit");
+    committed = true;
     return await Promise.all(pending);
   } finally {
-    blocker.release();
+    // A failed helper must not leave the lock held in a pooled connection: destroy it.
+    blocker.release(!committed);
   }
 }
 
@@ -204,6 +207,34 @@ describe("joinRoomByCode", () => {
   });
 });
 
+describe("readRoomSnapshot", () => {
+  it("never mixes the revision of one moment with the members of another", async () => {
+    const { lobbyId } = await room("ABCDEF", { capacity: 30 });
+    const start = await readRoomSnapshot(db, lobbyId);
+    const offset = (start?.revision ?? 0) - (start?.members.length ?? 0);
+    const joiners = await Promise.all(Array.from({ length: 20 }, (_, index) => account(`J${index}`)));
+    let joining = true;
+    const reads: Promise<void>[] = [];
+    const torn: string[] = [];
+    for (let reader = 0; reader < 2; reader += 1) {
+      reads.push(
+        (async () => {
+          while (joining) {
+            const snapshot = await readRoomSnapshot(db, lobbyId);
+            if (snapshot !== undefined && snapshot.revision - snapshot.members.length !== offset) {
+              torn.push(`${snapshot.revision}/${snapshot.members.length}`);
+            }
+          }
+        })(),
+      );
+    }
+    await Promise.all(joiners.map((accountId) => joinRoomByCode(db, { accountId, code: code("ABCDEF"), role: "participant" })));
+    joining = false;
+    await Promise.all(reads);
+    expect(torn).toEqual([]);
+  });
+});
+
 describe("leaveCurrentRoom", () => {
   it("lets a member leave and increases the revision; the account can join another room", async () => {
     const { lobbyId } = await room("ABCDEF");
@@ -253,6 +284,21 @@ describe("leaveCurrentRoom", () => {
     const results = await startTogether([() => leaveCurrentRoom(db, bob), () => leaveCurrentRoom(db, bob)]);
     expect(results.filter((result) => result !== undefined)).toEqual([{ lobbyId, closed: false }]);
     expect((await readRoomSnapshot(db, lobbyId))?.revision).toBe(before + 1);
+  });
+
+  it("stays correct when the server's default isolation is REPEATABLE READ", async () => {
+    // The transactions pin READ COMMITTED; without it the second tab would fail with 40001.
+    const strict = new pg.Pool({ connectionString: database.url, max: 4, options: "-c default_transaction_isolation=repeatable\\ read" });
+    try {
+      const strictDb = createDatabase(strict);
+      const { lobbyId } = await room("ABCDEF");
+      const bob = await account("Bob");
+      await joinRoomByCode(strictDb, { accountId: bob, code: code("ABCDEF"), role: "participant" });
+      const results = await startTogether([() => leaveCurrentRoom(strictDb, bob), () => leaveCurrentRoom(strictDb, bob)], strict);
+      expect(results.filter((result) => result !== undefined)).toEqual([{ lobbyId, closed: false }]);
+    } finally {
+      await strict.end();
+    }
   });
 
   it("closes the room once when the host leaves from two tabs", async () => {

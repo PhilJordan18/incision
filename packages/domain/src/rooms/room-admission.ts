@@ -11,6 +11,14 @@ export type MemberRole = (typeof MEMBER_ROLES)[number];
 /** Participants of a room, bots included and spectators excluded (SALLE-05). */
 export const ROOM_MAX_CAPACITY = 30;
 
+/** Phases in which a room admits new members (SALLE-09). */
+export type AdmittingPhase = Extract<RoomPhase, "waiting" | "results">;
+
+/** True while a room admits new members: waiting, or showing results (SALLE-09). */
+export function admitsNewMembers(phase: RoomPhase): phase is AdmittingPhase {
+  return phase === "waiting" || phase === "results";
+}
+
 export type AdmissionRefusal = "ROOM_NOT_ADMITTING" | "ROOM_FULL";
 
 export type AdmissionRequest = {
@@ -27,7 +35,7 @@ export type AdmissionRequest = {
  * (SALLE-05).
  */
 export function admissionRefusal({ phase, role, activeParticipants, capacity }: AdmissionRequest): AdmissionRefusal | undefined {
-  if (phase !== "waiting" && phase !== "results") {
+  if (!admitsNewMembers(phase)) {
     return "ROOM_NOT_ADMITTING";
   }
   if (role === "participant" && activeParticipants >= capacity) {

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { admissionRefusal, localDisplayName, ROOM_PHASES } from "./room-admission";
+import { admissionRefusal, admitsNewMembers, localDisplayName, ROOM_PHASES } from "./room-admission";
+
+describe("admitsNewMembers", () => {
+  it("is true while waiting or at results only", () => {
+    expect(ROOM_PHASES.filter(admitsNewMembers)).toEqual(["waiting", "results"]);
+  });
+});
 
 describe("admissionRefusal", () => {
   it("admits only while waiting or at results (SALLE-09)", () => {
