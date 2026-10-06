@@ -56,6 +56,11 @@ describe("attachRealtimeServer", () => {
     await expect(open({ transports, extraHeaders: headers })).rejects.toThrow();
   });
 
+  it("refuses a JSONP polling handshake", async () => {
+    const response = await fetch(`${baseUrl}/socket.io/?EIO=4&transport=polling&j=0`);
+    expect(response.status).toBe(403);
+  });
+
   it("answers an invalid ping with an error and survives a ping without acknowledgement", async () => {
     const client = await open({});
     client.emit(PING_EVENT, { sentAt: 1 });

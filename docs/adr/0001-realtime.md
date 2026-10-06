@@ -32,7 +32,7 @@ TECH-05 requires a server. Hosting is decided in [ADR-0002](0002-hosting.md) (D-
 ## Contracts, authorisation and ordering
 
 - Handshake: verify the account session or the signed guest cookie, and the origin; refuse an expired identity. The identity is application-level, never `socket.id`.
-- Origin rule (CP-02): the handshake is refused when `Origin` is present and differs from `APP_URL`, or when the browser marks the request `Sec-Fetch-Site: cross-site`. A missing `Origin` (Socket.IO's first same-origin polling GET, or a non-browser client) is accepted. HTTP long-polling stays enabled as a fallback for school networks that block WebSocket.
+- Origin rule (CP-02): the handshake is refused when `Origin` is present and differs from `APP_URL`, or when the browser marks the request `Sec-Fetch-Site: cross-site`. A missing `Origin` (Socket.IO's first same-origin polling GET, or a non-browser client) is accepted. HTTP long-polling stays enabled as a fallback for school networks that block WebSocket; JSONP polling is refused. Session and guest cookies must be `SameSite=Lax` or `Strict` (AUTH-01/02).
 - Each command is validated by a Zod schema, with an operation identifier, room/race and sequence as applicable. Authorisation on **every action**, not only at connection. No client decides its role or its Socket.IO group.
 - Durable mutations: PostgreSQL lock/transaction, then acknowledgement and broadcast **after commit**. Repeated operations remain idempotent.
 - Snapshot on entry/resumption, then events with a monotonic revision. Missing revision: resynchronisation, no trust in the client's ordering.

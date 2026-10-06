@@ -16,7 +16,11 @@ export function attachRealtimeServer(httpServer: HttpServer, { allowedOrigin, is
     allowRequest: (request, callback) => {
       const secFetchSite = request.headers["sec-fetch-site"];
       const allowed = isAllowedHandshake(
-        { origin: request.headers.origin, secFetchSite: Array.isArray(secFetchSite) ? secFetchSite[0] : secFetchSite },
+        {
+          origin: request.headers.origin,
+          secFetchSite: Array.isArray(secFetchSite) ? secFetchSite[0] : secFetchSite,
+          isJsonp: new URL(request.url ?? "/", "http://localhost").searchParams.has("j"),
+        },
         allowedOrigin,
       );
       callback(null, allowed);

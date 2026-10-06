@@ -1,6 +1,8 @@
-export type HandshakeHeaders = {
+export type Handshake = {
   readonly origin: string | undefined;
   readonly secFetchSite: string | undefined;
+  /** Engine.io JSONP polling (`j` query parameter); the v4 client never uses it. */
+  readonly isJsonp: boolean;
 };
 
 /**
@@ -10,10 +12,11 @@ export type HandshakeHeaders = {
  * Browsers send `Origin` on every WebSocket handshake and cross-origin request, but not
  * on a same-origin GET such as Socket.IO's first polling request. A missing `Origin` is
  * therefore accepted unless Fetch Metadata says the request is cross-site; non-browser
- * clients cannot reuse a visitor's cookies anyway.
+ * clients cannot reuse a visitor's cookies anyway. JSONP is refused: a cross-site
+ * <script> could read its response, and with it the session id, without any Origin.
  */
-export function isAllowedHandshake({ origin, secFetchSite }: HandshakeHeaders, allowedOrigin: string): boolean {
-  if (secFetchSite === "cross-site") {
+export function isAllowedHandshake({ origin, secFetchSite, isJsonp }: Handshake, allowedOrigin: string): boolean {
+  if (isJsonp || secFetchSite?.toLowerCase() === "cross-site") {
     return false;
   }
   if (origin === undefined) {
