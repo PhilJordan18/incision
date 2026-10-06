@@ -1,33 +1,15 @@
-import { checkDatabaseConnection, describeDatabaseError, getDatabasePool } from "@incision/database";
-
-type DatabaseStatus = "up" | "down" | "not_configured";
+import { parseServerEnv } from "@/server/config";
+import { deployedCommit, readDatabaseStatus } from "@/server/health";
 
 /**
- * Liveness and readiness for Azure's health check and the smoke test. Always 200 while
- * the process runs, so a Neon cold start never gets the only instance restarted;
- * `status` says whether the database answers. No internal detail is exposed.
+ * Readiness for the smoke test and manual checks: deployed commit and whether Neon
+ * answers. Not the Azure health check path: probing Neon every minute would keep its
+ * free compute awake around the clock (see /api/health/live and docs/DEPLOYMENT.md).
  */
 export async function GET(): Promise<Response> {
-  const database = await readDatabaseStatus();
+  const database = await readDatabaseStatus(parseServerEnv(process.env).databaseUrl);
   return Response.json(
-    {
-      status: database === "down" ? "degraded" : "ok",
-      commit: process.env.APP_COMMIT_SHA ?? "unknown",
-      database,
-    },
+    { status: database === "down" ? "degraded" : "ok", commit: deployedCommit(), database },
     { headers: { "Cache-Control": "no-store" } },
   );
-}
-
-async function readDatabaseStatus(): Promise<DatabaseStatus> {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    return "not_configured";
-  }
-  const check = await checkDatabaseConnection(getDatabasePool(databaseUrl));
-  if (!check.reachable) {
-    console.error("[health] database unreachable:", describeDatabaseError(check.error));
-    return "down";
-  }
-  return "up";
 }
