@@ -64,10 +64,14 @@ jobs:
         run: npm test
 
       - name: Migrations match the schema
+        # drizzle-kit exits 0 even when generation fails or needs an interactive answer
+        # (renames), so require its explicit "no changes" message and a clean folder.
         run: |
-          npm run db:generate -w @incision/database
-          if [ -n "$(git status --porcelain -- packages/database/drizzle)" ]; then
-            echo "::error::The Drizzle schema changed without a generated migration (npm run db:generate)."
+          output="$(npm run db:generate -w @incision/database 2>&1 < /dev/null)" || { echo "$output"; exit 1; }
+          echo "$output"
+          if ! grep -q "No schema changes, nothing to migrate" <<< "$output" \
+            || [ -n "$(git status --porcelain -- packages/database/drizzle)" ]; then
+            echo "::error::The Drizzle schema and the committed migrations disagree (run npm run db:generate)."
             git status --porcelain -- packages/database/drizzle
             exit 1
           fi

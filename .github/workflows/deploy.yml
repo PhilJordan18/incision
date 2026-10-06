@@ -59,6 +59,7 @@ jobs:
     name: Migrate production database
     needs: build
     runs-on: ubuntu-latest
+    permissions: {}
     timeout-minutes: 10
     environment:
       name: production
