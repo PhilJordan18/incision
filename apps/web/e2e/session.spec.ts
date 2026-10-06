@@ -1,6 +1,7 @@
 import { hashPassword } from "@incision/database";
 import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
 import { expect, test } from "@playwright/test";
+import { SESSION_EVENT } from "../src/server/realtime/socket-server";
 import { connectSocket, FRENCH, forgeSessionCookie, query, SESSION_COOKIE, sessionCookieHeader, signInWithCredentials } from "./support";
 
 const [, bruno] = DEMO_ACCOUNTS;
@@ -35,7 +36,7 @@ test.describe("protected access (SEC-01, server-side)", () => {
   test("keeps anonymous sockets out of protected events", async ({ baseURL }) => {
     const { socket, error } = await connectSocket(baseURL ?? "");
     expect(error).toBeUndefined();
-    expect(await socket.timeout(5_000).emitWithAck("session:whoami", {})).toEqual({ ok: false, error: "UNAUTHORIZED" });
+    expect(await socket.timeout(5_000).emitWithAck(SESSION_EVENT, {})).toEqual({ ok: false, error: "UNAUTHORIZED" });
     socket.close();
   });
 });
@@ -55,9 +56,9 @@ test.describe("sign-out ends every session of the account (option B)", () => {
     // One socket per device, both authenticated as the same account.
     const laptopSocket = await connectSocket(origin, laptopCookie);
     const phoneSocket = await connectSocket(origin, phoneCookie);
-    const accountAck = await phoneSocket.socket.timeout(5_000).emitWithAck("session:whoami", {});
+    const accountAck = await phoneSocket.socket.timeout(5_000).emitWithAck(SESSION_EVENT, {});
     expect(accountAck).toMatchObject({ ok: true });
-    expect(await laptopSocket.socket.timeout(5_000).emitWithAck("session:whoami", {})).toEqual(accountAck);
+    expect(await laptopSocket.socket.timeout(5_000).emitWithAck(SESSION_EVENT, {})).toEqual(accountAck);
     const phoneClosed = new Promise<string>((resolve) => phoneSocket.socket.once("disconnect", resolve));
     const laptopClosed = new Promise<string>((resolve) => laptopSocket.socket.once("disconnect", resolve));
 

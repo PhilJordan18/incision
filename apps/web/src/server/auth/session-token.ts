@@ -19,6 +19,9 @@ export type SessionCheck =
   | { readonly ok: true; readonly claims: SessionClaims; readonly expiresAt: number }
   | { readonly ok: false; readonly reason: "MALFORMED" | "EXPIRED" | "REVOKED" | "ACCOUNT_NOT_FOUND" };
 
+/** Clock skew tolerated on `authTime`, which our own server wrote. */
+const AUTH_TIME_SKEW_SECONDS = 60;
+
 /** Reads the current session version of an account; `null` when the account does not exist. */
 export type SessionVersionReader = (accountId: string) => Promise<number | null>;
 
@@ -39,6 +42,10 @@ export async function checkSession(payload: unknown, readVersion: SessionVersion
     return { ok: false, reason: "MALFORMED" };
   }
   const claims = parsed.data;
+  // A sign-in time in the future would push the 24-hour limit further: never ours.
+  if (claims.authTime * 1000 > now + AUTH_TIME_SKEW_SECONDS * 1000) {
+    return { ok: false, reason: "MALFORMED" };
+  }
   const expiresAt = sessionDeadline(claims.authTime);
   if (now >= expiresAt) {
     return { ok: false, reason: "EXPIRED" };

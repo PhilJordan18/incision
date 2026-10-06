@@ -15,9 +15,11 @@ function dependencies(overrides: Partial<CredentialsDependencies> = {}): Credent
   return {
     findCredentials: vi.fn(async (login: string) => (login === "alice" ? alice : undefined)),
     limiters: {
-      login: new AttemptLimiter({ maxFailures: 2, windowMs: 60_000 }),
+      loginAtAddress: new AttemptLimiter({ maxFailures: 2, windowMs: 60_000 }),
+      login: new AttemptLimiter({ maxFailures: 4, windowMs: 60_000 }),
       address: new AttemptLimiter({ maxFailures: 3, windowMs: 60_000 }),
     },
+    verifications: { inFlight: 0, max: 8 },
     ...overrides,
   };
 }
@@ -56,12 +58,25 @@ describe("authorizeCredentials", () => {
     expect(unknown).toBeGreaterThan(wrong / 3);
   });
 
-  it("pauses a login after repeated failures, even with the right password", async () => {
+  it("pauses a login at one address after repeated failures, even with the right password", async () => {
     const deps = dependencies();
-    for (const address of ["198.51.100.1", "198.51.100.2"]) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await expect(authorizeCredentials({ login: "alice", password: "wrong" }, request(), deps)).rejects.toBeInstanceOf(InvalidCredentials);
+    }
+    await expect(authorizeCredentials({ login: "ALICE", password: "correct horse" }, request(), deps)).rejects.toBeInstanceOf(TooManyAttempts);
+  });
+
+  it("lets the owner in from another address while a stranger is paused, up to the global cap", async () => {
+    const deps = dependencies();
+    for (const address of ["198.51.100.1", "198.51.100.1"]) {
       await expect(authorizeCredentials({ login: "alice", password: "wrong" }, request(address), deps)).rejects.toBeInstanceOf(InvalidCredentials);
     }
-    await expect(authorizeCredentials({ login: "ALICE", password: "correct horse" }, request("198.51.100.3"), deps)).rejects.toBeInstanceOf(TooManyAttempts);
+    await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request("198.51.100.9"), deps)).resolves.toEqual({ id: accountId });
+    for (const address of ["198.51.100.2", "198.51.100.3"]) {
+      await expect(authorizeCredentials({ login: "alice", password: "wrong" }, request(address), deps)).rejects.toBeInstanceOf(InvalidCredentials);
+    }
+    // Four failures from anywhere: the login is paused for everyone.
+    await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request("198.51.100.9"), deps)).rejects.toBeInstanceOf(TooManyAttempts);
   });
 
   it("pauses an address that sprays many logins, without querying the database", async () => {
@@ -72,6 +87,35 @@ describe("authorizeCredentials", () => {
     vi.mocked(deps.findCredentials).mockClear();
     await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request(), deps)).rejects.toBeInstanceOf(TooManyAttempts);
     expect(deps.findCredentials).not.toHaveBeenCalled();
+  });
+
+  it("counts parallel attempts at once: a burst gets no more guesses than the limit", async () => {
+    const deps = dependencies();
+    const burst = await Promise.allSettled(
+      Array.from({ length: 6 }, (_, index) => authorizeCredentials({ login: "alice", password: `wrong-${index}` }, request(`198.51.100.${index}`), deps)),
+    );
+    const reasons = burst.map((result) => (result.status === "rejected" ? result.reason : result.value));
+    // The global per-login cap (4) holds even though every attempt comes from another address.
+    expect(reasons.filter((reason) => reason instanceof InvalidCredentials)).toHaveLength(4);
+    expect(reasons.filter((reason) => reason instanceof TooManyAttempts)).toHaveLength(2);
+    expect(deps.findCredentials).toHaveBeenCalledTimes(4);
+  });
+
+  it("refuses new attempts while too many password checks are running", async () => {
+    const deps = dependencies({ verifications: { inFlight: 0, max: 2 } });
+    const burst = await Promise.allSettled(
+      ["u1", "u2", "u3", "u4", "u5"].map((login, index) => authorizeCredentials({ login, password: "x" }, request(`203.0.113.${index}`), deps)),
+    );
+    const reasons = burst.map((result) => (result.status === "rejected" ? result.reason : result.value));
+    expect(reasons.filter((reason) => reason instanceof TooManyAttempts)).toHaveLength(3);
+    expect(deps.verifications.inFlight).toBe(0);
+  });
+
+  it("does not count a successful sign-in against the limits", async () => {
+    const deps = dependencies();
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await expect(authorizeCredentials({ login: "alice", password: "correct horse" }, request(), deps)).resolves.toEqual({ id: accountId });
+    }
   });
 
   it("lets a database failure surface as an error, not as a wrong password", async () => {

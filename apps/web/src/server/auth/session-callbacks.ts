@@ -1,4 +1,4 @@
-import type { OAuthProvider, SessionAccount } from "@incision/database";
+import { OAUTH_PROVIDERS, type OAuthProvider, type OAuthSignIn, type SessionAccount } from "@incision/database";
 import { initialDisplayName } from "@incision/domain";
 import { z } from "zod";
 import { checkSession, type SessionClaims, type SessionVersionReader } from "./session-token";
@@ -6,11 +6,7 @@ import { checkSession, type SessionClaims, type SessionVersionReader } from "./s
 /** What the callbacks need from the database; the real store lives in ./store. */
 export type SessionStore = {
   readonly readSessionVersion: SessionVersionReader;
-  readonly findOrCreateOAuthAccount: (signIn: {
-    readonly provider: OAuthProvider;
-    readonly providerSubject: string;
-    readonly initialDisplayName: string;
-  }) => Promise<SessionAccount>;
+  readonly findOrCreateOAuthAccount: (signIn: OAuthSignIn) => Promise<SessionAccount>;
 };
 
 /** The parts of Auth.js' `account` and `user` a sign-in needs; everything else is ignored. */
@@ -59,7 +55,7 @@ async function resolveSignInAccount(account: SignInAccount, user: SignInUser, st
 }
 
 function toOAuthProvider(provider: string): OAuthProvider | undefined {
-  return provider === "github" || provider === "discord" ? provider : undefined;
+  return OAUTH_PROVIDERS.find((known) => known === provider);
 }
 
 /**

@@ -1,8 +1,9 @@
+import { firstValidDisplayName } from "@incision/domain";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Discord from "next-auth/providers/discord";
 import GitHub from "next-auth/providers/github";
-import { authorizeCredentials, credentialLimiters } from "@/server/auth/credentials";
+import { authorizeCredentials, credentialChecks } from "@/server/auth/credentials";
 import { logAuthError, logAuthWarning } from "@/server/auth/log";
 import { defaultRevocationDependencies, revokeOnSignOutEvent } from "@/server/auth/revocation";
 import { claimsForSignIn, revalidateClaims } from "@/server/auth/session-callbacks";
@@ -24,19 +25,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // Our translated pages replace Auth.js' English ones (I18N-01).
   pages: { signIn: "/sign-in", error: "/auth/error", signOut: "/account" },
   providers: [
-    // Empty scope: public profile only, no email permission. Only id and name are read.
+    // Empty scope: public profile only, no email permission. Only the id and a name
+    // (the first valid of the provider's name and login) are read.
     GitHub({
       authorization: { params: { scope: "" } },
-      profile: (profile) => ({ id: String(profile.id), name: profile.name ?? profile.login }),
+      profile: (profile) => ({ id: String(profile.id), name: firstValidDisplayName([profile.name, profile.login]) }),
     }),
     Discord({
       authorization: { params: { scope: "identify" } },
-      profile: (profile) => ({ id: profile.id, name: profile.global_name ?? profile.username }),
+      profile: (profile) => ({ id: profile.id, name: firstValidDisplayName([profile.global_name, profile.username]) }),
     }),
     Credentials({
       credentials: { login: {}, password: {} },
       authorize: (input, request) =>
-        authorizeCredentials(input, request, { findCredentials, limiters: credentialLimiters() }),
+        authorizeCredentials(input, request, { findCredentials, ...credentialChecks() }),
     }),
   ],
   callbacks: {

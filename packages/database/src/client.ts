@@ -9,13 +9,20 @@ export function createDatabase(client: pg.Pool | pg.Client): Database {
   return drizzle({ client, schema });
 }
 
-const processGlobal = globalThis as typeof globalThis & { incisionDrizzle?: { pool: pg.Pool; db: Database } };
+/**
+ * One Drizzle instance per copy of this module, over the process-wide pool. Only the pool
+ * is shared through globalThis: Next bundles its own copy of drizzle-orm, and an instance
+ * from another copy would throw that copy's error classes into this one's code.
+ */
+const databases = new WeakMap<pg.Pool, Database>();
 
-/** Drizzle over the process-wide pool (pooled Neon URL in production), created once. */
+/** Drizzle over the process-wide pool (pooled Neon URL in production). */
 export function getDatabase(connectionString: string): Database {
   const pool = getDatabasePool(connectionString);
-  if (processGlobal.incisionDrizzle?.pool !== pool) {
-    processGlobal.incisionDrizzle = { pool, db: createDatabase(pool) };
+  let database = databases.get(pool);
+  if (database === undefined) {
+    database = createDatabase(pool);
+    databases.set(pool, database);
   }
-  return processGlobal.incisionDrizzle.db;
+  return database;
 }

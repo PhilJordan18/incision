@@ -1,5 +1,6 @@
 "use server";
 
+import { describeDatabaseError } from "@incision/database";
 import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
 import { defaultRevocationDependencies, signOutEverywhere } from "@/server/auth/revocation";
@@ -20,8 +21,9 @@ export async function signOutEverywhereAction(): Promise<SignOutState> {
   }
   try {
     await signOutEverywhere(session.accountId, defaultRevocationDependencies(revokeSessions));
-  } catch {
+  } catch (error: unknown) {
     // The database did not record the revocation: keep the user signed in and say so.
+    console.error("[auth] sign-out failed:", describeDatabaseError(error));
     return { failed: true };
   }
   await signOut({ redirectTo: "/" });

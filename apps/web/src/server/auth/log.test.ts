@@ -1,4 +1,4 @@
-import { CallbackRouteError, CredentialsSignin, JWTSessionError } from "@auth/core/errors";
+import { CredentialsSignin } from "next-auth";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { logAuthError } from "./log";
 
@@ -10,6 +10,11 @@ afterEach(() => {
 
 function logged(): string {
   return errorLog.mock.calls.map((call) => call.join(" ")).join("\n");
+}
+
+/** Shaped like Auth.js' errors: a `type`, and the original error as `cause.err`. */
+function authError(type: string, err: Error): Error {
+  return Object.assign(new Error(`${type}. Read more at https://errors.authjs.dev`, { cause: { err } }), { type });
 }
 
 describe("logAuthError", () => {
@@ -24,9 +29,8 @@ describe("logAuthError", () => {
       detail: "Key (login_canonical)=(alice) already exists.",
     });
     const query = Object.assign(new Error("Failed query: select ... params: alice,scrypt$secret"), { cause: database });
-    // Auth.js stores the original error as `cause.err`.
-    logAuthError(new CallbackRouteError("", { cause: { err: query } }));
-    logAuthError(new JWTSessionError("", { cause: { err: database } }));
+    logAuthError(authError("CallbackRouteError", query));
+    logAuthError(authError("JWTSessionError", database));
     expect(logged()).toBe("[auth] CallbackRouteError (Error)\n[auth] JWTSessionError (Error 23505)");
     expect(logged()).not.toMatch(/alice|scrypt|params|Key/);
   });

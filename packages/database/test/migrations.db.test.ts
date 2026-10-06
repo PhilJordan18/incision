@@ -43,9 +43,7 @@ function releasedMigrationCount(): number {
 
 /** Copy of the package's migrations folder truncated after `lastTag`, i.e. an earlier release. */
 function releasedMigrationsUpTo(lastTag: string): string {
-  const journal = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"), "utf8")) as {
-    entries: { tag: string }[];
-  };
+  const journal: { entries: { tag: string }[] } = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"), "utf8"));
   const last = journal.entries.findIndex((entry) => entry.tag === lastTag);
   if (last === -1) {
     throw new Error(`No migration tagged ${lastTag}`);
@@ -99,6 +97,8 @@ describe("runMigrations", () => {
     expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 1 });
     const [row] = await query<{ session_version: number }>("select session_version from accounts");
     expect(row?.session_version).toBe(1);
+    // Redeploying the CP-03 release on the upgraded database (rollback) applies nothing.
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: cp03Release })).toEqual({ applied: 0 });
   });
 
   it("serialises two concurrent migrators: a slow migration is applied exactly once", async () => {
