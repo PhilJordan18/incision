@@ -4,7 +4,7 @@ Version initiale alignée sur l'énoncé final, **2 octobre 2026**. Document de 
 
 ## 1. Autorité et périmètre
 
-L'[énoncé final](Web-V-Travail-de-session.pdf) prévaut pour les contraintes et l'évaluation. Le [cahier des charges remis](cahier-des-charges-incision.pdf) reste inchangé : ses choix incompatibles sont explicitement remplacés dans [EXIGENCES.md](EXIGENCES.md). La [direction artistique complète V3](da/da_incision.pdf), 24 pages vérifiées le 3 octobre, guide le rendu sans changer les règles du jeu ni les obligations DES. Je garde le nom Incision et j'héberge le projet sans dépense personnelle. Cible interne : lundi 5 octobre; remise annoncée : mercredi 7 octobre, heure à confirmer.
+L'[énoncé final](Web-V-Travail-de-session.pdf) prévaut pour les contraintes et l'évaluation. Le [cahier des charges remis](cahier-des-charges-incision.pdf) reste inchangé : ses choix incompatibles sont explicitement remplacés dans [EXIGENCES.md](EXIGENCES.md). La [direction artistique complète V3](da/da_incision.pdf), 24 pages vérifiées le 3 octobre, guide le rendu sans changer les règles du jeu ni les obligations DES. Je garde le nom Incision et j'héberge le projet sans dépense personnelle. Cible interne : lundi 5 octobre; remise annoncée : mercredi 7 octobre, 23h59.
 
 **Checkpoint :** OAuth GitHub **et** Discord, PostgreSQL avec migrations, création/admission par code et présence en temps réel, HTTPS, intégration continue, langue/thème et identité visuelle sur les pages existantes. La conception inclut déjà le jeu final et les bots; leur fonctionnement complet n'est pas une condition du checkpoint. Voir [le plan de livraison](architecture/verification.md).
 
