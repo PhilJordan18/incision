@@ -185,7 +185,7 @@ Ces décisions sont des choix du projet, pas des propos attribués à l'enseigna
 
 1. **Direction artistique V3 complète reçue :** 24 pages lues le 3 octobre. La direction choisie reste intacte. Adapter les anciens exemples dans le produit : 50/32 → maximum de 30 participants; 5→1 → 3→1 pour les chiffres et les sons; exemple de code B7K4P → six caractères. Les orbites « prêts » restent une idée visuelle, pas une condition de départ supplémentaire imposée. Les autres coureurs, estompés, doivent rester identifiables/consultables; le thème système reste le défaut technique. Les sources sonores restent à choisir. Le PDF n'est pas modifié.
 2. **Nom confirmé :** je garde **Incision** (3 octobre). Incision Academy, une plateforme de formation chirurgicale, utilise le nom dans un domaine sans rapport; la vérification d'originalité est dans [DEMARCHE-CREATIVE.md](DEMARCHE-CREATIVE.md) §3. Ce n'est pas une conclusion juridique.
-3. **Hébergement :** résolu par D-13 le 5 octobre : Azure App Service (crédit étudiant) + Neon Free, accepté par l'enseignant. Le crédit et les quotas de Neon doivent être surveillés jusqu'à la correction ([DEPLOYMENT.md](DEPLOYMENT.md#costs)).
+3. **Hébergement :** résolu par D-13 le 5 octobre : Azure App Service (crédit étudiant) + Neon Free, accepté par l'enseignant. Le crédit et les quotas de Neon doivent être surveillés jusqu'à la correction ([DEPLOYMENT.md](DEPLOYMENT.md#coûts)).
 4. **OAuth :** créer/configurer les applications GitHub et Discord et leurs callbacks localhost/production. Ne jamais mettre leurs secrets dans les cartes ni dans le dépôt.
 
 ## Entretien de la matrice des exigences
