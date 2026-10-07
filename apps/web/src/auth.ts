@@ -32,6 +32,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       profile: (profile) => ({ id: String(profile.id), name: firstValidDisplayName([profile.name, profile.login]) }),
     }),
     Discord({
+      // Discord adds `iss` to its redirects (RFC 9207); Auth.js checks it against this
+      // issuer before anything else, so without it every Discord callback fails.
+      issuer: "https://discord.com",
       authorization: { params: { scope: "identify" } },
       profile: (profile) => ({ id: profile.id, name: firstValidDisplayName([profile.global_name, profile.username]) }),
     }),

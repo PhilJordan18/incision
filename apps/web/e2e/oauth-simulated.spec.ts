@@ -47,6 +47,33 @@ test("brings a cancelled GitHub sign-in back to the sign-in page with a translat
   await expect(page.getByRole("main").getByRole("alert")).toContainText("La connexion avec le fournisseur a été annulée ou a échoué. Réessaie.");
 });
 
+test("accepts Discord's issuer parameter: a cancelled Discord sign-in gets the translated message", async ({ page, baseURL }) => {
+  // Discord adds `iss=https://discord.com` to its redirects (RFC 9207, declared in its
+  // metadata). Auth.js compares it with the provider's issuer before reading the error.
+  await page.route("https://discord.com/**", async (route) => {
+    const state = new URL(route.request().url()).searchParams.get("state") ?? "";
+    const callback = new URL(`${baseURL ?? ""}/api/auth/callback/discord`);
+    callback.search = new URLSearchParams({ error: "access_denied", state, iss: "https://discord.com" }).toString();
+    await route.fulfill({ status: 302, headers: { location: callback.toString() } });
+  });
+  await page.goto("/sign-in");
+  await page.getByRole("button", { name: PROVIDERS[1].button }).click();
+  await expect(page).toHaveURL(/\/sign-in\?/);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("La connexion avec le fournisseur a été annulée ou a échoué. Réessaie.");
+});
+
+test("still refuses a Discord redirect that names another issuer", async ({ page, baseURL }) => {
+  await page.route("https://discord.com/**", async (route) => {
+    const state = new URL(route.request().url()).searchParams.get("state") ?? "";
+    const callback = new URL(`${baseURL ?? ""}/api/auth/callback/discord`);
+    callback.search = new URLSearchParams({ error: "access_denied", state, iss: "https://evil.example" }).toString();
+    await route.fulfill({ status: 302, headers: { location: callback.toString() } });
+  });
+  await page.goto("/sign-in");
+  await page.getByRole("button", { name: PROVIDERS[1].button }).click();
+  await expect(page).toHaveURL(/\/auth\/error\?error=Configuration$/);
+});
+
 test("shows Auth.js' refused-access errors on the translated error page", async ({ page }) => {
   await page.goto("/auth/error?error=AccessDenied");
   await expect(page.getByRole("main").getByRole("alert")).toContainText("La connexion a été refusée ou annulée. Tu peux réessayer avec un autre moyen.");
