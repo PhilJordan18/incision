@@ -1,6 +1,6 @@
 # Delivery and evidence — checkpoint 1, then final
 
-Updated on **October 3, 2026**, following Philippe's clarifications: checkpoint submission on **Wednesday, October 7**, time not specified; internal target kept at **Monday, October 5**. Tuesday and Wednesday serve as a verification margin, not for adding features. Final submission: **November 13, 2026**. No server provided by the cégep; budget **$0 out of pocket**.
+Updated on **October 3, 2026**, with my own clarifications: checkpoint submission on **Wednesday, October 7**, time not specified; internal target kept at **Monday, October 5**. Tuesday and Wednesday serve as a verification margin, not for adding features. Final submission: **November 13, 2026**. No server provided by the cégep; budget **$0 out of pocket**.
 
 ## What actually exists
 
@@ -8,7 +8,7 @@ Next.js skeleton, TypeScript/Tailwind, npm workspaces, local PostgreSQL through 
 
 | Line graded at the checkpoint | Observed situation | Closing condition |
 |---|---|---|
-| Specification — 20 | Submitted by Philippe; copy kept. | Do not redo the already submitted document; apply the new rules to the code. |
+| Specification — 20 | Submitted; copy kept. | Do not redo the already submitted document; apply the new rules to the code. |
 | Creative process / art direction — 20 | Complete art direction V3, 24 pages read; name Incision confirmed, five references, palette, typefaces and mockups present. | DEMARCHE-CREATIVE.md, evidence of human sketches, exportable logo and application in the app; adapt the rule examples that have become outdated. |
 | Architecture — 20 | ARCHITECTURE.md, model, states, ADR and bots approach aligned. | Re-read against the first migration and the real prototype, readable diagrams. |
 | Production — 20 | Not demonstrated. | HTTPS server, GitHub AND Discord working, real PostgreSQL and migrations. |
@@ -52,7 +52,7 @@ These batches are verifiable units of work, not promises of duration. They can b
 
 To be done progressively with CP-02/03, not only at the last hour:
 
-- Apply the logo provided by Philippe, favicon, validated palette and typefaces; do not generate the name or the logo.
+- Apply my logo, favicon, validated palette and typefaces; do not generate the name or the logo.
 - All existing screens in FR/EN, browser default, persistent choice; two themes, system default, without flash; check at 360 px and with the keyboard.
 - Add DEMARCHE-CREATIVE.md with the real evidence from the complete dossier.
 - Complete the files/tests/statuses of the requirements matrix; adjust the diagram to the executed schema.
@@ -86,7 +86,7 @@ To be done progressively with CP-02/03, not only at the last hour:
 | November 9–12 | Freeze and submission rehearsal | Clean repository, complete seed, README/screenshots, verified requirements matrix, IA.md with three real cases, demo/URL and backup. |
 | November 13 | Submission | Buffer reserved for incidents, no ambitious feature planned that day. |
 
-The dates are a **work plan**, not new teacher deadlines. Move batches forward as soon as they pass their criteria; keep some margin given Philippe's classes and work.
+The dates are a **work plan**, not new teacher deadlines. Move batches forward as soon as they pass their criteria; keep some margin given my classes and work.
 
 ## Lightweight process
 

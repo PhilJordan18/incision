@@ -48,7 +48,7 @@ They only accept a `localhost` server and create and drop temporary `incision_te
 ## 3 bis. Sign in locally
 
 1. In `.env`, set `AUTH_SECRET` to the output of `openssl rand -base64 32` (never reuse a production value) and keep `AUTH_URL=http://localhost:3000`.
-2. Create the demo accounts: `npm run db:seed:demo -w @incision/database`, then sign in at `http://localhost:3000/sign-in` with a [demo account](../README.md#demo-accounts).
+2. Create the demo accounts: `npm run db:seed:demo -w @incision/database`, then sign in at `http://localhost:3000/sign-in` with a [demo account](../README.md#comptes-de-démonstration).
 3. For GitHub and Discord, fill `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET` with the **development** GitHub OAuth app and `AUTH_DISCORD_ID`/`AUTH_DISCORD_SECRET` with the Discord application, whose callback URLs are listed in [DEPLOYMENT.md](DEPLOYMENT.md#authentication). Without them, local credentials still work.
 
 End-to-end tests build nothing themselves: run `npm run build` first, start `db-test`, then

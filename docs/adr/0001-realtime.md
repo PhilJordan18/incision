@@ -1,73 +1,73 @@
-# ADR-0001 — Socket.IO and Next.js on a persistent server
+# ADR-0001 — Socket.IO et Next.js sur un serveur persistant
 
-- Status: **selected for the prototype, not yet demonstrated**.
-- Created: September 29, 2026; revised: October 2, 2026 after the final brief.
-- Requirements: TECH-05/06/07/09, SALLE-06/09, CONF-12, COURSE-03/05/06/08, PERF-02/03.
+- Statut : **retenu pour le prototype, pas encore démontré**.
+- Création : 29 septembre 2026; révision : 2 octobre 2026, après l'énoncé final.
+- Exigences : TECH-05/06/07/09, SALLE-06/09, CONF-12, COURSE-03/05/06/08, PERF-02/03.
 
-## Context
+## Contexte
 
-Next.js App Router, React, TypeScript and PostgreSQL/Drizzle; deployment on a server/VPS explicitly required. Update of October 3: despite the possibility written in the brief, Philippe confirms that no cégep server is available; zero personal budget. A room accepts 2 to **30 participants**, bots included, spectators excluded. The countdown lasts **3 seconds** and the resumption window **30 seconds**. These values replace those of the previous version.
+Next.js App Router, React, TypeScript et PostgreSQL/Drizzle; déploiement sur un serveur/VPS explicitement exigé. Mise à jour du 3 octobre : malgré la possibilité prévue dans l'énoncé, aucun serveur du cégep n'est à ma disposition, et mon budget personnel est nul. Une salle accepte de 2 à **30 participants**, bots compris, spectateurs exclus. Le décompte dure **3 secondes** et la fenêtre de reprise **30 secondes**. Ces valeurs remplacent celles de la version précédente.
 
-The checkpoint requires room members synchronised across browsers, not yet the whole race. The architecture must nevertheless allow an authoritative clock, bots, bonuses and durable results.
+Le checkpoint exige des membres de salle synchronisés entre navigateurs, pas encore la course complète. L'architecture doit néanmoins permettre une horloge qui fait autorité, des bots, des bonus et des résultats durables.
 
-## Decision
+## Décision
 
-**One Node process** runs Next.js and Socket.IO on the same HTTP server, behind the HTTPS front end of Azure App Service ([ADR-0002](0002-hosting.md)). One instance initially; presence/race state in memory. PostgreSQL stores identities, rooms, configuration, invitations and results. No paid realtime service and no separate service at the checkpoint.
+**Un seul processus Node** exécute Next.js et Socket.IO sur le même serveur HTTP, derrière le frontal HTTPS d'Azure App Service ([ADR-0002](0002-hosting.md)). Une seule instance au départ; état de présence/course en mémoire. PostgreSQL stocke les identités, les salles, la configuration, les invitations et les résultats. Aucun service temps réel payant et aucun service séparé au checkpoint.
 
-Pure rules live in the business modules; Socket.IO is an adapter. The custom server uses TypeScript run with `tsx`, planned as a production dependency. Next compiles its pages, not this server. TS packages are consumed through `transpilePackages` in Next and through `tsx` on the server side; this complete path must be tested before the features.
+Les règles pures vivent dans les modules métier; Socket.IO est un adaptateur. Le serveur personnalisé est écrit en TypeScript exécuté avec `tsx`, prévu comme dépendance de production. Next compile ses pages, pas ce serveur. Les paquets TS sont consommés par `transpilePackages` dans Next et par `tsx` côté serveur; ce chemin complet doit être testé avant les fonctionnalités.
 
-**Do not use `output: standalone` with this custom server.** `apps/web/server.ts` starts Next.js and Socket.IO together, with `tsx` in development and production (`npm run dev` / `npm run start` in `@incision/web`).
+**Ne pas utiliser `output: standalone` avec ce serveur personnalisé.** `apps/web/server.ts` démarre Next.js et Socket.IO ensemble, avec `tsx` en développement et en production (`npm run dev` / `npm run start` dans `@incision/web`).
 
-## Alternatives
+## Options envisagées
 
-| Option | Strength | Reason it was not initially selected |
+| Option | Force | Raison pour laquelle elle n'a pas été retenue au départ |
 |---|---|---|
-| HTTP polling | Simple | More requests and delayed presence/progress. |
-| Native WebSocket | Lightweight, standard | Acknowledgements, rooms, reconnection and protocol to build in a short time. |
-| Socket.IO + Next in the same process | Same origin, rooms and reconnection available, one delivery | Selected; requires a persistent server and a start-up prototype. |
-| Next and a separate Socket.IO service | Independent deployment/load | Two services, shared authentication and extra operations with no measured need. |
+| Polling HTTP | Simple | Plus de requêtes, présence/progression retardées. |
+| WebSocket natif | Léger, standard | Accusés de réception, salles, reconnexion et protocole à construire en peu de temps. |
+| Socket.IO + Next dans le même processus | Même origine, salles et reconnexion disponibles, une seule livraison | Retenue; exige un serveur persistant et un prototype de démarrage. |
+| Next et un service Socket.IO séparé | Déploiement/charge indépendants | Deux services, authentification partagée et exploitation supplémentaire sans besoin mesuré. |
 
-TECH-05 requires a server. Hosting is decided in [ADR-0002](0002-hosting.md) (D-13): Azure App Service with one instance and Neon PostgreSQL, accepted by the teacher on October 5. The single-instance assumption of this ADR holds there; durable files must not rely on the App Service disk.
+TECH-05 exige un serveur. L'hébergement est décidé dans l'[ADR-0002](0002-hosting.md) (D-13) : Azure App Service avec une seule instance et Neon PostgreSQL, accepté par l'enseignant le 5 octobre. L'hypothèse d'instance unique de cet ADR y tient; les fichiers durables ne doivent pas dépendre du disque d'App Service.
 
-## Contracts, authorisation and ordering
+## Contrats, autorisation et ordonnancement
 
-- Handshake: verify the account session or the signed guest cookie, and the origin; refuse an expired identity. The identity is application-level, never `socket.id`.
-- Origin rule (CP-02): the handshake is refused when `Origin` is present and differs from `APP_URL`, or when the browser marks the request `Sec-Fetch-Site: cross-site`. A missing `Origin` (Socket.IO's first same-origin polling GET, or a non-browser client) is accepted. HTTP long-polling stays enabled as a fallback for school networks that block WebSocket; JSONP polling is refused. Session and guest cookies must be `SameSite=Lax` or `Strict` (AUTH-01/02).
-- Each command is validated by a Zod schema, with an operation identifier, room/race and sequence as applicable. Authorisation on **every action**, not only at connection. No client decides its role or its Socket.IO group.
-- Durable mutations: PostgreSQL lock/transaction, then acknowledgement and broadcast **after commit**. Repeated operations remain idempotent.
-- Snapshot on entry/resumption, then events with a monotonic revision. Missing revision: resynchronisation, no trust in the client's ordering.
-- Native Socket.IO reconnection is useful but not guaranteed: application-level resumption re-authenticates, checks ban/phase/delay and restores the existing spot.
-- Several tabs: a single logical presence, a single active input authority; losing the last connection triggers the grace period.
-- Codes/invitations: limits per IP/identity, bounded size and frequency. The proxy must supply the IP according to a configured chain of trust.
+- Handshake : vérifier la session du compte ou le cookie d'invité signé, ainsi que l'origine; refuser une identité expirée. L'identité est applicative, jamais `socket.id`.
+- Règle d'origine (CP-02) : le handshake est refusé quand `Origin` est présent et diffère de `APP_URL`, ou quand le navigateur marque la requête `Sec-Fetch-Site: cross-site`. Un `Origin` absent (le premier GET de polling de même origine de Socket.IO, ou un client qui n'est pas un navigateur) est accepté. Le long-polling HTTP reste activé comme solution de repli pour les réseaux scolaires qui bloquent WebSocket; le polling JSONP est refusé. Les cookies de session et d'invité doivent être `SameSite=Lax` ou `Strict` (AUTH-01/02).
+- Chaque commande est validée par un schéma Zod, avec un identifiant d'opération, la salle/course et la séquence selon le cas. Autorisation à **chaque action**, pas seulement à la connexion. Aucun client ne décide de son rôle ni de son groupe Socket.IO.
+- Mutations durables : verrou/transaction PostgreSQL, puis accusé de réception et diffusion **après le commit**. Les opérations répétées restent idempotentes.
+- Instantané à l'entrée/la reprise, puis événements avec une révision monotone. Révision manquante : resynchronisation, aucune confiance dans l'ordre du client.
+- La reconnexion native de Socket.IO est utile mais pas garantie : la reprise applicative réauthentifie, vérifie bannissement/phase/délai et restaure la place existante.
+- Plusieurs onglets : une seule présence logique, une seule autorité de saisie active; la perte de la dernière connexion déclenche le délai de grâce.
+- Codes/invitations : limites par IP/identité, taille et fréquence bornées. Le proxy doit fournir l'IP selon une chaîne de confiance configurée.
 
-## Race frequency and authority
+## Fréquence et autorité de la course
 
-Server clock for start, timer, grace period, bonuses and arrival. Sequenced input batches initially limited to 10 messages/s/player; the server validates the content and rejects impossible jumps/speeds. This check is not a guarantee against all automation.
+Horloge serveur pour le départ, le chronomètre, le délai de grâce, les bonus et l'arrivée. Lots de saisie séquencés, limités au départ à 10 messages/s/joueur; le serveur valide le contenu et rejette les sauts/vitesses impossibles. Cette vérification n'est pas une garantie contre toute automatisation.
 
-Compact room projection broadcast initially at 4 Hz, with UI-side interpolation. No packet of every keystroke to every player. Bots are computed on the server side and follow the same rules. Spectator limits separate from participant capacity if operations require it; document any added limit.
+Projection compacte de la salle diffusée au départ à 4 Hz, avec interpolation côté interface. Pas de paquet pour chaque frappe envoyé à chaque joueur. Les bots sont calculés côté serveur et suivent les mêmes règles. Limites de spectateurs distinctes de la capacité en participants si l'exploitation l'exige; documenter toute limite ajoutée.
 
-MPM series are sampled in memory (target 1 Hz + end), then persisted with the results, aggregated errors and bonus events. No SQL per keystroke. A process crash may lose an active round: on restart, report it as interrupted, without creating fake results. The 30-second resumption concerns the browser connection, not a server high-availability guarantee.
+Les séries MPM sont échantillonnées en mémoire (cible 1 Hz + fin), puis persistées avec les résultats, les erreurs agrégées et les événements de bonus. Pas de SQL par frappe. Un plantage du processus peut faire perdre une manche active : au redémarrage, la signaler comme interrompue, sans créer de faux résultats. La reprise de 30 secondes concerne la connexion du navigateur, pas une garantie de haute disponibilité du serveur.
 
-## Mandatory prototype and evidence
+## Prototype obligatoire et preuves
 
-1. Clean Node 24 install; dev start, reload, and build then production start of the custom server. Check the imports of the shared packages.
-2. Public HTTPS and Socket.IO through the proxy; connection keep-alive and resynchronisation after a disconnection.
-3. GitHub account, then Discord account; local sign-in for Playwright. The same session validator protects HTTP and Socket.IO.
-4. Two independent browsers create/join a room by code and observe members/permissions without reloading.
-5. Tests: invalid code, guest creator refused, double tab, two concurrent admissions, re-sending of a command, expired session.
-6. CI on every push; deployment of main after success; health endpoint, migrations and production smoke test.
+1. Installation propre sous Node 24; démarrage en développement, rechargement, puis build et démarrage en production du serveur personnalisé. Vérifier les imports des paquets partagés.
+2. HTTPS public et Socket.IO à travers le proxy; maintien de la connexion (keep-alive) et resynchronisation après une déconnexion.
+3. Compte GitHub, puis compte Discord; connexion locale pour Playwright. Le même validateur de session protège HTTP et Socket.IO.
+4. Deux navigateurs indépendants créent/rejoignent une salle par code et voient les membres/permissions sans recharger.
+5. Tests : code invalide, création par un invité refusée, double onglet, deux admissions concurrentes, renvoi d'une commande, session expirée.
+6. CI à chaque push; déploiement de main après succès; route de santé, migrations et smoke test en production.
 
-After the checkpoint: race with 30 participants, bots and simulated humans, then a human check of smoothness; tests at 29 999/30 000/30 001 ms; consistent results despite replayed packets. Additional internal targets to measure: visible latency p95 <500 ms and results available in <2 s. These are engineering goals, not additional thresholds attributed to the teacher.
+Après le checkpoint : course à 30 participants, bots et humains simulés, puis vérification humaine de la fluidité; tests à 29 999/30 000/30 001 ms; résultats cohérents malgré des paquets rejoués. Cibles internes supplémentaires à mesurer : latence visible p95 <500 ms et résultats disponibles en <2 s. Ce sont des objectifs d'ingénierie, pas des seuils supplémentaires attribués à l'enseignant.
 
-## Limits and evolution
+## Limites et évolution
 
-A restart cuts the sockets; durable rooms reload, but a race is not restored keystroke for keystroke. Plan announcements, controlled shutdown and deployments outside demonstrations. Scaling to several instances would require coordination of the race engine, sharing of presences/events and durable resumption; simply adding a rooms adapter does not make the business state distributed.
+Un redémarrage coupe les sockets; les salles durables se rechargent, mais une course n'est pas restaurée frappe par frappe. Prévoir des annonces, un arrêt contrôlé et des déploiements en dehors des démonstrations. Passer à plusieurs instances exigerait la coordination du moteur de course, le partage des présences/événements et une reprise durable; ajouter simplement un adaptateur de salles ne rend pas l'état métier distribué.
 
-## Technical sources
+## Sources techniques
 
-- [Next.js: custom server](https://nextjs.org/docs/app/guides/custom-server)
-- [Socket.IO: rooms](https://socket.io/docs/v4/rooms/), [recovery](https://socket.io/docs/v4/connection-state-recovery/), [delivery guarantees](https://socket.io/docs/v4/delivery-guarantees/)
+- [Next.js : serveur personnalisé](https://nextjs.org/docs/app/guides/custom-server)
+- [Socket.IO : rooms](https://socket.io/docs/v4/rooms/), [récupération](https://socket.io/docs/v4/connection-state-recovery/), [garanties de livraison](https://socket.io/docs/v4/delivery-guarantees/)
 
-## History
+## Historique
 
-The October 2 revision replaces 50 humans / 5 min resumption / 5 s countdown, removes the assumption of a room hosted by the system and aligns invitations with IP + session binding. The modular monolith decision is kept.
+La révision du 2 octobre remplace 50 humains / reprise de 5 min / décompte de 5 s, retire l'hypothèse d'une salle hébergée par le système et aligne les invitations sur la liaison IP + session. La décision du monolithe modulaire est conservée.
