@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incision · Profil et préférences</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&amp;family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#05070D}
+a{color:#C9D3E1;text-decoration:none}a:hover{color:#EEF2F7}
+fieldset{margin:0;border:1px solid #22324D;border-radius:12px;background:#0C1424;padding:22px;display:flex;flex-direction:column;gap:16px;min-width:0}
+legend{padding:0 8px;font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:24px;text-transform:uppercase;color:#EEF2F7}
+.row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;min-height:44px}
+.lab{display:flex;flex-direction:column;gap:2px;font-size:15px}
+.lab small{font-size:13px;color:#8A9BB5}
+.sw{width:52px;height:30px;border-radius:15px;border:1px solid #22324D;background:#16233A;position:relative;padding:0;flex:none}
+.sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#8A9BB5}
+.sw[aria-checked="true"]{background:#5BD6FF;border-color:#5BD6FF}
+.sw[aria-checked="true"] i{left:25px;background:#05070D}
+.seg{display:flex;padding:4px;gap:4px;border:1px solid #22324D;border-radius:10px}
+.seg button{height:38px;padding:0 14px;border:none;border-radius:7px;background:transparent;color:#C9D3E1;font:500 14px Geist,sans-serif}
+.seg button[aria-checked="true"]{background:#EEF2F7;color:#05070D;font-weight:600}
+</style>
+</head>
+<body>
+
+<div style="min-height: 1100px; background: #05070D; color: #EEF2F7; font-family: Geist, 'Helvetica Neue', sans-serif">
+  <header style="border-bottom: 1px solid #16233A">
+    <div style="max-width: 1344px; margin: 0 auto; padding: 16px 48px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+      <a href="01-accueil.html" style="display: flex; align-items: center; gap: 12px"><img src="../logo/ico-red.svg" alt="" style="width: 32px; height: 32px"><img src="../logo/wm-white.svg" alt="Incision" style="width: 104px; height: 22px"></a>
+      <nav aria-label="Principale" style="display: flex; gap: 28px; font-family: 'Geist Mono', monospace; font-size: 13px; letter-spacing: 0.16em">
+        <a href="04-jouer.html">JOUER</a><a href="11-stats.html">STATISTIQUES</a><a href="12-profil.html" aria-current="page" style="color: #EEF2F7; border-bottom: 2px solid #EB3B44; padding-bottom: 4px">PROFIL</a>
+      </nav>
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 14px">Se déconnecter</button>
+    </div>
+  </header>
+
+  <main style="max-width: 1344px; margin: 0 auto; padding: 36px 48px 56px; display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+    <section aria-label="Identité" style="flex: 1 1 340px; max-width: 420px; display: flex; flex-direction: column; gap: 20px">
+      <div style="position: relative; width: 180px; height: 180px">
+        <span style="display: grid; place-items: center; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5BD6FF, #0B1A30 75%); font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 72px; color: #05070D">P</span>
+        <button type="button" aria-label="Changer d'avatar" style="position: absolute; right: 4px; bottom: 4px; width: 48px; height: 48px; border-radius: 50%; border: 2px solid #05070D; background: #EEF2F7; color: #05070D; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <h1 style="margin: 0; font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 64px; line-height: 0.9; text-transform: uppercase">phil.<em style="font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; text-transform: none">m</em></h1>
+        <span style="font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: #8A9BB5">[.MEMBRE DEPUIS SEPT. 2026] [.42 COURSES]</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="pseudo" style="font-size: 14px; color: #C9D3E1">Pseudo (3 à 20 caractères)</label>
+        <input id="pseudo" value="phil.m" style="height: 48px; box-sizing: border-box; padding: 0 16px; border-radius: 8px; border: 1px solid #22324D; background: #0C1424; color: #EEF2F7; font-size: 16px">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 12px; border: 1px solid #22324D">
+        <span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: #8A9BB5">COMPTES LIÉS</span>
+        <div class="row"><span style="display: flex; gap: 10px; align-items: center"><b>GitHub</b><span style="font-size: 13px; color: #5BE3A6">✓ lié · @philm</span></span><button type="button" style="height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 13px">Délier</button></div>
+        <div class="row"><span style="display: flex; gap: 10px; align-items: center"><b>Discord</b><span style="font-size: 13px; color: #8A9BB5">non lié</span></span><button type="button" style="height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #EEF2F7; background: transparent; color: #EEF2F7; font-size: 13px; font-weight: 600">Lier</button></div>
+        <span style="font-size: 12px; color: #8A9BB5">Aucun courriel demandé. Un compte lié permet de se reconnecter sans mot de passe.</span>
+      </div>
+    </section>
+
+    <form style="flex: 999 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 20px" onsubmit="return false">
+      <fieldset>
+        <legend>Visibilité</legend>
+        <div role="radiogroup" aria-label="Qui voit mes statistiques" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px">
+          <label style="display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 10px; border: 1px solid #22324D; cursor: pointer"><span style="display: flex; gap: 8px; align-items: center"><input type="radio" name="vis"> <b>Privée</b></span><small style="font-size: 13px; color: #8A9BB5">Toi seul vois tes chiffres.</small></label>
+          <label style="display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 10px; border: 2px solid #5BD6FF; background: rgba(91, 214, 255, 0.08); cursor: pointer"><span style="display: flex; gap: 8px; align-items: center"><input type="radio" name="vis" checked> <b>Résumée</b></span><small style="font-size: 13px; color: #8A9BB5">Moyenne et record visibles, pas l'historique.</small></label>
+          <label style="display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 10px; border: 1px solid #22324D; cursor: pointer"><span style="display: flex; gap: 8px; align-items: center"><input type="radio" name="vis"> <b>Publique</b></span><small style="font-size: 13px; color: #8A9BB5">Journal de bord complet.</small></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Affichage</legend>
+        <div class="row"><span class="lab">Thème<small>Aube est la variante claire exigée ; Abysse reste la référence.</small></span><div class="seg" role="radiogroup" aria-label="Thème"><button type="button" role="radio" aria-checked="true">Abysse · sombre</button><button type="button" role="radio" aria-checked="false">Aube · clair</button><button type="button" role="radio" aria-checked="false">Système</button></div></div>
+        <div class="row"><span class="lab">Langue de l'interface</span><div class="seg" role="radiogroup" aria-label="Langue"><button type="button" role="radio" aria-checked="true">Français</button><button type="button" role="radio" aria-checked="false">English</button></div></div>
+        <div class="row"><span class="lab">Disposition du clavier<small>Sert à la carte du clavier.</small></span><div class="seg" role="radiogroup" aria-label="Clavier"><button type="button" role="radio" aria-checked="true">AZERTY</button><button type="button" role="radio" aria-checked="false">QWERTY</button><button type="button" role="radio" aria-checked="false">QWERTZ</button></div></div>
+        <div class="row"><span class="lab">Réduire les animations<small>Orbite figée, pas de rotation de l'icône, transitions courtes. Suit le réglage du système par défaut.</small></span><button type="button" class="sw" role="switch" aria-checked="false" aria-label="Réduire les animations"><i></i></button></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Son</legend>
+        <div class="row"><span class="lab">Musique<small>Désactivée par défaut.</small></span><button type="button" class="sw" role="switch" aria-checked="false" aria-label="Musique"><i></i></button></div>
+        <div class="row"><span class="lab">Effets sonores<small>Tic du compte à rebours, erreur, dépassement. Désactivés par défaut.</small></span><button type="button" class="sw" role="switch" aria-checked="false" aria-label="Effets sonores"><i></i></button></div>
+        <div class="row"><label for="vol" class="lab">Volume des effets</label><input id="vol" type="range" min="0" max="100" value="40" style="flex: 0 1 260px; accent-color: #5BD6FF"></div>
+      </fieldset>
+
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+        <button type="button" style="height: 44px; padding: 0 4px; border: none; background: transparent; color: #FF8A90; font-size: 14px; text-decoration: underline; text-underline-offset: 3px">Supprimer mon compte et mes données</button>
+        <span style="display: flex; gap: 10px">
+          <button type="button" style="height: 52px; padding: 0 18px; border-radius: 8px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 15px">Annuler</button>
+          <button type="submit" style="height: 52px; padding: 0 22px; border-radius: 8px; border: none; background: #D41F27; color: #FFFFFF; font-weight: 600; font-size: 15px">Enregistrer</button>
+        </span>
+      </div>
+    </form>
+  </main>
+</div>
+</body>
+</html>

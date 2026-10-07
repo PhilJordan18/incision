@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incision · Entrer comme invité</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&amp;family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#05070D}
+a{color:#5BD6FF}a:hover{color:#EEF2F7}
+</style>
+</head>
+<body>
+
+<div style="min-height: 900px; background: radial-gradient(ellipse 45% 40% at 50% 20%, rgba(34, 82, 150, 0.35), rgba(5, 7, 13, 0) 72%), #05070D; color: #EEF2F7; font-family: Geist, 'Helvetica Neue', sans-serif; padding: 24px 32px 48px; box-sizing: border-box">
+  <header style="max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 16px">
+    <a href="01-accueil.html" style="display: flex; align-items: center; gap: 12px"><img src="../logo/ico-red.svg" alt="" style="width: 36px; height: 36px"><img src="../logo/wm-white.svg" alt="Incision, retour à l'accueil" style="width: 116px; height: 25px"></a>
+    <a href="02-connexion.html" style="min-height: 44px; display: flex; align-items: center; font-size: 15px">J'ai un compte</a>
+  </header>
+
+  <main style="max-width: 640px; margin: 48px auto 0; display: flex; flex-direction: column; gap: 28px">
+    <div style="display: flex; flex-direction: column; gap: 10px; text-align: center; align-items: center">
+      <span style="font-family: 'Geist Mono', monospace; font-size: 13px; letter-spacing: 0.22em; color: #8A9BB5">[.TU REJOINS LA SALLE B7K4P · 5 PARTICIPANTS]</span>
+      <h1 style="margin: 0; font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 72px; line-height: 0.92; text-transform: uppercase">Choisis ton <em style="font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-style: italic; text-transform: none">équipage</em></h1>
+    </div>
+
+    <form style="display: flex; flex-direction: column; gap: 24px; padding: 28px; border-radius: 12px; border: 1px solid #22324D; background: #0C1424">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="pseudo" style="font-size: 15px; font-weight: 500">Pseudo pour cette salle</label>
+        <input id="pseudo" value="Capitaine Noa" maxlength="20" style="height: 56px; box-sizing: border-box; padding: 0 16px; border-radius: 8px; border: 1px solid #22324D; background: #05070D; color: #EEF2F7; font-size: 18px">
+        <span style="font-size: 13px; color: #8A9BB5">3 à 20 caractères. Visible par les autres joueurs de la salle.</span>
+      </div>
+
+      <fieldset style="margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 12px">
+        <legend style="font-size: 15px; font-weight: 500; margin-bottom: 12px">Avatar</legend>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 12px">
+          <button type="button" aria-label="Ancre" aria-pressed="true" style="height: 64px; border-radius: 50%; border: 3px solid #5BD6FF; background: #16233A; color: #5BD6FF; display: grid; place-items: center; box-shadow: 0 0 0 4px rgba(91, 214, 255, 0.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 13a7 7 0 0 0 14 0M8 10h8"/></svg></button>
+          <button type="button" aria-label="Boussole" style="height: 64px; border-radius: 50%; border: 1px solid #22324D; background: #16233A; color: #FFB347; display: grid; place-items: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></button>
+          <button type="button" aria-label="Vague" style="height: 64px; border-radius: 50%; border: 1px solid #22324D; background: #16233A; color: #5BE3A6; display: grid; place-items: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg></button>
+          <button type="button" aria-label="Étoile" style="height: 64px; border-radius: 50%; border: 1px solid #22324D; background: #16233A; color: #B48CFF; display: grid; place-items: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .6-4.5 4 1.3 6L12 16l-5.4 3.2 1.3-6-4.5-4 6-.6z"/></svg></button>
+          <button type="button" aria-label="Poisson" style="height: 64px; border-radius: 50%; border: 1px solid #22324D; background: #16233A; color: #5BD6FF; display: grid; place-items: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c3-5 10-6 14-2l4-3v10l-4-3c-4 4-11 3-14-2z"/></svg></button>
+          <button type="button" aria-label="Voile" style="height: 64px; border-radius: 50%; border: 1px solid #22324D; background: #16233A; color: #EEF2F7; display: grid; place-items: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14M12 4l7 11h-7M3 19h18l-2 2H5z"/></svg></button>
+          <button type="button" aria-label="Éclair" style="height: 64px; border-radius: 50%; border: 1px solid #22324D; background: #16233A; color: #FFB347; display: grid; place-items: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></svg></button>
+          <button type="button" aria-label="Importer une image" style="height: 64px; border-radius: 50%; border: 1px dashed #8A9BB5; background: transparent; color: #8A9BB5; display: grid; place-items: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+        </div>
+      </fieldset>
+
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; border-radius: 8px; background: #05070D; border: 1px solid #22324D">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5BD6FF" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 2px"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+        <span style="font-size: 14px; line-height: 1.55; color: #C9D3E1">Tes résultats restent visibles pendant ta session. Crée un compte ensuite pour les garder. Un invité ne peut pas créer de salle.</span>
+      </div>
+
+      <button type="submit" style="height: 56px; border: none; border-radius: 8px; background: #D41F27; color: #FFFFFF; font-weight: 600; font-size: 16px">Entrer dans la salle</button>
+    </form>
+  </main>
+</div>
+</body>
+</html>

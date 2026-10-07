@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incision · Téléphone, mode spectateur</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&amp;family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#05070D}
+</style>
+</head>
+<body>
+
+<div style="min-height: 844px; max-width: 480px; margin: 0 auto; background: #05070D; color: #EEF2F7; font-family: Geist, 'Helvetica Neue', sans-serif; display: flex; flex-direction: column">
+  <header style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid #16233A">
+    <span style="display: flex; align-items: center; gap: 10px"><img src="../logo/ico-red.svg" alt="" style="width: 28px; height: 28px"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8A9BB5">[.SALLE 4B] [.EN COURSE]</span></span>
+    <button type="button" aria-label="Quitter" style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 18px">×</button>
+  </header>
+
+  <div role="note" style="margin: 14px 16px 0; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; border: 1px solid #22324D; background: #0C1424; font-size: 14px; line-height: 1.4">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5BD6FF" stroke-width="2" stroke-linecap="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg>
+    <span><b>Mode spectateur.</b> <span style="color: #C9D3E1">Pour courir, il faut un clavier physique : ordinateur ou tablette.</span></span>
+  </div>
+
+  <div style="padding: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px">
+    <div style="padding: 10px; border-radius: 8px; border: 1px solid #22324D"><span style="display: block; font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.18em; color: #8A9BB5">TEMPS</span><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 30px; line-height: 1">02:31</span></div>
+    <div style="padding: 10px; border-radius: 8px; border: 1px solid #22324D"><span style="display: block; font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.18em; color: #8A9BB5">COUREURS</span><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 30px; line-height: 1">32</span></div>
+    <div style="padding: 10px; border-radius: 8px; border: 1px solid #22324D"><span style="display: block; font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.18em; color: #8A9BB5">ARRIVÉS</span><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 30px; line-height: 1">0</span></div>
+  </div>
+
+  <section aria-label="Piste" style="position: relative; margin: 0 16px; height: 360px; border-radius: 12px; border: 1px solid #22324D; background: linear-gradient(180deg, rgba(235, 59, 68, 0.22), rgba(11, 26, 48, 0) 24%), #0B1A30; overflow: hidden">
+    <svg viewBox="0 0 358 360" width="100%" height="360" preserveAspectRatio="none" fill="none" aria-hidden="true" style="position: absolute; inset: 0">
+      <path d="M0 44 L358 38" stroke="#EB3B44" stroke-width="5"/>
+      <g fill="#8A9BB5" fill-opacity="0.4"><circle cx="50" cy="270" r="4"/><circle cx="120" cy="300" r="4"/><circle cx="220" cy="280" r="4"/><circle cx="300" cy="320" r="4"/><circle cx="170" cy="330" r="4"/><circle cx="80" cy="330" r="4"/></g>
+      <circle cx="170" cy="90" r="9" fill="#FFB347"/><circle cx="240" cy="124" r="8" fill="#EEF2F7" fill-opacity="0.8"/><circle cx="110" cy="160" r="8" fill="#EEF2F7" fill-opacity="0.8"/>
+      <circle cx="250" cy="200" r="8" fill="#5BE3A6"/><circle cx="160" cy="226" r="8" fill="#5BD6FF"/>
+    </svg>
+    <span style="position: absolute; left: 14px; top: 10px; font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: #EB3B44">[.ARRIVÉE]</span>
+    <span style="position: absolute; left: 54%; top: 80px; font-size: 13px; font-weight: 600; color: #FFB347">1 · Lina</span>
+    <span style="position: absolute; left: 71%; top: 114px; font-size: 12px; color: #C9D3E1">2 · Alex</span>
+    <span style="position: absolute; left: 8%; top: 150px; font-size: 12px; color: #C9D3E1">3 · Sam</span>
+  </section>
+
+  <section aria-labelledby="sv" style="margin: 16px; display: flex; flex-direction: column; gap: 8px">
+    <h2 id="sv" style="margin: 0; font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 22px; text-transform: uppercase">Suivre un coureur</h2>
+    <button type="button" aria-pressed="true" style="min-height: 52px; display: flex; justify-content: space-between; align-items: center; padding: 0 14px; border-radius: 8px; border: 2px solid #5BD6FF; background: rgba(91, 214, 255, 0.08); color: #EEF2F7; font-size: 15px"><span>5 · phil.m</span><span style="font-family: 'Geist Mono', monospace; font-size: 13px; color: #5BD6FF">47 WPM · 38 %</span></button>
+    <button type="button" aria-pressed="false" style="min-height: 52px; display: flex; justify-content: space-between; align-items: center; padding: 0 14px; border-radius: 8px; border: 1px solid #22324D; background: transparent; color: #EEF2F7; font-size: 15px"><span>1 · Lina</span><span style="font-family: 'Geist Mono', monospace; font-size: 13px; color: #8A9BB5">62 WPM · 54 %</span></button>
+  </section>
+
+  <div style="margin-top: auto; padding: 14px 16px 22px; border-top: 1px solid #16233A; font-size: 13px; color: #8A9BB5; text-align: center">Les résultats s'affichent ici à la fin de la manche.</div>
+</div>
+</body>
+</html>

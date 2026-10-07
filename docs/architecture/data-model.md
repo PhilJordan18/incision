@@ -1,63 +1,111 @@
-# Modèle de données PostgreSQL
+# PostgreSQL data model
 
-Statut : **modèle conceptuel**, avant migrations Drizzle. Les noms ci-dessous sont des propositions techniques; les règles du cahier restent l'autorité. UUID pour les identifiants internes, horodatages UTC côté serveur et contraintes SQL pour les invariants durables.
+Conceptual model aligned on October 2, 2026. Only the subset described in [Delivered schema](#delivered-schema) is migrated today. Source: final brief and explicit choices in [EXIGENCES.md](../EXIGENCES.md). The main diagram is in [ARCHITECTURE.md](../ARCHITECTURE.md). UUID internal identifiers, server UTC dates, versioned Drizzle migrations.
 
-## Relations principales
+## Target tables
+
+| Table | Key fields | Invariants |
+|---|---|---|
+| `accounts` | id, login?, login_canonical?, display_name, password_hash?, avatar_key?, dates | Unique local identifier, distinct from the editable nickname. OAuth account without a password allowed. No email stored, per the specification; no email-based recovery. |
+| `oauth_identities` | account_id, provider, provider_subject | Unique provider + subject pair; GitHub and Discord. No automatic merging by nickname. Provider tokens are not stored if they only serve for sign-in. |
+| `guest_sessions` | id, secret_digest, expires_at | Signed cookie proving a guest identity; no uploaded photo, no personal history. The nickname belongs to the presence in the room. |
+| `lobbies` | id, code, visibility, capacity, host_member_id, phase, created_at, closed_at?, revision | Unique code of 6 unambiguous characters; visibility PUBLIC / CODE / PRIVATE. Capacity 2..30 participants, bots included, spectators excluded. Host is an active human of this room. |
+| `lobby_settings` | lobby_id, revision, max_duration_ms?, language, text_kind, word_count, complexity, options, error_mode, bonuses_enabled, bonus_activation | One configuration per room. Timer null or 30 000..600 000 ms. Options validated by schema; version frozen at the start. Manual activation by default, automatic activation optional. |
+| `lobby_members` | id, lobby_id, account_id?, guest_session_id?, bot_level?, role, display_name, display_name_canonical, joined_at, left_at? | Exactly one subject: account / guest / bot. Bot among five levels, participant role. A human is a participant or a spectator. Temporary disconnection ≠ leaving. |
+| `lobby_invitations` | id, lobby_id, token_digest, bound_member_id?, bound_ip_digest?, bound_at?, revoked_at? | Random 32-byte token. The first use binds the IP and the human session; reuse by this identity/IP allowed. Revoked on kick, invalidated on closure. |
+| `lobby_bans` | lobby_id, account_id? or guest_session_id?, created_at | Prevents any readmission of this identity to this room, by code, link or direct access. No global IP ban of an entire class. |
+| `texts` | id, content, language, word_count, complexity, rights_reference | Real corpus in the database, verifiable provenance. Versioned/seeded dictionaries for random mode. No mandatory user text. |
+| `races` | id, lobby_id, round_no, state, config_snapshot, text_snapshot, seed, rules_version, countdown_at, started_at?, ended_at?, interruption_reason? | Historical round distinct from the room; unique (lobby_id, round_no). Snapshot of the generated text even without a corpus text_id. |
+| `race_entrants` | id, race_id, member_id?, account_id?, kind, name_snapshot, avatar_snapshot, target_snapshot, effective_target_chars | Identities frozen at the start, without spectators; member_id nullable after the room is purged. account_id enables the account history. Guest archived under an anonymised label without guest_session_id. |
+| `race_results` | entrant_id, outcome, elapsed_ms, progress_chars, target_chars, correct_inputs, total_inputs, errors, net_mpm, gross_mpm, accuracy, rank, abandonment_reason? | One final result per entrant. Statuses FINISHED / TIMED_OUT / ABANDONED; a network timeout is a reason for abandonment, not a fourth ranking category. |
+| `race_mpm_samples` | entrant_id, elapsed_ms, net_mpm, gross_mpm | Persisted time series to render the collective chart; key (entrant_id, elapsed_ms). Proposed sampling: 1 Hz + final sample. |
+| `race_key_errors` | entrant_id, expected_key, error_count | Aggregates for the player's heatmap; no durable raw log of all their keystrokes. Personal access. |
+| `race_bonus_events` | id, race_id, checkpoint, recipient_id, target_id?, type, granted_at, activated_at?, payload | Idempotent award per race/milestone/recipient; at most 3 bonuses per entrant. Target changes and temporary effects replayable. |
+
+The authentication schema depends on the Auth.js prototype. With JWT sessions, an `auth_sessions` table is **not** a conceptual obligation; do not mix the two strategies. The guest cookie remains distinct and signed. No migration will be declared compliant before it has run on PostgreSQL.
+
+## Uniqueness, identity and concurrency
+
+- `UNIQUE(account_id) WHERE left_at IS NULL` and `UNIQUE(guest_session_id) WHERE left_at IS NULL` on members: **one active room per identity**, including as a spectator (SALLE-06). The bots' NULLs do not create collisions.
+- A second tab finds the same member. A reconnection during the grace period reuses its row; after a real departure, an authorised readmission creates a new presence and therefore a new seniority.
+- `UNIQUE(lobby_id, display_name_canonical) WHERE left_at IS NULL`: local disambiguation of nicknames. The account does not silently change its global nickname because of a local collision.
+- Proposed canonicalisation: trim, NFKC, lowercase; accents kept. Validate length and control characters after normalisation; do not treat all visually similar scripts as equal. The guest nickname has 3..20 Unicode characters according to the documented segmentation convention.
+- `UNIQUE(code)` with the alphabet `23456789ABCDEFGHJKMNPQRSTUVWXYZ`. The code is stored readable: it is not an authentication secret; protection relies on visibility, permissions and per-IP rate limiting. A PRIVATE room refuses the code.
+- Capacity cannot be guaranteed by a simple cross-row CHECK: lock the room, count its active participants, then insert/change role in the same transaction.
+- The host must reference a member of **the same room**, human and active. Composite constraint or transactional validation; create the room, the creator member and the host link atomically.
+- Tabs are not additional participants. The uniqueness of an anonymous person who cleared their cookie or changed browser cannot be guaranteed: the scope of SALLE-06 is the proven identity.
+
+## Invitations and IP
+
+The invitation token is hashed in the database. The IP is normalised, then represented by an HMAC fingerprint scoped to the room; its raw value is not exposed in the invitation list. Only the headers of a known reverse proxy are trusted.
+
+The IP alone does not prove identity: several students can share the same public IP. The link is therefore also bound to the member/session of the first use. Same IP + another cookie does not admit a second guest. An IP change is refused, in accordance with SALLE-04, even if it hinders a Wi-Fi/mobile reconnection. This constraint and the handling of a lost cookie must be explained to the user.
+
+## Critical transactions
+
+1. **Create / join / switch room**: identity, visibility, ban, phase and capacity checked; global uniqueness constraints. A proposed switch is confirmed before leaving the current room. The locks of two rooms are taken in a stable order.
+2. **Consume an invitation**: lock invitation/room, bind IP + member only once and admit atomically; a valid repetition returns the same member.
+3. **Kick / leave**: set left_at, add the ban if kicked, revoke the associated links, then select the next host or close. Broadcast after commit.
+4. **Start**: authorised host, phase EN_ATTENTE, at least two participants including one present human; freeze configuration/text/entrants and start the countdown. A double click does not create two races.
+5. **Finish**: idempotent finalisation of results, series, errors and bonuses; move to results in the same transaction. Repeated attempts add neither duplicate wins nor duplicate samples.
+
+## Calculations and history
+
+Apply Appendix A: net MPM = (correctly typed characters / 5) / minutes; gross = (typed characters / 5) / minutes; accuracy = correct / total × 100; progress = validated characters / effective target. Spaces included. Do not multiply net MPM by accuracy a second time.
+
+The time is the server's time since the start, not only the connected time. Distinguish input counters from progress through the text. Deletion, correction, composed accents and free mode require reference tests; detailed decisions in EXIGENCES. No bonus credits keystrokes that were never made.
+
+Ranking: FINISHED by arrival, then TIMED_OUT by progress, then ABANDONED by frozen progress. The profile and the history belong to the account; no public profile search imposed. The anonymised guest/bot snapshots do not allow viewing a personal guest history.
+
+## Proposed retention and operations
+
+- Guest sessions: expire after 24 h of inactivity, extended only by authenticated activity; purged after expiry and end of presence. Close/purge empty rooms, invitations/IPs and bans no later than 24 h after closure.
+- Keep the anonymised snapshots useful for account results; do not keep links to the guest identity. Do not promote an old guest history when an account is created.
+- For accounts, retention during the project until grading; post-grading policy to be decided before real school use. This technical choice is not a legal certification.
+- Live progress in memory, no write on every keystroke. Lost connection: state kept during the grace period; result/series written at the end of the race. A process crash has no guaranteed exact recovery in this version: mark the race interrupted and do not invent its results.
+- Indexes: active members, OAuth, code, public exploration (phase/visibility/dates), races per room, entrants per account/race and series per entrant/time. History pagination; grouped loading avoiding N+1.
+
+## Data slice for checkpoint 1
+
+Accounts, GitHub/Discord identities, guest sessions if delivered, rooms, minimal configuration and members: these elements make up the first migration. Global uniqueness, membership and capacity constraints from admission onwards, not a late fix. OAuth **is no longer postponed**.
+
+An initial seed allows a reproducible demo with non-real local accounts. The corpus, then the demo history, are added with the game tables; TECH-04 stays partial as long as the complete seed requested does not exist. Do not create the game tables only to fill the diagram.
+
+## Delivered schema
+
+Migrations `0000_init` (CP-03) and `0001_session_version` (CP-04).
+
+What actually exists in PostgreSQL today, generated by Drizzle from [`packages/database/src/schema`](../../packages/database/src/schema) and versioned in [`packages/database/drizzle`](../../packages/database/drizzle). The tables above remain the target model; nothing below claims more than these migrations.
 
 ```mermaid
 erDiagram
-  accounts ||--o{ oauth_identities : associe
-  accounts ||--o{ auth_sessions : ouvre
-  accounts o|--o{ lobbies : heberge
-  accounts o|--o{ texts : redige
-  accounts o|--o{ lobby_members : participe
-  guest_sessions o|--o{ lobby_members : rejoint
-  lobbies ||--|| lobby_settings : configure
-  lobbies ||--o{ lobby_members : accueille
-  lobbies ||--o{ lobby_invitations : emet
-  lobbies ||--o{ races : organise
-  texts ||--o{ races : fournit
-  races ||--o{ race_entrants : inclut
-  lobby_members ||--o{ race_entrants : participe
-  race_entrants ||--o| race_results : obtient
-  race_entrants ||--o| race_progress_checkpoints : reprend
-  races ||--o{ race_bonus_events : journalise
+  accounts ||--o{ oauth_identities : owns
+  accounts ||--o{ lobby_members : joins
+  lobbies ||--o{ lobby_members : accommodates
+  lobbies |o--o| lobby_members : hosted_by
 ```
 
-## Tables et contraintes
-
-| Table | Champs structurants | Contraintes et raison |
+| Table | Delivered columns | Enforced by the database |
 |---|---|---|
-| `accounts` | `id`, `username`, `username_canonical`, `password_hash?`, `avatar_url?`, `stats_visibility`, dates | `username_canonical` unique globalement; `password_hash` nul seulement pour un compte OAuth. Aucun courriel. Statistiques privées par défaut. |
-| `oauth_identities` | `account_id`, `provider` (`GITHUB`/`DISCORD`), `provider_subject` | Couple fournisseur + sujet unique. Une identité externe ne peut pas appartenir à deux comptes. Pas de courriel fournisseur conservé. |
-| `auth_sessions` | `account_id`, `token_hash`, `expires_at`, `remember_me`, `revoked_at?` | Jeton brut uniquement en cookie sécurisé; valeur hachée en BD. Durée « se souvenir de moi » de 30 jours : hypothèse H-05. |
-| `guest_sessions` | `id`, `token_hash`, `expires_at`, `claimed_by_account_id?` | Identité temporaire prouvée par session. Sa durée de vie doit couvrir au minimum la reprise de cinq minutes. Le rattachement futur des résultats exige la preuve de possession de cette session. |
-| `lobbies` | `id`, `visibility`, `code_digest`, `host_kind`, `host_account_id?`, `preferred_successor_member_id?`, `status`, dates | Salle persistante entre les manches. `visibility` (`PUBLIC`/`PRIVATE`) est distinct des invitations : une salle privée peut offrir **code et lien**. `host_kind` vaut `ACCOUNT` ou `SYSTEM`; `host_account_id` est non nul seulement pour `ACCOUNT`. Le successeur désigné doit être un compte actif de cette salle. Le système peut piloter une salle créée par matchmaking ou terminer une manche sans successeur, jamais un invité ou un bot. Code à faible entropie : HMAC indexable + limitation des tentatives. |
-| `lobby_settings` | `lobby_id`, `revision`, `mode`, `error_mode`, `timer_kind`, `manual_duration_ms?`, `text_id?`, `bonus_policy` | Une configuration courante par salle. Révision incrémentée par le serveur; verrouillée au début du compte à rebours et copiée dans la manche. `mode` initial : `STANDARD` ou `ARCADE`. Bonus manuels par défaut; automatique sur choix de l'hôte en Arcade. |
-| `lobby_members` | `id`, `lobby_id`, `account_id?`, `guest_session_id?`, `bot_level?`, `display_name`, `is_ready`, `joined_at`, `left_at?` | Exactement **un** sujet : compte, invité ou bot (`CHECK`); `bot_level` appartient à `1..4`. Un pseudo affiché unique parmi les membres actifs d'une salle. Un invité peut donc porter ailleurs le même pseudo; création de compte = contrôle d'unicité global. Index d'ordre `joined_at` pour la succession. |
-| `lobby_invitations` | `id`, `lobby_id`, `token_hash`, `expires_at`, `consumed_at?`, `created_by_account_id` | Jeton aléatoire fort, haché, usage unique et transactionnel. L'expiration à 24 h est l'hypothèse H-01. Le retour dans la salle s'appuie ensuite sur la session, pas sur l'invitation. |
-| `texts` | `id`, `content`, `language`, `word_count`, `difficulty?`, `scope`, `owner_account_id?`, `rights_reference?` | `CATALOG` : contenu autorisé et provenance vérifiable. `PRIVATE` : saisie par l'hôte, jamais publiée dans le catalogue. La version exacte utilisée est figée dans la manche. |
-| `races` | `id`, `lobby_id`, `round_no`, `status`, `mode`, `error_mode`, `timer_kind`, `duration_ms`, `text_id`, `text_snapshot`, `countdown_at`, `started_at?`, `ended_at?`, `cancelled_at?`, `config_revision` | `(lobby_id, round_no)` unique. La manche fige texte et configuration, même si la salle change ensuite. Une course annulée n'a aucun résultat officiel. |
-| `race_entrants` | `id`, `race_id`, `lobby_member_id`, `display_name_snapshot`, `entrant_kind`, `effective_target_chars`, `joined_at` | Ensemble immuable des **identités** de coureurs prêts au départ; la cible effective peut changer en Arcade et chaque changement est journalisé. Le départ d'un membre après la manche ne retire pas sa ligne historique. Les spectateurs n'ont pas d'entrant. |
-| `race_progress_checkpoints` | `race_entrant_id`, `validated_offset`, compteurs de frappe, `effective_target_chars`, `last_progress_at`, `updated_at` | Dernier état validé, persistant par lots et à la déconnexion/fin; pas une ligne SQL à chaque touche. Un redémarrage serveur peut perdre au maximum l'intervalle non encore synchronisé : limite à tester et documenter. |
-| `race_results` | `race_entrant_id`, `outcome`, `elapsed_ms`, `progress_chars`, `correct_keystrokes`, `total_keystrokes`, `gross_wpm`, `accuracy`, `net_wpm`, `rank` | Au plus un résultat par entrant. `outcome` = `FINISHED`, `DNF_TIMEOUT`, `DNF_DISCONNECTED` ou `DNF_ABANDONED`. Les compteurs bruts permettent de recalculer le score si la règle de correction est précisée. |
-| `race_bonus_events` | `race_id`, `actor_entrant_id?`, `target_entrant_id`, `bonus_type`, `rules_version`, `started_at`, `ended_at`, `payload` | Historique des effets Arcade pour comprendre un résultat modifié; aucune entrée en mode `STANDARD`. Types et ciblage exacts à confirmer. |
+| `accounts` | id (UUID), login?, login_canonical?, display_name, password_hash?, session_version, created_at, updated_at | **No email column.** `login` 3–32 ASCII `[A-Za-z0-9_-]` with `login_canonical = lower(login)`, both or neither; canonical login unique; a password requires a login and its hash is not empty and has the `scrypt$…` shape; display name 1–40 characters, not blank; `session_version ≥ 1`, default 1 (migration `0001`, CP-04). |
+| `oauth_identities` | id, account_id → accounts (cascade), provider (`github`, `discord`), provider_subject, created_at | Unique (provider, provider_subject); one identity per provider per account. No provider tokens stored. |
+| `lobbies` | id, code, visibility (`public`, `code`, `private`; default `code`), capacity, phase (`waiting`, `countdown`, `racing`, `results`, `closed` = COURSE-01 states), host_member_id?, revision, created_at, closed_at? | Unique code matching the domain alphabet `^[2-9A-HJKMNP-Z]{6}$`; capacity 2..30; `revision ≥ 0`; `closed_at` set exactly when the phase is `closed`; host is a member **of the same room** (composite foreign key `(id, host_member_id)` → `lobby_members(lobby_id, id)`, NO ACTION: a hosting member cannot be deleted, deleting the room cascades). |
+| `lobby_members` | id, lobby_id → lobbies (cascade), account_id → accounts (restrict), role (`participant`, `spectator`), display_name, display_name_canonical, joined_at, left_at? | **One active room per account** (unique index on account_id where left_at is null, SALLE-06); unique canonical display name per active room; display name 1–40 characters, not blank; `left_at ≥ joined_at`; index of active members by room and seniority. |
 
-## Calcul, confidentialité et performance
+The database's "not blank" checks only strip the space character (U+0020, `btrim`'s default): the domain rules (`parseLogin`, `parseDisplayName`) are authoritative and refuse other blank or invisible characters before any write. `updated_at` is maintained by Drizzle's `$onUpdate` (database clock, transaction start time), not by a trigger: a raw SQL update does not change it.
 
-- WPM brut = caractères pris en compte ÷ 5 ÷ minutes; précision = frappes correctes ÷ frappes comptées; WPM net = WPM brut × précision. La définition exacte des corrections demeure à préciser et devra être figée dans des tests communs aux deux modes d'erreur.
-- Les finisseurs sont classés avant tous les DNF; finisseurs par WPM net, DNF par progression puis critères de départage documentés dans la machine à états. Les résultats Arcade et Standard, puis les modes d'erreur, ne partagent pas un même record.
-- En Arcade, un bonus peut changer la cible individuelle. La piste peut afficher `validated_offset / effective_target_chars` pour l'avancement visuel; le critère exact de départage des DNF sur cibles différentes est **à confirmer**, plutôt que d'imposer silencieusement une comparaison de caractères bruts.
-- Les classements en direct sont une projection compacte en mémoire du serveur. PostgreSQL contient l'historique, les invitations, la configuration et des checkpoints de progression. Il n'est pas le bus de chaque touche.
-- L'historique d'un compte suit ses `lobby_members` et ses `race_entrants`; les résultats d'invité rattachés après création de compte suivent `guest_sessions.claimed_by_account_id`. Une demande de rattachement non prouvée est refusée.
-- La carte thermique, si livrée, demeure privée. Les statistiques publiques sont calculées selon `stats_visibility`; aucun résultat d'un mineur n'est rendu public simplement parce qu'un compte existe.
-- Les colonnes de profil ou de session ne stockent pas d'adresse courriel. Les textes privés ne doivent pas être exposés par les routes du catalogue.
-- Index à prévoir au minimum : compte par `username_canonical`, OAuth par `(provider, provider_subject)`, salle ouverte par visibilité, code actif, membres par salle/date d'entrée, manche par salle/numéro, résultats par entrant et compte rattaché, invitation par empreinte du jeton.
+Guaranteed by transactions, not by keys:
 
-## Transactions critiques
+- **Host still active.** The foreign key proves membership of the same room, not that the member has not left. `createRoomWithHost` creates the host as an active member in the same transaction; host succession (SALLE-08) must keep this rule.
+- **Closing a room.** Moving a room to `closed` must set `left_at` for its active members in the same transaction; otherwise those accounts stay blocked by the one-active-room index. `leaveCurrentRoom` does so: at the checkpoint the host leaving closes the room (host succession comes with SALLE-08).
+- **Admission (`joinRoomByCode`).** One transaction locks the room row (`SELECT … FOR UPDATE`), then checks visibility (a private room refuses the code alone) and the account's current room (the same room returns the same member: a second tab). The domain rule `admissionRefusal` decides on the phase (waiting or results, SALLE-09) and, for a participant, on the active participants counted under the lock against the capacity; spectators take no place. Under the same lock the member gets its local display name (`localDisplayName`: the account's name, or "name 2", "name 3"… when an active member of the room uses it, D-04). A concurrent join of the same account into another room loses on the one-active-room index and is reported as `ALREADY_IN_ANOTHER_ROOM`.
+- **Departure (`leaveCurrentRoom`).** The membership is read, the room locked, then the membership read again: a second tab or the host closing the room meanwhile may already have ended it, and the departure then does nothing (no second revision).
+- **Times after the lock.** `joined_at`, `left_at` and `closed_at` written by admission and departure use `statement_timestamp()`, taken after the room lock, not `now()` (the transaction's start): a host leaving while a join commits would otherwise write a `left_at` earlier than that member's `joined_at` and break `lobby_members_left_after_joined`. Seniority (SALLE-08) therefore follows the admission order.
+- **Isolation.** These transactions run in READ COMMITTED, stated in the code: after the lock, each statement sees every commit made before it.
+- **Revision and snapshot.** Every admission and departure increments `lobbies.revision` in its transaction. `readRoomSnapshot` reads the room and its active members in one statement, so a revision never labels another moment's members; clients keep the snapshot with the highest revision.
+- **Room creation.** Room, creator membership and host link are written in one transaction. A code collision retries the whole transaction (bounded); "already in a room" is reported from the unique index, which also covers concurrent requests.
 
-1. **Invitation** : vérifier expiration + non-usage, créer le membre, puis consommer le jeton dans une seule transaction. Un deuxième usage concurrent échoue.
-2. **Départ** : verrouiller la salle et sa révision, vérifier hôte + deux coureurs prêts/connectés, figer configuration/texte/entrants, créer la manche `COUNTDOWN`.
-3. **Fin** : fermer l'ensemble des entrants, écrire une seule fois les résultats et passer `FINISHED` dans une transaction idempotente.
-4. **Annulation** : passer `CANCELLED` et supprimer/ignorer tout résultat provisoire non officiel; une manche annulée ne contribue jamais à l'historique statistique.
-5. **Transfert d'hôte** : choisir seulement un compte membre présent, par sélection préalable valide ou ancienneté; empêcher deux hôtes simultanés lors de départs concurrents.
+Known edge cases: an account already in a room whose generated codes all collide gets `CODE_ATTEMPTS_EXHAUSTED` rather than `ALREADY_IN_ROOM` (practically unreachable with 31⁶ codes); an account deleted while its room is being created surfaces the foreign-key error. `lobby_members.account_id` only has a partial index for active memberships; a plain index comes with account history or deletion.
+
+Deferred to their cards, by additive migrations: account avatars (`avatar_key`, AUTH-04), guest sessions and the guest/bot subject columns of members (AUTH-02, BOT-*), room settings (CONF-*), invitations and bans (SALLE-04/07), texts, races and results.
+

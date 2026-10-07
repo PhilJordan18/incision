@@ -8,5 +8,12 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "check:no-js": "git ls-files ':(icase)*.js' ':(icase)*.jsx' ':(icase)*.mjs' ':(icase)*.cjs' | grep . && echo 'TECH-02: JavaScript files are not allowed in the repository' >&2 && exit 1 || exit 0",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  }
 }

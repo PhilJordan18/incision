@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incision · Jouer : salles publiques</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&amp;family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#05070D}
+a{color:#C9D3E1;text-decoration:none}a:hover{color:#EEF2F7}
+</style>
+</head>
+<body>
+
+<div style="min-height: 1000px; background: #05070D; color: #EEF2F7; font-family: Geist, 'Helvetica Neue', sans-serif">
+  <header style="border-bottom: 1px solid #16233A">
+    <div style="max-width: 1344px; margin: 0 auto; padding: 18px 48px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+      <a href="01-accueil.html" style="display: flex; align-items: center; gap: 12px"><img src="../logo/ico-red.svg" alt="" style="width: 34px; height: 34px"><img src="../logo/wm-white.svg" alt="Incision" style="width: 110px; height: 23px"></a>
+      <nav aria-label="Navigation principale" style="display: flex; flex-wrap: wrap; gap: 32px; font-family: 'Geist Mono', monospace; font-size: 13px; letter-spacing: 0.22em">
+        <a href="04-jouer.html" aria-current="page" style="color: #EEF2F7; padding-bottom: 6px; border-bottom: 2px solid #EB3B44">JOUER</a><a href="11-stats.html">STATISTIQUES</a><a href="12-profil.html">PROFIL</a>
+      </nav>
+      <a href="12-profil.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="width: 36px; height: 36px; border-radius: 50%; background: #16233A; border: 2px solid #5BD6FF; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #5BD6FF">PM</span><span style="font-size: 14px">phil.m</span></a>
+    </div>
+  </header>
+
+  <main style="max-width: 1344px; margin: 0 auto; padding: 40px 48px 56px; display: flex; flex-direction: column; gap: 32px">
+    <h1 style="margin: 0; font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 72px; line-height: 0.9; text-transform: uppercase">Prends la <em style="font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-style: italic; text-transform: none">mer</em></h1>
+
+    <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 14px; padding: 24px; border-radius: 12px; border: 1px solid #EB3B44; background: radial-gradient(ellipse 70% 80% at 20% 0%, rgba(235, 59, 68, 0.16), rgba(12, 20, 36, 0) 70%), #0C1424">
+        <span style="font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #EB3B44">[.MATCHMAKING]</span>
+        <b style="font-size: 20px">Une course, tout de suite</b>
+        <span style="font-size: 14px; line-height: 1.5; color: #8A9BB5">Rejoint la salle publique la plus remplie; s'il n'y en a aucune, en crée une pour toi.</span>
+        <button type="button" style="margin-top: auto; height: 56px; border: none; border-radius: 8px; background: #D41F27; color: #FFFFFF; font-weight: 600; font-size: 16px">Trouver une salle</button>
+      </div>
+      <form style="display: flex; flex-direction: column; gap: 14px; padding: 24px; border-radius: 12px; border: 1px solid #22324D; background: #0C1424">
+        <span style="font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #5BD6FF">[.SALLE PRIVÉE]</span>
+        <label for="code" style="font-size: 20px; font-weight: 700">Entrer un code</label>
+        <span style="font-size: 14px; line-height: 1.5; color: #8A9BB5">5 caractères donnés par l'hôte ou l'enseignant.</span>
+        <div style="margin-top: auto; display: flex; gap: 8px">
+          <input id="code" placeholder="B7K4P" maxlength="5" style="flex-grow: 1; min-width: 0; height: 56px; box-sizing: border-box; padding: 0 16px; border-radius: 8px; border: 1px solid #22324D; background: #05070D; color: #EEF2F7; font-family: 'Geist Mono', monospace; font-size: 20px; letter-spacing: 0.24em; text-transform: uppercase">
+          <button type="submit" style="height: 56px; padding: 0 20px; border-radius: 8px; border: 1px solid #EEF2F7; background: transparent; color: #EEF2F7; font-weight: 600; font-size: 15px">Rejoindre</button>
+        </div>
+      </form>
+      <div style="display: flex; flex-direction: column; gap: 14px; padding: 24px; border-radius: 12px; border: 1px solid #22324D; background: #0C1424">
+        <span style="font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #5BD6FF">[.HÔTE]</span>
+        <b style="font-size: 20px">Créer ma salle</b>
+        <span style="font-size: 14px; line-height: 1.5; color: #8A9BB5">Choisis le texte, le mode et qui peut entrer. Réservé aux comptes.</span>
+        <a href="05-creer-salle.html" style="margin-top: auto; height: 56px; border-radius: 8px; border: 1px solid #EEF2F7; color: #EEF2F7; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px">Créer une salle</a>
+      </div>
+    </section>
+
+    <section aria-labelledby="pub" style="display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+        <h2 id="pub" style="margin: 0; font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 36px; text-transform: uppercase">Salles publiques <span style="font-family: 'Geist Mono', monospace; font-weight: 400; font-size: 14px; color: #8A9BB5; letter-spacing: 0.1em">· 12 OUVERTES</span></h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button type="button" aria-pressed="true" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #EEF2F7; background: #EEF2F7; color: #05070D; font-size: 14px; font-weight: 600">Toutes</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 14px">Entraînement</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 14px">Arcade</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 14px">Texte FR</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 14px">Texte EN</button>
+        </div>
+      </div>
+      <div style="overflow-x: auto; border: 1px solid #22324D; border-radius: 12px">
+        <table style="width: 100%; min-width: 860px; border-collapse: collapse; font-size: 15px">
+          <thead><tr style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #8A9BB5; text-align: left">
+            <th style="padding: 14px 20px; font-weight: 500">SALLE</th><th style="padding: 14px; font-weight: 500">HÔTE</th><th style="padding: 14px; font-weight: 500">MODE</th><th style="padding: 14px; font-weight: 500">TEXTE</th><th style="padding: 14px; font-weight: 500">JOUEURS</th><th style="padding: 14px; font-weight: 500">ÉTAT</th><th style="padding: 14px 20px"><span style="position: absolute; left: -9999px">Action</span></th>
+          </tr></thead>
+          <tbody>
+            <tr style="border-top: 1px solid #16233A"><td style="padding: 16px 20px"><span style="display: flex; align-items: center; gap: 10px"><i style="width: 10px; height: 10px; border-radius: 50%; background: #FFB347"></i><b>Salle 4B</b></span></td><td style="padding: 16px 14px; color: #C9D3E1">Mme Julie</td><td style="padding: 16px 14px">Entraînement</td><td style="padding: 16px 14px; color: #C9D3E1">FR · 120 mots</td><td style="padding: 16px 14px; font-family: 'Geist Mono', monospace">18 / 50</td><td style="padding: 16px 14px"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #5BE3A6">[.EN ATTENTE]</span></td><td style="padding: 10px 20px; text-align: right"><a href="06-salle.html" style="display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid #EEF2F7; color: #EEF2F7; font-weight: 600">Rejoindre</a></td></tr>
+            <tr style="border-top: 1px solid #16233A"><td style="padding: 16px 20px"><span style="display: flex; align-items: center; gap: 10px"><i style="width: 10px; height: 10px; border-radius: 50%; background: #B48CFF"></i><b>Arcade du midi</b></span></td><td style="padding: 16px 14px; color: #C9D3E1">lina.k</td><td style="padding: 16px 14px">Arcade</td><td style="padding: 16px 14px; color: #C9D3E1">FR · 80 mots</td><td style="padding: 16px 14px; font-family: 'Geist Mono', monospace">11 / 50</td><td style="padding: 16px 14px"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #5BE3A6">[.EN ATTENTE]</span></td><td style="padding: 10px 20px; text-align: right"><a href="06-salle.html" style="display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid #EEF2F7; color: #EEF2F7; font-weight: 600">Rejoindre</a></td></tr>
+            <tr style="border-top: 1px solid #16233A"><td style="padding: 16px 20px"><span style="display: flex; align-items: center; gap: 10px"><i style="width: 10px; height: 10px; border-radius: 50%; background: #5BE3A6"></i><b>Sprint accents</b></span></td><td style="padding: 16px 14px; color: #C9D3E1">sam.t</td><td style="padding: 16px 14px">Entraînement · bloquée</td><td style="padding: 16px 14px; color: #C9D3E1">FR · exercice accents</td><td style="padding: 16px 14px; font-family: 'Geist Mono', monospace">6 / 50</td><td style="padding: 16px 14px"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #FFB347">[.EN COURSE · 1:12]</span></td><td style="padding: 10px 20px; text-align: right"><a href="08-course.html" style="display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid #22324D; color: #C9D3E1">Regarder</a></td></tr>
+            <tr style="border-top: 1px solid #16233A"><td style="padding: 16px 20px"><span style="display: flex; align-items: center; gap: 10px"><i style="width: 10px; height: 10px; border-radius: 50%; background: #5BD6FF"></i><b>English sprint</b></span></td><td style="padding: 16px 14px; color: #C9D3E1">alex.r</td><td style="padding: 16px 14px">Évaluation</td><td style="padding: 16px 14px; color: #C9D3E1">EN · 200 mots</td><td style="padding: 16px 14px; font-family: 'Geist Mono', monospace">3 / 50</td><td style="padding: 16px 14px"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #5BE3A6">[.EN ATTENTE]</span></td><td style="padding: 10px 20px; text-align: right"><a href="06-salle.html" style="display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid #EEF2F7; color: #EEF2F7; font-weight: 600">Rejoindre</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <span style="font-size: 13px; color: #8A9BB5">La liste se met à jour en temps réel. Une salle en course se regarde en spectateur.</span>
+    </section>
+  </main>
+</div>
+</body>
+</html>

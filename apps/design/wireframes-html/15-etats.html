@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incision · États système</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&amp;family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#05070D}
+.c{display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:12px;border:1px solid #22324D;background:#0C1424;min-height:250px;box-sizing:border-box}
+.t{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.2em;color:#8A9BB5}
+.h{margin:0;font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:28px;line-height:1;text-transform:uppercase}
+.p{margin:0;font-size:14px;line-height:1.5;color:#C9D3E1}
+.b1{height:44px;padding:0 16px;border-radius:8px;border:none;background:#D41F27;color:#fff;font:600 14px Geist,sans-serif}
+.b2{height:44px;padding:0 16px;border-radius:8px;border:1px solid #EEF2F7;background:transparent;color:#EEF2F7;font:600 14px Geist,sans-serif}
+.b3{height:44px;padding:0 16px;border-radius:8px;border:1px solid #22324D;background:transparent;color:#C9D3E1;font:500 14px Geist,sans-serif}
+</style>
+</head>
+<body>
+
+<div style="min-height: 1000px; background: #05070D; color: #EEF2F7; font-family: Geist, 'Helvetica Neue', sans-serif">
+  <main style="max-width: 1344px; margin: 0 auto; padding: 40px 48px 56px; display: flex; flex-direction: column; gap: 28px">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span class="t">[.ÉTATS] [.CHARGEMENT] [.ERREURS] [.VIDE]</span>
+      <h1 style="margin: 0; font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 72px; line-height: 0.9; text-transform: uppercase">Quand la mer <em style="font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; text-transform: none">se gâte</em></h1>
+      <p class="p" style="max-width: 720px">Chaque état dit ce qui se passe, pourquoi, et quoi faire. Jamais de couleur seule : une icône ou un mot accompagne toujours le rouge ou l'ambre.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px">
+      <section class="c" aria-labelledby="s1" style="align-items: center; justify-content: center; text-align: center">
+        <img src="../logo/ico-red.svg" alt="" style="width: 72px; height: 72px; transform: rotate(-30deg)">
+        <h2 id="s1" class="h">Chargement</h2>
+        <p class="p" role="status">Ouverture de la salle…</p>
+        <span class="t">ICÔNE EN ROTATION LENTE · FIXE SI ANIMATIONS RÉDUITES</span>
+      </section>
+
+      <section class="c" aria-labelledby="s2" style="border-color: #FFB347">
+        <span class="t" style="color: #FFB347">⚠ CONNEXION PERDUE</span>
+        <h2 id="s2" class="h">Reconnexion</h2>
+        <p class="p">Ta place est gardée. Reviens avant <b style="color: #EEF2F7">4:12</b> pour reprendre où tu étais.</p>
+        <div aria-hidden="true" style="height: 4px; border-radius: 2px; background: #16233A"><i style="display: block; width: 84%; height: 4px; border-radius: 2px; background: #FFB347"></i></div>
+        <span style="display: flex; gap: 10px; margin-top: auto"><button type="button" class="b2">Réessayer maintenant</button></span>
+      </section>
+
+      <section class="c" aria-labelledby="s3">
+        <span class="t">[.SALLE 7C] [.50 / 50]</span>
+        <h2 id="s3" class="h">Salle pleine</h2>
+        <p class="p">Cette salle a atteint 50 coureurs, le maximum. Tu peux la regarder ou en trouver une autre.</p>
+        <span style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto"><button type="button" class="b1">Trouver une course</button><button type="button" class="b3">Regarder</button></span>
+      </section>
+
+      <section class="c" aria-labelledby="s4">
+        <span class="t">REJOINDRE AVEC UN CODE</span>
+        <h2 id="s4" class="h">Code introuvable</h2>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <label for="code" style="font-size: 14px; color: #C9D3E1">Code de la salle</label>
+          <input id="code" value="B7K4Q" aria-invalid="true" aria-describedby="cerr" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 8px; border: 2px solid #FF8A90; background: #05070D; color: #EEF2F7; font-family: 'Geist Mono', monospace; font-size: 22px; letter-spacing: 0.2em">
+          <span id="cerr" style="font-size: 14px; color: #FF8A90">⚠ Aucune salle ouverte avec ce code. Vérifie les 5 caractères.</span>
+        </div>
+      </section>
+
+      <section class="c" aria-labelledby="s5" style="align-items: center; justify-content: center; text-align: center">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true"><g stroke="#8A9BB5" stroke-opacity="0.5" stroke-dasharray="2 6"><circle cx="36" cy="36" r="32"/><circle cx="36" cy="36" r="20"/></g><circle cx="36" cy="36" r="5" fill="#8A9BB5"/></svg>
+        <h2 id="s5" class="h">Mer calme</h2>
+        <p class="p">Aucune salle publique pour l'instant. Ouvre la tienne ou cours contre des bots.</p>
+        <span style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center"><button type="button" class="b1">Créer une salle</button><button type="button" class="b3">Course avec bots</button></span>
+      </section>
+
+      <section class="c" aria-labelledby="s6" style="border-color: #FFB347">
+        <span class="t" style="color: #FFB347">⏱ PENDANT LA COURSE</span>
+        <h2 id="s6" class="h">Toujours là ?</h2>
+        <p class="p">Aucune frappe depuis 60 secondes. Sans réponse dans <b style="color: #EEF2F7">15 s</b>, tu seras compté comme non-finisseur.</p>
+        <span style="display: flex; gap: 10px; margin-top: auto"><button type="button" class="b2">Je suis là</button></span>
+      </section>
+
+      <section class="c" aria-labelledby="s7">
+        <span style="align-self: flex-start; font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.12em; padding: 4px 8px; border-radius: 4px; background: #3A1219; color: #FF8A90">DNF</span>
+        <h2 id="s7" class="h">Course non terminée</h2>
+        <p class="p">Le temps est écoulé à 74 % du texte. Tu es classé après les finisseurs, selon ta progression. Rien n'est compté dans tes records.</p>
+        <span style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto"><button type="button" class="b1">Voir le classement</button></span>
+      </section>
+
+      <section class="c" aria-labelledby="s8" style="border-color: #FF8A90">
+        <span class="t" style="color: #FF8A90">✕ ERREUR SERVEUR</span>
+        <h2 id="s8" class="h">Avarie</h2>
+        <p class="p">Le serveur ne répond pas. Ta dernière course est enregistrée localement et sera envoyée au retour du réseau.</p>
+        <span style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto"><button type="button" class="b2">Réessayer</button><a href="01-accueil.html" class="b3" style="display: inline-flex; align-items: center; text-decoration: none">Accueil</a></span>
+      </section>
+
+      <section class="c" aria-labelledby="s9">
+        <span class="t">TOAST · 4 S · HAUT DROITE</span>
+        <h2 id="s9" class="h">Notifications</h2>
+        <div role="status" style="display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 8px; border: 1px solid #5BE3A6; background: #05070D; font-size: 14px"><b style="color: #5BE3A6">✓</b> Code copié</div>
+        <div role="status" style="display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 8px; border: 1px solid #5BD6FF; background: #05070D; font-size: 14px"><b style="color: #5BD6FF">→</b> Lina est maintenant hôte</div>
+        <div role="alert" style="display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 8px; border: 1px solid #FF8A90; background: #05070D; font-size: 14px"><b style="color: #FF8A90">!</b> Sam a quitté la salle</div>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

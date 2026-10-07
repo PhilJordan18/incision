@@ -1,0 +1,64 @@
+name: Seed demo accounts
+
+# Manual only, on Philippe's explicit approval (docs/DEPLOYMENT.md, "Demo accounts").
+# Creates the README's fictitious demo accounts in production if they are missing;
+# never modifies an existing account. Like the migrate job, it runs the deployed
+# release's own code: no checkout and no npm install next to the database secret.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type "seed production demo accounts" to confirm'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seed-demo
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Seed production demo accounts
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'seed production demo accounts'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Reads the release artifact of the last successful deployment.
+      actions: read
+    environment:
+      name: production
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Find the last successful deployment
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id="$(gh run list -R "$GITHUB_REPOSITORY" --workflow deploy.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          if [ -z "$run_id" ]; then
+            echo "::error::No successful deployment of main: deploy before seeding."
+            exit 1
+          fi
+          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+          run-id: ${{ steps.release.outputs.run-id }}
+          github-token: ${{ github.token }}
+
+      - name: Unpack release
+        run: unzip -q "$RUNNER_TEMP/release/release.zip" -d "$RUNNER_TEMP/app"
+
+      - name: Seed demo accounts
+        working-directory: ${{ runner.temp }}/app
+        env:
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: node --import tsx packages/database/scripts/seed-demo.ts --remote
