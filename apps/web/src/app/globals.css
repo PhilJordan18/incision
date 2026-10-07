@@ -2,6 +2,10 @@
 /* Design tokens (colours, fonts, radii, motion): the only place colours are written. */
 @import "../../../design/tokens.css";
 
+/* Wide but short screens (1366 × 768 laptops, 125 % zoom): the shell tightens its spacing
+   so the home page still fits without scrolling; taller screens keep the design's values. */
+@custom-variant short (@media (min-width: 64rem) and (max-height: 47.5rem));
+
 /* Elements for one theme only, e.g. the white wordmark on Abysse, the black one on Aube. */
 [data-theme="aube"] .only-abysse,
 :root:not([data-theme="aube"]) .only-aube {
