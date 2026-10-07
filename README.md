@@ -1,6 +1,6 @@
 # INCISION — 剃 / SHAVE
 
-Typing race platform for students aged 12 to 17. The repository contains the custom Next.js + Socket.IO server, its CI and Azure deployment pipeline, the PostgreSQL schema with versioned migrations, and the architectural framing. Authentication, realtime rooms and the race itself are still to be developed.
+Typing race platform for students aged 12 to 17. The repository contains the custom Next.js + Socket.IO server, its CI and Azure deployment pipeline, the PostgreSQL schema with versioned migrations, authentication (GitHub, Discord, local accounts) and the architectural framing. Realtime rooms and the race itself are still to be developed.
 
 ## Getting started
 
@@ -9,6 +9,17 @@ Typing race platform for students aged 12 to 17. The repository contains the cus
 3. Use [the data model](docs/architecture/data-model.md), [the state machines](docs/architecture/state-machines.md) and [the realtime ADR](docs/adr/0001-realtime.md) as design contracts for development.
 4. Follow the [contribution guide](CONTRIBUTING.md) for code, checks and commits.
 5. Deploy and operate production with [the deployment guide](docs/DEPLOYMENT.md).
+
+## Demo accounts
+
+Fictitious local accounts for demonstrations and the end-to-end tests, without any privilege. These passwords are **public on purpose** and used nowhere else; they are not technical secrets (those live only in Azure, GitHub and local `.env` files).
+
+| Username | Password | Display name |
+|---|---|---|
+| `demo-alice` | `brume-alice-4817` | Alice (demo) |
+| `demo-bruno` | `brume-bruno-2096` | Bruno (demo) |
+
+They exist wherever the seed ran: locally after `npm run db:seed:demo -w @incision/database`, in the E2E database, and in production only once Philippe has approved and run the seed workflow ([DEPLOYMENT.md](docs/DEPLOYMENT.md#demo-accounts)). Signing out with one of them ends all its sessions, including other people's demonstrations.
 
 ## Sources and authority
 

@@ -1,9 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
+import { getDatabase, readSessionVersion } from "@incision/database";
 import next from "next";
-import { parseServerEnv } from "./src/server/config";
+import { parseServerEnv, type ServerEnv } from "./src/server/config";
+import { CLIENT_ADDRESS_HEADER, clientAddress } from "./src/server/http/client-address";
+import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
+import { authenticateHandshake } from "./src/server/realtime/socket-session";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
 async function main(): Promise<void> {
@@ -18,10 +22,24 @@ async function main(): Promise<void> {
   await app.prepare();
 
   httpServer.on("request", (request, response) => {
+    // The only source of the client address for Next (rate limits): a value sent by the
+    // client under this name is overwritten (TRUSTED_PROXY_HOPS, docs/DEPLOYMENT.md).
+    request.headers[CLIENT_ADDRESS_HEADER] = clientAddress(request, env.trustedProxyHops);
     void handle(request, response);
   });
   // Attached after Next so Socket.IO can intercept its own path and pass the rest on.
-  const io = attachRealtimeServer(httpServer, { allowedOrigin: env.appOrigin, isProduction: env.isProduction });
+  const io = attachRealtimeServer(httpServer, {
+    allowedOrigin: env.appOrigin,
+    isProduction: env.isProduction,
+    authenticate: (cookieHeader) =>
+      authenticateHandshake(cookieHeader, {
+        secret: env.authSecret,
+        secureCookie: env.secureCookies,
+        readVersion: (accountId) => readSessionVersion(databaseOf(env), accountId),
+      }),
+    // The same registry as the sign-out server action: both read it from globalThis.
+    registry: getSessionRegistry(),
+  });
 
   httpServer.listen(env.port, () => {
     console.log(`[server] ${env.isProduction ? "production" : "development"} on port ${env.port}`);
@@ -36,6 +54,14 @@ async function main(): Promise<void> {
 }
 
 const SHUTDOWN_GRACE_MS = 10_000;
+
+/** Opened on the first authenticated handshake only: anonymous sockets never reach the database. */
+function databaseOf(env: ServerEnv) {
+  if (env.databaseUrl === undefined) {
+    throw new Error("DATABASE_URL is not set: sessions cannot be checked");
+  }
+  return getDatabase(env.databaseUrl);
+}
 
 /** Local runs share the root `.env` with Docker Compose; App Service injects app settings instead. */
 function loadLocalEnvFile(): void {

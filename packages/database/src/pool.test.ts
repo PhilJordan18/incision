@@ -42,6 +42,35 @@ describe("describeDatabaseError", () => {
     expect(describeDatabaseError(wrapped)).toBe("22P02 data exception");
   });
 
+  it("keeps only the code and names of a server error from a query with parameters", () => {
+    // Some server messages quote a bound value, e.g. to_tsquery($1) or $1::regclass.
+    const cause = Object.assign(new Error('no operand in tsquery: "SECRET-VALUE &"'), { code: "42601", severity: "ERROR" });
+    const wrapped = new DrizzleQueryError("select to_tsquery($1)", ["SECRET-VALUE &"], cause);
+    expect(describeDatabaseError(wrapped)).toBe("42601");
+    const unique = Object.assign(new Error("duplicate key value violates unique constraint"), {
+      code: "23505",
+      severity: "ERROR",
+      constraint: "accounts_login_canonical_unique",
+      table: "accounts",
+    });
+    expect(describeDatabaseError(new DrizzleQueryError("insert ...", ["alice"], unique))).toBe(
+      "23505 constraint accounts_login_canonical_unique table accounts",
+    );
+  });
+
+  it("keeps the server message of a query without parameters, such as a migration", () => {
+    const cause = Object.assign(new Error('relation "missing" does not exist'), { code: "42P01", severity: "ERROR" });
+    expect(describeDatabaseError(new DrizzleQueryError("select * from missing", [], cause))).toBe(
+      '42P01 relation "missing" does not exist',
+    );
+  });
+
+  it("stops on a cyclic cause instead of overflowing the stack", () => {
+    const cyclic: Error & { cause?: unknown } = Object.assign(new Error("loop"), { query: "q", params: [] });
+    cyclic.cause = cyclic;
+    expect(describeDatabaseError(cyclic)).toBe("nested error");
+  });
+
   it("keeps the message of other wrappers, such as pg-pool's connection timeout", () => {
     const timeout = new Error("Connection terminated due to connection timeout", {
       cause: new Error("Connection terminated unexpectedly"),

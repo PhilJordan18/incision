@@ -4,7 +4,7 @@ Updated on **October 3, 2026**, following Philippe's clarifications: checkpoint 
 
 ## What actually exists
 
-Next.js skeleton, TypeScript/Tailwind, npm workspaces, local PostgreSQL through Compose, contribution rules and design. **Since October 5**: CI on every push and PR (lint, type check, unit tests, build) and a first tested domain rule (room code). **Not yet**: authentication, Drizzle migrations, Socket.IO server, most business tests or a verified HTTPS URL. The added documents do not replace this evidence.
+Next.js skeleton, TypeScript/Tailwind, npm workspaces, local PostgreSQL through Compose, contribution rules and design. **Since October 5**: CI on every push and PR (lint, type check, unit tests, PostgreSQL tests, build), the custom Next.js + Socket.IO server and its Azure pipeline (CP-02), the Drizzle schema and serialised migrator (CP-03). **October 6 (CP-04, in review)**: GitHub, Discord and local sign-in with sessions revoked on sign-out over HTTP and Socket.IO, demo-account seed, FR/EN dictionaries for the existing pages, Playwright E2E in CI. **Not yet**: a production deployment of these cards, real GitHub/Discord sign-ins, rooms and realtime presence. The added documents do not replace this evidence.
 
 | Line graded at the checkpoint | Observed situation | Closing condition |
 |---|---|---|

@@ -3,6 +3,12 @@
  * plain lowercase that PostgreSQL can check (`login_canonical = lower(login)`).
  */
 export const LOGIN_PATTERN = /^[A-Za-z0-9_-]{3,32}$/;
+export const LOGIN_MAX_LENGTH = 32;
+/**
+ * Longest password a sign-in form accepts. The hash cost does not depend on it, but it
+ * bounds request bodies; local accounts are created by the seed, not by a sign-up form.
+ */
+export const PASSWORD_MAX_LENGTH = 128;
 
 export type Login = { readonly login: string; readonly canonical: string };
 

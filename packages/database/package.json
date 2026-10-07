@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./migrations": "./src/migrations.ts",
+    "./demo-accounts": "./src/identity/demo-accounts.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -12,7 +14,8 @@
     "test": "vitest run",
     "test:db": "vitest run --config vitest.db.config.mts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed:demo": "tsx scripts/seed-demo.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",

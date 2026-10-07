@@ -38,6 +38,8 @@ printf '{"commit":"%s","builtAt":"%s"}\n' "$commit" "$(date -u +%Y-%m-%dT%H:%M:%
 (cd "$stage" && npm ci --omit=dev --no-audit --no-fund)
 # App Service runs glibc; the lockfile cannot exclude musl builds, so drop them (about 115 MB).
 rm -rf "$stage"/node_modules/@next/swc-linux-*-musl "$stage"/node_modules/@img/*linuxmusl*
+# Playwright is a test tool that npm keeps as Next's optional peer: nothing at runtime uses it.
+rm -rf "$stage"/node_modules/playwright "$stage"/node_modules/playwright-core "$stage"/node_modules/@playwright
 
 # Zip deployment does not reliably keep symlinks: replace workspace links with copies.
 for link in "$stage"/node_modules/@incision/*; do

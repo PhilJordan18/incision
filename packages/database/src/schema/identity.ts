@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { check, integer, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 export const oauthProvider = pgEnum("oauth_provider", ["github", "discord"]);
 
@@ -15,6 +15,12 @@ export const accounts = pgTable(
     loginCanonical: text("login_canonical"),
     displayName: text("display_name").notNull(),
     passwordHash: text("password_hash"),
+    /**
+     * Version of the account's sessions (ADR-0003). A JWT records the value seen at
+     * sign-in and stays valid while it matches; sign-out increments it, which revokes
+     * every session of the account. Starts at 1, so rows of earlier releases get 1.
+     */
+    sessionVersion: integer("session_version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -31,6 +37,12 @@ export const accounts = pgTable(
     ),
     check("accounts_password_requires_login", sql`${table.passwordHash} is null or ${table.loginCanonical} is not null`),
     check("accounts_password_hash_not_empty", sql`${table.passwordHash} is null or ${table.passwordHash} <> ''`),
+    // Shape of hashPassword's output; parsePasswordHash also checks parameter bounds and encoding.
+    check(
+      "accounts_password_hash_format",
+      sql`${table.passwordHash} is null or ${table.passwordHash} ~ '^scrypt\\$[0-9]{2}\\$[0-9]{1,2}\\$[0-9]\\$[A-Za-z0-9_-]{22}\\$[A-Za-z0-9_-]{43}$'`,
+    ),
+    check("accounts_session_version_positive", sql`${table.sessionVersion} >= 1`),
     check(
       "accounts_display_name_length",
       sql`char_length(${table.displayName}) between 1 and 40 and btrim(${table.displayName}) <> ''`,

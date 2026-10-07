@@ -7,5 +7,8 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts"],
+    // next-auth imports `next/server` without an extension, which Node's ESM resolver
+    // refuses; letting Vite process it resolves the import as Next's bundler does.
+    server: { deps: { inline: ["next-auth"] } },
   },
 });
