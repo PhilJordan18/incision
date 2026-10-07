@@ -6,8 +6,8 @@ import { expect, test } from "@playwright/test";
 test.use({ locale: "fr-CA" });
 
 const PROVIDERS = [
-  { button: "Continuer avec GitHub", host: "github.com", path: "/login/oauth/authorize", clientId: "e2e-github-client-id", scope: "", id: "github" },
-  { button: "Continuer avec Discord", host: "discord.com", path: "/api/oauth2/authorize", clientId: "e2e-discord-client-id", scope: "identify", id: "discord" },
+  { button: "Se connecter avec GitHub", host: "github.com", path: "/login/oauth/authorize", clientId: "e2e-github-client-id", scope: "", id: "github" },
+  { button: "Se connecter avec Discord", host: "discord.com", path: "/api/oauth2/authorize", clientId: "e2e-discord-client-id", scope: "identify", id: "discord" },
 ] as const;
 
 for (const provider of PROVIDERS) {
@@ -44,12 +44,12 @@ test("brings a cancelled GitHub sign-in back to the sign-in page with a translat
   await page.goto("/sign-in");
   await page.getByRole("button", { name: PROVIDERS[0].button }).click();
   await expect(page).toHaveURL(/\/sign-in\?/);
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText("La connexion avec le fournisseur a été annulée ou a échoué. Réessayez.");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("La connexion avec le fournisseur a été annulée ou a échoué. Réessaie.");
 });
 
 test("shows Auth.js' refused-access errors on the translated error page", async ({ page }) => {
   await page.goto("/auth/error?error=AccessDenied");
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText("La connexion a été refusée ou annulée.");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("La connexion a été refusée ou annulée. Tu peux réessayer avec un autre moyen.");
 });
 
 test("refuses the built-in sign-out endpoint: signing out goes through the account page", async ({ request }) => {

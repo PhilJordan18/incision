@@ -10,12 +10,12 @@ type FormLabels = { readonly login: string; readonly password: string; readonly 
 
 export async function signInWithCredentials(page: Page, login: string, password: string, labels: FormLabels = FRENCH): Promise<void> {
   await page.goto("/sign-in");
-  await page.getByLabel(labels.login).fill(login);
-  await page.getByLabel(labels.password).fill(password);
+  await page.getByLabel(labels.login, { exact: true }).fill(login);
+  await page.getByLabel(labels.password, { exact: true }).fill(password);
   await page.getByRole("button", { name: labels.submit, exact: true }).click();
 }
 
-export const FRENCH: FormLabels = { login: "Identifiant", password: "Mot de passe", submit: "Se connecter" };
+export const FRENCH: FormLabels = { login: "Nom d’utilisateur", password: "Mot de passe", submit: "Se connecter" };
 export const ENGLISH: FormLabels = { login: "Username", password: "Password", submit: "Sign in" };
 
 /** The session cookie as a Cookie header, as a browser would send it on a later request. */

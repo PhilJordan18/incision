@@ -2,7 +2,7 @@ import { hashPassword } from "@incision/database";
 import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
 import { expect, test } from "@playwright/test";
 import { SESSION_EVENT } from "../src/server/realtime/socket-server";
-import { connectSocket, forgeSessionCookie, query, SESSION_COOKIE, sessionCookieHeader, signInWithCredentials } from "./support";
+import { connectSocket, FRENCH, forgeSessionCookie, query, SESSION_COOKIE, sessionCookieHeader, signInWithCredentials } from "./support";
 
 const [, bruno] = DEMO_ACCOUNTS;
 if (bruno === undefined) {
@@ -15,8 +15,8 @@ test.describe("protected access (SEC-01, server-side)", () => {
   test("redirects an anonymous visitor to sign-in, then back to the protected page", async ({ page }) => {
     await page.goto("/account");
     await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Faccount$/);
-    await page.getByLabel("Identifiant").fill(bruno.login);
-    await page.getByLabel("Mot de passe").fill(bruno.password);
+    await page.getByLabel(FRENCH.login, { exact: true }).fill(bruno.login);
+    await page.getByLabel("Mot de passe", { exact: true }).fill(bruno.password);
     await page.getByRole("button", { name: "Se connecter", exact: true }).click();
     await expect(page).toHaveURL(/\/account$/);
     await expect(page.getByText(bruno.displayName)).toBeVisible();

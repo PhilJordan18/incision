@@ -1,60 +1,47 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import { Big_Shoulders, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { getRequestDictionary } from "@/i18n/server";
-import { getAccountSession } from "@/server/auth/session";
+import { getThemeChoice } from "@/theme/server";
+import { SYSTEM_THEME_SCRIPT } from "@/theme/theme";
 import { SITE_NAME } from "./site";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// The design's four voices, exposed under the variables of apps/design/tokens.css.
+// Google Fonts now ships "Big Shoulders Display" as the "Big Shoulders" family.
+const display = Big_Shoulders({
+  subsets: ["latin", "latin-ext"],
+  weight: ["800", "900"],
+  variable: "--font-display",
+  fallback: ["Arial Narrow", "sans-serif"],
+  adjustFontFallback: false,
 });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const serif = Instrument_Serif({ subsets: ["latin", "latin-ext"], weight: "400", style: ["normal", "italic"], variable: "--font-serif" });
+const sans = Geist({ subsets: ["latin", "latin-ext"], variable: "--font-sans" });
+const mono = Geist_Mono({ subsets: ["latin", "latin-ext"], variable: "--font-mono" });
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getRequestDictionary();
   return { title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` }, description: t.metadata.description };
 }
 
-const LINK_CLASS = "rounded-sm underline-offset-4 hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
-
-// Minimal shell for CP-04; the art direction, theme and language switchers come with CP-05.
+/**
+ * The server renders an explicit theme choice directly; for "system" (the default), the
+ * inline script sets `data-theme` before the first paint, so no theme flashes (DES-05).
+ */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [{ locale, t }, session] = await Promise.all([getRequestDictionary(), getAccountSession()]);
+  const [{ locale }, themeChoice] = await Promise.all([getRequestDictionary(), getThemeChoice()]);
   return (
-    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-background"
-        >
-          {t.layout.skipToContent}
-        </a>
-        <header className="border-b border-foreground/15">
-          <nav aria-label={t.layout.mainNavigation} className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
-            <Link href="/" className={`font-semibold ${LINK_CLASS}`}>
-              {SITE_NAME}
-            </Link>
-            {session === null ? (
-              <Link href="/sign-in" className={LINK_CLASS}>
-                {t.layout.signIn}
-              </Link>
-            ) : (
-              <Link href="/account" className={LINK_CLASS}>
-                {t.layout.account}
-              </Link>
-            )}
-          </nav>
-        </header>
-        <main id="main" tabIndex={-1} className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-10">
-          {children}
-        </main>
-      </body>
+    <html
+      lang={locale}
+      data-theme={themeChoice === "system" ? undefined : themeChoice}
+      data-theme-choice={themeChoice}
+      className={`${display.variable} ${serif.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SYSTEM_THEME_SCRIPT }} />
+      </head>
+      <body className="flex min-h-full flex-col bg-abysse text-ecume">{children}</body>
     </html>
   );
 }
