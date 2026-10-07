@@ -6,8 +6,9 @@ import { SYSTEM_THEME_SCRIPT } from "@/theme/theme";
 import { SITE_NAME } from "./site";
 import "./globals.css";
 
-// The design's four voices, exposed under the variables of apps/design/tokens.css. Latin only:
-// French and English need no extended set, and every font file counts on a slow phone.
+// The design's four voices, exposed under the variables of apps/design/tokens.css. Only the Latin
+// files are preloaded (French and English need nothing else); other subsets still load on demand,
+// for display names in other alphabets. Every preloaded file counts on a slow phone.
 // Google Fonts now ships "Big Shoulders Display" as the "Big Shoulders" family.
 const display = Big_Shoulders({
   subsets: ["latin"],
