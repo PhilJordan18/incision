@@ -73,7 +73,16 @@ test.describe("home (screen 01, JOIN-01)", () => {
     await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Frooms%2FB7K4PQ$/);
   });
 
-  test("shows Philippe's logo, the favicon and a single red action", async ({ page }) => {
+  test("keeps the words of its title apart and fits one desktop screen", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 800 });
+    await page.goto("/");
+    // Line breaks alone would read "Tape.Dépasse.arrive." in screen readers and reader views.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Tape\.\s+Dépasse\.\s+arrive\.$/);
+    const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("shows my logo, the favicon and a single red action", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator('header img[src="/brand/ico-red.svg"]')).toBeVisible();
     await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", /\/icon\.svg/);
