@@ -109,7 +109,7 @@ Rooms by code (CP-06) need no new variable or migration. Presence lives in the p
 
 ## Demo accounts
 
-Two fictitious local accounts, listed with their passwords in the [README](../README.md#demo-accounts), serve demonstrations and the Playwright tests. Their passwords are public on purpose and used nowhere else; they are not technical secrets. The seed (`packages/database/src/identity/demo-accounts.ts`) only creates missing accounts and never modifies an existing one (an account with a demo login whose password differs is reported as a conflict). It never runs at application start-up.
+Two fictitious local accounts, listed with their passwords in the [README](../README.md#comptes-de-démonstration), serve demonstrations and the Playwright tests. Their passwords are public on purpose and used nowhere else; they are not technical secrets. The seed (`packages/database/src/identity/demo-accounts.ts`) only creates missing accounts and never modifies an existing one (an account with a demo login whose password differs is reported as a conflict). It never runs at application start-up.
 
 - Local: `npm run db:seed:demo -w @incision/database` (uses `DATABASE_URL_UNPOOLED` from `.env`; refuses a remote database without `--remote`).
 - CI: the E2E run seeds its own disposable database.

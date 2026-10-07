@@ -1,52 +1,52 @@
 # INCISION — 剃 / SHAVE
 
-Typing race platform for students aged 12 to 17.
+Plateforme de course de frappe pour les élèves de 12 à 17 ans.
 
-**Production:** https://incision-cmd7bxg2cacvdeby.canadacentral-01.azurewebsites.net
+**Production :** https://incision-cmd7bxg2cacvdeby.canadacentral-01.azurewebsites.net
 
-The repository contains the custom Next.js + Socket.IO server, its CI and Azure deployment pipeline, the PostgreSQL schema with versioned migrations, authentication (GitHub, Discord, local accounts), my art direction applied in French and English with light and dark themes, and rooms joined by code with live presence. The race itself is the next step.
+Le dépôt contient le serveur personnalisé Next.js + Socket.IO, sa CI et son pipeline de déploiement sur Azure, le schéma PostgreSQL avec migrations versionnées, l'authentification (GitHub, Discord, comptes locaux), ma direction artistique appliquée en français et en anglais avec thèmes clair et sombre, et les salles rejointes par code avec présence en direct. La course elle-même est la prochaine étape.
 
-## Getting started
+## Pour commencer
 
-1. Read [the installation and launch guide](docs/SETUP.md).
-2. Consult [the architecture aligned with the final brief](docs/ARCHITECTURE.md) and [the checkpoint plan](docs/architecture/verification.md).
-3. Use [the data model](docs/architecture/data-model.md), [the state machines](docs/architecture/state-machines.md) and [the realtime ADR](docs/adr/0001-realtime.md) as design contracts for development.
-4. Follow the [contribution guide](CONTRIBUTING.md) for code, checks and commits.
-5. Deploy and operate production with [the deployment guide](docs/DEPLOYMENT.md).
+1. Lire [le guide d'installation et de lancement](docs/SETUP.md).
+2. Consulter [l'architecture alignée sur l'énoncé final](docs/ARCHITECTURE.md) et [le plan du checkpoint](docs/architecture/verification.md).
+3. Utiliser [le modèle de données](docs/architecture/data-model.md), [les machines à états](docs/architecture/state-machines.md) et [l'ADR temps réel](docs/adr/0001-realtime.md) comme contrats de conception pour le développement.
+4. Suivre le [guide de contribution](CONTRIBUTING.md) pour le code, les vérifications et les commits.
+5. Déployer et exploiter la production avec [le guide de déploiement](docs/DEPLOYMENT.md).
 
-## Demo accounts
+## Comptes de démonstration
 
-Fictitious local accounts for demonstrations and the end-to-end tests, without any privilege. These passwords are **public on purpose** and used nowhere else; they are not technical secrets (those live only in Azure, GitHub and local `.env` files).
+Comptes locaux fictifs pour les démonstrations et les tests de bout en bout, sans aucun privilège. Ces mots de passe sont **volontairement publics** et ne servent nulle part ailleurs; ce ne sont pas des secrets techniques (ceux-ci se trouvent seulement dans Azure, GitHub et les fichiers `.env` locaux).
 
-| Username | Password | Display name |
+| Nom d'utilisateur | Mot de passe | Nom d'affichage |
 |---|---|---|
 | `demo-alice` | `brume-alice-4817` | Alice (demo) |
 | `demo-bruno` | `brume-bruno-2096` | Bruno (demo) |
 
-They exist wherever the seed ran: locally after `npm run db:seed:demo -w @incision/database`, in the E2E database, and in production once I run the seed workflow ([DEPLOYMENT.md](docs/DEPLOYMENT.md#demo-accounts)). Signing out with one of them ends all its sessions, including other people's demonstrations.
+Ils existent partout où le seed a été exécuté : en local après `npm run db:seed:demo -w @incision/database`, dans la base de données E2E, et en production une fois que j'exécute le workflow de seed ([DEPLOYMENT.md](docs/DEPLOYMENT.md#demo-accounts)). Se déconnecter avec l'un d'eux met fin à toutes ses sessions, y compris aux démonstrations d'autres personnes.
 
-## Sources and authority
+## Sources et autorité
 
-1. [Final brief of the term project](docs/Web-V-Travail-de-session.pdf): constraints and graded scope, which take priority.
-2. [Official requirements matrix of the 90 requirements](docs/EXIGENCES.md): statuses, evidence and interpretation choices, with deviations made explicit.
-3. [Submitted specification](docs/cahier-des-charges-incision.pdf): history kept, without applying its rules that have become incompatible.
-4. [Art direction](docs/da/da_incision.pdf), final version of October 6 (27 pages): "race night" mood, vertical track, palette, typefaces, logo process and sketches. Its code-ready translation, [`apps/design/`](apps/design/README.md), is the visual source of truth (tokens, components, reference screens, logos). The name **Incision** and the logo are my own work; how I found and drew them is in [the creative process](docs/DEMARCHE-CREATIVE.md). The `docs/DEMARCHE-CREATIVE.md` entry is still to be completed.
+1. [Énoncé final du travail de session](docs/Web-V-Travail-de-session.pdf) : contraintes et périmètre évalué, qui priment.
+2. [Matrice officielle des 90 exigences](docs/EXIGENCES.md) : statuts, preuves et choix d'interprétation, avec les écarts rendus explicites.
+3. [Cahier des charges remis](docs/cahier-des-charges-incision.pdf) : historique conservé, sans appliquer ses règles devenues incompatibles.
+4. [Direction artistique](docs/da/da_incision.pdf), version finale du 6 octobre (27 pages) : ambiance « Nuit de course », piste verticale, palette, typographies, démarche du logo et croquis. Sa traduction prête pour le code, [`apps/design/`](apps/design/README.md), est la source de vérité visuelle (jetons, composants, écrans de référence, logos). Le nom **Incision** et le logo sont mon propre travail; la façon dont je les ai trouvés et dessinés est décrite dans [la démarche créative](docs/DEMARCHE-CREATIVE.md). L'entrée `docs/DEMARCHE-CREATIVE.md` reste à compléter.
 
-The art direction stays creative, but must meet the DES requirements: name/logo created by the student, responsive, readability and accessibility. A technical decision is neither an additional teacher requirement nor an already delivered feature.
+La direction artistique reste créative, mais doit respecter les exigences DES : nom/logo créés par l'étudiant, responsive, lisibilité et accessibilité. Une décision technique n'est ni une exigence supplémentaire de l'enseignant ni une fonctionnalité déjà livrée.
 
-## Repository structure and planned modules
+## Structure du dépôt et modules prévus
 
 ```text
 incision/
-├── apps/web/                 Next.js and React (created); realtime to be developed
-├── apps/design/              My visual source of truth: tokens, screens, wireframes, logos
-├── packages/domain/          Pure rules: room code, logins, display names (more to come)
-├── packages/contracts/       Shared events and validation (to be created)
-├── packages/database/        Drizzle schema, migrations, room creation, migrator
-├── docs/                     Design and decisions
-├── compose.yaml              Local PostgreSQL only
-├── package.json              npm workspaces
-└── package-lock.json         Locked dependencies
+├── apps/web/                 Next.js et React (créé); temps réel à développer
+├── apps/design/              Ma source de vérité visuelle : jetons, écrans, wireframes, logos
+├── packages/domain/          Règles pures : code de salle, identifiants, noms d'affichage (d'autres à venir)
+├── packages/contracts/       Événements et validation partagés (à créer)
+├── packages/database/        Schéma Drizzle, migrations, création de salle, migrateur
+├── docs/                     Conception et décisions
+├── compose.yaml              PostgreSQL local seulement
+├── package.json              Workspaces npm
+└── package-lock.json         Dépendances verrouillées
 ```
 
-The separation is by **business domain**: identity, rooms, races, texts and results each own their rules, even if the first deployment may use a single Node process. See [ADR-0001](docs/adr/0001-realtime.md).
+Le découpage se fait par **domaine métier** : identité, salles, courses, textes et résultats possèdent chacun leurs règles, même si le premier déploiement peut utiliser un seul processus Node. Voir [ADR-0001](docs/adr/0001-realtime.md).
