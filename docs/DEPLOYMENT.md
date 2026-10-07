@@ -1,153 +1,153 @@
-# Deployment — Azure App Service and Neon
+# Déploiement — Azure App Service et Neon
 
-How Incision reaches production and how to recover. Decision and trade-offs: [ADR-0002](adr/0002-hosting.md). I make every remote change (Azure, Neon, GitHub settings) myself, or approve it action by action when an agent prepares it ([AGENTS.md](../AGENTS.md#human-approvals)).
+Comment Incision arrive en production, et comment rétablir le service en cas de problème. Décision et compromis : [ADR-0002](adr/0002-hosting.md). Je fais chaque changement distant (Azure, Neon, paramètres GitHub) moi-même, ou je l'approuve action par action quand un agent le prépare ([AGENTS.md](../AGENTS.md#human-approvals)).
 
-## Environments
+## Environnements
 
 | | Local | Production |
 |---|---|---|
-| App | `npm run dev -w @incision/web` (custom server, port 3000) | Azure App Service, Linux, Node 24 LTS, B2, one instance |
-| Database | Docker Compose PostgreSQL 17 ([SETUP.md](SETUP.md)) | Neon, free plan |
-| Configuration | root `.env`, copied from [`.env.example`](../.env.example) | App Service app settings, GitHub environment `production` |
+| Application | `npm run dev -w @incision/web` (serveur personnalisé, port 3000) | Azure App Service, Linux, Node 24 LTS, B2, une instance |
+| Base de données | PostgreSQL 17 dans Docker Compose ([SETUP.md](SETUP.md)) | Neon, forfait gratuit |
+| Configuration | `.env` à la racine, copié depuis [`.env.example`](../.env.example) | paramètres d'application (App settings) d'App Service, environnement GitHub `production` |
 
-There is no staging environment: changes are verified locally and by CI, then promoted from `dev` to `main`.
+Il n'y a pas d'environnement de préproduction (staging) : les changements sont vérifiés en local et par la CI, puis promus de `dev` vers `main`.
 
 ## Pipeline
 
-1. A PR is merged into `dev`; CI runs on every push and PR ([ci.yml](../.github/workflows/ci.yml)).
-2. I promote `dev` to `main` when I decide to release.
-3. [deploy.yml](../.github/workflows/deploy.yml) runs CI, then four jobs:
-   - **build** (no secret): builds the same commit again and packages the release with [`scripts/package-release.sh`](../scripts/package-release.sh) (Next build, TypeScript sources, production dependencies, `build-info.json` with the commit), kept 30 days as a workflow artifact;
-   - **migrate** (environment `production`, only the step that needs it receives `DATABASE_URL_UNPOOLED`): unpacks the same run's artifact and runs its migrator (`packages/database/scripts/migrate.ts`) on a direct Neon connection; no checkout, no npm. A failure stops the pipeline: **deploy waits for migrate**;
-   - **deploy** (environment `production`, the only job holding the deployment credential): downloads that artifact and zip-deploys it; no checkout, no npm, no project code runs there. App Service restarts and never builds;
-   - **smoke** (no secret): retries for up to 6 minutes until `/api/health` reports the new commit with `"database": "up"`, then checks a WebSocket ping.
+1. Une PR est fusionnée dans `dev`; la CI s'exécute à chaque push et à chaque PR ([ci.yml](../.github/workflows/ci.yml)).
+2. Je promeus `dev` vers `main` quand je décide de publier une version.
+3. [deploy.yml](../.github/workflows/deploy.yml) exécute la CI, puis quatre jobs :
+   - **build** (aucun secret) : refait le build du même commit et empaquette la version avec [`scripts/package-release.sh`](../scripts/package-release.sh) (build Next, sources TypeScript, dépendances de production, `build-info.json` avec le commit), conservée 30 jours comme artefact de workflow;
+   - **migrate** (environnement `production`, seule l'étape qui en a besoin reçoit `DATABASE_URL_UNPOOLED`) : décompresse l'artefact de la même exécution et lance son migrateur (`packages/database/scripts/migrate.ts`) sur une connexion directe à Neon; aucun checkout, aucun npm. Un échec arrête le pipeline : **deploy attend migrate**;
+   - **deploy** (environnement `production`, seul job qui détient l'identifiant de déploiement) : télécharge cet artefact et le déploie en zip; aucun checkout, aucun npm, aucun code du projet n'y est exécuté. App Service redémarre et ne fait jamais de build;
+   - **smoke** (aucun secret) : réessaie pendant 6 minutes au plus, jusqu'à ce que `/api/health` indique le nouveau commit avec `"database": "up"`, puis vérifie un ping WebSocket.
 
-The pipeline is green only if production runs the expected commit, reaches Neon and accepts WebSocket connections.
+Le pipeline n'est vert que si la production exécute le commit attendu, joint Neon et accepte les connexions WebSocket.
 
-## One-time configuration
+## Configuration initiale
 
-**Azure App Service** (portal → *incision*):
+**Azure App Service** (portail → *incision*) :
 
-| Setting | Value |
+| Paramètre | Valeur |
 |---|---|
-| Configuration → Stack settings (tab) → Startup command | `npm run start -w @incision/web` |
-| Configuration → Health check (tab) → Path | `/api/health/live`, enabled after the first deployment. **Never `/api/health`**: it queries Neon, and a probe every minute would keep Neon's free compute awake around the clock and exhaust its monthly quota. |
-| Configuration → General settings | Always On, HTTPS only, TLS 1.3, FTP disabled, SCM basic auth enabled (publish profile) |
-| Environment variables → App settings | `APP_URL` (the `https://` default domain), `DATABASE_URL` (Neon pooled), `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, and for authentication `AUTH_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `TRUSTED_PROXY_HOPS=1` (see [Authentication](#authentication)). The app never reads `DATABASE_URL_UNPOOLED`: once the GitHub secret below exists, remove it from App Service. |
-| Monitoring → App Service logs | Application logging: File System, short retention, so Log stream shows the app's output |
+| Configuration → Stack settings (onglet) → Startup command | `npm run start -w @incision/web` |
+| Configuration → Health check (onglet) → Path | `/api/health/live`, activé après le premier déploiement. **Jamais `/api/health`** : il interroge Neon, et une sonde chaque minute garderait l'instance de calcul gratuite de Neon éveillée en permanence et épuiserait son quota mensuel. |
+| Configuration → General settings | Always On, HTTPS only, TLS 1.3, **HTTP version 2.0** (sinon le frontal répond en HTTP/1.1 : Lighthouse estime la perte à 1,2 s sur mobile), FTP désactivé, authentification de base SCM activée (profil de publication) |
+| Environment variables → App settings | `APP_URL` (le domaine par défaut en `https://`), `DATABASE_URL` (URL poolée de Neon), `SCM_DO_BUILD_DURING_DEPLOYMENT=false` et, pour l'authentification, `AUTH_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `TRUSTED_PROXY_HOPS=1` (voir [Authentification](#authentification)). L'application ne lit jamais `DATABASE_URL_UNPOOLED` : une fois le secret GitHub ci-dessous en place, le retirer d'App Service. |
+| Monitoring → App Service logs | Application logging : File System, rétention courte, pour que Log stream affiche la sortie de l'application |
 
-The process refuses to start in production when one of these variables is missing or empty, when `AUTH_URL` differs from `APP_URL`, when `AUTH_SECRET` has fewer than 32 characters, when `APP_URL` is not HTTPS (a `localhost` URL is allowed for local production builds), or when a remote `DATABASE_URL` does not set `sslmode=verify-full` (or `require`). Use `verify-full` for Neon. **Set the authentication variables before promoting CP-04 to `main`**: otherwise the new release does not start and the smoke test fails (the previous one has already been replaced).
+En production, le processus refuse de démarrer quand l'une de ces variables manque ou est vide, quand `AUTH_URL` diffère de `APP_URL`, quand `AUTH_SECRET` compte moins de 32 caractères, quand `APP_URL` n'est pas en HTTPS (une URL `localhost` est permise pour les builds de production locaux), ou quand une `DATABASE_URL` distante ne fixe pas `sslmode=verify-full` (ou `require`). Utiliser `verify-full` pour Neon. **Définir les variables d'authentification avant de promouvoir CP-04 vers `main`** : sinon la nouvelle version ne démarre pas et le smoke test échoue (la précédente a déjà été remplacée).
 
-App Service provides `PORT`. WebSockets are accepted by Linux App Service; the smoke test proves it on every deployment.
+App Service fournit `PORT`. App Service sous Linux accepte les WebSockets; le smoke test le prouve à chaque déploiement.
 
-**GitHub** (repository → Settings → Environments → `production`):
+**GitHub** (dépôt → Settings → Environments → `production`) :
 
-- Deployment branches: `main` only.
-- Secret `AZURE_WEBAPP_PUBLISH_PROFILE`: content of the publish profile downloaded from the App Service overview. Never commit or paste the file; delete it after `gh secret set ... --env production`. Then delete any repository-level copy of the secret, which every branch's workflows could read.
-- Variable `APP_URL`: same value as the App Service setting.
-- Secret `DATABASE_URL_UNPOOLED`: Neon **direct** URL (Neon console → Connect, connection pooling off: the host has no `-pooler`) with `sslmode=verify-full`, same database and role as the app, used only by the migrate step. node-postgres ignores `channel_binding=require` (harmless, but it enforces nothing: verified TLS is the protection) and reads `sslrootcert` as a file path, so drop `sslrootcert=system` from libpq examples. Set it before the first promotion that contains migrations, typing the value at the prompt rather than on the command line: `gh secret set DATABASE_URL_UNPOOLED --env production -R PhilJordan18/incision`. Without it the migrate job fails and nothing is deployed (fix it, then *Re-run failed jobs*). Keep it **only** as a `production` environment secret: delete any repository-level copy, which workflows on every branch could read. Once it works, remove `DATABASE_URL_UNPOOLED` from App Service (this restarts the app).
-- Because migrate and deploy both use the `production` environment, each run records two deployments; required reviewers on that environment would mean two approvals per run.
+- Deployment branches : `main` seulement.
+- Secret `AZURE_WEBAPP_PUBLISH_PROFILE` : contenu du profil de publication téléchargé depuis la page Overview d'App Service. Ne jamais commiter ni coller le fichier; le supprimer après `gh secret set ... --env production`. Supprimer ensuite toute copie du secret au niveau du dépôt, que les workflows de n'importe quelle branche pourraient lire.
+- Variable `APP_URL` : même valeur que le paramètre d'App Service.
+- Secret `DATABASE_URL_UNPOOLED` : URL **directe** de Neon (console Neon → Connect, connection pooling désactivé : le nom d'hôte n'a pas de `-pooler`) avec `sslmode=verify-full`, même base de données et même rôle que l'application, utilisée seulement par l'étape migrate. node-postgres ignore `channel_binding=require` (sans danger, mais cela n'impose rien : c'est le TLS vérifié qui protège) et lit `sslrootcert` comme un chemin de fichier; retirer donc `sslrootcert=system` des exemples libpq. Le définir avant la première promotion qui contient des migrations, en tapant la valeur à l'invite plutôt que sur la ligne de commande : `gh secret set DATABASE_URL_UNPOOLED --env production -R PhilJordan18/incision`. Sans lui, le job migrate échoue et rien n'est déployé (le corriger, puis *Re-run failed jobs*). Le garder **seulement** comme secret de l'environnement `production` : supprimer toute copie au niveau du dépôt, que les workflows de n'importe quelle branche pourraient lire. Une fois que cela fonctionne, retirer `DATABASE_URL_UNPOOLED` d'App Service (cela redémarre l'application).
+- Comme migrate et deploy utilisent tous deux l'environnement `production`, chaque exécution enregistre deux déploiements; des approbateurs obligatoires (required reviewers) sur cet environnement exigeraient deux approbations par exécution.
 
-## Database migrations
+## Migrations de la base de données
 
-Rules for every schema change (see also [SETUP.md](SETUP.md)):
+Règles pour chaque changement de schéma (voir aussi [SETUP.md](SETUP.md)) :
 
-- Migrations are generated by Drizzle Kit, reviewed and committed; they are applied only by the migrate job (production) or `npm run db:migrate -w @incision/database` (local). Never `drizzle-kit push`, never at application start-up.
-- **Never edit a migration already applied remotely**, and never date a new one before the last applied one: Drizzle itself would skip both silently. Before applying anything, and again after, the migrator checks that the release's migrations are recorded with the same hash, so an edited or back-dated migration fails the migrate job and blocks the deployment. An applied migration missing from a release that has newer ones (diverged histories) is refused too; a release older than the database (rollback) is accepted. Change the schema with a new migration.
-- The migrator holds a PostgreSQL advisory lock on one direct connection while it reads its journal and applies all pending migrations **in one transaction**: concurrent runs wait (60 s at most), and a failing migration leaves none applied. Statements time out after 120 s; a statement waiting more than 10 s for a table lock fails instead of queueing application queries behind it.
-- **Compatible with the running version**: migrations run before the new code, so the previous application keeps serving traffic on the new schema. Add first (nullable or defaulted columns, new tables); remove or rename only in a later release, after no deployed code uses the old shape.
-- **New enum values** go in their own release: PostgreSQL cannot use a value added in the same transaction (the migrator applies all pending migrations in one), so the first default, check or data using it comes in a later deployment.
-- **Additive is not automatically safe**: `ALTER TABLE` takes locks; adding a foreign key or check on a large table should use `NOT VALID` then `VALIDATE` in a later migration; `CREATE INDEX CONCURRENTLY` cannot run inside the migrator's transaction. Today's tables are small, but write migrations as if they were not.
-- **Recovery when migrate fails** (the transaction rolled back, nothing is recorded, deploy was skipped, the previous app keeps running):
-  - *Transient cause* (connection, Neon waking up, lock timeout, another migration holding the lock, missing secret): fix the cause if needed, then *Re-run failed jobs* on the same run. The log shows the PostgreSQL code and reason.
-  - *SQL error*: pending migrations run in order, so a new migration cannot fix one that fails before it. Replace the failed migration itself (it was never applied remotely): delete its SQL, snapshot and journal entry **and those of every later migration** (none was applied: they share the transaction, and each snapshot already contains the failed change), fix the schema, run `npm run db:generate -w @incision/database` again, then promote. Do not edit generated SQL by hand: CI compares the schema with the snapshot, and a database test compares the migrated catalog with it (exact table set, column types, nullability and defaults, index uniqueness and partiality, foreign-key actions, constraint and index names; check expressions, primary keys and key columns are covered by behaviour tests only).
-  - *Data error* (existing rows violate a new constraint): remove the failed migration and every later one as above, then add the data fix with `npx drizzle-kit generate --custom` (in `packages/database`), then regenerate the schema change with `npm run db:generate -w @incision/database`, so the fix runs first. Alternatively ship the data fix in one release and the constraint in the next. Hand-written SQL, such as `NOT VALID` then `VALIDATE` or a backfill, also goes in a custom migration.
-  - A failed run's log can show the Neon host or role name in the PostgreSQL or DNS error; never the password or the URL.
-  - *Journal check failure* (an applied migration was edited, a new one is dated before the last applied one, e.g. after merging two branches that each generated a migration, or an applied migration is missing from a release that has newer ones): the check runs before anything is applied, so nothing changed. Restore the applied migration's SQL, snapshot and journal entry, regenerate the newer migrations on top of the current journal, then promote again.
-- If a migration succeeds but the deployment fails, the previous app keeps running on the additive schema; redeploy or revert as in [Rollback](#rollback).
-- Migrate runs automatically on promotion: create a Neon backup branch **before** promoting a risky migration.
+- Les migrations sont générées par Drizzle Kit, relues et commitées; elles ne sont appliquées que par le job migrate (production) ou par `npm run db:migrate -w @incision/database` (local). Jamais `drizzle-kit push`, jamais au démarrage de l'application.
+- **Ne jamais modifier une migration déjà appliquée à distance**, et ne jamais dater une nouvelle migration avant la dernière appliquée : Drizzle lui-même les ignorerait toutes deux en silence. Avant d'appliquer quoi que ce soit, puis de nouveau après, le migrateur vérifie que les migrations de la version sont enregistrées avec le même hash; une migration modifiée ou antidatée fait donc échouer le job migrate et bloque le déploiement. Une migration appliquée qui manque dans une version qui en contient de plus récentes (historiques divergents) est refusée aussi; une version plus ancienne que la base de données (rollback) est acceptée. Changer le schéma avec une nouvelle migration.
+- Le migrateur tient un verrou consultatif (advisory lock) PostgreSQL sur une seule connexion directe pendant qu'il lit son journal et applique toutes les migrations en attente **dans une seule transaction** : les exécutions concurrentes attendent (60 s au plus), et une migration qui échoue n'en laisse aucune appliquée. Les instructions SQL expirent après 120 s; une instruction qui attend plus de 10 s un verrou de table échoue au lieu de faire attendre derrière elle les requêtes de l'application.
+- **Compatibles avec la version en cours d'exécution** : les migrations s'exécutent avant le nouveau code, donc l'application précédente continue de servir le trafic sur le nouveau schéma. Ajouter d'abord (colonnes nullables ou avec valeur par défaut, nouvelles tables); supprimer ou renommer seulement dans une version ultérieure, quand plus aucun code déployé n'utilise l'ancienne forme.
+- Les **nouvelles valeurs d'enum** vont dans leur propre version : PostgreSQL ne peut pas utiliser une valeur ajoutée dans la même transaction (le migrateur applique toutes les migrations en attente dans une seule), donc la première valeur par défaut, contrainte CHECK ou donnée qui l'utilise arrive dans un déploiement ultérieur.
+- **Un changement additif n'est pas sûr d'office** : `ALTER TABLE` prend des verrous; ajouter une clé étrangère ou une contrainte CHECK sur une grosse table devrait passer par `NOT VALID`, puis `VALIDATE` dans une migration ultérieure; `CREATE INDEX CONCURRENTLY` ne peut pas s'exécuter dans la transaction du migrateur. Les tables actuelles sont petites, mais écrire les migrations comme si elles ne l'étaient pas.
+- **Reprise quand migrate échoue** (la transaction a été annulée, rien n'est enregistré, deploy a été sauté, l'application précédente continue de tourner) :
+  - *Cause passagère* (connexion, réveil de Neon, délai de verrou dépassé, autre migration qui détient le verrou, secret manquant) : corriger la cause au besoin, puis *Re-run failed jobs* sur la même exécution. Le log indique le code et la raison PostgreSQL.
+  - *Erreur SQL* : les migrations en attente s'exécutent dans l'ordre, donc une nouvelle migration ne peut pas réparer une migration qui échoue avant elle. Remplacer la migration en échec elle-même (elle n'a jamais été appliquée à distance) : supprimer son SQL, son snapshot et son entrée de journal **ainsi que ceux de chaque migration ultérieure** (aucune n'a été appliquée : elles partagent la transaction, et chaque snapshot contient déjà le changement en échec), corriger le schéma, relancer `npm run db:generate -w @incision/database`, puis promouvoir. Ne pas modifier le SQL généré à la main : la CI compare le schéma au snapshot, et un test de base de données compare le catalogue migré au snapshot (ensemble exact des tables, types des colonnes, nullabilité et valeurs par défaut, unicité et caractère partiel des index, actions des clés étrangères, noms des contraintes et des index; les expressions CHECK, les clés primaires et les colonnes des clés ne sont couvertes que par des tests de comportement).
+  - *Erreur de données* (des lignes existantes violent une nouvelle contrainte) : retirer la migration en échec et chaque migration ultérieure comme ci-dessus, ajouter ensuite la correction des données avec `npx drizzle-kit generate --custom` (dans `packages/database`), puis régénérer le changement de schéma avec `npm run db:generate -w @incision/database`, pour que la correction s'exécute en premier. Autre possibilité : livrer la correction des données dans une version et la contrainte dans la suivante. Le SQL écrit à la main, comme `NOT VALID` puis `VALIDATE` ou un remplissage rétroactif (backfill), va aussi dans une migration personnalisée.
+  - Le log d'une exécution en échec peut montrer le nom d'hôte ou le nom du rôle Neon dans l'erreur PostgreSQL ou DNS; jamais le mot de passe ni l'URL.
+  - *Échec de la vérification du journal* (une migration appliquée a été modifiée, une nouvelle est datée avant la dernière appliquée, par exemple après la fusion de deux branches qui ont chacune généré une migration, ou une migration appliquée manque dans une version qui en contient de plus récentes) : la vérification s'exécute avant toute application, donc rien n'a changé. Restaurer le SQL, le snapshot et l'entrée de journal de la migration appliquée, régénérer les migrations plus récentes par-dessus le journal actuel, puis promouvoir de nouveau.
+- Si une migration réussit mais que le déploiement échoue, l'application précédente continue de tourner sur le schéma additif; redéployer ou faire un revert comme dans [Rollback](#rollback).
+- Migrate s'exécute automatiquement à la promotion : créer une branche de sauvegarde Neon **avant** de promouvoir une migration risquée.
 
-## Authentication
+## Authentification
 
-Auth.js v5 with JWT sessions ([ADR-0003](adr/0003-authentication.md)). Variable **names** only; values live in App Service and in the local `.env`, never in the repository or a chat.
+Auth.js v5 avec des sessions JWT ([ADR-0003](adr/0003-authentication.md)). Seulement les **noms** des variables; les valeurs vivent dans App Service et dans le `.env` local, jamais dans le dépôt ni dans une conversation.
 
-| Variable | Production value | Notes |
+| Variable | Valeur en production | Notes |
 |---|---|---|
-| `AUTH_URL` | exactly `APP_URL`, e.g. `https://<default-domain>` | Origin only, no path. Auth.js builds its callback URLs from it; it also makes the cookies `__Secure-`/`__Host-` over HTTPS. |
-| `AUTH_SECRET` | 32 random bytes: `openssl rand -base64 32` | One per environment. Changing it signs everybody out (no rotation list at the checkpoint). Socket.IO decrypts the same cookie with it. |
-| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | production GitHub OAuth app | GitHub allows one callback URL per OAuth app: one app for production, another for local development. |
-| `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET` | Discord application | One application can list both redirect URLs. |
-| `TRUSTED_PROXY_HOPS` | `1` | Azure's front end appends the client address to `X-Forwarded-For`; only that last entry is trusted, the ones a client writes are ignored. `0` locally. Keep `1` unless another proxy (e.g. Front Door) is added: with `0` every visitor shares the front end's address, so 100 failed sign-ins pause local sign-in for everyone; with `2` a client's own entry is trusted and the per-address limit can be bypassed. |
+| `AUTH_URL` | exactement `APP_URL`, par exemple `https://<default-domain>` | Origine seulement, sans chemin. Auth.js construit ses URL de callback à partir d'elle; elle donne aussi aux cookies les préfixes `__Secure-`/`__Host-` en HTTPS. |
+| `AUTH_SECRET` | 32 octets aléatoires : `openssl rand -base64 32` | Un par environnement. Le changer déconnecte tout le monde (pas de liste de rotation au checkpoint). Socket.IO déchiffre le même cookie avec lui. |
+| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | application OAuth GitHub de production | GitHub permet une seule URL de callback par application OAuth : une application pour la production, une autre pour le développement local. |
+| `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET` | application Discord | Une seule application peut lister les deux URL de redirection. |
+| `TRUSTED_PROXY_HOPS` | `1` | Le frontal d'Azure ajoute l'adresse du client à `X-Forwarded-For`; seule cette dernière entrée est jugée fiable, celles qu'un client écrit sont ignorées. `0` en local. Garder `1` sauf si un autre proxy (par exemple Front Door) est ajouté : avec `0`, tous les visiteurs partagent l'adresse du frontal, donc 100 connexions échouées suspendent la connexion locale pour tout le monde; avec `2`, l'entrée écrite par un client est jugée fiable et la limite par adresse peut être contournée. |
 
-Exact callback URLs to register:
+URL de callback exactes à enregistrer :
 
-| Provider | Production | Local |
+| Fournisseur | Production | Local |
 |---|---|---|
 | GitHub (*Authorization callback URL*) | `https://<default-domain>/api/auth/callback/github` | `http://localhost:3000/api/auth/callback/github` |
 | Discord (*OAuth2 → Redirects*) | `https://<default-domain>/api/auth/callback/discord` | `http://localhost:3000/api/auth/callback/discord` |
 
-Permissions: GitHub requests **no scope** (public profile only), Discord only `identify`. No email is requested, stored or logged; the provider's name only seeds the display name of a new account.
+Permissions : GitHub ne demande **aucun scope** (profil public seulement), Discord seulement `identify`. Aucun courriel n'est demandé, stocké ni journalisé; le nom transmis par le fournisseur sert seulement à initialiser le nom d'affichage d'un nouveau compte.
 
-**Sessions.** A session lasts **24 hours from sign-in**, whatever the activity: Auth.js re-issues its cookie when `/api/auth/session` is read (pages and actions never write it), but every check also compares the sign-in time with the 24-hour limit, so the cookie can never extend it. There is no "remember me". Each request carrying a session cookie reads the account's `session_version` (one indexed query); requests without a session cookie, such as Always On and the liveness probe, never touch the database. **Sign-out ends every session of the account** on every device: it increments `session_version` and closes the account's sockets. If the database cannot be reached, protected pages and sockets refuse the session (fail closed); the cookie stays and works again once Neon answers. A failed sign-out says so and keeps the session. Auth.js' built-in `POST /api/auth/signout` is refused (405): it would clear the cookie even when the revocation failed.
+**Sessions.** Une session dure **24 heures à compter de la connexion**, quelle que soit l'activité : Auth.js réémet son cookie quand `/api/auth/session` est lu (les pages et les actions ne l'écrivent jamais), mais chaque vérification compare aussi l'heure de connexion à la limite de 24 heures, donc le cookie ne peut jamais la prolonger. Il n'y a pas de « se souvenir de moi ». Chaque requête qui porte un cookie de session lit le `session_version` du compte (une requête indexée); les requêtes sans cookie de session, comme Always On et la sonde de vivacité (liveness), ne touchent jamais la base de données. **La déconnexion met fin à toutes les sessions du compte** sur tous les appareils : elle incrémente `session_version` et ferme les sockets du compte. Si la base de données est injoignable, les pages protégées et les sockets refusent la session (fail closed); le cookie reste et fonctionne de nouveau dès que Neon répond. Une déconnexion qui échoue le signale et garde la session. Le `POST /api/auth/signout` intégré d'Auth.js est refusé (405) : il effacerait le cookie même quand la révocation a échoué.
 
-**Rate limits** (in memory, one instance, counted before any password check so parallel attempts cannot slip through): per 15 minutes, 5 failed local sign-ins per login and address, 50 per login from anywhere, 100 failures and 200 checked attempts (successful ones included) per address (a whole class may share one school address); at most 3 sign-in checks run at once, 2 per address, so that one address cannot occupy the server; many addresses together still can make local sign-in answer "unavailable" for a while (about 14 s per extra address), with GitHub and Discord unaffected as the fallback. A database failure counts as nothing. A pause also refuses the right password. Because the demo accounts are public, a stranger can pause one for 15 minutes with 50 failures from various addresses: on demonstration day, prefer GitHub or Discord or keep the second demo account in reserve. A restart resets the counters.
+**Limites de fréquence** (en mémoire, une instance, comptées avant toute vérification de mot de passe pour que des tentatives parallèles ne puissent pas passer entre les mailles) : par tranche de 15 minutes, 5 connexions locales échouées par nom d'utilisateur et par adresse, 50 par nom d'utilisateur toutes adresses confondues, 100 échecs et 200 tentatives vérifiées (réussies comprises) par adresse (une classe entière peut partager une seule adresse d'école); au plus 3 vérifications de connexion s'exécutent à la fois, 2 par adresse, pour qu'une seule adresse ne puisse pas monopoliser le serveur; de nombreuses adresses réunies peuvent quand même faire répondre « indisponible » à la connexion locale pendant un moment (environ 14 s par adresse supplémentaire), alors que GitHub et Discord, non touchés, servent de solution de repli. Une panne de base de données ne compte pour rien. Une pause refuse aussi le bon mot de passe. Comme les comptes de démonstration sont publics, un inconnu peut en suspendre un pendant 15 minutes avec 50 échecs depuis diverses adresses : le jour de la démonstration, privilégier GitHub ou Discord, ou garder le second compte de démonstration en réserve. Un redémarrage remet les compteurs à zéro.
 
-**Verifying real OAuth sign-ins** (manual; the automated tests stop at the provider's authorisation page): locally with the development apps, then in production after deployment — sign in with GitHub, sign out, sign in with Discord, sign out; check that `/account` shows a display name, that `/api/auth/session` returns only `user.id` and `expires`, and that the Log stream shows no email, token or profile. Cancel once on each provider's consent screen: the sign-in page must show the translated "cancelled or failed" message.
+**Vérifier les vraies connexions OAuth** (à la main; les tests automatisés s'arrêtent à la page d'autorisation du fournisseur) : en local avec les applications de développement, puis en production après le déploiement — se connecter avec GitHub, se déconnecter, se connecter avec Discord, se déconnecter; vérifier que `/account` affiche un nom d'affichage, que `/api/auth/session` ne renvoie que `user.id` et `expires`, et que Log stream ne montre aucun courriel, jeton ni profil. Annuler une fois sur l'écran de consentement de chaque fournisseur : la page de connexion doit afficher le message traduit qui indique une connexion annulée ou échouée.
 
-## Rooms
+## Salles
 
-Rooms by code (CP-06) need no new variable or migration. Presence lives in the process memory, like the session registry: one App Service instance (ADR-0001); scaling out would split rooms between instances.
+Les salles par code (CP-06) n'exigent aucune nouvelle variable ni migration. La présence vit dans la mémoire du processus, comme le registre des sessions : une seule instance App Service (ADR-0001); une mise à l'échelle horizontale répartirait les salles entre plusieurs instances.
 
-**Limits** (in memory, reset by a restart): a socket may send 5 `room:watch` events per 10 seconds, one at a time, and beyond that it is disconnected; an account has at most 2 watches in progress across all its sockets, so neither one socket nor many sockets of one account can drain the 5-connection database pool. An account may create, join or leave a room 10 times per minute. Broadcasts read a room once at a time and skip rooms nobody follows.
+**Limites** (en mémoire, remises à zéro par un redémarrage) : un socket peut envoyer 5 événements `room:watch` par 10 secondes, un à la fois, et au-delà il est déconnecté; un compte a au plus 2 suivis (watches) en cours sur l'ensemble de ses sockets, pour que ni un socket ni plusieurs sockets d'un même compte ne puissent épuiser le pool de 5 connexions à la base de données. Un compte peut créer, rejoindre ou quitter une salle 10 fois par minute. Les diffusions font une seule lecture à la fois par salle et ignorent les salles que personne ne suit.
 
-**Residual risks, accepted at the checkpoint:**
+**Risques résiduels, acceptés au checkpoint :**
 
-- Code guessing (SALLE-10 not built): a signed-in account can try codes; private rooms answer exactly like unknown codes. With 31⁶ codes and about twenty open rooms, a hit takes millions of requests.
-- Socket handshakes are not limited per account (each reads `session_version` once): many accounts, or a flood of handshakes, still share the one 5-connection pool of the single instance, like plain HTTP requests do.
-- Closed rooms and departed members stay in the database (no purge yet): about 700 bytes per room; the per-account limit bounds the growth.
-- A member who signs out stays in the room, shown offline, until they come back or the host leaves (kicking comes with SALLE-07).
+- Deviner des codes (SALLE-10 non réalisée) : un compte connecté peut essayer des codes; les salles privées répondent exactement comme des codes inconnus. Avec 31⁶ codes et une vingtaine de salles ouvertes, tomber sur une salle demande des millions de requêtes.
+- Les handshakes des sockets ne sont pas limités par compte (chacun lit `session_version` une fois) : de nombreux comptes, ou un flot de handshakes, partagent quand même l'unique pool de 5 connexions de la seule instance, comme le font les simples requêtes HTTP.
+- Les salles fermées et les membres partis restent dans la base de données (pas encore de purge) : environ 700 octets par salle; la limite par compte borne la croissance.
+- Un membre qui se déconnecte reste dans la salle, affiché hors ligne, jusqu'à son retour ou au départ de l'hôte (l'expulsion viendra avec SALLE-07).
 
-## Demo accounts
+## Comptes de démonstration
 
-Two fictitious local accounts, listed with their passwords in the [README](../README.md#comptes-de-démonstration), serve demonstrations and the Playwright tests. Their passwords are public on purpose and used nowhere else; they are not technical secrets. The seed (`packages/database/src/identity/demo-accounts.ts`) only creates missing accounts and never modifies an existing one (an account with a demo login whose password differs is reported as a conflict). It never runs at application start-up.
+Deux comptes locaux fictifs, listés avec leurs mots de passe dans le [README](../README.md#comptes-de-démonstration), servent aux démonstrations et aux tests Playwright. Leurs mots de passe sont volontairement publics et ne servent nulle part ailleurs; ce ne sont pas des secrets techniques. Le seed (`packages/database/src/identity/demo-accounts.ts`) crée seulement les comptes manquants et ne modifie jamais un compte existant (un compte qui porte un nom d'utilisateur de démonstration avec un mot de passe différent est signalé comme un conflit). Il ne s'exécute jamais au démarrage de l'application.
 
-- Local: `npm run db:seed:demo -w @incision/database` (uses `DATABASE_URL_UNPOOLED` from `.env`; refuses a remote database without `--remote`).
-- CI: the E2E run seeds its own disposable database.
-- **Production, only when I decide to:** Actions → *Seed demo accounts* → *Run workflow* on `main`, typing `seed production demo accounts`. It runs the last successful deployment's release (most recent green *Deploy* run, artifacts kept 30 days), like the migrate job, with `DATABASE_URL_UNPOOLED` from the `production` environment, and logs `created`, `unchanged` or `conflict` for each login. Run it after a green Deploy, never while one runs; a mistyped confirmation skips the job (green run, nothing seeded): check that the job ran and logged its results. A failed run's public log can show the Neon host name, never the password.
+- En local : `npm run db:seed:demo -w @incision/database` (utilise `DATABASE_URL_UNPOOLED` du `.env`; refuse une base de données distante sans `--remote`).
+- CI : l'exécution E2E alimente sa propre base jetable avec le seed.
+- **En production, seulement quand je le décide :** Actions → *Seed demo accounts* → *Run workflow* sur `main`, en tapant `seed production demo accounts`. Le workflow exécute la version du dernier déploiement réussi (exécution *Deploy* verte la plus récente, artefacts conservés 30 jours), comme le job migrate, avec `DATABASE_URL_UNPOOLED` de l'environnement `production`, et journalise `created`, `unchanged` ou `conflict` pour chaque nom d'utilisateur. Le lancer après un Deploy vert, jamais pendant qu'un Deploy s'exécute; une confirmation mal tapée fait sauter le job (exécution verte, rien n'est inséré) : vérifier que le job s'est exécuté et a journalisé ses résultats. Le log public d'une exécution en échec peut montrer le nom d'hôte Neon, jamais le mot de passe.
 
-## First promotion (CP-02 to CP-06 together)
+## Première promotion (CP-02 à CP-06 ensemble)
 
-The first `dev` → `main` promotion deploys the pipeline, the schema (migrations `0000` and `0001`), authentication, the design and rooms at once, and there is no earlier Deploy artifact to roll back to. In order:
+La première promotion `dev` → `main` déploie d'un coup le pipeline, le schéma (migrations `0000` et `0001`), l'authentification, le design et les salles, et il n'existe aucun artefact Deploy antérieur vers lequel revenir. Dans l'ordre :
 
-1. OAuth apps: the production callback URLs above, on the exact default domain.
-2. App Service: startup command and every app setting of [One-time configuration](#one-time-configuration) and [Authentication](#authentication), none empty, `AUTH_SECRET` newly generated for production.
-3. GitHub environment `production`: secrets `AZURE_WEBAPP_PUBLISH_PROFILE` and `DATABASE_URL_UNPOOLED`, variable `APP_URL` equal to App Service's `APP_URL` (the smoke test uses it as the socket's Origin).
-4. Neon: no Incision table yet (`0000` creates them); optionally a backup branch.
-5. Promote, then watch the run: ci (with E2E) → build → migrate (`2 migration(s) applied`) → deploy → smoke.
-6. If smoke fails because the app refuses to start (Log stream: `Invalid server environment: <NAME>: …`), set the named variable (saving restarts the app), then *Re-run failed jobs*: only smoke runs again. A wrong but present value (OAuth secret, callback) does not stop the app: step 7 catches it.
-7. Real GitHub and Discord sign-ins and a cancellation on each, as in [Authentication](#authentication).
-8. Demo seed only on explicit approval ([Demo accounts](#demo-accounts)).
+1. Applications OAuth : les URL de callback de production ci-dessus, sur le domaine par défaut exact.
+2. App Service : commande de démarrage et chaque paramètre d'application de [Configuration initiale](#configuration-initiale) et d'[Authentification](#authentification), aucun vide, `AUTH_SECRET` nouvellement généré pour la production.
+3. Environnement GitHub `production` : secrets `AZURE_WEBAPP_PUBLISH_PROFILE` et `DATABASE_URL_UNPOOLED`, variable `APP_URL` égale à l'`APP_URL` d'App Service (le smoke test l'utilise comme Origin du socket).
+4. Neon : aucune table Incision pour l'instant (`0000` les crée); en option, une branche de sauvegarde.
+5. Promouvoir, puis suivre l'exécution : ci (avec E2E) → build → migrate (`2 migration(s) applied`) → deploy → smoke.
+6. Si smoke échoue parce que l'application refuse de démarrer (Log stream : `Invalid server environment: <NAME>: …`), définir la variable nommée (l'enregistrement redémarre l'application), puis *Re-run failed jobs* : seul smoke s'exécute de nouveau. Une valeur présente mais erronée (secret OAuth, callback) n'arrête pas l'application : l'étape 7 la détecte.
+7. Vraies connexions GitHub et Discord, et une annulation sur chacun, comme dans [Authentification](#authentification).
+8. Seed de démonstration seulement sur approbation explicite ([Comptes de démonstration](#comptes-de-démonstration)).
 
-The Health check on `/api/health/live` fails until this first deployment: harmless, it does not block the zip deploy.
+Le Health check sur `/api/health/live` échoue jusqu'à ce premier déploiement : c'est sans conséquence, il ne bloque pas le déploiement zip.
 
-## Checking production
+## Vérifier la production
 
 ```sh
 npm run smoke -w @incision/web -- https://<default-domain> --database up
 ```
 
-Logs: App Service → Log stream. Two endpoints, both without internal details:
+Logs : App Service → Log stream. Deux endpoints, tous deux sans détails internes :
 
-- `/api/health/live`: liveness for Azure, `status` and `commit`, never touches the database.
-- `/api/health`: readiness for the smoke test and humans, adds `database` (`up`, `down`, `not_configured`). Neon is queried at most once an hour while it answers and every 30 s while it does not; each new deployment probes afresh. It answers 200 while the process runs, with `status: "degraded"` unless the database is `up`.
+- `/api/health/live` : vivacité (liveness) pour Azure, `status` et `commit`, ne touche jamais la base de données.
+- `/api/health` : disponibilité (readiness) pour le smoke test et les humains, ajoute `database` (`up`, `down`, `not_configured`). Neon est interrogé au plus une fois par heure tant qu'il répond, et toutes les 30 s tant qu'il ne répond pas; chaque nouveau déploiement refait la vérification. Il répond 200 tant que le processus tourne, avec `status: "degraded"` sauf si la base de données est `up`.
 
 ## Rollback
 
-- **Application, fastest:** in Actions, open the last successful *Deploy* run of a good commit and re-run its *deploy* and *smoke* jobs: they redeploy that run's artifact. GitHub only allows re-runs for 30 days, which is also the artifact retention. Re-running deploy does not re-run migrate: the database stays on the newest schema, so only roll back to a release whose code still works on it (never past a migration that removed something). Do not push to `main` until the fix lands, or the bad commit is deployed again.
-- **Application, always available:** revert the faulty change on `dev` (PR), then promote `dev` to `main`; the Deploy workflow ships the reverted tree. Never revert a commit that contains an already applied migration: change the schema forward instead.
-- **Database:** migrations are forward-only and must stay compatible with the previous app version (add first, remove in a later release). Before a risky migration, create a Neon branch from the default branch (named `production` in recent Neon projects) as a backup. Neon Free can also restore within a short history window (6 hours at the time of writing); check it before relying on it.
-- **Credential leak:** App Service overview → *Reset publish profile*, then update the environment secret. Rotate Neon passwords from the Neon console and update the app settings.
+- **Application, le plus rapide :** dans Actions, ouvrir la dernière exécution *Deploy* réussie d'un bon commit et relancer ses jobs *deploy* et *smoke* : ils redéploient l'artefact de cette exécution. GitHub ne permet de relancer une exécution que pendant 30 jours, ce qui correspond aussi à la durée de conservation des artefacts. Relancer deploy ne relance pas migrate : la base de données reste sur le schéma le plus récent; ne revenir donc qu'à une version dont le code fonctionne encore avec ce schéma (jamais au-delà d'une migration qui a supprimé quelque chose). Ne rien pousser sur `main` avant que le correctif soit arrivé, sinon le mauvais commit est redéployé.
+- **Application, toujours possible :** faire un revert du changement fautif sur `dev` (PR), puis promouvoir `dev` vers `main`; le workflow Deploy livre l'arbre après le revert. Ne jamais faire de revert d'un commit qui contient une migration déjà appliquée : faire plutôt évoluer le schéma vers l'avant.
+- **Base de données :** les migrations vont seulement vers l'avant et doivent rester compatibles avec la version précédente de l'application (ajouter d'abord, supprimer dans une version ultérieure). Avant une migration risquée, créer une branche Neon à partir de la branche par défaut (nommée `production` dans les projets Neon récents) comme sauvegarde. Neon Free peut aussi restaurer à l'intérieur d'une courte fenêtre d'historique (6 heures au moment d'écrire ces lignes); la vérifier avant de s'y fier.
+- **Fuite d'identifiants :** Overview d'App Service → *Reset publish profile*, puis mettre à jour le secret de l'environnement. Renouveler les mots de passe Neon depuis la console Neon et mettre à jour les paramètres d'application.
 
-## Costs
+## Coûts
 
-B2 runs on the Azure for Students credit: check Cost Management regularly and never convert to a paid subscription. Neon stays on the free plan: its compute hours are limited per month and the compute is suspended until the next period when they run out, so nothing may query the database on a fixed schedule (health probe, keep-alive). Watch the usage page.
+B2 tourne sur le crédit Azure for Students : consulter Cost Management régulièrement et ne jamais convertir en abonnement payant. Neon reste sur le forfait gratuit : ses heures de calcul sont limitées par mois et, une fois qu'elles sont épuisées, le calcul est suspendu jusqu'à la période suivante; rien ne doit donc interroger la base de données à intervalle fixe (sonde de santé, keep-alive). Surveiller la page d'utilisation.

@@ -23,7 +23,7 @@ Comptes locaux fictifs pour les démonstrations et les tests de bout en bout, sa
 | `demo-alice` | `brume-alice-4817` | Alice (demo) |
 | `demo-bruno` | `brume-bruno-2096` | Bruno (demo) |
 
-Ils existent partout où le seed a été exécuté : en local après `npm run db:seed:demo -w @incision/database`, dans la base de données E2E, et en production une fois que j'exécute le workflow de seed ([DEPLOYMENT.md](docs/DEPLOYMENT.md#demo-accounts)). Se déconnecter avec l'un d'eux met fin à toutes ses sessions, y compris aux démonstrations d'autres personnes.
+Ils existent partout où le seed a été exécuté : en local après `npm run db:seed:demo -w @incision/database`, dans la base de données E2E, et en production une fois que j'exécute le workflow de seed ([DEPLOYMENT.md](docs/DEPLOYMENT.md#comptes-de-démonstration)). Se déconnecter avec l'un d'eux met fin à toutes ses sessions, y compris aux démonstrations d'autres personnes.
 
 ## Sources et autorité
 
