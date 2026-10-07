@@ -94,6 +94,19 @@ Permissions: GitHub requests **no scope** (public profile only), Discord only `i
 
 **Verifying real OAuth sign-ins** (manual; the automated tests stop at the provider's authorisation page): locally with the development apps, then in production after deployment — sign in with GitHub, sign out, sign in with Discord, sign out; check that `/account` shows a display name, that `/api/auth/session` returns only `user.id` and `expires`, and that the Log stream shows no email, token or profile. Cancel once on each provider's consent screen: the sign-in page must show the translated "cancelled or failed" message.
 
+## Rooms
+
+Rooms by code (CP-06) need no new variable or migration. Presence lives in the process memory, like the session registry: one App Service instance (ADR-0001); scaling out would split rooms between instances.
+
+**Limits** (in memory, reset by a restart): a socket may send 5 `room:watch` events per 10 seconds, one at a time, and beyond that it is disconnected; an account has at most 2 watches in progress across all its sockets, so neither one socket nor many sockets of one account can drain the 5-connection database pool. An account may create, join or leave a room 10 times per minute. Broadcasts read a room once at a time and skip rooms nobody follows.
+
+**Residual risks, accepted at the checkpoint:**
+
+- Code guessing (SALLE-10 not built): a signed-in account can try codes; private rooms answer exactly like unknown codes. With 31⁶ codes and about twenty open rooms, a hit takes millions of requests.
+- Socket handshakes are not limited per account (each reads `session_version` once): many accounts, or a flood of handshakes, still share the one 5-connection pool of the single instance, like plain HTTP requests do.
+- Closed rooms and departed members stay in the database (no purge yet): about 700 bytes per room; the per-account limit bounds the growth.
+- A member who signs out stays in the room, shown offline, until they come back or the host leaves (kicking comes with SALLE-07).
+
 ## Demo accounts
 
 Two fictitious local accounts, listed with their passwords in the [README](../README.md#demo-accounts), serve demonstrations and the Playwright tests. Their passwords are public on purpose and used nowhere else; they are not technical secrets. The seed (`packages/database/src/identity/demo-accounts.ts`) only creates missing accounts and never modifies an existing one (an account with a demo login whose password differs is reported as a conflict). It never runs at application start-up.
@@ -102,9 +115,9 @@ Two fictitious local accounts, listed with their passwords in the [README](../RE
 - CI: the E2E run seeds its own disposable database.
 - **Production, only on Philippe's explicit approval:** Actions → *Seed demo accounts* → *Run workflow* on `main`, typing `seed production demo accounts`. It runs the last successful deployment's release (most recent green *Deploy* run, artifacts kept 30 days), like the migrate job, with `DATABASE_URL_UNPOOLED` from the `production` environment, and logs `created`, `unchanged` or `conflict` for each login. Run it after a green Deploy, never while one runs; a mistyped confirmation skips the job (green run, nothing seeded): check that the job ran and logged its results. A failed run's public log can show the Neon host name, never the password.
 
-## First promotion (CP-02 to CP-04 together)
+## First promotion (CP-02 to CP-06 together)
 
-The first `dev` → `main` promotion deploys the pipeline, the schema (migrations `0000` and `0001`) and authentication at once, and there is no earlier Deploy artifact to roll back to. In order:
+The first `dev` → `main` promotion deploys the pipeline, the schema (migrations `0000` and `0001`), authentication, the design and rooms at once, and there is no earlier Deploy artifact to roll back to. In order:
 
 1. OAuth apps: the production callback URLs above, on the exact default domain.
 2. App Service: startup command and every app setting of [One-time configuration](#one-time-configuration) and [Authentication](#authentication), none empty, `AUTH_SECRET` newly generated for production.

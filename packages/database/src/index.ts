@@ -5,5 +5,6 @@ export * from "./identity/password";
 export * from "./local-database";
 export * from "./pool";
 export * from "./rooms/create-room";
+export * from "./rooms/membership";
 export * from "./schema";
 export * from "./tls";

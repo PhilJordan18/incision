@@ -1,13 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
-import { getDatabase, readSessionVersion } from "@incision/database";
+import { findActiveMembership, getDatabase, readRoomSnapshot, readSessionVersion } from "@incision/database";
 import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
 import { CLIENT_ADDRESS_HEADER, clientAddress } from "./src/server/http/client-address";
+import { registerRoomChannel } from "./src/server/realtime/room-channel";
+import { RoomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
 import { authenticateHandshake } from "./src/server/realtime/socket-session";
+import { roomEvents } from "./src/server/rooms/room-events";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
 async function main(): Promise<void> {
@@ -27,6 +30,8 @@ async function main(): Promise<void> {
     request.headers[CLIENT_ADDRESS_HEADER] = clientAddress(request, env.trustedProxyHops);
     void handle(request, response);
   });
+  // The same registry as the sign-out server action: both read it from globalThis.
+  const registry = getSessionRegistry();
   // Attached after Next so Socket.IO can intercept its own path and pass the rest on.
   const io = attachRealtimeServer(httpServer, {
     allowedOrigin: env.appOrigin,
@@ -37,8 +42,16 @@ async function main(): Promise<void> {
         secureCookie: env.secureCookies,
         readVersion: (accountId) => readSessionVersion(databaseOf(env), accountId),
       }),
-    // The same registry as the sign-out server action: both read it from globalThis.
-    registry: getSessionRegistry(),
+    registry,
+  });
+  // Room presence (CP-06): membership from the database, changes from the server actions.
+  registerRoomChannel(io, {
+    allowedOrigin: env.appOrigin,
+    registry,
+    presence: new RoomPresence(),
+    events: roomEvents(),
+    findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
+    readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
   });
 
   httpServer.listen(env.port, () => {

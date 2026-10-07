@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { type BrowserContext, expect, type Page } from "@playwright/test";
 import { encode } from "next-auth/jwt";
 import pg from "pg";
@@ -59,4 +60,15 @@ export async function query<Row extends pg.QueryResultRow>(sql: string, values: 
   } finally {
     await client.end();
   }
+}
+
+/** WCAG 2.1 A and AA rules, contrast included (A11Y-01 to A11Y-04, DA p.26). */
+export async function expectNoAccessibilityViolation(page: Page): Promise<void> {
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(results.violations.map(({ id, nodes }) => `${id}: ${nodes.map((node) => node.target.join(" ")).join(", ")}`)).toEqual([]);
+}
+
+export async function expectNoHorizontalScroll(page: Page): Promise<void> {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
 }

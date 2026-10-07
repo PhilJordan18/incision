@@ -1,6 +1,6 @@
 # Architecture — Incision
 
-Initial version aligned with the final brief, **October 2, 2026**. Design document, not proof that anything works. Delivered so far: CI, the custom Next.js + Socket.IO server deployed on Azure App Service, the PostgreSQL schema with versioned migrations, and authentication (Auth.js sessions checked on HTTP and Socket.IO); rooms and race events are still to be implemented.
+Initial version aligned with the final brief, **October 2, 2026**. Design document, not proof that anything works. Delivered so far: CI, the custom Next.js + Socket.IO server deployed on Azure App Service, the PostgreSQL schema with versioned migrations, authentication (Auth.js sessions checked on HTTP and Socket.IO), the art direction applied to the interface, and rooms by code with live presence over Socket.IO; races are still to be implemented.
 
 ## 1. Authority and scope
 

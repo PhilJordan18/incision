@@ -1,4 +1,4 @@
-import { canonicalDisplayName, generateRoomCode, type RandomIndex, type RoomCode } from "@incision/domain";
+import { canonicalDisplayName, generateRoomCode, type MemberRole, type RandomIndex, type RoomCode } from "@incision/domain";
 import { eq } from "drizzle-orm";
 import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
@@ -9,7 +9,7 @@ export const ROOM_CODE_ATTEMPTS = 5;
 
 export type CreateRoomInput = {
   readonly accountId: string;
-  readonly role: "participant" | "spectator";
+  readonly role: MemberRole;
   readonly visibility: "public" | "code" | "private";
   readonly capacity: number;
   /** Must be a CSPRNG in production (`crypto.randomInt`), see generateRoomCode. */
