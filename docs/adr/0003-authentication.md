@@ -1,6 +1,6 @@
 # ADR-0003 — Auth.js v5 with JWT sessions and application tables
 
-- Status: **accepted**, October 5, 2026, after an isolated spike; **implemented in CP-04** (October 6). GitHub and local sign-ins were proven in production on October 7, 2026; Discord needed its issuer declared (Discord adds `iss` to its redirects, RFC 9207) and is verified again after that fix (manual procedure in [DEPLOYMENT.md](../DEPLOYMENT.md#authentification)). Automated tests stop at the provider's authorisation URL, except a simulated cancellation.
+- Status: **accepted**, October 5, 2026, after an isolated spike; **implemented in CP-04** (October 6). GitHub, Discord and local sign-ins were proven in production on October 7, 2026; Discord first needed its issuer declared (Discord adds `iss` to its redirects, RFC 9207) (manual procedure in [DEPLOYMENT.md](../DEPLOYMENT.md#authentification)). Automated tests stop at the provider's authorisation URL, except a simulated cancellation.
 - Requirements: AUTH-01, SEC-03, TEST-03; constrains SALLE-01, SEC-01, I18N-01. Choice D-14 (no email, separate accounts per provider).
 
 ## Context

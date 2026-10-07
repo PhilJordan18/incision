@@ -69,7 +69,7 @@ Pour changer le schéma : modifier `packages/database/src/schema`, lancer `npm r
 
 La cible est démontrable, pas seulement documentée :
 
-1. Serveur HTTPS public, authentification **GitHub et Discord**, PostgreSQL et migrations fonctionnels. Connexion locale pour les tests Playwright. En production depuis le 7 octobre; les vraies connexions GitHub et locales y sont prouvées, Discord est vérifié après le correctif de son émetteur.
+1. Serveur HTTPS public, authentification **GitHub et Discord**, PostgreSQL et migrations fonctionnels. Connexion locale pour les tests Playwright. En production depuis le 7 octobre; les vraies connexions GitHub, Discord et locales y sont prouvées.
 2. Salle créée puis rejointe par code, deux navigateurs synchronisés en temps réel.
 3. `docs/ARCHITECTURE.md` : modèle de données, machine à états, ADR temps réel et approche des bots; `docs/DEMARCHE-CREATIVE.md` complet, avec des preuves humaines pour le nom/logo et l'identité appliquée.
 4. CI à chaque push : lint, TypeScript, tests et build; déploiement automatique après succès.

@@ -32,7 +32,7 @@ Le pipeline n'est vert que si la production exécute le commit attendu, joint Ne
 |---|---|
 | Configuration → Stack settings (onglet) → Startup command | `npm run start -w @incision/web` |
 | Configuration → Health check (onglet) → Path | `/api/health/live`, activé après le premier déploiement. **Jamais `/api/health`** : il interroge Neon, et une sonde chaque minute garderait l'instance de calcul gratuite de Neon éveillée en permanence et épuiserait son quota mensuel. |
-| Configuration → General settings | Always On, HTTPS only, TLS 1.3, FTP désactivé, authentification de base SCM activée (profil de publication) |
+| Configuration → General settings | Always On, HTTPS only, TLS 1.3, **HTTP version 2.0** (sinon le frontal répond en HTTP/1.1 : Lighthouse estime la perte à 1,2 s sur mobile), FTP désactivé, authentification de base SCM activée (profil de publication) |
 | Environment variables → App settings | `APP_URL` (le domaine par défaut en `https://`), `DATABASE_URL` (URL poolée de Neon), `SCM_DO_BUILD_DURING_DEPLOYMENT=false` et, pour l'authentification, `AUTH_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `TRUSTED_PROXY_HOPS=1` (voir [Authentification](#authentification)). L'application ne lit jamais `DATABASE_URL_UNPOOLED` : une fois le secret GitHub ci-dessous en place, le retirer d'App Service. |
 | Monitoring → App Service logs | Application logging : File System, rétention courte, pour que Log stream affiche la sortie de l'application |
 
