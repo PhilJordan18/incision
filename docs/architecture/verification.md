@@ -1,98 +1,81 @@
-# Delivery and evidence — checkpoint 1, then final
+# Delivery and evidence — checkpoint 1 delivered, then the final submission
 
-Updated on **October 3, 2026**, with my own clarifications: checkpoint submission on **Wednesday, October 7**, time not specified; internal target kept at **Monday, October 5**. Tuesday and Wednesday serve as a verification margin, not for adding features. Final submission: **November 13, 2026**. No server provided by the cégep; budget **$0 out of pocket**.
+Updated on **October 7, 2026, evening**: checkpoint 1 is submitted on Léa and production runs the submitted commit. Final submission: **Friday, November 13, 2026**. My own target: **81 of the 90 requirements complete by Monday, October 19**, then three weeks to go beyond the brief before the final submission. No server provided by the cégep; budget **$0 out of pocket**.
 
-## What actually exists
+## Checkpoint 1 — delivered
 
-Next.js skeleton, TypeScript/Tailwind, npm workspaces, local PostgreSQL through Compose, contribution rules and design. **Since October 5**: CI on every push and PR (lint, type check, unit tests, PostgreSQL tests, build), the custom Next.js + Socket.IO server and its Azure pipeline (CP-02), the Drizzle schema and serialised migrator (CP-03). **October 6 (CP-04, in review)**: GitHub, Discord and local sign-in with sessions revoked on sign-out over HTTP and Socket.IO, demo-account seed, FR/EN dictionaries for the existing pages, Playwright E2E in CI. **Not yet**: a production deployment of these cards, real GitHub/Discord sign-ins, rooms and realtime presence. The added documents do not replace this evidence.
+| Line graded at the checkpoint | Evidence |
+|---|---|
+| Specification — 20 | Submitted on September 28; copy kept, never rewritten. |
+| Creative process / art direction — 20 | [DEMARCHE-CREATIVE.md](../DEMARCHE-CREATIVE.md): names considered, sketches and logo, five references, palette, typefaces; 27-page art direction. |
+| Architecture — 20 | [ARCHITECTURE.md](../ARCHITECTURE.md): data model, race state machine (COURSE-01), realtime ADR, bots approach; ADR-0002 (hosting) and ADR-0003 (authentication). |
+| Production — 20 | HTTPS on Azure App Service with HTTP/2, Neon with versioned migrations; GitHub, Discord and local sign-in proven in production on October 7. |
+| Room by code / realtime — 10 | Create a room, join it by code from the home page, live presence in two browsers (CP-06). |
+| CI, language, theme, quality, requirements matrix — 10 | GitHub Actions on every push (lint, `tsc --noEmit`, unit and PostgreSQL tests, Playwright E2E, build); FR/EN and both themes on every page; Lighthouse 94–99 in performance and 100 elsewhere; [matrix](../EXIGENCES.md): 17 complete, 19 partial, 54 not done. |
 
-| Line graded at the checkpoint | Observed situation | Closing condition |
-|---|---|---|
-| Specification — 20 | Submitted; copy kept. | Do not redo the already submitted document; apply the new rules to the code. |
-| Creative process / art direction — 20 | Complete art direction V3, 24 pages read; name Incision confirmed, five references, palette, typefaces and mockups present. | DEMARCHE-CREATIVE.md, evidence of human sketches, exportable logo and application in the app; adapt the rule examples that have become outdated. |
-| Architecture — 20 | ARCHITECTURE.md, model, states, ADR and bots approach aligned. | Re-read against the first migration and the real prototype, readable diagrams. |
-| Production — 20 | Not demonstrated. | HTTPS server, GitHub AND Discord working, real PostgreSQL and migrations. |
-| Room by code / realtime — 10 | Not implemented. | Creation, admission and presence synchronised in two browsers. |
-| CI, language, theme, quality, requirements matrix — 10 | Initial requirements matrix of the 90 IDs created; other elements missing/incomplete. | Workflow executed, real tests, working selectors, honest statuses. |
+Cards CP-01 to CP-07 (issues #2 to #9) are closed; the pull requests that delivered them are #10 to #24.
 
-## Immediate critical path
+### Acceptance before submitting
 
-These batches are verifiable units of work, not promises of duration. They can be done within the same available day; do not wait for a date to start the next one.
+- [x] The teacher opens the HTTPS URL outside our local session.
+- [x] GitHub and Discord actually sign in; cancellation/errors are handled.
+- [x] A migration rebuilds the database; data persists after a restart.
+- [x] A creates, B joins by code, both see the same members without refreshing.
+- [x] Double tab, invalid code and unauthenticated creation do not alter the room.
+- [x] The last push ran lint, tsc --noEmit, tests; the published deployment matches the expected commit.
+- [x] Language and theme work on all existing pages; final logo visible and favicon replaced.
+- [x] DEMARCHE-CREATIVE complete, ARCHITECTURE with diagrams/ADR/bots, EXIGENCES with 90 IDs and honest evidence.
+- [x] No committed secret; demo, teacher access and launch procedure verified.
 
-### CP-01 — Demonstrate execution and delivery
+## Final submission plan
 
-- Hosting decided on October 5 (D-13, [ADR-0002](../adr/0002-hosting.md)): Azure App Service + Neon, accepted by the teacher. No secret in a card, no paid conversion.
-- Align Node 24, Node types, npm and the root lint/typecheck/test/build scripts.
-- Install Zod/Vitest, create a few tests of real rules (code, capacity, authorisation), GitHub Actions on every push/PR.
-- Run Next + Socket.IO in dev **and production**, behind HTTPS; persistent PostgreSQL. Keep a smoke test, check restarts.
-- Automatic deployment from main after checks; application rollback without wiping the database. Do not provision a paid service without an approved budget.
+Each remaining requirement belongs to exactly one lot. Track A is the server, realtime and interface; track B is the pure engine in `packages/domain` (no network, no database, seeded tests), which runs in parallel in its own worktree. Decisions D-16 to D-24 of the [requirements matrix](../EXIGENCES.md) settle the remaining ambiguities.
 
-**Output:** HTTPS URL and green CI; transport and database reachable. A published page alone does not complete the checkpoint.
+| Lot | Requirements | Observable result | Track | Target |
+|---|---|---|---|---|
+| 0 — Upkeep | TECH-01, TECH-08 | Next.js 16.4 and React 19.3 in production; Azure cost forecast checked against the student credit. | A | Oct 8 |
+| 1 — Guests and complete rooms | AUTH-02, AUTH-03, SALLE-03 to SALLE-08, SALLE-10, CONF-11 | A guest picks a nickname and joins; public, code and private rooms; IP-bound invitation links; kick without return; succession to the longest-present human; 10 code attempts per minute per IP. | A | Oct 8–10 |
+| 2 — Texts and measures | CONF-02 to CONF-07 | Public-domain FR/EN corpus in the database, random words, three measurable complexities, text options and characters; Appendix A measures and the ranking as pure functions. | B | Oct 8–10 |
+| 3 — Configuration and discovery | CONF-01, CONF-08, CONF-12, JOIN-02, JOIN-03 | The host configures the race and everyone sees it change live; realtime public explorer with language and complexity filters; quickplay. | A | Oct 10–11 |
+| 4 — The race | COURSE-01 to COURSE-11, TECH-06, PERF-02, DES-04, DES-06, SALLE-09 | 3-2-1 countdown, typing with immediate feedback and paste blocked, signature track at about 4 updates per second, authoritative server, 30 s resumption, abandon, end, ranking, restart or close. | A + B | Oct 11–14 |
+| 5 — Bots | BOT-01 to BOT-05, CONF-10 | Five seeded levels, variable speed, hesitations on hard words, errors corrected according to the error mode, identified on the track. | B, wired by A | Oct 11–14 |
+| 6 — Catch-up bonuses | BONUS-01 to BONUS-04, CONF-09 | Bonuses at the 25/50/75 % milestones, three effects announced on the track and to the target, consistent progress and WPM. | A + B | Oct 15 |
+| 7 — Results, history, profile | RES-01 to RES-05, HIST-01, HIST-02, AUTH-04 to AUTH-06, SEC-02, I18N-03, TECH-04 | Podium, full table, WPM chart for everyone and missed-keys heatmap, personal record, paginated history, validated profile photo, statistics, seed with history. | A + B | Oct 16–17 |
+| 8 — Cross-cutting quality | PERF-03, A11Y-01 to A11Y-04, I18N-01, TEST-01, TEST-02, TECH-07, SEC-01 | 30 smooth runners (29 bots and a human, plus spectators), axe clean on every screen in both themes, FR/EN everywhere, race E2E, security review of the host actions. | A + B | Oct 18–19 |
 
-### CP-02 — Identity and first migrations
+**Definition of done for every lot:** each delivered screen passes axe in both themes, in French and English, at 360 px and with the keyboard, with its E2E test. Lot 8 then confirms instead of catching up.
 
-- Authentication library prototype: GitHub, Discord, hashed local account; session recognised on the realtime side. Do not spend a day on home-made authentication.
-- Drizzle migrations: accounts/identities, rooms/members and uniqueness constraints. Seed of isolated test accounts, no student data.
-- Refusal of visitors/guests on creation and reserved actions; protection of callbacks and origins.
-- Plan the two OAuth applications and their callback URLs, localhost then HTTPS.
+**Slip order, fixed in advance:** the bonuses (lot 6) first, then the profile, then the charts. The race (lot 4) never slips: everything else depends on it.
 
-**Output:** both OAuth sign-ins work on the public site; local credentials usable for tests. TECH-04 stays partial if the corpus/history of the final seed are not possible yet.
+**Production:** a promotion every two or three days (targets: October 11, 14, 17 and 19), outside class hours, since a deployment interrupts a race in progress (D-06). Production stays functional and the commit history stays regular.
 
-### CP-03 — End-to-end room slice
+### Beyond the brief
 
-- An account creates a code-based room and chooses participant/spectator; six-character code.
-- A second browser joins, members synchronised, departure visible. Server-side schemas and authorisation.
-- One-room-per-identity constraint, double tab without duplicate, bounded capacity and invalid code refused.
-- Playwright test with two contexts and local accounts; SQL concurrency test. Guest version if included, test of the signed cookie.
-- A code-based prototype uses the CODE visibility, never a PRIVATE room accepting a code by mistake.
+Only after the 81 complete requirements, and only extras that reuse a part the brief already requires and that show in a two-minute demo:
 
-**Output:** reproducible two-browser demo in production; refusal paths verified.
+- **Replay a race, race my ghost:** any race from the history replays on the track from its stored series (RES-05); a ghost is a bot that replays my best run.
+- **Classroom projection mode:** the spectator host goes full screen for a projector: giant code, a track of 30 readable from the back of the room, animated podium.
+- **Targeted practice:** from the missed-keys heatmap, a solo room with a bot at my level and a random text that includes my weak keys (CONF-07).
+- **Already drawn in my art direction:** sound effects (off by default), reduced motion, keyboard layout for the heatmap (including the Canadian French layout used in Québec), manual host transfer, following a runner on a phone, "back to the room in 20 s" and rank changes on the results, account and data deletion (Québec's Law 25; the audience is minors).
+- **Visible engineering:** a published load test (30 runners in several rooms at once, p95 latency), explainable plausibility checks shown as a "verified race" badge, an English case study.
 
-### CP-04 — Visual identity, language, theme and submission
-
-To be done progressively with CP-02/03, not only at the last hour:
-
-- Apply my logo, favicon, validated palette and typefaces; do not generate the name or the logo.
-- All existing screens in FR/EN, browser default, persistent choice; two themes, system default, without flash; check at 360 px and with the keyboard.
-- Add DEMARCHE-CREATIVE.md with the real evidence from the complete dossier.
-- Complete the files/tests/statuses of the requirements matrix; adjust the diagram to the executed schema.
-- Re-read the cleanly cloned repository, the public URL and the teacher's read access. Provide the submission file containing the GitHub and site links, as instructed by the teacher.
-
-**Output:** checklist below satisfied; no final feature added at the expense of a checkpoint criterion.
-
-## Acceptance before submitting
-
-- [ ] The teacher opens the HTTPS URL outside our local session.
-- [ ] GitHub and Discord actually sign in; cancellation/errors are handled.
-- [ ] A migration rebuilds the database; data persists after a restart.
-- [ ] A creates, B joins by code, both see the same members without refreshing.
-- [ ] Double tab, invalid code and unauthenticated creation do not alter the room.
-- [ ] The last push ran lint, tsc --noEmit, tests; the published deployment matches the expected commit.
-- [ ] Language and theme work on all existing pages; final logo visible and favicon replaced.
-- [ ] DEMARCHE-CREATIVE complete, ARCHITECTURE with diagrams/ADR/bots, EXIGENCES with 90 IDs and honest evidence.
-- [ ] No committed secret; demo, teacher access and launch procedure verified.
+Not planned: public profiles and social features (the audience is minors), account linking (D-14), a teacher's class space (declined by the client), several instances.
 
 ## Trajectory to November 13
 
-| Target window | Testable result | Scope |
+| Window | Testable result | Scope |
 |---|---|---|
-| Now → Monday, October 5 | Usable public foundations | CP-01 to CP-04. Server/OAuth availability is the main risk. |
-| October 6–7 | Verification and submission on Wednesday | Buffer, production tests, submission links; no additional priority feature. |
-| October 8–11 | Complete rooms and texts | Three visibilities, IP/session invitations, kicks/succession, explorer/quickplay, corpus/dictionaries and configuration. |
-| October 12–18 | First real end-to-end race | States, 3 s, typing/correction, server authority, 30 s abandonment/resumption, end/ranking. |
-| October 19–25 | Durable results and bots | MPM series, heatmap, profile/history, five deterministic bots and tests. |
-| October 26–November 1 | Bonuses and functional polish | Three bonuses, thresholds/idempotence, variable targets, remaining settings, bots ADR. |
-| November 2–8 | Hardening | Load of 30, Lighthouse, accessibility, mobile, security, E2E, errors and operations. |
-| November 9–12 | Freeze and submission rehearsal | Clean repository, complete seed, README/screenshots, verified requirements matrix, IA.md with three real cases, demo/URL and backup. |
-| November 13 | Submission | Buffer reserved for incidents, no ambitious feature planned that day. |
+| October 8–19 | 81 requirements complete | Lots 0 to 8, four promotions to production. |
+| October 20–November 1 | Beyond the brief | The extras above; checkpoint feedback as soon as it arrives. |
+| November 2–8 | Hardening and final documents | Load, security, accessibility; ARCHITECTURE with the realtime message flow and the bots ADR; IA.md with three cases from its log and my reflection; README with screenshots and the demo account. |
+| November 9–12 | Freeze and submission rehearsal | Freshly cloned repository, complete seed, timed demo, case study. |
+| November 13 | Submission | No feature planned that day. |
 
-The dates are a **work plan**, not new teacher deadlines. Move batches forward as soon as they pass their criteria; keep some margin given my classes and work.
+The dates are a **work plan**, not new teacher deadlines. Lots move forward as soon as they pass their criteria.
 
 ## Lightweight process
 
-One short card per slice: goal, official IDs, data/permissions, observable criteria, refusal cases and evidence. Branch from dev; review/test, then merge into dev; release to main when stable. Architecture, security, data and UX reviews happen according to risk, without seven mandatory agents in series.
-
-Keep the portfolio vision in the quality of the engine, the reproducible tests and the distinctive track. Defer social network, teacher's class, MFA, distributed infrastructure and other extensions until the graded scope is covered.
+One issue per lot, with a sub-issue per slice, in the GitHub project of the final submission: status (Analysis, Ready, In progress, Review, Done), track, estimate in hours and target dates. Branch from dev; review and test, then merge into dev; release to main when stable. Architecture, security, data and UX reviews happen according to risk, in parallel on the same commit.
 
 ## Hosting without spending
 
