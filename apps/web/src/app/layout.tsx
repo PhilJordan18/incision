@@ -6,18 +6,19 @@ import { SYSTEM_THEME_SCRIPT } from "@/theme/theme";
 import { SITE_NAME } from "./site";
 import "./globals.css";
 
-// The design's four voices, exposed under the variables of apps/design/tokens.css.
+// The design's four voices, exposed under the variables of apps/design/tokens.css. Latin only:
+// French and English need no extended set, and every font file counts on a slow phone.
 // Google Fonts now ships "Big Shoulders Display" as the "Big Shoulders" family.
 const display = Big_Shoulders({
-  subsets: ["latin", "latin-ext"],
+  subsets: ["latin"],
   weight: ["800", "900"],
   variable: "--font-display",
   fallback: ["Arial Narrow", "sans-serif"],
   adjustFontFallback: false,
 });
-const serif = Instrument_Serif({ subsets: ["latin", "latin-ext"], weight: "400", style: ["normal", "italic"], variable: "--font-serif" });
-const sans = Geist({ subsets: ["latin", "latin-ext"], variable: "--font-sans" });
-const mono = Geist_Mono({ subsets: ["latin", "latin-ext"], variable: "--font-mono" });
+const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-serif" });
+const sans = Geist({ subsets: ["latin"], variable: "--font-sans" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getRequestDictionary();

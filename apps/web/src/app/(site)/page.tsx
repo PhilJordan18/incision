@@ -11,20 +11,27 @@ export default async function Home() {
   const { t } = await getRequestDictionary();
   return (
     <>
-      <div className="grid items-center gap-10 [grid-template-columns:repeat(auto-fit,minmax(min(520px,100%),1fr))]">
-        <section className="flex flex-col gap-7">
-          <h1 className="font-display text-[clamp(64px,11vw,120px)] leading-[0.86] font-black uppercase">
-            {t.home.titleLine1}
+      {/* On a desktop screen the whole page, footer included, fits without scrolling: the
+          title and the sea follow the screen's height as well as its width. */}
+      <div className="grid items-center gap-8 [grid-template-columns:repeat(auto-fit,minmax(min(520px,100%),1fr))]">
+        <section className="flex flex-col gap-5">
+          <h1 className="font-display text-[clamp(56px,min(11vw,10.5svh),112px)] leading-[0.86] font-black uppercase">
+            {/* Spaces keep the words apart for screen readers and reader views. */}
+            {t.home.titleLine1}{" "}
             <br />
-            {t.home.titleLine2}
+            {t.home.titleLine2}{" "}
             <br />
             <em className="font-serif font-normal normal-case italic">{t.home.titleSerif}</em>
           </h1>
-          <p className="max-w-[480px] text-[19px] leading-normal text-embrun">{t.home.description}</p>
-          <JoinCodeForm t={t.home} />
-          <Link href="/rooms/new" className={`${secondaryButton} self-start`}>
-            {t.home.createRoom}
-          </Link>
+          <p className="max-w-[560px] text-lg leading-normal text-embrun">{t.home.description}</p>
+          <JoinCodeForm
+            t={t.home}
+            besideAction={
+              <Link href="/rooms/new" className={secondaryButton}>
+                {t.home.createRoom}
+              </Link>
+            }
+          />
         </section>
         <div className="red-mist flex justify-center [--mist-x:50%] [--mist-y:40%]">
           <SeaRoutes />
@@ -36,7 +43,7 @@ export default async function Home() {
         </h2>
         <ul className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
           {VISIBILITIES.map((visibility, index) => (
-            <li key={visibility} className={`${card} flex items-start gap-3.5 p-5`}>
+            <li key={visibility} className={`${card} flex items-start gap-3.5 p-4`}>
               <span aria-hidden="true" className="font-display text-[28px] leading-none font-black text-moi">
                 {String(index + 1).padStart(2, "0")}
               </span>
