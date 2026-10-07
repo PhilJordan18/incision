@@ -34,4 +34,17 @@ describe("logAuthError", () => {
     expect(logged()).toBe("[auth] CallbackRouteError (Error)\n[auth] JWTSessionError (Error 23505)");
     expect(logged()).not.toMatch(/alice|scrypt|params|Key/);
   });
+
+  it("names the failed check of the OAuth library, which carries no value", () => {
+    const check = Object.assign(new Error('unexpected "iss" (issuer) response parameter value'), {
+      name: "OperationProcessingError",
+      code: "OAUTH_INVALID_RESPONSE",
+      cause: { expected: "https://authjs.dev", parameters: "code=secret-code&state=s" },
+    });
+    logAuthError(authError("CallbackRouteError", check));
+    expect(logged()).toBe(
+      '[auth] CallbackRouteError (OperationProcessingError OAUTH_INVALID_RESPONSE): unexpected "iss" (issuer) response parameter value',
+    );
+    expect(logged()).not.toMatch(/secret-code/);
+  });
 });
