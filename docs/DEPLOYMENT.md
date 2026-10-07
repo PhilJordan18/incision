@@ -1,6 +1,6 @@
 # Deployment — Azure App Service and Neon
 
-How Incision reaches production and how to recover. Decision and trade-offs: [ADR-0002](adr/0002-hosting.md). Remote changes (Azure, Neon, GitHub settings) are made by Philippe or with his explicit approval for each action ([AGENTS.md](../AGENTS.md#human-approvals)).
+How Incision reaches production and how to recover. Decision and trade-offs: [ADR-0002](adr/0002-hosting.md). I make every remote change (Azure, Neon, GitHub settings) myself, or approve it action by action when an agent prepares it ([AGENTS.md](../AGENTS.md#human-approvals)).
 
 ## Environments
 
@@ -15,7 +15,7 @@ There is no staging environment: changes are verified locally and by CI, then pr
 ## Pipeline
 
 1. A PR is merged into `dev`; CI runs on every push and PR ([ci.yml](../.github/workflows/ci.yml)).
-2. Philippe promotes `dev` to `main` (explicit production order).
+2. I promote `dev` to `main` when I decide to release.
 3. [deploy.yml](../.github/workflows/deploy.yml) runs CI, then four jobs:
    - **build** (no secret): builds the same commit again and packages the release with [`scripts/package-release.sh`](../scripts/package-release.sh) (Next build, TypeScript sources, production dependencies, `build-info.json` with the commit), kept 30 days as a workflow artifact;
    - **migrate** (environment `production`, only the step that needs it receives `DATABASE_URL_UNPOOLED`): unpacks the same run's artifact and runs its migrator (`packages/database/scripts/migrate.ts`) on a direct Neon connection; no checkout, no npm. A failure stops the pipeline: **deploy waits for migrate**;
@@ -113,7 +113,7 @@ Two fictitious local accounts, listed with their passwords in the [README](../RE
 
 - Local: `npm run db:seed:demo -w @incision/database` (uses `DATABASE_URL_UNPOOLED` from `.env`; refuses a remote database without `--remote`).
 - CI: the E2E run seeds its own disposable database.
-- **Production, only on Philippe's explicit approval:** Actions → *Seed demo accounts* → *Run workflow* on `main`, typing `seed production demo accounts`. It runs the last successful deployment's release (most recent green *Deploy* run, artifacts kept 30 days), like the migrate job, with `DATABASE_URL_UNPOOLED` from the `production` environment, and logs `created`, `unchanged` or `conflict` for each login. Run it after a green Deploy, never while one runs; a mistyped confirmation skips the job (green run, nothing seeded): check that the job ran and logged its results. A failed run's public log can show the Neon host name, never the password.
+- **Production, only when I decide to:** Actions → *Seed demo accounts* → *Run workflow* on `main`, typing `seed production demo accounts`. It runs the last successful deployment's release (most recent green *Deploy* run, artifacts kept 30 days), like the migrate job, with `DATABASE_URL_UNPOOLED` from the `production` environment, and logs `created`, `unchanged` or `conflict` for each login. Run it after a green Deploy, never while one runs; a mistyped confirmation skips the job (green run, nothing seeded): check that the job ran and logged its results. A failed run's public log can show the Neon host name, never the password.
 
 ## First promotion (CP-02 to CP-06 together)
 

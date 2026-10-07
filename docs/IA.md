@@ -4,12 +4,12 @@ Final deliverable of the brief (§8): agents and tools, instruction files, three
 
 ## Agents and instruction files
 
-- Claude Code (main session: architect and developer; review subagents) and Codex (card framing and reviews), driven by Philippe.
+- I work with Claude Code (main session as architect and developer, plus review subagents) and Codex (card framing and reviews). I write the cards, approve each plan, review and merge every pull request, and decide every production step.
 - Shared instructions: [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md), [.agents/](../.agents/) (workflow, roles, skills), [.claude/](../.claude/) (Claude adapters and permission guardrails).
 
 ## Log
 
-Agent mistakes detected during development: what happened, how it was detected, how it was fixed.
+Mistakes made by my agents during development: what happened, how I detected it, how I fixed it.
 
 | Date | Mistake | Detection | Fix |
 |---|---|---|---|

@@ -6,7 +6,7 @@
 
 ## Context
 
-Next.js App Router, React, TypeScript and PostgreSQL/Drizzle; deployment on a server/VPS explicitly required. Update of October 3: despite the possibility written in the brief, Philippe confirms that no cégep server is available; zero personal budget. A room accepts 2 to **30 participants**, bots included, spectators excluded. The countdown lasts **3 seconds** and the resumption window **30 seconds**. These values replace those of the previous version.
+Next.js App Router, React, TypeScript and PostgreSQL/Drizzle; deployment on a server/VPS explicitly required. Update of October 3: despite the possibility written in the brief, no cégep server is available to me, and my personal budget is zero. A room accepts 2 to **30 participants**, bots included, spectators excluded. The countdown lasts **3 seconds** and the resumption window **30 seconds**. These values replace those of the previous version.
 
 The checkpoint requires room members synchronised across browsers, not yet the whole race. The architecture must nevertheless allow an authoritative clock, bots, bonuses and durable results.
 
