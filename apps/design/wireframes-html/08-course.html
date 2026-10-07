@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incision · Course, frappe libre</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&amp;family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#05070D}
+</style>
+</head>
+<body>
+
+<div style="min-height: 900px; background: #05070D; color: #EEF2F7; font-family: Geist, 'Helvetica Neue', sans-serif">
+  <header style="max-width: 1344px; margin: 0 auto; padding: 18px 48px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+    <span style="display: flex; align-items: center; gap: 14px"><img src="../logo/ico-red.svg" alt="" style="width: 30px; height: 30px"><span style="font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: #8A9BB5">[.SALLE 4B] [.ENTRAÎNEMENT] [.FRAPPE LIBRE]</span></span>
+    <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #22324D; background: transparent; color: #C9D3E1; font-size: 14px">Abandonner</button>
+  </header>
+
+  <main style="max-width: 1344px; margin: 0 auto; padding: 8px 48px 40px; display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+    <section aria-label="Texte à taper" style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; border-radius: 8px; border: 1px solid #22324D"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: #8A9BB5">TEMPS</span><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 40px; line-height: 1">02:31</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; border-radius: 8px; border: 1px solid #22324D"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: #8A9BB5">VITESSE</span><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 40px; line-height: 1">47 <span style="font-size: 20px; color: #8A9BB5">WPM</span></span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; border-radius: 8px; border: 1px solid #22324D"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: #8A9BB5">PRÉCISION</span><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 40px; line-height: 1">96 <span style="font-size: 20px; color: #8A9BB5">%</span></span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; border-radius: 8px; border: 1px solid #22324D"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: #8A9BB5">RANG</span><span style="font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 40px; line-height: 1; color: #5BD6FF">5<span style="font-size: 20px; color: #8A9BB5"> / 32</span></span></div>
+      </div>
+      <div aria-hidden="true" style="height: 4px; border-radius: 2px; background: #16233A"><i style="display: block; width: 38%; height: 4px; border-radius: 2px; background: #5BD6FF"></i></div>
+
+      <p style="margin: 0; font-family: 'Geist Mono', monospace; font-size: 26px; line-height: 2.1; color: #8A9BB5"><span style="color: #EEF2F7; text-decoration: underline; text-decoration-color: #5BE3A6; text-decoration-thickness: 3px; text-underline-offset: 7px">La mer était calme ce m</span><span style="background: #3A1219; color: #FF8A90; text-decoration: underline wavy #FF8A90; text-underline-offset: 7px">e</span><span style="color: #EEF2F7; text-decoration: underline; text-decoration-color: #5BE3A6; text-decoration-thickness: 3px; text-underline-offset: 7px">tin-là, et pourtant l'éq</span><span style="border-left: 2px solid #EEF2F7">u</span>ipage savait que la traversée serait longue. Plus loin, les lumières des autres navires se resserraient vers la ligne rouge.</p>
+
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="frappe" style="font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: #8A9BB5">TA FRAPPE</label>
+        <input id="frappe" value="l'éq" autocomplete="off" spellcheck="false" style="height: 64px; box-sizing: border-box; padding: 0 20px; border-radius: 8px; border: 1px solid #5BD6FF; background: #0C1424; color: #EEF2F7; font-family: 'Geist Mono', monospace; font-size: 22px; outline: 3px solid rgba(91, 214, 255, 0.2)">
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: #8A9BB5">
+        <span><b style="color: #5BE3A6">—</b> Juste : soulignement vert</span>
+        <span><b style="color: #FF8A90">~</b> Erreur : fond rosé et ondulation, reste visible, compte dans la précision</span>
+        <span><b style="color: #EEF2F7">|</b> Curseur</span>
+      </div>
+    </section>
+
+    <aside aria-label="Positions en direct" style="flex: 1 1 320px; max-width: 380px; position: relative; height: 700px; border-radius: 12px; border: 1px solid #22324D; background: linear-gradient(180deg, rgba(235, 59, 68, 0.22), rgba(11, 26, 48, 0) 22%), #0B1A30; overflow: hidden">
+      <svg viewBox="0 0 340 700" width="100%" height="700" preserveAspectRatio="none" fill="none" aria-hidden="true" style="position: absolute; inset: 0">
+        <path d="M0 64 L340 56" stroke="#EB3B44" stroke-width="6"/>
+        <g stroke="#8A9BB5" stroke-opacity="0.16" stroke-dasharray="2 7"><path d="M0 240 H340"/><path d="M0 420 H340"/><path d="M0 600 H340"/></g>
+        <g fill="#8A9BB5" fill-opacity="0.4"><circle cx="60" cy="500" r="4"/><circle cx="110" cy="540" r="4"/><circle cx="210" cy="520" r="4"/><circle cx="280" cy="570" r="4"/><circle cx="150" cy="600" r="4"/><circle cx="240" cy="630" r="4"/><circle cx="90" cy="640" r="4"/><circle cx="300" cy="480" r="4"/></g>
+        <circle cx="150" cy="118" r="9" fill="#FFB347"/><circle cx="210" cy="160" r="8" fill="#EEF2F7" fill-opacity="0.8"/><circle cx="120" cy="204" r="8" fill="#EEF2F7" fill-opacity="0.8"/>
+        <circle cx="240" cy="290" r="8" fill="#5BE3A6"/>
+        <circle cx="170" cy="336" r="11" fill="#5BD6FF"/><circle cx="170" cy="336" r="24" stroke="#5BD6FF" stroke-opacity="0.6" stroke-width="2"/><circle cx="170" cy="336" r="40" stroke="#5BD6FF" stroke-opacity="0.25"/>
+        <circle cx="110" cy="380" r="8" fill="#B48CFF"/>
+      </svg>
+      <span style="position: absolute; left: 18px; top: 18px; font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: #EB3B44">[.ARRIVÉE]</span>
+      <span style="position: absolute; left: 49%; top: 108px; font-size: 13px; font-weight: 600; color: #FFB347">1 · Lina</span>
+      <span style="position: absolute; left: 66%; top: 150px; font-size: 13px; color: #C9D3E1">2 · Alex</span>
+      <span style="position: absolute; left: 40%; top: 194px; font-size: 13px; color: #C9D3E1">3 · Sam</span>
+      <span style="position: absolute; left: 74%; top: 280px; font-size: 13px; color: #5BE3A6">4 · Noa</span>
+      <span style="position: absolute; left: 64%; top: 325px; font-size: 15px; font-weight: 700; color: #5BD6FF">5 · Moi</span>
+      <span style="position: absolute; left: 37%; top: 370px; font-size: 13px; color: #B48CFF">6 · Éli</span>
+      <div role="status" style="position: absolute; left: 16px; right: 16px; top: 430px; padding: 10px 14px; border-radius: 8px; background: #0C1424; border: 1px solid #5BD6FF; font-size: 14px"><b style="color: #5BD6FF">▲</b> Tu viens de dépasser Éli</div>
+      <span style="position: absolute; left: 18px; bottom: 16px; font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8A9BB5">+ 26 COUREURS</span>
+    </aside>
+  </main>
+</div>
+</body>
+</html>

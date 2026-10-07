@@ -15,7 +15,7 @@ Typing race platform for students aged 12 to 17. The repository contains the cus
 1. [Final brief of the term project](docs/Web-V-Travail-de-session.pdf): constraints and graded scope, which take priority.
 2. [Official requirements matrix of the 90 requirements](docs/EXIGENCES.md): statuses, evidence and interpretation choices, with deviations made explicit.
 3. [Submitted specification](docs/cahier-des-charges-incision.pdf): history kept, without applying its rules that have become incompatible.
-4. [Complete art direction V3](docs/da/da_incision.pdf): 24 pages checked on October 3; "race night" mood, vertical track, reference palette and typefaces. The name **Incision** is confirmed by Philippe. The `docs/DEMARCHE-CREATIVE.md` entry and the sketch evidence are still to be completed.
+4. [Art direction](docs/da/da_incision.pdf), final version of October 6 (27 pages): "race night" mood, vertical track, palette, typefaces, logo process and sketches. Its code-ready translation, [`apps/design/`](apps/design/README.md), is the visual source of truth (tokens, components, reference screens, logos). The name **Incision** and the logo are Philippe's. The `docs/DEMARCHE-CREATIVE.md` entry is still to be completed.
 
 The art direction stays creative, but must meet the DES requirements: name/logo created by the student, responsive, readability and accessibility. A technical decision is neither an additional teacher requirement nor an already delivered feature.
 
@@ -24,6 +24,7 @@ The art direction stays creative, but must meet the DES requirements: name/logo 
 ```text
 incision/
 ├── apps/web/                 Next.js and React (created); realtime to be developed
+├── apps/design/              Visual source of truth by Philippe: tokens, screens, wireframes, logos
 ├── packages/domain/          Pure rules: room code, logins, display names (more to come)
 ├── packages/contracts/       Shared events and validation (to be created)
 ├── packages/database/        Drizzle schema, migrations, room creation, migrator

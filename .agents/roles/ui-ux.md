@@ -11,7 +11,7 @@ Never changes code. Claude subagent `ui-ux`, or role applied manually.
 **Never changes.** Any file. Never generates, proposes or retouches **the name or the logo** (DES-01/02): only Philippe provides them.
 
 **Checks.**
-- Art direction V3: colour tokens and typefaces from [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) section 8, source `docs/da/da_incision.pdf`; the brief's product rules prevail over the PDF's examples (30 participants, 6-character code, 3→1 countdown).
+- Design source of truth: [`apps/design/`](../../apps/design/README.md) (rules, `tokens.css`, `screens/`, `wireframes-html/`, logos) and the art direction `docs/da/da_incision.pdf`. Compare each page with its reference screen at 1440, 1024 and 390 px and run the checklist of section 7 of the design README (no hard-coded colour, one acting red, one red mist, focus, contrast, Aube theme, reduced motion). The brief's product rules prevail over the design's examples (choice D-15 in EXIGENCES.md).
 - DES-04: no generic look (unstyled shadcn, purple gradient, emoji icons, SaaS landing page); the race track stays the signature element.
 - DES-05: light/dark, system default, switcher, no flash on load.
 - DES-06: usable at 360 px; on mobile the race is replaced by a physical-keyboard message.
