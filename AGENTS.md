@@ -2,7 +2,7 @@
 
 Canonical source for Codex, Claude Code and any other agent. `CLAUDE.md` imports this file; do not duplicate these rules elsewhere.
 
-Before changing the repository, read [CONTRIBUTING.md](CONTRIBUTING.md) (including the working language: English everywhere, French only in product UI strings), [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the relevant documents. The [final brief](docs/Web-V-Travail-de-session.pdf) prevails over the submitted spec when they diverge. Use the official IDs and the choices documented in [EXIGENCES.md](docs/EXIGENCES.md); never turn an agent suggestion into a requirement.
+Before changing the repository, read [CONTRIBUTING.md](CONTRIBUTING.md) (including the working language: English for code and technical guides, French for the graded documents and the product's French strings), [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the relevant documents. The [final brief](docs/Web-V-Travail-de-session.pdf) prevails over the submitted spec when they diverge. Use the official IDs and the choices documented in [EXIGENCES.md](docs/EXIGENCES.md); never turn an agent suggestion into a requirement.
 
 Meet the acceptance criteria of the current card, verify the result and report what remains incomplete. In `apps/web`, also apply the local instructions in `apps/web/AGENTS.md`.
 

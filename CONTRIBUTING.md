@@ -1,13 +1,13 @@
 # Contributing to Incision
 
-This guide applies to human contributors and development agents. It describes **how** to work; the [final brief and the requirements matrix](README.md#sources-and-authority) define **what** to build. Ambiguities are resolved by reasonable choices explicitly recorded in `docs/EXIGENCES.md` (brief §2.2), not by requirements attributed to the client.
+This guide applies to human contributors and development agents. It describes **how** to work; the [final brief and the requirements matrix](README.md#sources-et-autorité) define **what** to build. Ambiguities are resolved by reasonable choices explicitly recorded in `docs/EXIGENCES.md` (brief §2.2), not by requirements attributed to the client.
 
 ## Working language
 
-- **English** for code, identifiers, file and branch names, commit messages, pull requests, agent instructions and project documentation.
+- **English** for code, identifiers, file and branch names, commit messages, pull requests, agent instructions and the technical guides (`docs/DEPLOYMENT.md`, `docs/SETUP.md`, `docs/architecture/`, the other ADRs).
+- **French** for the documents the brief grades, written in my own voice: `README.md`, `docs/ARCHITECTURE.md`, `docs/EXIGENCES.md`, `docs/DEMARCHE-CREATIVE.md`, `docs/IA.md` and the realtime ADR (`docs/adr/0001-realtime.md`).
 - French and English are both **product** languages: every user-facing string (labels, errors, empty states, page metadata) lives in the FR/EN i18n dictionaries, never hard-coded (I18N-01).
 - Unchanged on purpose: official requirement IDs (`AUTH-01`, `SALLE-02`, `COURSE-04`…), the source PDFs, and the deliverable file names required by the brief: `docs/ARCHITECTURE.md`, `docs/EXIGENCES.md`, `docs/DEMARCHE-CREATIVE.md`, `docs/IA.md`.
-- Documents still written in French are translated progressively; their content stays authoritative until then.
 
 ## Before coding
 

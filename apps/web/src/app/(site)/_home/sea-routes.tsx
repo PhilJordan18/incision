@@ -5,7 +5,7 @@
  */
 export function SeaRoutes() {
   return (
-    <svg viewBox="0 0 640 560" className="h-auto w-full max-w-[640px]" fill="none" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 640 560" className="h-auto max-h-[min(560px,50svh)] w-full max-w-[640px]" fill="none" aria-hidden="true" focusable="false">
       <g className="stroke-brume" strokeOpacity="0.28" strokeDasharray="2 8">
         <circle cx="320" cy="300" r="260" />
         <circle cx="320" cy="300" r="180" />

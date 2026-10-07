@@ -1,12 +1,12 @@
 # ADR-0002 — Azure App Service and Neon for hosting
 
-- Status: **accepted**, October 5, 2026. Validated by the teacher for TECH-05 on October 5 (message relayed by Philippe).
+- Status: **accepted**, October 5, 2026. Validated by the teacher for TECH-05 on October 5.
 - Requirements: TECH-05, TECH-08, TECH-10; constrains AUTH-04, SALLE-04, SALLE-10.
 - Supersedes the hosting options of [ADR-0001](0001-realtime.md) and of the [checkpoint plan](../architecture/verification.md#hosting-without-spending) (Ubuntu VM first, Render fallback).
 
 ## Context
 
-TECH-05 asks for a server with public HTTPS, working at the checkpoint and at the final submission. The cégep provides no server and Philippe's budget is $0 out of pocket; an Azure for Students credit is available. TECH-08 requires every other external service to be on a free plan, and grading must cost the teacher nothing. ADR-0001 needs one persistent Node process running Next.js and Socket.IO together.
+TECH-05 asks for a server with public HTTPS, working at the checkpoint and at the final submission. The cégep provides no server and my budget is $0 out of pocket; an Azure for Students credit is available. TECH-08 requires every other external service to be on a free plan, and grading must cost the teacher nothing. ADR-0001 needs one persistent Node process running Next.js and Socket.IO together.
 
 ## Decision
 

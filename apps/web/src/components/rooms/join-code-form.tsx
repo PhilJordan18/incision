@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef } from "react";
+import { type ReactNode, useActionState, useEffect, useRef } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { FieldError } from "@/components/ui/field-error";
 import { inlineLink, monoLabel, primaryButton, textFieldBase } from "@/components/ui/styles";
@@ -10,8 +10,14 @@ import { format } from "@/i18n/format";
 import { CODE_INPUT_MAX_LENGTH } from "@/rooms/code-input";
 import { joinRoomAction, type JoinFormState } from "@/server/rooms/actions";
 
+type JoinCodeFormProps = {
+  readonly t: Dictionary["home"];
+  /** Placed on the field's row, after the red action (the home page's "Create a room"). */
+  readonly besideAction?: ReactNode;
+};
+
 /** Code field and its red action: the home page's join, and the "code not found" state. */
-export function JoinCodeForm({ t }: { readonly t: Dictionary["home"] }) {
+export function JoinCodeForm({ t, besideAction }: JoinCodeFormProps) {
   const [state, formAction] = useActionState<JoinFormState, FormData>(joinRoomAction, {});
   const codeRef = useRef<HTMLInputElement>(null);
   // After a refused code, give the keyboard focus back to the field.
@@ -26,7 +32,7 @@ export function JoinCodeForm({ t }: { readonly t: Dictionary["home"] }) {
       <label htmlFor="room-code" className={monoLabel}>
         {t.codeLabel}
       </label>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           ref={codeRef}
           id="room-code"
@@ -42,6 +48,7 @@ export function JoinCodeForm({ t }: { readonly t: Dictionary["home"] }) {
           className={`${textFieldBase} h-14 w-48 font-mono text-xl tracking-[0.2em] uppercase`}
         />
         <SubmitButton label={t.join} pendingLabel={t.joining} className={primaryButton} />
+        {besideAction}
       </div>
       {state.error !== undefined && (
         <FieldError id="room-code-error" message={format(t.codeErrors[state.error], { code: state.currentCode ?? "" })} />
