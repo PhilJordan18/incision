@@ -37,7 +37,9 @@ export default defineConfig({
       DATABASE_URL: process.env.E2E_DATABASE_URL,
       E2E_DATABASE_URL: process.env.E2E_DATABASE_URL,
       // As in production (one trusted front end). Requests without X-Forwarded-For keep the TCP
-      // peer; e2e/forwarding-proxy.ts plays the front end for the per-address limits.
+      // peer; e2e/forwarding-proxy.ts plays the front end for the per-address limits. Every
+      // other spec shares the loopback address and its 10 failed room codes per minute: a spec
+      // that needs more unknown codes goes through its own forwarding proxy.
       TRUSTED_PROXY_HOPS: "1",
       // Placeholders, not credentials: the tests never complete an OAuth round trip.
       AUTH_GITHUB_ID: "e2e-github-client-id",

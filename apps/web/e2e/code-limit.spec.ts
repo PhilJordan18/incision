@@ -2,7 +2,7 @@ import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
 import { ROOM_CODE_ALPHABET } from "@incision/domain";
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { type ForwardingProxy, startForwardingProxy } from "./forwarding-proxy";
-import { expectNoAccessibilityViolation, expectNoHorizontalScroll, query, signInWithCredentials } from "./support";
+import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE, signInWithCredentials } from "./support";
 
 const [alice, bruno] = DEMO_ACCOUNTS;
 if (alice === undefined || bruno === undefined) {
@@ -87,14 +87,14 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
     expect(await titleOf(page, via, openCode)).toBe(THROTTLED);
     await page.goto(`${via}/rooms/${openCode}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trop d’essais");
-    await expect(page.getByText("Trop de codes essayés depuis ce réseau. Réessaie dans une minute.")).toBeVisible();
+    await expect(page.getByText("Trop de mauvais codes essayés depuis ce réseau. Réessaie dans une minute.")).toBeVisible();
     await expect(page.getByRole("main")).not.toContainText(openCode);
     await expect(page.getByRole("button", { name: "Rejoindre la salle" })).toHaveCount(0);
     // Another network is not affected.
     expect(await titleOf(page, await network("203.0.113.11"), openCode)).toBe(`Salle ${openCode} · Incision`);
   });
 
-  test("admissions, open rooms and races in progress never spend the budget", async ({ browser }) => {
+  test("views of an open room or of a race in progress never spend the budget", async ({ browser }) => {
     const openCode = await createRoom(await signedIn(browser, alice));
     const page = await signedIn(browser, bruno);
     const via = await network("203.0.113.12");
@@ -151,9 +151,71 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
     const field = page.getByLabel("Code de salle", { exact: true });
     await field.fill(codes[10] ?? "");
     await page.getByRole("button", { name: "Rejoindre la salle" }).click();
-    await expect(page.getByText("Trop de codes essayés depuis ce réseau. Réessaie dans une minute.")).toBeVisible();
+    await expect(page.getByText("Trop de mauvais codes essayés depuis ce réseau. Réessaie dans une minute.")).toBeVisible();
     await expect(field).toBeFocused();
     await expect(field).toHaveAttribute("aria-invalid", "true");
+  });
+
+  test("a member still reaches their own room from the home field while their network is over budget", async ({ browser }) => {
+    const host = await signedIn(browser, alice);
+    const ownCode = await createRoom(host);
+    const via = await network("203.0.113.21");
+    const codes = unknownCodes(11);
+    for (const code of codes.slice(0, 10)) {
+      await titleOf(host, via, code);
+    }
+    expect(await titleOf(host, via, codes[10] ?? "")).toBe(THROTTLED);
+    await host.goto(`${via}/`);
+    await host.getByLabel("Code de salle", { exact: true }).fill(ownCode);
+    await host.getByRole("button", { name: "Rejoindre la salle" }).click();
+    await expect(host).toHaveURL(new RegExp(`/rooms/${ownCode}$`));
+    await expect(host.getByRole("heading", { level: 1 })).toHaveText(/Salle d’attente/i);
+  });
+
+  test("30 accounts joining one room from the same network are all admitted and spend nothing", async ({ browser }) => {
+    test.setTimeout(120_000);
+    const host = await signedIn(browser, alice);
+    // The host watches, so the 30 participant places are all free (SALLE-05).
+    await host.goto("/rooms/new");
+    await host.getByLabel("Je participe à la course (sinon : spectateur)").uncheck();
+    await host.getByRole("button", { name: "Ouvrir la salle" }).click();
+    await expect(host).toHaveURL(/\/rooms\/[2-9A-HJKMNP-Z]{6}$/);
+    const code = host.url().split("/").at(-1) ?? "";
+    const via = await network("203.0.113.22");
+    const students = await query<{ id: string; session_version: number }>(
+      "insert into accounts (display_name) select 'Élève ' || n from generate_series(1, 30) as n returning id, session_version",
+    );
+    const authTime = Math.floor(Date.now() / 1000);
+    const pages = await Promise.all(
+      students.map(async (student) => {
+        const context = await browser.newContext({ locale: "fr-CA" });
+        contexts.push(context);
+        const cookie = await forgeSessionCookie({ sub: student.id, sessionVersion: student.session_version, authTime });
+        await context.addCookies([{ name: SESSION_COOKIE, value: cookie, url: via }]);
+        const page = await context.newPage();
+        await page.goto(`${via}/rooms/${code}`);
+        await expect(page.getByRole("button", { name: "Rejoindre la salle" })).toBeVisible();
+        return page;
+      }),
+    );
+    // Everyone clicks at once, as a class does.
+    await Promise.all(pages.map((page) => page.getByRole("button", { name: "Rejoindre la salle" }).click()));
+    for (const page of pages) {
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Salle d’attente/i, { timeout: 30_000 });
+    }
+    const [members] = await query<{ count: string }>(
+      "select count(*) from lobby_members m join lobbies l on l.id = m.lobby_id where l.code = $1 and m.role = 'participant' and m.left_at is null",
+      [code],
+    );
+    expect(Number(members?.count)).toBe(30);
+    // The network's budget is untouched: 10 unknown codes are still answered.
+    for (const unknown of unknownCodes(10)) {
+      expect(await titleOf(host, via, unknown)).toBe(UNKNOWN);
+    }
+    // Their memberships go with the room; then the accounts can go.
+    await query("update lobbies set host_member_id = null where code = $1", [code]);
+    await query("delete from lobbies where code = $1", [code]);
+    await query("delete from accounts where display_name like 'Élève %'");
   });
 
   test("a member still opens their own room while their network is over budget", async ({ browser }) => {
@@ -195,6 +257,6 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
     }
     await page.goto(`${via}/rooms/${codes[10] ?? ""}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Too many tries");
-    await expect(page.getByText("Too many codes tried from this network. Try again in a minute.")).toBeVisible();
+    await expect(page.getByText("Too many wrong codes tried from this network. Try again in a minute.")).toBeVisible();
   });
 });

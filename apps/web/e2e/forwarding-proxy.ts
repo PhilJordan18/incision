@@ -27,7 +27,11 @@ export async function startForwardingProxy(target: string, peer: string): Promis
       },
     );
     forwarded.on("error", () => {
-      response.writeHead(502).end();
+      if (response.headersSent) {
+        response.destroy();
+      } else {
+        response.writeHead(502).end();
+      }
     });
     request.pipe(forwarded);
   });
