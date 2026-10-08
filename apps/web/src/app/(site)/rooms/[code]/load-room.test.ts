@@ -4,10 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 // The room page's loader with a database that does not answer: no request, no real pool.
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-incision-client-address": "203.0.113.1" }) }));
 vi.mock("@/server/auth/store", () => ({ authDatabase: () => ({}) }));
+const failure = vi.hoisted(() => ({ throwNextRedirect: false }));
+
 vi.mock("@incision/database", async (importOriginal) => {
   // The shape of Drizzle's query error when PostgreSQL fails: its message quotes the parameters.
   const cause = Object.assign(new Error("canceling statement due to statement timeout"), { code: "57014", severity: "ERROR" });
-  const failure = Object.assign(new Error("Failed query: select … where account_id = $1 params: alice-ABCDEF"), {
+  const databaseError = Object.assign(new Error("Failed query: select … where account_id = $1 params: alice-ABCDEF"), {
     query: "select … where account_id = $1",
     params: ["alice-ABCDEF"],
     cause,
@@ -15,7 +17,11 @@ vi.mock("@incision/database", async (importOriginal) => {
   return {
     ...(await importOriginal<typeof import("@incision/database")>()),
     findActiveMembership: async () => {
-      throw failure;
+      if (failure.throwNextRedirect) {
+        const { redirect } = await import("next/navigation");
+        redirect("/elsewhere");
+      }
+      throw databaseError;
     },
   };
 });
@@ -29,5 +35,14 @@ describe("loadRoomPage", () => {
     expect(log).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(log.mock.calls)).not.toContain("ABCDEF");
     log.mockRestore();
+  });
+
+  it("lets Next's own control flow through instead of reporting it as a failure", async () => {
+    failure.throwNextRedirect = true;
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await expect(loadRoomPage("alice", "BCDEFG" as RoomCode)).rejects.toThrow("NEXT_REDIRECT");
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+    failure.throwNextRedirect = false;
   });
 });

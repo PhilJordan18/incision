@@ -247,11 +247,12 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
     const field = page.getByLabel("Code de salle", { exact: true });
     for (const code of [...codes.slice(10), openCode]) {
       await field.fill(code);
-      // Wait for the action's answer, so each check reads this submission's message.
+      // The answer has arrived and been drawn once the button reads "Rejoindre la salle" again.
       await Promise.all([
         page.waitForResponse((response) => response.request().method() === "POST"),
         page.getByRole("button", { name: "Rejoindre la salle" }).click(),
       ]);
+      await expect(page.getByRole("button", { name: "Rejoindre la salle" })).toBeVisible();
       await expect(page.getByText("Trop de mauvais codes essayés depuis ce réseau. Réessaie dans une minute.")).toBeVisible();
     }
     await expect(page.getByText("Trop de changements de salle d’affilée. Réessaie dans une minute.")).toHaveCount(0);
