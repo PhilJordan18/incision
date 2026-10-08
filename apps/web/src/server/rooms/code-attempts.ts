@@ -53,7 +53,10 @@ export function allowOwnRoomRead(
 }
 
 export type OwnRoom =
-  /** Refused by the code budget, before anything else is counted or looked up. */
+  /**
+   * The address spent its code budget: any code other than the account's own, or its own once
+   * the allowance is used. No lookup by code and no other counter (such as room changes).
+   */
   | { readonly kind: "limited" }
   | { readonly kind: "own"; readonly membership: ActiveMembership }
   | { readonly kind: "elsewhere"; readonly membership: ActiveMembership | undefined };

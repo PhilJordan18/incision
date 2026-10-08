@@ -11,7 +11,7 @@ import { getAccountSession, requireAccountSession } from "@/server/auth/session"
 import { authDatabase } from "@/server/auth/store";
 import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
 import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
-import { allowRoomChange } from "./room-change-limiter";
+import { allowRoomChange, forgiveRoomChange } from "./room-change-limiter";
 import { notifyRoomChanged } from "./room-events";
 
 export type JoinError =
@@ -110,6 +110,8 @@ export async function joinRoomAction(_previous: JoinFormState, formData: FormDat
     return { error: "UNAVAILABLE", code: typed };
   }
   if (!attempt.ok) {
+    // Refused before any lookup: no room change happened.
+    forgiveRoomChange(session.accountId);
     return { error: attempt.refusal, code: typed };
   }
   const joined = attempt.value;
