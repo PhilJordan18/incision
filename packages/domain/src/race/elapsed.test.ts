@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asInstant, MAX_DURATION_MS } from "../time";
+import { asInstant, MAX_INSTANT } from "../time";
 import { measuredElapsed } from "./elapsed";
 
 const startsAt = asInstant(1_000_000);
@@ -20,7 +20,13 @@ describe("measuredElapsed", () => {
     expect(measuredElapsed(startsAt, at(90_000), at(30_000))).toBe(30_000);
   });
 
-  it("caps a race left open instead of throwing", () => {
-    expect(measuredElapsed(startsAt, at(MAX_DURATION_MS + 1))).toBe(MAX_DURATION_MS);
+  it("stays exact beyond seven days: a race with no limit is never clamped", () => {
+    const eightDays = 8 * 24 * 60 * 60 * 1_000;
+    expect(measuredElapsed(startsAt, at(eightDays))).toBe(eightDays);
+    expect(measuredElapsed(startsAt, at(eightDays + 1))).toBe(eightDays + 1);
+  });
+
+  it("stays exact over the whole range of accepted instants", () => {
+    expect(measuredElapsed(asInstant(0), asInstant(MAX_INSTANT))).toBe(MAX_INSTANT);
   });
 });

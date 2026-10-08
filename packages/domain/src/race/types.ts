@@ -54,6 +54,12 @@ export type InputEvent =
  * payload: `entrantId` comes from the authenticated socket, never from the payload, and the
  * server's `now` times it.
  *
+ * Integration precondition, guaranteed by the server (the engine sees no connection): one emitter
+ * per entrant. Only the entrant's controlling connection may submit batches; another tab of the
+ * same member observes (docs/architecture/state-machines.md §2). After a reconnection the new
+ * connection takes control and batches from the older one are discarded before the engine, so
+ * two tabs can never both send `seq` 1 with different events.
+ *
  * `seq` is a safe integer of at least 1, `textVersion` a safe integer of at least 0, and `events`
  * holds at least one event; otherwise the batch is refused `INVALID_INPUT`. More than
  * `MAX_BATCH_EVENTS` events are refused `BATCH_TOO_LARGE`.
@@ -359,7 +365,8 @@ export type RankEntrants = (entrants: readonly RankInput[]) => readonly RankedEn
  * One entrant's final result, as the server persists it (RES-02), with the exact counters and
  * elapsed time it comes from. Every value is bounded: WPM ≤ `MAX_COMPUTABLE_WPM`,
  * accuracy in [0, 100], counters ≤ `MAX_ENTRANT_INSERTS`,
- * position ≤ length ≤ `MAX_TEXT_GRAPHEMES`, elapsed ≤ `MAX_DURATION_MS`.
+ * position ≤ length ≤ `MAX_TEXT_GRAPHEMES`, elapsed ≤ `MAX_DURATION_MS`; counters and elapsed
+ * milliseconds need 64-bit integer columns.
  * The WPM series (RES-05) arrives with F-07.1 and the bonuses received with F-06.
  */
 export type EntrantResult = {

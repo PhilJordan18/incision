@@ -6,6 +6,7 @@ describe("instants and durations", () => {
     expect(asInstant(0)).toBe(0);
     expect(asInstant(MAX_INSTANT)).toBe(MAX_INSTANT);
     expect(asDuration(MAX_DURATION_MS)).toBe(MAX_DURATION_MS);
+    expect(MAX_DURATION_MS).toBe(MAX_INSTANT);
   });
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5, MAX_INSTANT + 1])("refuses the instant %s", (value) => {

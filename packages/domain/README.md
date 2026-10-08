@@ -23,8 +23,10 @@ re-implement one. A missing rule is added here, not copied there.
   - An `Instant` is a point in time, in integer milliseconds since the epoch, from a monotonic clock
     the server injects. A `Duration` is an elapsed span in integer milliseconds.
   - Client timestamps never reach the engine: a keystroke batch is timed by the server's `now`.
-  - Every measure uses `measuredElapsed`. It is 0 before the start, frozen at the entrant's end, and
-    capped at `MAX_DURATION_MS`.
+  - Every measure uses `measuredElapsed`. It is 0 before the start, frozen at the entrant's end,
+    and otherwise exact, whatever the length of the race.
+  - `MAX_DURATION_MS` is the whole range of accepted instants: a bound on what the engine can
+    represent, not a race limit. A race's time limit is its configuration (CONF-01, D-17).
   - The validators throw on a non-finite or out-of-range value. That is a programming error, never a
     reply to a client.
 - **Identity** (`src/ids.ts`). The server resolves a `RaceId` and an `EntrantId` before calling the
@@ -48,9 +50,14 @@ There are four counters, never mixed up:
 | `textVersion` | one entrant's text | 0 for the initial text. It changes only when a bonus changes that entrant's text. A batch typed against any other version gets a resync and is never reinterpreted. |
 | `revision` | the broadcast | Starts at 0 for each race. Clients keep the highest revision of the current `raceId` and drop stale snapshots. It never refuses keystrokes: another player's progress never invalidates a batch. |
 
-**One batch in flight per entrant.** The client sends its next batch only after the reply to the
-previous one, gathering keystrokes meanwhile, and splits more than `MAX_BATCH_EVENTS` pending
-events into several batches.
+**One batch in flight per entrant, not per tab.** The client sends its next batch only after the
+reply to the previous one, gathering keystrokes meanwhile, and splits more than `MAX_BATCH_EVENTS`
+pending events into several batches.
+
+- The server guarantees one emitter per entrant; the engine sees no connection. Only the entrant's
+  controlling connection submits batches, and another tab of the same member observes.
+- After a reconnection, the new connection takes control and the older one's batches are discarded
+  before the engine. Two tabs can therefore never both send `seq` 1 with different events.
 
 - A batch is applied whole or not at all, and a refusal never consumes a `seq`.
 - A batch is immutable once sent: a retry repeats the same `seq` with the same events, and a `seq`
@@ -139,8 +146,7 @@ Three notions are kept apart:
    They are a plausibility threshold chosen for the product, not an absolute guarantee: set far
    above the speeds expected from our students, they aim at scripts and replays. F-04.4 tunes them.
 2. **The measures** are Appendix A computed exactly from the counters and the elapsed time
-   (`computeMeasures`), unrounded and never capped. The only exception is a race open for more than
-   `MAX_DURATION_MS` (7 days), whose elapsed time is clamped. They are the official values, stored with the
+   (`computeMeasures`), unrounded and never capped, over an exact elapsed time. They are the official values, stored with the
    counters and the elapsed time they come from. A high value at the very start, from the burst
    margin, stays exact. For accepted counters it never exceeds `MAX_COMPUTABLE_WPM` (240 000),
    which is derived from the limits: 20 inserts after 1 ms.
@@ -153,9 +159,9 @@ Stored values are bounded, so database columns can be sized from these constants
 |---|---|
 | Net and raw WPM | ≤ `MAX_COMPUTABLE_WPM` (240 000) for accepted counters: Appendix A exactly, never capped |
 | Accuracy | in [0, 100] |
-| Insert counters | ≤ `MAX_ENTRANT_INSERTS` (15 120 020) |
+| Insert counters | ≤ `MAX_ENTRANT_INSERTS` (about 1.03 × 10¹¹): 64-bit integer column |
 | Position, length | ≤ `MAX_TEXT_GRAPHEMES` (4 000) |
-| Elapsed time | ≤ `MAX_DURATION_MS` (7 days) |
+| Elapsed time | ≤ `MAX_DURATION_MS` (the instant range, about 4.1 × 10¹² ms): 64-bit integer column, exact |
 | Ranks | exactly 1 to n, each once |
 
 ## Contracts and examples

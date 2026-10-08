@@ -12,7 +12,9 @@ describe("maxPlausibleInserts (COURSE-06)", () => {
 
   it("bounds every entrant's counters for stored columns", () => {
     expect(MAX_ENTRANT_INSERTS).toBe(maxPlausibleInserts(asDuration(MAX_DURATION_MS)));
-    expect(MAX_ENTRANT_INSERTS).toBe(15_120_020);
+    expect(MAX_ENTRANT_INSERTS).toBe(102_561_120_020);
+    // Beyond 32 bits: counters are stored as 64-bit integers, still exact in JavaScript.
+    expect(MAX_ENTRANT_INSERTS).toBeGreaterThan(2 ** 31);
     expect(Number.isSafeInteger(MAX_ENTRANT_INSERTS)).toBe(true);
   });
 

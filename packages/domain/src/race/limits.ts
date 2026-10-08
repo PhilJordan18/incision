@@ -56,8 +56,8 @@ export const PLAUSIBILITY_BURST_INSERTS = 20;
 
 /**
  * Most inserts an entrant can plausibly have made `sinceStart` after the start (COURSE-06), where
- * `sinceStart` is the clamped `measuredElapsed(startsAt, now)`, so the check never throws and the
- * counters stay within `MAX_ENTRANT_INSERTS`. A batch that would take the entrant's total of
+ * `sinceStart` is `measuredElapsed(startsAt, now)`, exact and never negative, so the check never
+ * throws and the counters stay within `MAX_ENTRANT_INSERTS`. A batch that would take the entrant's total of
  * applied inserts above it is refused whole; discarded events after a finish never count. Counting
  * from the start, not per batch, keeps a client that flushes after a stall within it.
  */
@@ -65,7 +65,11 @@ export function maxPlausibleInserts(sinceStart: Duration): number {
   return Math.floor((MAX_PLAUSIBLE_INSERTS_PER_SECOND * sinceStart) / 1_000) + PLAUSIBILITY_BURST_INSERTS;
 }
 
-/** Upper bound of any entrant's insert counters, for sizing stored columns. */
+/**
+ * Upper bound of any entrant's insert counters, for sizing stored columns: the plausible total over
+ * the longest representable duration. It exceeds 32 bits, so counters (like elapsed milliseconds)
+ * are stored as 64-bit integers.
+ */
 export const MAX_ENTRANT_INSERTS = maxPlausibleInserts(asDuration(MAX_DURATION_MS));
 
 /**
