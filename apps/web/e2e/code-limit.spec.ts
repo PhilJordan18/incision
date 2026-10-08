@@ -1,13 +1,7 @@
-import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
 import { ROOM_CODE_ALPHABET } from "@incision/domain";
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { type ForwardingProxy, startForwardingProxy } from "./forwarding-proxy";
-import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE, signInWithCredentials } from "./support";
-
-const [alice, bruno] = DEMO_ACCOUNTS;
-if (alice === undefined || bruno === undefined) {
-  throw new Error("Two demo accounts are needed");
-}
+import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
 
 test.use({ locale: "fr-CA" });
 
@@ -31,17 +25,29 @@ async function network(peer: string): Promise<string> {
   return proxy.url;
 }
 
-/** Signed in directly; the session cookie also goes to the proxies (cookies ignore ports). */
-async function signedIn(browser: Browser, account: { login: string; password: string }, theme?: string): Promise<Page> {
+/**
+ * A new account of its own, signed in with a session cookie the server accepts. Each test uses
+ * fresh accounts: the demo accounts are shared by every spec, and their per-account limits
+ * (room changes, sign-ins) would couple the specs. The cookie also goes to the proxies
+ * (cookies ignore ports).
+ */
+async function signedIn(browser: Browser, displayName: string, theme?: string): Promise<Page> {
+  const [created] = await query<{ id: string; session_version: number }>(
+    "insert into accounts (display_name) values ($1) returning id, session_version",
+    [displayName],
+  );
+  if (created === undefined) {
+    throw new Error("The account was not created");
+  }
+  const baseURL = test.info().project.use.baseURL ?? "";
   const context = await browser.newContext({ locale: "fr-CA" });
   contexts.push(context);
+  const cookie = await forgeSessionCookie({ sub: created.id, sessionVersion: created.session_version, authTime: Math.floor(Date.now() / 1000) });
+  await context.addCookies([{ name: SESSION_COOKIE, value: cookie, url: baseURL }]);
   if (theme !== undefined) {
-    await context.addCookies([{ name: "theme", value: theme, url: test.info().project.use.baseURL ?? "" }]);
+    await context.addCookies([{ name: "theme", value: theme, url: baseURL }]);
   }
-  const page = await context.newPage();
-  await signInWithCredentials(page, account.login, account.password);
-  await expect(page).toHaveURL(/\/account$/);
-  return page;
+  return context.newPage();
 }
 
 async function createRoom(page: Page): Promise<string> {
@@ -77,8 +83,8 @@ const THROTTLED = "Trop d’essais · Incision";
 
 test.describe("room-code attempts per address (SALLE-10)", () => {
   test("after 10 unknown codes, every code gets the same answer, which never names it", async ({ browser }) => {
-    const openCode = await createRoom(await signedIn(browser, alice));
-    const page = await signedIn(browser, bruno);
+    const openCode = await createRoom(await signedIn(browser, "Hôte"));
+    const page = await signedIn(browser, "Visiteur");
     const via = await network("203.0.113.10");
     for (const code of unknownCodes(10)) {
       expect(await titleOf(page, via, code)).toBe(UNKNOWN);
@@ -96,8 +102,8 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   });
 
   test("views of an open room or of a race in progress never spend the budget", async ({ browser }) => {
-    const openCode = await createRoom(await signedIn(browser, alice));
-    const page = await signedIn(browser, bruno);
+    const openCode = await createRoom(await signedIn(browser, "Hôte"));
+    const page = await signedIn(browser, "Visiteur");
     const via = await network("203.0.113.12");
     const codes = unknownCodes(11);
     for (const code of codes.slice(0, 9)) {
@@ -115,9 +121,9 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   });
 
   test("a private room counts exactly like an unknown code", async ({ browser }) => {
-    const privateCode = await createRoom(await signedIn(browser, alice));
+    const privateCode = await createRoom(await signedIn(browser, "Hôte"));
     await query("update lobbies set visibility = 'private' where code = $1", [privateCode]);
-    const page = await signedIn(browser, bruno);
+    const page = await signedIn(browser, "Visiteur");
     const via = await network("203.0.113.13");
     const codes = unknownCodes(10);
     for (const code of codes.slice(0, 9)) {
@@ -128,7 +134,7 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   });
 
   test("headers written by the client never choose the address that is counted", async ({ browser }) => {
-    const page = await signedIn(browser, bruno);
+    const page = await signedIn(browser, "Visiteur");
     const via = await network("203.0.113.14");
     const codes = unknownCodes(12);
     for (const [index, code] of codes.slice(0, 10).entries()) {
@@ -142,7 +148,7 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   });
 
   test("the home field explains the refusal and keeps the focus", async ({ browser }) => {
-    const page = await signedIn(browser, bruno);
+    const page = await signedIn(browser, "Visiteur");
     const via = await network("203.0.113.16");
     const codes = unknownCodes(11);
     for (const code of codes.slice(0, 10)) {
@@ -158,7 +164,7 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   });
 
   test("a member still reaches their own room from the home field while their network is over budget", async ({ browser }) => {
-    const host = await signedIn(browser, alice);
+    const host = await signedIn(browser, "Hôte");
     const ownCode = await createRoom(host);
     const via = await network("203.0.113.21");
     const codes = unknownCodes(11);
@@ -175,7 +181,7 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
 
   test("30 accounts joining one room from the same network are all admitted and spend nothing", async ({ browser }) => {
     test.setTimeout(120_000);
-    const host = await signedIn(browser, alice);
+    const host = await signedIn(browser, "Hôte");
     // The host watches, so the 30 participant places are all free (SALLE-05).
     await host.goto("/rooms/new");
     await host.getByLabel("Je participe à la course (sinon : spectateur)").uncheck();
@@ -223,7 +229,7 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   });
 
   test("a member still opens their own room while their network is over budget", async ({ browser }) => {
-    const host = await signedIn(browser, alice);
+    const host = await signedIn(browser, "Hôte");
     const ownCode = await createRoom(host);
     const via = await network("203.0.113.17");
     const codes = unknownCodes(11);
@@ -236,8 +242,8 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   });
 
   test("over budget, every code typed gets the network's answer and the account keeps its room changes", async ({ browser }) => {
-    const openCode = await createRoom(await signedIn(browser, alice));
-    const page = await signedIn(browser, bruno);
+    const openCode = await createRoom(await signedIn(browser, "Hôte"));
+    const page = await signedIn(browser, "Visiteur");
     const via = await network("203.0.113.23");
     const codes = unknownCodes(21);
     for (const code of codes.slice(0, 10)) {
@@ -264,7 +270,7 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   });
 
   test("a code typed in lower case counts once, though the page redirects it", async ({ browser }) => {
-    const page = await signedIn(browser, bruno);
+    const page = await signedIn(browser, "Visiteur");
     const via = await network("203.0.113.25");
     const codes = unknownCodes(11).map((code) => code.toLowerCase());
     for (const code of codes.slice(0, 10)) {
@@ -275,7 +281,7 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
 
   for (const theme of ["abysse", "aube"] as const) {
     test(`the refusal page is accessible and fits 360 px in ${theme}`, async ({ browser }) => {
-      const page = await signedIn(browser, bruno, theme);
+      const page = await signedIn(browser, "Visiteur", theme);
       const via = await network(theme === "abysse" ? "203.0.113.18" : "203.0.113.19");
       const codes = unknownCodes(11);
       for (const code of codes.slice(0, 10)) {
@@ -290,7 +296,7 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
   }
 
   test("speaks English to an English interface", async ({ browser }) => {
-    const page = await signedIn(browser, bruno);
+    const page = await signedIn(browser, "Visiteur");
     await page.context().addCookies([{ name: "locale", value: "en", url: test.info().project.use.baseURL ?? "" }]);
     const via = await network("203.0.113.20");
     const codes = unknownCodes(11);
