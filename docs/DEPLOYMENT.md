@@ -146,7 +146,8 @@ npm run smoke -w @incision/web -- https://<default-domain> --database up
 
 1. Réseau A (par exemple un téléphone en données cellulaires), connecté : ouvrir 10 codes de salle inconnus; le onzième affiche « Trop d'essais ».
 2. Depuis le réseau A encore, la même requête avec des en-têtes `X-Forwarded-For` et `x-incision-client-address` inventés reste refusée.
-3. Réseau B (par exemple le Wi-Fi de la maison), connecté avec l'autre compte de démonstration : un code inconnu affiche toujours « Code introuvable ».
+3. Un second appareil sur le réseau A, connecté avec l'autre compte de démonstration : un code inconnu affiche aussi « Trop d'essais » (le budget est partagé par le réseau).
+4. Réseau B (par exemple le Wi-Fi de la maison) : un code inconnu affiche toujours « Code introuvable ».
 
 Si le réseau B est bloqué par les échecs du réseau A, toutes les requêtes partagent une seule adresse : redéployer l'artefact précédent (section Rollback, aucune migration en jeu) et corriger le nombre de proxys de confiance. Si, à l'étape 2, la requête aux en-têtes inventés n'est plus refusée, des en-têtes écrits par le client changent l'adresse comptée et la limite se contourne : corriger `TRUSTED_PROXY_HOPS` dans les paramètres d'App Service; un rollback n'y change rien.
 
