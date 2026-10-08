@@ -1,4 +1,4 @@
-import { type ActiveMembership, type Database, findActiveMembership, type JoinRoomResult, type RoomSnapshot } from "@incision/database";
+import type { ActiveMembership, JoinRoomResult, RoomSnapshot } from "@incision/database";
 import type { RoomCode } from "@incision/domain";
 import { headers } from "next/headers";
 import { type AttemptLimit, AttemptLimiter } from "@/server/auth/attempt-limiter";
@@ -40,10 +40,7 @@ export async function requestAddressKey(): Promise<string> {
 export function allowOwnRoomRead(
   addressKey: string,
   accountId: string,
-  limiters: { readonly codes: CodeAttemptLimiter; readonly ownRoomReads: AttemptLimiter } = {
-    codes: codeAttempts(),
-    ownRoomReads: ownRoomReads(),
-  },
+  limiters: OwnRoomLimiters = { codes: codeAttempts(), ownRoomReads: ownRoomReads() },
 ): boolean {
   if (!limiters.codes.isExhausted(addressKey)) {
     return true;
@@ -56,22 +53,34 @@ export function allowOwnRoomRead(
 }
 
 export type OwnRoom =
-  /** The address is over budget and this account used its own-room allowance. */
+  /** Refused by the code budget, before anything else is counted or looked up. */
   | { readonly kind: "limited" }
   | { readonly kind: "own"; readonly membership: ActiveMembership }
   | { readonly kind: "elsewhere"; readonly membership: ActiveMembership | undefined };
 
+export type OwnRoomRequest = { readonly addressKey: string; readonly accountId: string; readonly code: RoomCode };
+
+type OwnRoomLimiters = { readonly codes: CodeAttemptLimiter; readonly ownRoomReads: AttemptLimiter };
+
 /**
  * The account's own room, read by account id before any lookup by code. One's own room never
  * goes through the code budget or its queue; while the address is over budget, this read is
- * bounded per account. It never looks a code up: it can only reveal the account's own room.
+ * bounded per account, and any other code is refused here, before any other counter (such as
+ * the account's room changes) is touched. It never looks a code up.
  */
-export async function findOwnRoom(db: Database, addressKey: string, accountId: string, code: RoomCode): Promise<OwnRoom> {
-  if (!allowOwnRoomRead(addressKey, accountId)) {
+export async function findOwnRoom(
+  { addressKey, accountId, code }: OwnRoomRequest,
+  readMembership: (accountId: string) => Promise<ActiveMembership | undefined>,
+  limiters: OwnRoomLimiters = { codes: codeAttempts(), ownRoomReads: ownRoomReads() },
+): Promise<OwnRoom> {
+  if (!allowOwnRoomRead(addressKey, accountId, limiters)) {
     return { kind: "limited" };
   }
-  const membership = await findActiveMembership(db, accountId);
-  return membership?.code === code ? { kind: "own", membership } : { kind: "elsewhere", membership };
+  const membership = await readMembership(accountId);
+  if (membership?.code === code) {
+    return { kind: "own", membership };
+  }
+  return limiters.codes.isExhausted(addressKey) ? { kind: "limited" } : { kind: "elsewhere", membership };
 }
 
 /**

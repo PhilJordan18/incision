@@ -82,7 +82,9 @@ export async function joinRoomAction(_previous: JoinFormState, formData: FormDat
   // One's own room first, by account id: it never waits in the code queue nor spends the budget.
   let own: OwnRoom;
   try {
-    own = await findOwnRoom(db, addressKey, session.accountId, parsed.code);
+    own = await findOwnRoom({ addressKey, accountId: session.accountId, code: parsed.code }, (accountId) =>
+      findActiveMembership(db, accountId),
+    );
   } catch (error: unknown) {
     logFailure("current room lookup", error);
     return { error: "UNAVAILABLE", code: typed };
