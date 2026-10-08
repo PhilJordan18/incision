@@ -98,7 +98,7 @@ test.describe("unknown URL (apps/web/AGENTS.md)", () => {
     expect(response.status()).toBe(404);
     const html = await response.text();
     expect(html).not.toContain("__next_error__");
-    expect(html).toContain('data-theme-choice="aube"');
+    expect(html).toMatch(/<html[^>]*\sdata-theme-choice="aube"/);
 
     const context = await browser.newContext({ javaScriptEnabled: false, locale: "fr-CA" });
     await context.addCookies([{ name: "theme", value: "aube", url: baseURL ?? "" }]);
