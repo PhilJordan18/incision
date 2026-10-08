@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addressLimitKey, clientAddress, normaliseAddress } from "./client-address";
+import { addressLimitKey, assignClientAddress, CLIENT_ADDRESS_HEADER, clientAddress, normaliseAddress } from "./client-address";
 
 function request(remoteAddress: string, forwardedFor?: string | string[]) {
   return { headers: { "x-forwarded-for": forwardedFor }, socket: { remoteAddress } };
@@ -20,6 +20,21 @@ describe("clientAddress", () => {
     expect(clientAddress(request("10.0.0.5"), 1)).toBe("10.0.0.5");
     expect(clientAddress(request("10.0.0.5", "2001:db8::1:443"), 1)).toBe("2001:db8::1:443");
     expect(clientAddress(request("10.0.0.5", "not-an-ip"), 1)).toBe("unparsed:not-an-ip");
+  });
+});
+
+describe("assignClientAddress", () => {
+  it("overwrites an address the client sent under the internal header", () => {
+    const behindAzure = {
+      headers: { "x-forwarded-for": "198.51.100.7, 203.0.113.9:51234", [CLIENT_ADDRESS_HEADER]: "198.51.100.8" },
+      socket: { remoteAddress: "10.0.0.5" },
+    };
+    assignClientAddress(behindAzure, 1);
+    expect(behindAzure.headers[CLIENT_ADDRESS_HEADER]).toBe("203.0.113.9");
+
+    const direct = { headers: { "x-forwarded-for": "198.51.100.7", [CLIENT_ADDRESS_HEADER]: "198.51.100.8" }, socket: { remoteAddress: "::1" } };
+    assignClientAddress(direct, 0);
+    expect(direct.headers[CLIENT_ADDRESS_HEADER]).toBe("::1");
   });
 });
 

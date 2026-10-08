@@ -4,7 +4,7 @@ import path from "node:path";
 import { findActiveMembership, getDatabase, readRoomSnapshot, readSessionVersion } from "@incision/database";
 import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
-import { CLIENT_ADDRESS_HEADER, clientAddress } from "./src/server/http/client-address";
+import { assignClientAddress } from "./src/server/http/client-address";
 import { registerRoomChannel } from "./src/server/realtime/room-channel";
 import { RoomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
   httpServer.on("request", (request, response) => {
     // The only source of the client address for Next (rate limits): a value sent by the
     // client under this name is overwritten (TRUSTED_PROXY_HOPS, docs/DEPLOYMENT.md).
-    request.headers[CLIENT_ADDRESS_HEADER] = clientAddress(request, env.trustedProxyHops);
+    assignClientAddress(request, env.trustedProxyHops);
     void handle(request, response);
   });
   // The same registry as the sign-out server action: both read it from globalThis.

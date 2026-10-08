@@ -9,6 +9,15 @@ type RequestLike = {
 };
 
 /**
+ * Sets the internal client-address header on a request handed to Next, from the TCP peer or
+ * the trusted proxies only. A value the client sent under that name is overwritten: this
+ * header is the only source of the address for rate limits (sign-in, room codes).
+ */
+export function assignClientAddress(request: RequestLike, trustedProxyHops: number): void {
+  request.headers[CLIENT_ADDRESS_HEADER] = clientAddress(request, trustedProxyHops);
+}
+
+/**
  * Address of the client as seen by the last `trustedProxyHops` proxies. Azure's front
  * end appends the address it saw to `X-Forwarded-For`, so with one trusted hop the
  * last entry is the client; earlier entries are whatever the client wrote and are
