@@ -1,20 +1,17 @@
-import { describe, expect, it } from "vitest";
-import { CODE_ATTEMPT_LIMITS, type CodeAttempt, CodeAttemptLimiter, type CodeAttemptLimits, type Timers } from "./code-attempt-limiter";
+import { describe, expect, it, vi } from "vitest";
+import { CODE_ATTEMPT_LIMITS, type CodeAttempt, CodeAttemptLimiter, type CodeAttemptLimits } from "./code-attempt-limiter";
 
 /** Deterministic clock and timers: time moves only when a test says so. */
-class FakeTime implements Timers {
+class FakeTime {
   now = 1_000_000;
   #next = 0;
   readonly #timers = new Map<number, { at: number; callback: () => void }>();
 
-  readonly setTimeout = (callback: () => void, delayMs: number): unknown => {
+  readonly schedule = (callback: () => void, delayMs: number): (() => void) => {
     this.#next += 1;
-    this.#timers.set(this.#next, { at: this.now + delayMs, callback });
-    return this.#next;
-  };
-
-  readonly clearTimeout = (handle: unknown): void => {
-    this.#timers.delete(handle as number);
+    const handle = this.#next;
+    this.#timers.set(handle, { at: this.now + delayMs, callback });
+    return () => this.#timers.delete(handle);
   };
 
   advance(ms: number): void {
@@ -52,7 +49,7 @@ const isMiss = (outcome: Outcome) => outcome === "miss";
 
 function setup(limits: Partial<CodeAttemptLimits> = {}) {
   const time = new FakeTime();
-  const limiter = new CodeAttemptLimiter({ ...CODE_ATTEMPT_LIMITS, ...limits }, () => time.now, time);
+  const limiter = new CodeAttemptLimiter({ ...CODE_ATTEMPT_LIMITS, ...limits }, () => time.now, time.schedule);
   let running = 0;
   let maxRunning = 0;
   const runningByKey = new Map<string, number>();
@@ -318,6 +315,85 @@ describe("CodeAttemptLimiter concurrency", () => {
   });
 });
 
+describe("CodeAttemptLimiter queue", () => {
+  it("serves waiting requests first in first out, across addresses", async () => {
+    const harness = setup({ maxInFlight: 1 });
+    const first = harness.pendingLookup("203.0.113.1");
+    const running = harness.limiter.attempt("203.0.113.1", first.lookup, isMiss);
+    const order: string[] = [];
+    const waiting = ["203.0.113.2", "203.0.113.3", "203.0.113.4"].map((key) =>
+      harness.limiter.attempt(
+        key,
+        async () => {
+          order.push(key);
+          return "hit" as Outcome;
+        },
+        isMiss,
+      ),
+    );
+    await settled();
+    first.result.resolve("hit");
+    await Promise.all([running, ...waiting]);
+    expect(order).toEqual(["203.0.113.2", "203.0.113.3", "203.0.113.4"]);
+  });
+
+  it("frees an address's waiting places as its requests leave the queue", async () => {
+    const harness = setup();
+    for (let round = 0; round < 3; round += 1) {
+      const first = harness.pendingLookup("203.0.113.1");
+      const attempts = [harness.limiter.attempt("203.0.113.1", first.lookup, isMiss)];
+      for (let index = 0; index < 30; index += 1) {
+        attempts.push(harness.attempt("203.0.113.1", "hit"));
+      }
+      await settled();
+      expect(harness.limiter.stats().queued).toBe(30);
+      first.result.resolve("hit");
+      const outcomes = await Promise.all(attempts);
+      expect(outcomes.every((outcome) => outcome.ok)).toBe(true);
+    }
+    expect(harness.limiter.stats()).toMatchObject({ inFlight: 0, queued: 0 });
+  });
+
+  it("refuses a request whose signal is already aborted, without queueing it", async () => {
+    const harness = setup();
+    const first = harness.pendingLookup("203.0.113.1");
+    const running = harness.limiter.attempt("203.0.113.1", first.lookup, isMiss);
+    const cancel = new AbortController();
+    cancel.abort();
+    const second = harness.pendingLookup("203.0.113.1");
+    expect(refused(await harness.limiter.attempt("203.0.113.1", second.lookup, isMiss, cancel.signal))).toBe("CODE_BUSY");
+    expect(harness.limiter.stats().queued).toBe(0);
+    first.result.resolve("hit");
+    await running;
+    expect(harness.calls).toHaveLength(1);
+  });
+
+  it("removes its abort listener once a waiter leaves the queue, whatever the reason", async () => {
+    const harness = setup();
+    const [servedSignal, expiredSignal] = [new AbortController().signal, new AbortController().signal];
+    const removals = [vi.spyOn(servedSignal, "removeEventListener"), vi.spyOn(expiredSignal, "removeEventListener")];
+
+    // Removed at its deadline.
+    const blocker = harness.pendingLookup("203.0.113.9");
+    const blocking = harness.limiter.attempt("203.0.113.9", blocker.lookup, isMiss);
+    const expired = harness.limiter.attempt("203.0.113.9", async () => "hit" as Outcome, isMiss, expiredSignal);
+    await settled();
+    harness.time.advance(CODE_ATTEMPT_LIMITS.queueTimeoutMs);
+    expect(refused(await expired)).toBe("CODE_BUSY");
+
+    // Removed when its turn comes.
+    const first = harness.pendingLookup("203.0.113.1");
+    const running = harness.limiter.attempt("203.0.113.1", first.lookup, isMiss);
+    const served = harness.limiter.attempt("203.0.113.1", async () => "hit" as Outcome, isMiss, servedSignal);
+    await settled();
+    first.result.resolve("hit");
+    blocker.result.resolve("hit");
+    await Promise.all([running, blocking]);
+    expect((await served).ok).toBe(true);
+    expect(removals.map((removal) => removal.mock.calls.length)).toEqual([1, 1]);
+  });
+});
+
 describe("CodeAttemptLimiter memory", () => {
   it("refuses a new address rather than forget one that still counts", async () => {
     const { attempt, limiter, time } = setup({ maxAddresses: 3 });
@@ -336,6 +412,20 @@ describe("CodeAttemptLimiter memory", () => {
     time.advance(CODE_ATTEMPT_LIMITS.windowMs);
     expect((await attempt("192.0.2.1", "hit")).ok).toBe(true);
     expect(limiter.stats().addresses).toBe(1);
+  });
+
+  it("never forgets an address with a lookup in flight, and records its outcome", async () => {
+    const harness = setup({ maxAddresses: 1 });
+    const pending = harness.pendingLookup("203.0.113.1");
+    const running = harness.limiter.attempt("203.0.113.1", pending.lookup, isMiss);
+    await settled();
+    expect(refused(await harness.attempt("192.0.2.1", "hit"))).toBe("CODE_BUSY");
+    pending.result.resolve("miss");
+    await running;
+    for (let index = 0; index < 9; index += 1) {
+      expect((await harness.attempt("203.0.113.1", "miss")).ok).toBe(true);
+    }
+    expect(refused(await harness.attempt("203.0.113.1", "miss"))).toBe("CODE_RATE_LIMITED");
   });
 
   it("forgets an idle address first when the memory is full", async () => {

@@ -31,10 +31,8 @@ export type CodeAttempt<Result> =
   | { readonly ok: true; readonly value: Result }
   | { readonly ok: false; readonly refusal: CodeAttemptRefusal };
 
-export type Timers = {
-  readonly setTimeout: (callback: () => void, delayMs: number) => unknown;
-  readonly clearTimeout: (handle: unknown) => void;
-};
+/** Runs `callback` after `delayMs` and returns a function that cancels it. */
+export type Schedule = (callback: () => void, delayMs: number) => () => void;
 
 type AddressState = {
   /** Times of the failures still inside the window, oldest first (at most maxFailures). */
@@ -49,9 +47,9 @@ type Waiter = {
   readonly settle: (refusal: CodeAttemptRefusal | undefined) => void;
 };
 
-const systemTimers: Timers = {
-  setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
-  clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+const systemSchedule: Schedule = (callback, delayMs) => {
+  const timer = setTimeout(callback, delayMs);
+  return () => clearTimeout(timer);
 };
 
 /**
@@ -76,7 +74,7 @@ export class CodeAttemptLimiter {
   constructor(
     private readonly limits: CodeAttemptLimits = CODE_ATTEMPT_LIMITS,
     private readonly now: () => number = Date.now,
-    private readonly timers: Timers = systemTimers,
+    private readonly schedule: Schedule = systemSchedule,
   ) {}
 
   /**
@@ -89,7 +87,11 @@ export class CodeAttemptLimiter {
     isFailure: (result: Result) => boolean,
     signal?: AbortSignal,
   ): Promise<CodeAttempt<Result>> {
-    const refusal = await this.#acquire(key, signal);
+    const state = this.#stateOf(key);
+    if (state === undefined) {
+      return { ok: false, refusal: "CODE_BUSY" };
+    }
+    const refusal = await this.#acquire(state, signal);
     if (refusal !== undefined) {
       return { ok: false, refusal };
     }
@@ -99,7 +101,7 @@ export class CodeAttemptLimiter {
       failed = isFailure(value);
       return { ok: true, value };
     } finally {
-      this.#release(key, failed);
+      this.#release(state, failed);
     }
   }
 
@@ -114,11 +116,7 @@ export class CodeAttemptLimiter {
     return { inFlight: this.#inFlight, queued: this.#queue.length, addresses: this.#addresses.size };
   }
 
-  #acquire(key: string, signal: AbortSignal | undefined): Promise<CodeAttemptRefusal | undefined> {
-    const state = this.#stateOf(key);
-    if (state === undefined) {
-      return Promise.resolve("CODE_BUSY");
-    }
+  #acquire(state: AddressState, signal: AbortSignal | undefined): Promise<CodeAttemptRefusal | undefined> {
     if (this.#failuresInWindow(state) >= this.limits.maxFailures) {
       return Promise.resolve("CODE_RATE_LIMITED");
     }
@@ -133,7 +131,7 @@ export class CodeAttemptLimiter {
     return new Promise((resolve) => {
       let settled = false;
       const onAbort = () => waiter.settle("CODE_BUSY");
-      const timer = this.timers.setTimeout(() => waiter.settle("CODE_BUSY"), this.limits.queueTimeoutMs);
+      const cancelDeadline = this.schedule(() => waiter.settle("CODE_BUSY"), this.limits.queueTimeoutMs);
       const waiter: Waiter = {
         state,
         settle: (refusal) => {
@@ -141,7 +139,7 @@ export class CodeAttemptLimiter {
             return;
           }
           settled = true;
-          this.timers.clearTimeout(timer);
+          cancelDeadline();
           signal?.removeEventListener("abort", onAbort);
           const index = this.#queue.indexOf(waiter);
           if (index >= 0) {
@@ -157,14 +155,12 @@ export class CodeAttemptLimiter {
     });
   }
 
-  #release(key: string, failed: boolean): void {
-    const state = this.#addresses.get(key);
+  /** The state is the one reserved: an address with a lookup in flight is never forgotten. */
+  #release(state: AddressState, failed: boolean): void {
     this.#inFlight -= 1;
-    if (state !== undefined) {
-      state.inFlight -= 1;
-      if (failed) {
-        state.failures.push(this.now());
-      }
+    state.inFlight -= 1;
+    if (failed) {
+      state.failures.push(this.now());
     }
     this.#dispatch();
   }
