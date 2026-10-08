@@ -104,7 +104,7 @@ Les salles par code (CP-06) n'exigent aucune nouvelle variable ni migration. La 
 
 - Limite des codes (SALLE-10) :
   - Un seul budget par adresse : une classe derrière l'adresse de son école le partage. Dix codes ratés en une minute, par des fautes de frappe ou par un seul élève, bloquent la recherche par code pour toute la classe pendant au plus une minute; chacun garde l'accès à sa propre salle.
-  - Les recherches par code d'une même adresse passent une à la fois, avec 5 s d'attente au plus, et au plus 30 attendent : au-delà d'environ 31 demandes simultanées, les suivantes reçoivent « Trop de demandes » tout de suite. En local, 29 élèves derrière une même adresse ont tous été admis en environ 6 s. Si une classe entière arrive en même temps et que chaque admission est lente (base de données éloignée ou qui se réveille), les derniers élèves peuvent recevoir « Trop de demandes »; ils réessaient, sans rien dépenser du budget. Le temps réel d'une admission en production reste à mesurer.
+  - Les recherches par code d'une même adresse passent une à la fois, avec 5 s d'attente au plus, et au plus 30 attendent : au-delà d'environ 31 demandes simultanées, les suivantes reçoivent « Trop de demandes » tout de suite. En local, 30 comptes qui cliquent en même temps depuis la même adresse sont tous admis (test E2E); le temps d'une admission en production reste à mesurer. Si une classe entière arrive en même temps et que chaque admission est lente (base de données éloignée ou qui se réveille), les derniers élèves peuvent recevoir « Trop de demandes »; ils réessaient, sans rien dépenser du budget. Le temps réel d'une admission en production reste à mesurer.
   - Les codes valides ne dépensent rien : quelques adresses qui rouvrent sans arrêt la page d'une salle ouverte peuvent remplir la file commune (2 recherches en cours, 100 en attente), et les autres reçoivent « Trop de demandes » pendant ce temps. Ce n'est pas plus coûteux qu'un simple flot de requêtes, qui occupait déjà le pool avant cette limite.
   - Dix mille adresses actives à la fois remplissent la mémoire de la limite : une nouvelle adresse reçoit alors « Trop de demandes » plutôt que d'être admise sans contrôle.
   - Les compteurs vivent dans la mémoire du processus : un redémarrage ou un déploiement les remet à zéro, et deux processus qui se chevauchent un instant ont chacun leur budget.
@@ -148,7 +148,9 @@ npm run smoke -w @incision/web -- https://<default-domain> --database up
 2. Depuis le réseau A encore, la même requête avec des en-têtes `X-Forwarded-For` et `x-incision-client-address` inventés reste refusée.
 3. Réseau B (par exemple le Wi-Fi de la maison), connecté avec l'autre compte de démonstration : un code inconnu affiche toujours « Code introuvable ».
 
-Si le réseau B est bloqué par les échecs du réseau A, toutes les requêtes partagent une seule adresse : redéployer l'artefact précédent (section Rollback, aucune migration en jeu) et corriger le nombre de proxys de confiance.
+Si le réseau B est bloqué par les échecs du réseau A, toutes les requêtes partagent une seule adresse : redéployer l'artefact précédent (section Rollback, aucune migration en jeu) et corriger le nombre de proxys de confiance. Si l'étape 2 passe (des en-têtes inventés changent l'adresse comptée), la limite se contourne : corriger `TRUSTED_PROXY_HOPS` dans les paramètres d'App Service; un rollback n'y change rien.
+
+Une panne de base de données sur la page d'une salle affiche l'état « Avarie » avec une réponse 200 : elle apparaît dans le Log stream (`[rooms] room page failed`), pas dans les erreurs 5xx d'App Service.
 
 Logs : App Service → Log stream. Deux endpoints, tous deux sans détails internes :
 
