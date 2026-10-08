@@ -59,9 +59,10 @@ describe("computeMeasures (Appendix A)", () => {
     ["a fractional counter", { correctInserts: 1.5, totalInserts: 2 }],
     ["a negative counter", { correctInserts: -1, totalInserts: 2 }],
     ["more correct than total inserts", { correctInserts: 3, totalInserts: 2 }],
-    ["a counter above the safe integers", { correctInserts: 0, totalInserts: Number.MAX_SAFE_INTEGER + 1 }],
     ["a counter above MAX_ENTRANT_INSERTS", { correctInserts: 0, totalInserts: MAX_ENTRANT_INSERTS + 1 }],
-    ["NaN", { correctInserts: Number.NaN, totalInserts: 1 }],
+    ["a NaN correct count", { correctInserts: Number.NaN, totalInserts: 1 }],
+    ["a NaN total", { correctInserts: 0, totalInserts: Number.NaN }],
+    ["a fractional total", { correctInserts: 1, totalInserts: 2.5 }],
   ])("refuses %s as a programming error", (_label, counters) => {
     expect(() => computeMeasures(counters, asDuration(1_000))).toThrow(RangeError);
   });
