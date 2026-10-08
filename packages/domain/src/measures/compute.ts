@@ -1,12 +1,14 @@
+import { MAX_ENTRANT_INSERTS } from "../race/limits";
 import { asDuration } from "../time";
 import { CHARACTERS_PER_WORD, type ComputeMeasures, type TypingCounters } from "./types";
 
-/** (inserts ÷ 5) ÷ minutes is inserts × 12 000 ÷ milliseconds: one product, then one division. */
-const WPM_PER_INSERT_MS = 60_000 / CHARACTERS_PER_WORD;
+/** Turns inserts per millisecond into WPM: (inserts ÷ 5) ÷ minutes = inserts × 12 000 ÷ ms. */
+const INSERT_MS_TO_WPM = 60_000 / CHARACTERS_PER_WORD;
 
 /**
- * Appendix A, exact and never capped (F-02.1). For counters the engine accepted every product
- * stays below 2⁵³ (`MAX_ENTRANT_INSERTS` × 12 000), so integer inputs give the exact quotient.
+ * Appendix A, exact and never capped (F-02.1). Counters are at most `MAX_ENTRANT_INSERTS`, so every
+ * product (inserts × 12 000, correct × 100) is an exact integer below 2⁵³, and each measure is the
+ * correctly rounded quotient of exact integers.
  */
 export const computeMeasures: ComputeMeasures = (counters, elapsed) => {
   const { correctInserts, totalInserts } = checkedCounters(counters);
@@ -17,8 +19,8 @@ export const computeMeasures: ComputeMeasures = (counters, elapsed) => {
     return { netWpm: 0, rawWpm: 0, accuracy };
   }
   return {
-    netWpm: (correctInserts * WPM_PER_INSERT_MS) / milliseconds,
-    rawWpm: (totalInserts * WPM_PER_INSERT_MS) / milliseconds,
+    netWpm: (correctInserts * INSERT_MS_TO_WPM) / milliseconds,
+    rawWpm: (totalInserts * INSERT_MS_TO_WPM) / milliseconds,
     accuracy,
   };
 };
@@ -29,11 +31,13 @@ function checkedCounters(counters: TypingCounters): TypingCounters {
     !Number.isSafeInteger(correctInserts) ||
     !Number.isSafeInteger(totalInserts) ||
     correctInserts < 0 ||
-    correctInserts > totalInserts
+    correctInserts > totalInserts ||
+    totalInserts > MAX_ENTRANT_INSERTS
   ) {
     throw new RangeError(
-      `Invalid counters ${correctInserts}/${totalInserts}: expected integers with 0 <= correct <= total`,
+      `Invalid counters ${correctInserts}/${totalInserts}: expected integers with 0 <= correct <= total <= ${MAX_ENTRANT_INSERTS}`,
     );
   }
-  return counters;
+  // + 0 turns a −0 into 0, so no measure is ever −0.
+  return { correctInserts: correctInserts + 0, totalInserts: totalInserts + 0 };
 }
