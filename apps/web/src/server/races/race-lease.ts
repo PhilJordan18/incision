@@ -1,3 +1,5 @@
+import { RACE_LEASE_MS } from "@incision/database";
+
 /**
  * Timing of a race's ownership lease (ADR-0004). The database keeps the lease for `leaseMs`
  * after each renewal; the owner renews every `renewEveryMs`, so two missed renewals are
@@ -6,12 +8,12 @@
  * believes it holds the lease longer than the database does.
  */
 export const LEASE_TIMING = {
-  leaseMs: 30_000,
+  leaseMs: RACE_LEASE_MS,
   renewEveryMs: 10_000,
   safetyMarginMs: 5_000,
   /** While the database does not answer: one attempt at a time, this often. */
   retryEveryMs: 2_000,
-  /** Without any confirmation for this long, the owner gives the race up for good. */
+  /** Suspended for this long without any confirmation, the owner gives the race up for good. */
   maxSuspensionMs: 60_000,
 } as const;
 
@@ -51,7 +53,8 @@ export type RaceLeaseOptions = {
  * - only a renewal confirmed by the database (same owner, same generation, race still active)
  *   brings a suspended lease back, and only up to what that renewal proves;
  * - once lost or stopped, nothing brings it back: a late or delayed answer is ignored;
- * - at most one renewal is in flight, and attempts are spaced and bounded in time.
+ * - at most one renewal is in flight, and attempts are spaced and bounded in time;
+ * - it wakes up at its deadlines, so `onChange` reports a suspension or a give-up on time.
  */
 export class RaceLease {
   readonly #timing: LeaseTiming;
@@ -139,9 +142,13 @@ export class RaceLease {
     }
   }
 
+  /** The next tick, or earlier if the local deadline or the give-up comes first. */
   #scheduleNext(delayMs: number): void {
     this.#cancelNext?.();
-    this.#cancelNext = this.options.schedule(() => this.#tick(), delayMs);
+    const now = this.options.now();
+    const deadline =
+      this.#state === "held" ? this.#validUntil : (this.#suspendedSince ?? now) + this.#timing.maxSuspensionMs;
+    this.#cancelNext = this.options.schedule(() => this.#tick(), Math.max(0, Math.min(delayMs, deadline - now)));
   }
 
   #finish(state: "lost" | "stopped"): void {

@@ -38,6 +38,9 @@ class FakeTime {
 
 const settled = () => new Promise<void>((resolve) => setImmediate(resolve));
 
+/** How long a confirmed renewal proves ownership, counted from when it was sent. */
+const LOCAL_LEASE_MS = LEASE_TIMING.leaseMs - LEASE_TIMING.safetyMarginMs;
+
 type Answer = { resolve: (renewed: boolean) => void; reject: (error: Error) => void };
 
 /** The database's answers to renewals, given by the test one at a time. */
@@ -203,17 +206,96 @@ describe("RaceLease", () => {
     expect(lease.isAuthoritative()).toBe(true);
   });
 
-  it("gives the race up after a minute without any confirmation", async () => {
+  it("counts the margin from when a renewal was sent, not from its answer", async () => {
+    const { time, db, lease } = setup();
+    await time.advance(LEASE_TIMING.renewEveryMs);
+    // Sent at 10 s, answered at 14 s: held until 10 + 30 - 5 = 35 s, not 39 s.
+    const sentAt = time.now;
+    const answerDelay = 4_000;
+    await time.advance(answerDelay);
+    await db.answer(true);
+    // The next renewal, sent at 24 s, hangs.
+    await time.advance(sentAt + LOCAL_LEASE_MS - time.now - 1);
+    expect(lease.isAuthoritative()).toBe(true);
+    await time.advance(1);
+    expect(lease.isAuthoritative()).toBe(false);
+    // Still suspended where a deadline counted from the answer would have held it.
+    await time.advance(answerDelay - 1);
+    expect(lease.isAuthoritative()).toBe(false);
+  });
+
+  it("reports its suspension at the deadline, without anyone asking", async () => {
+    const { time, db, changes } = setup();
+    // Every renewal fails at once: the next attempt would come after the deadline.
+    await time.advance(LEASE_TIMING.renewEveryMs);
+    await db.answer("unreachable");
+    await time.advance(LEASE_TIMING.renewEveryMs);
+    await db.answer("unreachable");
+    await time.advance(LOCAL_LEASE_MS - time.now - 1);
+    expect(changes).toEqual([]);
+    await time.advance(1);
+    expect(changes).toEqual(["suspended"]);
+  });
+
+  it("is lost at once when a renewal is refused while it holds the race", async () => {
+    const { time, db, lease, changes } = setup();
+    await time.advance(LEASE_TIMING.renewEveryMs);
+    // The race ended elsewhere (the room closed): the renewal finds no active race of this owner.
+    await db.answer(false);
+    expect(lease.state).toBe("lost");
+    expect(changes).toEqual(["lost"]);
+    expect(time.pendingTimers).toBe(0);
+  });
+
+  it("suspends again after resuming, and counts the give-up from the new suspension", async () => {
     const { time, db, lease, changes } = setup();
     await time.advance(LEASE_TIMING.renewEveryMs);
     await db.answer("unreachable");
-    for (let elapsed = 0; elapsed < LEASE_TIMING.leaseMs + LEASE_TIMING.maxSuspensionMs; elapsed += LEASE_TIMING.retryEveryMs) {
+    await time.advance(LOCAL_LEASE_MS - time.now);
+    expect(changes).toEqual(["suspended"]);
+    // An unreachable answer while suspended changes nothing; a confirmed retry resumes.
+    await time.advance(LEASE_TIMING.retryEveryMs);
+    await db.answer("unreachable");
+    expect(lease.isAuthoritative()).toBe(false);
+    await time.advance(LEASE_TIMING.retryEveryMs);
+    const resumedAt = time.now;
+    await db.answer(true);
+    expect(changes).toEqual(["suspended", "held"]);
+    // The database is gone again: suspended 25 s after that renewal was sent.
+    for (let elapsed = 0; elapsed < LOCAL_LEASE_MS; elapsed += LEASE_TIMING.retryEveryMs) {
       await time.advance(LEASE_TIMING.retryEveryMs);
       if (db.waiting > 0) {
         await db.answer("unreachable");
       }
     }
+    expect(changes).toEqual(["suspended", "held", "suspended"]);
+    const suspendedAgainAt = resumedAt + LOCAL_LEASE_MS;
+    // A minute after the first suspension (at 25 s), the lease is still only suspended.
+    await time.advance(LOCAL_LEASE_MS + LEASE_TIMING.maxSuspensionMs + 1 - time.now);
+    expect(lease.state).toBe("suspended");
+    await time.advance(suspendedAgainAt + LEASE_TIMING.maxSuspensionMs - 1 - time.now);
+    expect(lease.state).toBe("suspended");
+    await time.advance(1);
+    expect(lease.state).toBe("lost");
+  });
+
+  it("gives the race up exactly a minute after its suspension without any confirmation", async () => {
+    const { time, db, lease, changes } = setup();
+    await time.advance(LEASE_TIMING.renewEveryMs);
+    await db.answer("unreachable");
+    // Suspended at 25 s; retries keep failing.
+    const giveUpAt = LOCAL_LEASE_MS + LEASE_TIMING.maxSuspensionMs;
+    while (time.now < giveUpAt - LEASE_TIMING.retryEveryMs) {
+      await time.advance(LEASE_TIMING.retryEveryMs);
+      if (db.waiting > 0) {
+        await db.answer("unreachable");
+      }
+    }
+    await time.advance(giveUpAt - 1 - time.now);
+    expect(lease.state).toBe("suspended");
+    await time.advance(1);
     expect(lease.state).toBe("lost");
     expect(changes).toEqual(["suspended", "lost"]);
+    expect(time.pendingTimers).toBe(0);
   });
 });
