@@ -1,4 +1,13 @@
-import { admissionRefusal, canonicalDisplayName, localDisplayName, type MemberRole, type RoomCode, type RoomPhase } from "@incision/domain";
+import {
+  type AdmittingPhase,
+  admissionRefusal,
+  admitsNewMembers,
+  canonicalDisplayName,
+  localDisplayName,
+  type MemberRole,
+  type RoomCode,
+  type RoomPhase,
+} from "@incision/domain";
 import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
@@ -104,7 +113,9 @@ export type JoinRoomInput = { readonly accountId: string; readonly code: RoomCod
 
 export type JoinRoomResult =
   | { readonly ok: true; readonly lobbyId: string; readonly memberId: string; readonly alreadyMember: boolean }
-  | { readonly ok: false; readonly error: "ROOM_NOT_FOUND" | "ROOM_NOT_ADMITTING" | "ROOM_FULL" | "ACCOUNT_NOT_FOUND" }
+  | { readonly ok: false; readonly error: "ROOM_NOT_FOUND" | "ROOM_FULL" | "ACCOUNT_NOT_FOUND" }
+  /** The phase tells a closed room from a race in progress (the code limit counts only the first). */
+  | { readonly ok: false; readonly error: "ROOM_NOT_ADMITTING"; readonly phase: Exclude<RoomPhase, AdmittingPhase> }
   | { readonly ok: false; readonly error: "ALREADY_IN_ANOTHER_ROOM"; readonly currentCode: string };
 
 /**
@@ -153,8 +164,11 @@ async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput):
         ).value
       : 0;
   const refusal = admissionRefusal({ phase: lobby.phase, role, activeParticipants, capacity: lobby.capacity });
-  if (refusal !== undefined) {
+  if (refusal === "ROOM_FULL") {
     return { ok: false, error: refusal };
+  }
+  if (refusal === "ROOM_NOT_ADMITTING" && !admitsNewMembers(lobby.phase)) {
+    return { ok: false, error: refusal, phase: lobby.phase };
   }
   const [account] = await tx.select({ displayName: accounts.displayName }).from(accounts).where(eq(accounts.id, accountId));
   if (account === undefined) {
