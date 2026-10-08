@@ -107,6 +107,16 @@ Les salles par code (CP-06) n'exigent aucune nouvelle variable ni migration. La 
 - Les salles fermées et les membres partis restent dans la base de données (pas encore de purge) : environ 700 octets par salle; la limite par compte borne la croissance.
 - Un membre qui se déconnecte reste dans la salle, affiché hors ligne, jusqu'à son retour ou au départ de l'hôte (l'expulsion viendra avec SALLE-07).
 
+## Courses
+
+Les fondations de données de la première course (F-04.0, migration `0002_races`) n'exigent aucune nouvelle variable. Chaque course enregistre le processus qui la fait tourner et un bail de 30 s sur l'horloge de la base de données ([ADR-0004](adr/0004-race-ownership-lease.md)).
+
+**Au démarrage**, le processus lance une seule transaction de reprise, sans retarder le serveur : elle interrompt, sans résultat, les courses dont le bail a expiré (un processus précédent arrêté pendant une course) et remet leur salle en attente. Une course dont le bail court encore, par exemple pendant le chevauchement de deux processus lors d'un déploiement, n'est jamais interrompue. La reprise n'attend jamais une salle ou une course qu'une autre transaction tient : elle la laisse pour plus tard. Si la base de données ne répond pas, ou si des courses restent pour plus tard, elle réessaie après 5, 15 puis 45 s, puis abandonne. Chaque démarrage du processus réveille donc Neon une fois; sans course en cours, rien d'autre n'interroge la base de données périodiquement.
+
+**Log stream** : une ligne `[races] boot recovery: … left for later` à chaque tentative, même quand il n'y a rien à reprendre; `[races] boot recovery failed: …, retrying` ou `…, giving up` en cas d'échec. L'erreur y est décrite brièvement : le code SQL et les noms de contrainte ou de table, ou le message d'une erreur de connexion, qui peut nommer l'hôte ou le rôle Neon; jamais l'URL de connexion, les paramètres de la requête ni le message du serveur pour une requête.
+
+**Restaurer la base de données** à un état antérieur à `0002` exige aussi de redéployer un artefact antérieur à `0002` : le code de cette version lit la nouvelle colonne `lobbies.current_race_id`, et quitter une salle échouerait.
+
 ## Comptes de démonstration
 
 Deux comptes locaux fictifs, listés avec leurs mots de passe dans le [README](../README.md#comptes-de-démonstration), servent aux démonstrations et aux tests Playwright. Leurs mots de passe sont volontairement publics et ne servent nulle part ailleurs; ce ne sont pas des secrets techniques. Le seed (`packages/database/src/identity/demo-accounts.ts`) crée seulement les comptes manquants et ne modifie jamais un compte existant (un compte qui porte un nom d'utilisateur de démonstration avec un mot de passe différent est signalé comme un conflit). Il ne s'exécute jamais au démarrage de l'application.
@@ -150,4 +160,4 @@ Logs : App Service → Log stream. Deux endpoints, tous deux sans détails inter
 
 ## Coûts
 
-B2 tourne sur le crédit Azure for Students : consulter Cost Management régulièrement et ne jamais convertir en abonnement payant. Neon reste sur le forfait gratuit : ses heures de calcul sont limitées par mois et, une fois qu'elles sont épuisées, le calcul est suspendu jusqu'à la période suivante; rien ne doit donc interroger la base de données à intervalle fixe (sonde de santé, keep-alive). Surveiller la page d'utilisation.
+B2 tourne sur le crédit Azure for Students : consulter Cost Management régulièrement et ne jamais convertir en abonnement payant. Neon reste sur le forfait gratuit : ses heures de calcul sont limitées par mois et, une fois qu'elles sont épuisées, le calcul est suspendu jusqu'à la période suivante; rien ne doit donc interroger la base de données à intervalle fixe (sonde de santé, keep-alive). La reprise des courses réveille Neon à chaque démarrage du processus : une application qui redémarre en boucle plus souvent que toutes les 5 minutes garderait le calcul éveillé. Surveiller la page d'utilisation.
