@@ -1,4 +1,5 @@
 import {
+  type AdmissionRefusal,
   type AdmittingPhase,
   admissionRefusal,
   admitsNewMembers,
@@ -8,7 +9,7 @@ import {
   type RoomCode,
   type RoomPhase,
 } from "@incision/domain";
-import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
 import { firstRow } from "../rows";
@@ -140,12 +141,14 @@ export async function joinRoomByCode(db: Database, input: JoinRoomInput): Promis
 }
 
 async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput): Promise<JoinRoomResult> {
+  // A private room is never locked by a code alone: it answers exactly like an unknown code,
+  // without the lock's cost that could tell the two apart (SALLE-03, SALLE-10).
   const [lobby] = await tx
-    .select({ id: lobbies.id, phase: lobbies.phase, visibility: lobbies.visibility, capacity: lobbies.capacity })
+    .select({ id: lobbies.id, phase: lobbies.phase, capacity: lobbies.capacity })
     .from(lobbies)
-    .where(eq(lobbies.code, code))
+    .where(and(eq(lobbies.code, code), ne(lobbies.visibility, "private")))
     .for("update");
-  if (lobby === undefined || lobby.visibility === "private") {
+  if (lobby === undefined) {
     return { ok: false, error: "ROOM_NOT_FOUND" };
   }
   const current = await findActiveMembership(tx, accountId);
@@ -164,11 +167,8 @@ async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput):
         ).value
       : 0;
   const refusal = admissionRefusal({ phase: lobby.phase, role, activeParticipants, capacity: lobby.capacity });
-  if (refusal === "ROOM_FULL") {
-    return { ok: false, error: refusal };
-  }
-  if (refusal === "ROOM_NOT_ADMITTING" && !admitsNewMembers(lobby.phase)) {
-    return { ok: false, error: refusal, phase: lobby.phase };
+  if (refusal !== undefined) {
+    return admissionRefusalResult(refusal, lobby.phase);
   }
   const [account] = await tx.select({ displayName: accounts.displayName }).from(accounts).where(eq(accounts.id, accountId));
   if (account === undefined) {
@@ -195,6 +195,17 @@ async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput):
   );
   await bumpRevision(tx, lobby.id);
   return { ok: true, lobbyId: lobby.id, memberId: member.id, alreadyMember: false };
+}
+
+/** Every refusal stops the admission; the phase tells a closed room from a race in progress. */
+function admissionRefusalResult(refusal: AdmissionRefusal, phase: RoomPhase): JoinRoomResult & { readonly ok: false } {
+  switch (refusal) {
+    case "ROOM_FULL":
+      return { ok: false, error: "ROOM_FULL" };
+    case "ROOM_NOT_ADMITTING":
+      // The domain refuses admission exactly in these phases; a mismatch still refuses.
+      return admitsNewMembers(phase) ? { ok: false, error: "ROOM_FULL" } : { ok: false, error: "ROOM_NOT_ADMITTING", phase };
+  }
 }
 
 export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boolean };
