@@ -56,9 +56,10 @@ export type InputEvent =
  *
  * Integration precondition, guaranteed by the server (the engine sees no connection): one emitter
  * per entrant. Only the entrant's controlling connection may submit batches; another tab of the
- * same member observes (docs/architecture/state-machines.md §2). After a reconnection the new
- * connection takes control and batches from the older one are discarded before the engine, so
- * two tabs can never both send `seq` 1 with different events.
+ * same member observes, or asks for an explicit transfer of control (docs/architecture/
+ * state-machines.md §2). Once the controlling connection drops, the next one to take control
+ * replaces it, and batches still arriving from the old one are discarded before the engine. Two
+ * tabs can therefore never both send `seq` 1 with different events.
  *
  * `seq` is a safe integer of at least 1, `textVersion` a safe integer of at least 0, and `events`
  * holds at least one event; otherwise the batch is refused `INVALID_INPUT`. More than

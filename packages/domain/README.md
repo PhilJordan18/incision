@@ -55,9 +55,11 @@ reply to the previous one, gathering keystrokes meanwhile, and splits more than 
 pending events into several batches.
 
 - The server guarantees one emitter per entrant; the engine sees no connection. Only the entrant's
-  controlling connection submits batches, and another tab of the same member observes.
-- After a reconnection, the new connection takes control and the older one's batches are discarded
-  before the engine. Two tabs can therefore never both send `seq` 1 with different events.
+  controlling connection submits batches. Another tab of the same member observes, or asks for an
+  explicit transfer of control.
+- Once the controlling connection drops, the next one to take control replaces it, and batches
+  still arriving from the old one are discarded before the engine. Two tabs can therefore never
+  both send `seq` 1 with different events.
 
 - A batch is applied whole or not at all, and a refusal never consumes a `seq`.
 - A batch is immutable once sent: a retry repeats the same `seq` with the same events, and a `seq`
@@ -146,8 +148,8 @@ Three notions are kept apart:
    They are a plausibility threshold chosen for the product, not an absolute guarantee: set far
    above the speeds expected from our students, they aim at scripts and replays. F-04.4 tunes them.
 2. **The measures** are Appendix A computed exactly from the counters and the elapsed time
-   (`computeMeasures`), unrounded and never capped, over an exact elapsed time. They are the official values, stored with the
-   counters and the elapsed time they come from. A high value at the very start, from the burst
+   (`computeMeasures`), unrounded and never capped, over an exact elapsed time. They are the
+   official values, stored with the counters and the elapsed time they come from. A high value at the very start, from the burst
    margin, stays exact. For accepted counters it never exceeds `MAX_COMPUTABLE_WPM` (240 000),
    which is derived from the limits: 20 inserts after 1 ms.
 3. **A display limit**, if any, belongs to the interface. It is explicitly flagged there and never
