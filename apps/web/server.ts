@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
-import { findActiveMembership, getDatabase, readRoomSnapshot, readSessionVersion } from "@incision/database";
+import { findActiveMembership, getDatabase, readRoomSnapshot, readSessionVersion, recoverAbandonedRaces } from "@incision/database";
 import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
 import { CLIENT_ADDRESS_HEADER, clientAddress } from "./src/server/http/client-address";
@@ -10,7 +10,8 @@ import { RoomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
 import { authenticateHandshake } from "./src/server/realtime/socket-session";
-import { roomEvents } from "./src/server/rooms/room-events";
+import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
+import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
 async function main(): Promise<void> {
@@ -53,6 +54,16 @@ async function main(): Promise<void> {
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
   });
+
+  // Races a previous process left behind (ADR-0004): recovered without delaying the server.
+  if (env.databaseUrl !== undefined) {
+    recoverRacesAtBoot({
+      recover: () => recoverAbandonedRaces(databaseOf(env)),
+      onRecovered: notifyRoomChanged,
+      schedule: (callback, delayMs) => void setTimeout(callback, delayMs).unref(),
+      log: (message) => console.log(message),
+    });
+  }
 
   httpServer.listen(env.port, () => {
     console.log(`[server] ${env.isProduction ? "production" : "development"} on port ${env.port}`);
