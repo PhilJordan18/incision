@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): 
   // A non-canonical code is redirected by the page: no lookup for it here, so a view counts once.
   const state = parsed.ok && parsed.code === code && session !== null ? await loadRoomPage(session.accountId, parsed.code) : undefined;
   if (state?.kind === "throttled") {
-    return { title: t.rooms.throttledHeading, robots: { index: false } };
+    return { title: t.rooms.throttledHeadings[state.refusal], robots: { index: false } };
   }
   if (!parsed.ok || state?.kind === "unknown") {
     // Answered with 200 (no notFound(), see apps/web/AGENTS.md): keep it out of indexes.
@@ -62,7 +62,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
           heading={{ bold: t.errorBoundary.title }}
           actions={
             <>
-              <Link href={`/rooms/${code}`} className={secondaryButton}>
+              <Link href={`/rooms/${code}`} prefetch={false} className={secondaryButton}>
                 {t.errorBoundary.retry}
               </Link>
               <Link href="/" className={discreetButton}>
@@ -75,16 +75,22 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
         </StatePanel>
       );
     case "throttled":
-      // The same panel whatever the code: it is not shown, and nothing about it is said.
+      // The same panel whatever the code (the refusal depends on the address only): nothing
+      // about the code is said. Retrying reloads the address the student came with.
       return (
         <StatePanel
           tone="warning"
           label={t.rooms.unknownLabel}
-          heading={{ bold: t.rooms.throttledHeading }}
+          heading={{ bold: t.rooms.throttledHeadings[state.refusal] }}
           actions={
-            <Link href="/" className={discreetButton}>
-              {t.rooms.backHome}
-            </Link>
+            <>
+              <Link href={`/rooms/${code}`} prefetch={false} className={secondaryButton}>
+                {t.rooms.retry}
+              </Link>
+              <Link href="/" className={discreetButton}>
+                {t.rooms.backHome}
+              </Link>
+            </>
           }
         >
           <p>{t.home.codeErrors[state.refusal]}</p>
