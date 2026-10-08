@@ -23,6 +23,9 @@ export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): 
   if (state?.kind === "throttled") {
     return { title: t.rooms.throttledHeadings[state.refusal], robots: { index: false } };
   }
+  if (state?.kind === "unavailable") {
+    return { title: t.errorBoundary.title, robots: { index: false } };
+  }
   if (!parsed.ok || state?.kind === "unknown") {
     // Answered with 200 (no notFound(), see apps/web/AGENTS.md): keep it out of indexes.
     return { title: t.rooms.unknownHeading, robots: { index: false } };

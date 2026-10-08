@@ -1,5 +1,6 @@
-import { type ActiveMembership, describeDatabaseError, findRoomByCode, readRoomSnapshot, type RoomSnapshot } from "@incision/database";
+import { type ActiveMembership, describeDatabaseError, findActiveMembership, findRoomByCode, readRoomSnapshot, type RoomSnapshot } from "@incision/database";
 import { admitsNewMembers, type AdmittingPhase, type RoomCode, type RoomPhase } from "@incision/domain";
+import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 import { authDatabase } from "@/server/auth/store";
 import type { CodeAttemptRefusal } from "@/server/rooms/code-attempt-limiter";
@@ -27,6 +28,8 @@ export const loadRoomPage = cache(async (accountId: string, code: RoomCode): Pro
   try {
     return await readRoomPage(accountId, code);
   } catch (error: unknown) {
+    // Next's own control flow (request-time APIs) is not ours to handle.
+    unstable_rethrow(error);
     // Logged by shape only: a query's parameters (the code, the account) never reach the logs.
     console.error("[rooms] room page failed:", describeDatabaseError(error));
     return { kind: "unavailable" };
@@ -36,7 +39,7 @@ export const loadRoomPage = cache(async (accountId: string, code: RoomCode): Pro
 async function readRoomPage(accountId: string, code: RoomCode): Promise<RoomPageState> {
   const db = authDatabase();
   const addressKey = await requestAddressKey();
-  const own = await findOwnRoom(db, addressKey, accountId, code);
+  const own = await findOwnRoom({ addressKey, accountId, code }, (id) => findActiveMembership(db, id));
   if (own.kind === "limited") {
     return { kind: "throttled", refusal: "CODE_RATE_LIMITED" };
   }
