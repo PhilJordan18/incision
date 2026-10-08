@@ -290,7 +290,10 @@ export type PublicEntrantProgress = {
   /** Progress is `position / length` (Appendix A). */
   readonly position: number;
   readonly length: number;
-  /** Net WPM over `measuredElapsed`: 0 during the countdown, frozen once the entrant ended. */
+  /**
+   * Net WPM over `measuredElapsed`: 0 during the countdown, frozen once the entrant ended. Exact,
+   * so it can be very high in the first milliseconds; any display limit belongs to the interface.
+   */
   readonly netWpm: number;
   readonly endedAt?: Instant;
 };

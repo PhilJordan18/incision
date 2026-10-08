@@ -136,11 +136,11 @@ Three notions are kept apart:
    - `MAX_PLAUSIBLE_INSERTS_PER_SECOND`: 25 per second, 300 WPM sustained;
    - `PLAUSIBILITY_BURST_INSERTS`: a burst margin of 20, for a network flush and the first seconds.
 
-   They are a plausibility threshold chosen for the product, not an absolute guarantee. The fastest
-   typists on record sustain roughly 150 to 220 WPM and reach roughly 250 to 300 WPM only on short
-   bursts, while our students type around 30 to 60 WPM.
+   They are a plausibility threshold chosen for the product, not an absolute guarantee: set far
+   above the speeds expected from our students, they aim at scripts and replays. F-04.4 tunes them.
 2. **The measures** are Appendix A computed exactly from the counters and the elapsed time
-   (`computeMeasures`), unrounded and never capped. They are the official values, stored with the
+   (`computeMeasures`), unrounded and never capped. The only exception is a race open for more than
+   `MAX_DURATION_MS` (7 days), whose elapsed time is clamped. They are the official values, stored with the
    counters and the elapsed time they come from. A high value at the very start, from the burst
    margin, stays exact. For accepted counters it never exceeds `MAX_COMPUTABLE_WPM` (240 000),
    which is derived from the limits: 20 inserts after 1 ms.

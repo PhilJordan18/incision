@@ -42,9 +42,8 @@ export const MAX_BATCH_EVENTS = 64;
 /**
  * Plausibility limit, the reason to refuse a batch (COURSE-06): 25 inserts per second sustained,
  * that is 25 × 60 ÷ 5 = 300 WPM. It is a plausibility threshold chosen for the product, not an
- * absolute guarantee: the fastest typists on record sustain roughly 150 to 220 WPM over minutes and
- * reach roughly 250 to 300 WPM only on short bursts, and students of 12 to 17 type around 30 to 60
- * WPM, so it aims at scripts and replays while leaving room for real players.
+ * absolute guarantee: set far above the speeds expected from students of 12 to 17, it aims at
+ * scripts and replays while leaving room for exceptional players. F-04.4 tunes it.
  */
 export const MAX_PLAUSIBLE_INSERTS_PER_SECOND = 25;
 

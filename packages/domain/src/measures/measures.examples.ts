@@ -30,18 +30,23 @@ export const MEASURES_EXAMPLES: readonly ContractExample<{ readonly counters: Ty
     expected: { netWpm: 24_000, rawWpm: 24_000, accuracy: 100 },
   },
   {
-    name: "a high sustained value is exact too",
+    name: "a high value is exact too (arithmetic only: the race would refuse these counters as implausible)",
     input: { counters: { correctInserts: 2_500, totalInserts: 2_500 }, elapsed: asDuration(60_000) },
     expected: { netWpm: 500, rawWpm: 500, accuracy: 100 },
   },
   {
-    name: "50 inserts in one second give 600",
+    name: "50 inserts in one second give 600 (arithmetic only: above the plausible 45)",
     input: { counters: { correctInserts: 50, totalInserts: 50 }, elapsed: asDuration(1_000) },
     expected: { netWpm: 600, rawWpm: 600, accuracy: 100 },
   },
   {
-    name: "51 inserts in one second give 612: no value is ever capped",
+    name: "51 inserts in one second give 612, never capped (arithmetic only: above the plausible 45)",
     input: { counters: { correctInserts: 51, totalInserts: 51 }, elapsed: asDuration(1_000) },
     expected: { netWpm: 612, rawWpm: 612, accuracy: 100 },
+  },
+  {
+    name: "the most a race accepts after one second: 45 inserts give 540",
+    input: { counters: { correctInserts: 45, totalInserts: 45 }, elapsed: asDuration(1_000) },
+    expected: { netWpm: 540, rawWpm: 540, accuracy: 100 },
   },
 ];
