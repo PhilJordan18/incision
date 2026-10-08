@@ -132,24 +132,26 @@ The server shares these limits, and the E2E tests stay within them, with no bypa
 
 Three notions are kept apart:
 
-1. **The plausibility limit** (`MAX_PLAUSIBLE_INSERTS_PER_SECOND`, 25 per second, 300 WPM) is the
-   reason to refuse a batch. The fastest typists on record sustain roughly 150 to 220 WPM and reach
-   roughly 250 to 300 WPM only on short bursts, while our students type around 30 to 60 WPM.
-2. **The burst margin** (`PLAUSIBILITY_BURST_INSERTS`, 20) absorbs a network flush and the first
-   seconds. It puts no ceiling on a WPM measured over a near-zero time.
-3. **The measure bound** (`MAX_WPM`, 600) is twice the plausible sustained rate. Within the
-   plausibility limit a measure is at most 300 + 240 ÷ t (t in seconds):
-   - between 300 and 600 it can only come from the burst margin;
-   - above 600 it needs t < 0.8 s, an artefact, never a performance.
+1. **The plausibility limits** accept or refuse keystrokes:
+   - `MAX_PLAUSIBLE_INSERTS_PER_SECOND`: 25 per second, 300 WPM sustained;
+   - `PLAUSIBILITY_BURST_INSERTS`: a burst margin of 20, for a network flush and the first seconds.
 
-   `computeMeasures` caps it and sets `capped`, so a capped value is stored and shown with that
-   flag, never as an Appendix A speed.
+   They are a plausibility threshold chosen for the product, not an absolute guarantee. The fastest
+   typists on record sustain roughly 150 to 220 WPM and reach roughly 250 to 300 WPM only on short
+   bursts, while our students type around 30 to 60 WPM.
+2. **The measures** are Appendix A computed exactly from the counters and the elapsed time
+   (`computeMeasures`), unrounded and never capped. They are the official values, stored with the
+   counters and the elapsed time they come from. A high value at the very start, from the burst
+   margin, stays exact. For accepted counters it never exceeds `MAX_COMPUTABLE_WPM` (240 000),
+   which is derived from the limits: 20 inserts after 1 ms.
+3. **A display limit**, if any, belongs to the interface. It is explicitly flagged there and never
+   replaces a stored or official value.
 
 Stored values are bounded, so database columns can be sized from these constants:
 
 | Value | Bound |
 |---|---|
-| Net and raw WPM | ≤ `MAX_WPM` (600): Appendix A exactly, capped only below 0.8 s, then flagged `capped` |
+| Net and raw WPM | ≤ `MAX_COMPUTABLE_WPM` (240 000) for accepted counters: Appendix A exactly, never capped |
 | Accuracy | in [0, 100] |
 | Insert counters | ≤ `MAX_ENTRANT_INSERTS` (15 120 020) |
 | Position, length | ≤ `MAX_TEXT_GRAPHEMES` (4 000) |

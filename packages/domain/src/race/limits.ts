@@ -1,3 +1,4 @@
+import { CHARACTERS_PER_WORD } from "../measures/types";
 import { asDuration, MAX_DURATION_MS, type Duration } from "../time";
 
 /**
@@ -40,17 +41,17 @@ export const MAX_BATCH_EVENTS = 64;
 
 /**
  * Plausibility limit, the reason to refuse a batch (COURSE-06): 25 inserts per second sustained,
- * that is 25 × 60 ÷ 5 = 300 WPM. The fastest typists on record sustain roughly 150 to 220 WPM over
- * minutes and reach roughly 250 to 300 WPM only on short bursts, and students of 12 to 17 type
- * around 30 to 60 WPM. A sustained 300 WPM is therefore beyond any human pace: the limit refuses
- * scripts and replays, never a real player.
+ * that is 25 × 60 ÷ 5 = 300 WPM. It is a plausibility threshold chosen for the product, not an
+ * absolute guarantee: the fastest typists on record sustain roughly 150 to 220 WPM over minutes and
+ * reach roughly 250 to 300 WPM only on short bursts, and students of 12 to 17 type around 30 to 60
+ * WPM, so it aims at scripts and replays while leaving room for real players.
  */
 export const MAX_PLAUSIBLE_INSERTS_PER_SECOND = 25;
 
 /**
  * Burst margin: inserts tolerated above the sustained rate, for a network flush and the first
- * seconds of a race. It lets short-lived rates exceed 300 WPM, and on its own puts no ceiling on a
- * WPM measured over a near-zero elapsed time; `MAX_WPM` does that.
+ * seconds of a race. It lets short-lived rates exceed 300 WPM, so a WPM measured over a near-zero
+ * elapsed time can be very high; it stays exact (see `MAX_COMPUTABLE_WPM`).
  */
 export const PLAUSIBILITY_BURST_INSERTS = 20;
 
@@ -67,3 +68,12 @@ export function maxPlausibleInserts(sinceStart: Duration): number {
 
 /** Upper bound of any entrant's insert counters, for sizing stored columns. */
 export const MAX_ENTRANT_INSERTS = maxPlausibleInserts(asDuration(MAX_DURATION_MS));
+
+/**
+ * Largest WPM `computeMeasures` can return for counters the engine accepted, for sizing stored
+ * columns; derived from the limits above, never chosen. Below 1 ms of measured time WPM is 0
+ * (D-09); from 1 ms on, raw WPM is at most (maxPlausibleInserts(t) ÷ 5) × 60 000 ÷ t, largest at
+ * t = 1 ms: (20 ÷ 5) × 60 000 = 240 000. It bounds an artefact of the first milliseconds, not a
+ * speed, and it does not hold for counters the engine never accepted.
+ */
+export const MAX_COMPUTABLE_WPM = (maxPlausibleInserts(asDuration(1)) / CHARACTERS_PER_WORD) * 60_000;
