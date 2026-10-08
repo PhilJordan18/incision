@@ -55,7 +55,8 @@ export function allowOwnRoomRead(
 export type OwnRoom =
   /**
    * The address spent its code budget: any code other than the account's own, or its own once
-   * the allowance is used. No lookup by code and no other counter (such as room changes).
+   * the allowance is used. No lookup by code and no counter beyond the own-room allowance (in
+   * particular no room change).
    */
   | { readonly kind: "limited" }
   | { readonly kind: "own"; readonly membership: ActiveMembership }

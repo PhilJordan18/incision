@@ -1,5 +1,5 @@
 import type { RoomCode } from "@incision/domain";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The room page's loader with a database that does not answer: no request, no real pool.
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-incision-client-address": "203.0.113.1" }) }));
@@ -28,13 +28,17 @@ vi.mock("@incision/database", async (importOriginal) => {
 
 const { loadRoomPage } = await import("./load-room");
 
+afterEach(() => {
+  failure.throwNextRedirect = false;
+  vi.restoreAllMocks();
+});
+
 describe("loadRoomPage", () => {
   it("shows the page as unavailable when the database fails, and logs no query parameter", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     expect(await loadRoomPage("alice", "ABCDEF" as RoomCode)).toEqual({ kind: "unavailable" });
     expect(log).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(log.mock.calls)).not.toContain("ABCDEF");
-    log.mockRestore();
   });
 
   it("lets Next's own control flow through instead of reporting it as a failure", async () => {
@@ -42,7 +46,5 @@ describe("loadRoomPage", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     await expect(loadRoomPage("alice", "BCDEFG" as RoomCode)).rejects.toThrow("NEXT_REDIRECT");
     expect(log).not.toHaveBeenCalled();
-    log.mockRestore();
-    failure.throwNextRedirect = false;
   });
 });
