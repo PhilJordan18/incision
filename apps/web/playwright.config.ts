@@ -36,7 +36,9 @@ export default defineConfig({
       AUTH_SECRET: process.env.E2E_AUTH_SECRET,
       DATABASE_URL: process.env.E2E_DATABASE_URL,
       E2E_DATABASE_URL: process.env.E2E_DATABASE_URL,
-      TRUSTED_PROXY_HOPS: "0",
+      // As in production (one trusted front end). Requests without X-Forwarded-For keep the TCP
+      // peer; e2e/forwarding-proxy.ts plays the front end for the per-address limits.
+      TRUSTED_PROXY_HOPS: "1",
       // Placeholders, not credentials: the tests never complete an OAuth round trip.
       AUTH_GITHUB_ID: "e2e-github-client-id",
       AUTH_GITHUB_SECRET: "e2e-placeholder-not-a-secret",
