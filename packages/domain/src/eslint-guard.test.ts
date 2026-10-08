@@ -27,6 +27,8 @@ describe("engine purity guard", () => {
     ["the clock through globalThis", "export const now = globalThis.Date.now();", "no-restricted-globals"],
     ["a Date through globalThis", "export const now = new globalThis.Date();", "no-restricted-globals"],
     ["a Node subpath", "import { setTimeout } from 'timers/promises';\nexport { setTimeout };", "no-restricted-imports"],
+    ["another Node subpath", "import { pipeline } from 'stream/promises';\nexport { pipeline };", "no-restricted-imports"],
+    ["the database package root by a relative path", "import * as db from '../../../database';\nexport { db };", "no-restricted-imports"],
     ["Math under another name", "const M = Math;\nexport const draw = M.random();", "no-restricted-syntax"],
     ["Date reassigned", "let D: DateConstructor;\nD = Date;\nexport const now = new D();", "no-restricted-syntax"],
     ["the performance global itself", "export const clock = performance;", "no-restricted-globals"],

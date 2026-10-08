@@ -54,7 +54,8 @@ events into several batches.
 
 - A batch is applied whole or not at all, and a refusal never consumes a `seq`.
 - A batch is immutable once sent: a retry repeats the same `seq` with the same events, and a `seq`
-  is never reused for other events.
+  carries other events only after a refusal or a resync of it.
+- A reply whose `seq` is not the batch in flight is ignored.
 
 | Reply | What the client does next |
 |---|---|
@@ -63,12 +64,13 @@ events into several batches.
 | `resync`, or `refused` with a snapshot | Drop the unapplied keystrokes, rebuild the typing zone from the snapshot, continue at `snapshot.ackSeq + 1`. |
 | `refused` without a snapshot (`WRONG_RACE`, `UNKNOWN_ENTRANT`) | Reload the race. |
 
-**After a reconnection,** the server sends the `RaceReveal` again, then the snapshot.
+**On a disconnection,** the client drops the transport's send buffer, so no queued copy survives.
+After the reconnection, the server sends the `RaceReveal` again, then the snapshot.
 
 - The batch that was in flight counts as applied if and only if `snapshot.ackSeq` is at least its
   `seq`.
-- Otherwise the client resends it unchanged and keeps its events shown on top of the snapshot. A
-  copy flushed late by the transport then gets a harmless `duplicate`.
+- Otherwise the client resends it unchanged, as the only copy, and keeps its events shown on top of
+  the snapshot.
 
 **Order of the checks:** race and entrant (`reduceRace`), then in `applyKeystrokes`:
 
@@ -128,11 +130,26 @@ The server shares these limits, and the E2E tests stay within them, with no bypa
 - `maxPlausibleInserts`: 20 inserts plus 25 per second since the start, counted on the entrant's
   applied inserts. Above it, the batch is refused whole (`IMPLAUSIBLE`).
 
+Three notions are kept apart:
+
+1. **The plausibility limit** (`MAX_PLAUSIBLE_INSERTS_PER_SECOND`, 25 per second, 300 WPM) is the
+   reason to refuse a batch. The fastest typists on record sustain roughly 150 to 220 WPM and reach
+   roughly 250 to 300 WPM only on short bursts, while our students type around 30 to 60 WPM.
+2. **The burst margin** (`PLAUSIBILITY_BURST_INSERTS`, 20) absorbs a network flush and the first
+   seconds. It puts no ceiling on a WPM measured over a near-zero time.
+3. **The measure bound** (`MAX_WPM`, 600) is twice the plausible sustained rate. Within the
+   plausibility limit a measure is at most 300 + 240 ÷ t (t in seconds):
+   - between 300 and 600 it can only come from the burst margin;
+   - above 600 it needs t < 0.8 s, an artefact, never a performance.
+
+   `computeMeasures` caps it and sets `capped`, so a capped value is stored and shown with that
+   flag, never as an Appendix A speed.
+
 Stored values are bounded, so database columns can be sized from these constants:
 
 | Value | Bound |
 |---|---|
-| Net and raw WPM | ≤ `MAX_WPM` (600): Appendix A exactly; within the plausibility limit, the cap binds only in the first 0.8 s |
+| Net and raw WPM | ≤ `MAX_WPM` (600): Appendix A exactly, capped only below 0.8 s, then flagged `capped` |
 | Accuracy | in [0, 100] |
 | Insert counters | ≤ `MAX_ENTRANT_INSERTS` (15 120 020) |
 | Position, length | ≤ `MAX_TEXT_GRAPHEMES` (4 000) |

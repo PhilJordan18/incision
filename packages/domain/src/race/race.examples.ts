@@ -145,7 +145,7 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
   {
     name: "when everyone abandoned during the countdown, the race ends at startsAt: all abandons, zero elapsed, ranked by id",
     input: {
-      state: race({ phase: "countdown", clock: at(-2_000), entrants: [runner(ALICE, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_000) }), runner(BOB, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_500) })] }),
+      state: race({ phase: "countdown", clock: at(-2_000), entrants: [runner(ALICE, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_500) }), runner(BOB, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_000) })] }),
       event: { type: "tick", now: at(0) },
     },
     expected: { phase: "ended", changed: true, ranking: [ALICE, BOB], endedAt: at(0), elapsed: [[ALICE, asDuration(0)], [BOB, asDuration(0)]] },

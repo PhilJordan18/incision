@@ -49,8 +49,11 @@ export default defineConfig(tseslint.configs.recommended, {
           "@incision/database", "@incision/web",
         ].map((name) => ({ name, message: OUTSIDE })),
         patterns: [
-          { regex: "^(node:|fs/|timers/|pg/|drizzle-orm/|socket\\.io/|next/|react/|@incision/(database|web)/)", message: OUTSIDE },
-          { regex: "(^|/)(apps/|packages/database(/|$)|database/src(/|$))", message: OUTSIDE },
+          {
+            regex: "^(node:|(fs|timers|stream|dns|util|path|readline)/|pg/|drizzle-orm/|socket\\.io(-client)?/|next/|react/|@incision/(database|web)/)",
+            message: OUTSIDE,
+          },
+          { regex: "(^|/)(apps/|packages/database(/|$)|database/src(/|$))|^(\\.\\./)+database$", message: OUTSIDE },
         ],
       },
     ],

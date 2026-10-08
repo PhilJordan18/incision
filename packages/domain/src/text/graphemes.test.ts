@@ -50,6 +50,7 @@ describe("without Intl.Segmenter (older browsers)", () => {
 
   it("falls back to the code points of the NFC form", () => {
     vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
-    expect(toGraphemes("e\u0301t")).toEqual(["é", "t"]);
+    // A segmenter would give one grapheme; the fallback gives woman, zero-width joiner, laptop.
+    expect(toGraphemes("e\u0301👩‍💻")).toEqual(["é", "👩", "\u200d", "💻"]);
   });
 });

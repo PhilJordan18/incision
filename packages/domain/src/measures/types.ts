@@ -4,9 +4,16 @@ import type { Duration } from "../time";
 export const CHARACTERS_PER_WORD = 5;
 
 /**
- * Highest WPM the engine ever returns. Appendix A is applied exactly, then capped. Within the
- * plausibility limit the cap can bind only in the first 0.8 s of a race (20 inserts 10 ms after the
- * start, then an abandon, would otherwise give 24 000). Stored WPM columns are sized from it.
+ * Measure bound: the highest WPM `computeMeasures` ever returns, which every consumer relies on.
+ *
+ * 600 is twice the plausible sustained rate (300 WPM, `MAX_PLAUSIBLE_INSERTS_PER_SECOND`). Within
+ * the plausibility limit a measured WPM is at most 300 + 240 ÷ t, with t the elapsed seconds:
+ * - a value between 300 and 600 can only come from the burst margin in the first seconds;
+ * - a value above 600 needs t < 0.8 s, so it is an artefact of a near-zero elapsed time, never a
+ *   performance (20 inserts 10 ms after the start, then an abandon, would give 24 000).
+ *
+ * Appendix A is applied exactly, then capped at this bound, and `Measures.capped` says so. The bound
+ * comes from the plausibility rule, not from any storage constraint.
  */
 export const MAX_WPM = 600;
 
@@ -23,8 +30,8 @@ export type TypingCounters = {
 
 /**
  * Appendix A, from the measured elapsed time (`measuredElapsed`):
- * - `netWpm` = (correct inserts ÷ 5) ÷ minutes, at most `MAX_WPM`;
- * - `rawWpm` = (all inserts ÷ 5) ÷ minutes, at most `MAX_WPM`;
+ * - `netWpm` = (correct inserts ÷ 5) ÷ minutes, at most `MAX_WPM` (see `capped`);
+ * - `rawWpm` = (all inserts ÷ 5) ÷ minutes, at most `MAX_WPM` (see `capped`);
  * - `accuracy` = correct inserts ÷ all inserts × 100, in [0, 100].
  *
  * Unrounded and always finite. A zero elapsed time gives 0 WPM; zero inserts give 0 everywhere,
@@ -35,6 +42,12 @@ export type Measures = {
   readonly netWpm: number;
   readonly rawWpm: number;
   readonly accuracy: number;
+  /**
+   * True when net or raw WPM was capped at `MAX_WPM`: the value is then no longer Appendix A, and
+   * the interface marks it instead of presenting it as a speed. It happens only below 0.8 s of
+   * measured time within the plausibility limit. Stored and shown as is, with this flag.
+   */
+  readonly capped: boolean;
 };
 
 /** Contract of F-02.1: implemented in `packages/domain`, never in the application. */

@@ -38,10 +38,20 @@ export const MAX_BATCHES_IN_FLIGHT = 1;
 /** Most events one batch may carry. A client with more pending events splits them into several batches. */
 export const MAX_BATCH_EVENTS = 64;
 
-/** Sustained insert rate above which progress is implausible (COURSE-06): 25 per second, about 300 WPM. */
+/**
+ * Plausibility limit, the reason to refuse a batch (COURSE-06): 25 inserts per second sustained,
+ * that is 25 × 60 ÷ 5 = 300 WPM. The fastest typists on record sustain roughly 150 to 220 WPM over
+ * minutes and reach roughly 250 to 300 WPM only on short bursts, and students of 12 to 17 type
+ * around 30 to 60 WPM. A sustained 300 WPM is therefore beyond any human pace: the limit refuses
+ * scripts and replays, never a real player.
+ */
 export const MAX_PLAUSIBLE_INSERTS_PER_SECOND = 25;
 
-/** Inserts tolerated above the sustained rate, for the first seconds and for bursts. */
+/**
+ * Burst margin: inserts tolerated above the sustained rate, for a network flush and the first
+ * seconds of a race. It lets short-lived rates exceed 300 WPM, and on its own puts no ceiling on a
+ * WPM measured over a near-zero elapsed time; `MAX_WPM` does that.
+ */
 export const PLAUSIBILITY_BURST_INSERTS = 20;
 
 /**

@@ -201,15 +201,17 @@ export type ResyncReason = "OUT_OF_ORDER" | "TEXT_VERSION_CHANGED";
  * or not at all, and a refusal never consumes a `seq`.
  *
  * Client rules, with one batch in flight (`MAX_BATCHES_IN_FLIGHT`). A batch is immutable once sent:
- * a retry repeats the same `seq` with the same events, and a `seq` is never reused for other events.
+ * a retry repeats the same `seq` with the same events, and a `seq` carries other events only after
+ * a refusal or a resync of it. A reply whose `seq` is not the batch in flight is ignored.
  * - `applied`: the next batch is `ackSeq + 1`.
  * - `duplicate`: that very batch had already been applied; the next batch is `ackSeq + 1`.
  * - `resync`, or `refused` with a snapshot: drop the unapplied keystrokes, rebuild the typing zone
  *   from the snapshot, and continue at `snapshot.ackSeq + 1`.
  * - `refused` without a snapshot (`WRONG_RACE`, `UNKNOWN_ENTRANT`): reload the race.
- * - After a reconnection, wait for the snapshot. The batch that was in flight counts as applied if
- *   and only if `snapshot.ackSeq >= its seq`; otherwise resend it unchanged and keep its events shown
- *   on top of the snapshot. A copy flushed late by the transport then gets `duplicate`, harmlessly.
+ * - On a disconnection, drop the transport's send buffer (no queued copy survives). After the
+ *   reconnection, wait for the snapshot: the batch that was in flight counts as applied if and only
+ *   if `snapshot.ackSeq >= its seq`; otherwise resend it unchanged, as the only copy, and keep its
+ *   events shown on top of the snapshot.
  *
  * Checks, in this order: race, entrant (in `reduceRace`), then in `applyKeystrokes`: shape of the
  * batch (`INVALID_INPUT`), duplicate (`seq <= ackSeq`), phase and entrant status, gap
