@@ -18,7 +18,11 @@ import { RoomView } from "./room-view";
 export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): Promise<Metadata> {
   const [{ t }, { code }, session] = await Promise.all([getRequestDictionary(), params, getAccountSession()]);
   const parsed = parseRoomCode(code);
-  if (!parsed.ok || (session !== null && (await loadRoomPage(session.accountId, parsed.code)).kind === "unknown")) {
+  const state = parsed.ok && session !== null ? await loadRoomPage(session.accountId, parsed.code) : undefined;
+  if (state?.kind === "throttled") {
+    return { title: t.rooms.throttledHeading, robots: { index: false } };
+  }
+  if (!parsed.ok || state?.kind === "unknown") {
     // Answered with 200 (no notFound(), see apps/web/AGENTS.md): keep it out of indexes.
     return { title: t.rooms.unknownHeading, robots: { index: false } };
   }
@@ -49,6 +53,22 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
   switch (state.kind) {
     case "unknown":
       return <UnknownRoom t={t} code={code} />;
+    case "throttled":
+      // The same panel whatever the code: it is not shown, and nothing about it is said.
+      return (
+        <StatePanel
+          tone="warning"
+          label={t.rooms.unknownLabel}
+          heading={{ bold: t.rooms.throttledHeading }}
+          actions={
+            <Link href="/" className={discreetButton}>
+              {t.rooms.backHome}
+            </Link>
+          }
+        >
+          <p>{t.home.codeErrors[state.refusal]}</p>
+        </StatePanel>
+      );
     case "member":
       // Presence comes with the socket; the first render shows nobody online yet. Keyed by
       // member: a new membership of the same room starts a fresh view.
