@@ -6,7 +6,7 @@ import type { RankInput } from "./types";
 const id = (value: string): EntrantId => asEntrantId(value);
 const at = (milliseconds: number) => asInstant(1_000_000 + milliseconds);
 
-/** Executed by F-02.2 against `rankEntrants`; `expected` lists the entrants from rank 1. */
+/** Executed by F-02.2 against `rankEntrants`; `expected` lists the entrants from rank 1, so ranks are 1 to n. */
 export const RANKING_EXAMPLES: readonly ContractExample<readonly RankInput[], readonly EntrantId[]>[] = [
   {
     name: "between finishers, arrival decides, not accuracy",
@@ -42,5 +42,22 @@ export const RANKING_EXAMPLES: readonly ContractExample<readonly RankInput[], re
       { entrantId: id("third"), status: "timedOut", endedAt: at(60_000), position: 1, length: 3, accuracy: 100 },
     ],
     expected: [id("third"), id("rounded")],
+  },
+  {
+    name: "a complete tie (status, progress, accuracy) still gives ranks 1 to n: the stable id decides",
+    input: [
+      { entrantId: id("zed"), status: "finished", endedAt: at(30_000), position: 100, length: 100, accuracy: 97 },
+      { entrantId: id("amy"), status: "finished", endedAt: at(30_000), position: 100, length: 100, accuracy: 97 },
+      { entrantId: id("kim"), status: "finished", endedAt: at(30_000), position: 100, length: 100, accuracy: 97 },
+    ],
+    expected: [id("amy"), id("kim"), id("zed")],
+  },
+  {
+    name: "abandons during the countdown (no insert, accuracy 0) fall to the stable id",
+    input: [
+      { entrantId: id("second"), status: "abandoned", endedAt: at(-1_000), position: 0, length: 100, accuracy: 0 },
+      { entrantId: id("first"), status: "abandoned", endedAt: at(-2_000), position: 0, length: 100, accuracy: 0 },
+    ],
+    expected: [id("first"), id("second")],
   },
 ];

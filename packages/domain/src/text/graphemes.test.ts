@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { singleGrapheme, toGraphemes } from "./graphemes";
+import { MAX_GRAPHEME_LENGTH, singleGrapheme, toGraphemes } from "./graphemes";
 
 describe("toGraphemes", () => {
   it("counts a decomposed accent once, as its precomposed NFC form", () => {
@@ -32,5 +32,13 @@ describe("singleGrapheme", () => {
   it("refuses nothing or more than one grapheme", () => {
     expect(singleGrapheme("")).toBeUndefined();
     expect(singleGrapheme("ab")).toBeUndefined();
+  });
+
+  it("accepts a long emoji sequence but refuses a grapheme over the length bound", () => {
+    expect(singleGrapheme("👩‍💻")).toBe("👩‍💻");
+    // "x" has no precomposed accented form, so NFC keeps all 16 code units.
+    expect(singleGrapheme(`x${"\u0301".repeat(MAX_GRAPHEME_LENGTH - 1)}`)).toHaveLength(MAX_GRAPHEME_LENGTH);
+    expect(singleGrapheme(`a${"\u0301".repeat(MAX_GRAPHEME_LENGTH)}`)).toBeUndefined();
+    expect(singleGrapheme(`a${"\u0301".repeat(50_000)}`)).toBeUndefined();
   });
 });

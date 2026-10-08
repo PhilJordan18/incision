@@ -5,9 +5,12 @@ import tseslint from "typescript-eslint";
  * The engine stays pure: same input, same output, on the server, in a bot and in the browser.
  * The clock and the seed are parameters; nothing reads the time, draws at random, schedules,
  * talks to the network or the disk, or reaches into the application or the database.
+ * The other half of the guard is `tsconfig.json`: `types: []` and no DOM library, so Node and
+ * browser globals do not even type-check here. See packages/domain/README.md.
  */
-const IMPURE = "The engine is pure: take the instant or the seed as a parameter (brief v3, §6.2).";
-const OUTSIDE = "The engine never reaches the network, the disk, the database or the application (brief v3, §6.2).";
+const IMPURE = "The engine is pure: take the instant or the seed as a parameter (packages/domain/README.md).";
+const OUTSIDE = "The engine never reaches the network, the disk, the database or the application (packages/domain/README.md).";
+const AMBIENT = /^(Math|Date|performance|crypto|globalThis|global)$/;
 
 export default defineConfig(tseslint.configs.recommended, {
   rules: {
@@ -25,6 +28,11 @@ export default defineConfig(tseslint.configs.recommended, {
       "error",
       { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: IMPURE },
       { selector: "CallExpression[callee.name='Date'][arguments.length=0]", message: IMPURE },
+      // Indirect access would slip past the rules above.
+      { selector: "Identifier[name=/^(globalThis|global)$/]", message: IMPURE },
+      { selector: `VariableDeclarator > Identifier.init[name=${AMBIENT}]`, message: IMPURE },
+      { selector: `AssignmentExpression > Identifier.right[name=${AMBIENT}]`, message: IMPURE },
+      { selector: "ImportExpression", message: OUTSIDE },
     ],
     "no-restricted-globals": [
       "error",
@@ -37,10 +45,13 @@ export default defineConfig(tseslint.configs.recommended, {
         patterns: [
           {
             group: [
-              "node:*", "fs", "fs/*", "net", "http", "https", "child_process", "worker_threads",
+              "node:*", "fs", "fs/*", "net", "http", "https", "http2", "child_process", "worker_threads", "cluster",
+              "crypto", "os", "path", "url", "util", "stream", "events", "buffer", "dns", "tls", "zlib", "vm",
+              "perf_hooks", "timers", "timers/*", "readline",
               "pg", "pg/*", "drizzle-orm", "drizzle-orm/*", "socket.io", "socket.io/*", "socket.io-client",
               "next", "next/*", "react", "react/*",
-              "@incision/database", "@incision/database/*", "**/apps/**", "**/packages/database/**",
+              "@incision/database", "@incision/database/*", "@incision/web", "@incision/web/*",
+              "**/apps/**", "**/database", "**/database/**",
             ],
             message: OUTSIDE,
           },

@@ -1,7 +1,7 @@
-import type { Duration } from "../time";
+import { asDuration, MAX_DURATION_MS, type Duration } from "../time";
 
 /**
- * Limits shared by the engine and the server (and respected by the E2E tests, with no bypass).
+ * Limits shared by the engine and the server, and respected by the E2E tests with no bypass.
  * The plausibility values are initial; F-04.4 tunes them against the bots and the load test.
  */
 
@@ -23,13 +23,19 @@ export const INACTIVITY_ABANDON_MS = 120_000;
 export const TIME_LIMIT_MIN_MS = 30_000;
 export const TIME_LIMIT_MAX_MS = 600_000;
 
-/** Longest race text, in graphemes: 200 words (CONF-04, D-19) of long words with their spaces. */
-export const MAX_TEXT_GRAPHEMES = 2_000;
+/** Longest race text, in graphemes: 200 words (CONF-04, D-19) of up to 19 letters plus a space each. */
+export const MAX_TEXT_GRAPHEMES = 4_000;
 
 /** PERF-02: at most this many keystroke batches per second per player, enforced by the transport. */
 export const MAX_BATCHES_PER_SECOND = 10;
 
-/** Most events one batch may carry; a client flushing after a network stall stays well below. */
+/**
+ * One batch in flight per entrant: the client sends its next batch only after the reply to the
+ * previous one, gathering keystrokes meanwhile. Replies are therefore never ambiguous.
+ */
+export const MAX_BATCHES_IN_FLIGHT = 1;
+
+/** Most events one batch may carry. A client with more pending events splits them into several batches. */
 export const MAX_BATCH_EVENTS = 64;
 
 /** Sustained insert rate above which progress is implausible (COURSE-06): 25 per second, about 300 WPM. */
@@ -40,9 +46,12 @@ export const PLAUSIBILITY_BURST_INSERTS = 20;
 
 /**
  * Most inserts an entrant can plausibly have made `sinceStart` after the start (COURSE-06).
- * A batch that would take the entrant's total above it is refused whole. Counting from the start,
- * not per batch, keeps a client that flushes after a network stall within the limit.
+ * A batch that would take the entrant's total of applied inserts above it is refused whole.
+ * Counting from the start, not per batch, keeps a client that flushes after a stall within it.
  */
 export function maxPlausibleInserts(sinceStart: Duration): number {
   return Math.floor((MAX_PLAUSIBLE_INSERTS_PER_SECOND * sinceStart) / 1_000) + PLAUSIBILITY_BURST_INSERTS;
 }
+
+/** Upper bound of any entrant's insert counters, for sizing stored columns. */
+export const MAX_ENTRANT_INSERTS = maxPlausibleInserts(asDuration(MAX_DURATION_MS));

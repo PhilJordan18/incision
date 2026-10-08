@@ -1,6 +1,6 @@
 import type { ContractExample } from "../contract-example";
 import { asDuration, type Duration } from "../time";
-import type { Measures, TypingCounters } from "./types";
+import { MAX_WPM, type Measures, type TypingCounters } from "./types";
 
 /** Executed by F-02.1 against `computeMeasures`. */
 export const MEASURES_EXAMPLES: readonly ContractExample<{ readonly counters: TypingCounters; readonly elapsed: Duration }, Measures>[] = [
@@ -23,5 +23,15 @@ export const MEASURES_EXAMPLES: readonly ContractExample<{ readonly counters: Ty
     name: "zero elapsed time gives 0 WPM, never Infinity; accuracy stays defined (D-09)",
     input: { counters: { correctInserts: 10, totalInserts: 10 }, elapsed: asDuration(0) },
     expected: { netWpm: 0, rawWpm: 0, accuracy: 100 },
+  },
+  {
+    name: "an implausible burst just after the start is capped at MAX_WPM, never 24 000",
+    input: { counters: { correctInserts: 20, totalInserts: 20 }, elapsed: asDuration(10) },
+    expected: { netWpm: MAX_WPM, rawWpm: MAX_WPM, accuracy: 100 },
+  },
+  {
+    name: "an exact Appendix A value below the cap is not touched",
+    input: { counters: { correctInserts: 2_500, totalInserts: 2_500 }, elapsed: asDuration(60_000) },
+    expected: { netWpm: 500, rawWpm: 500, accuracy: 100 },
   },
 ];

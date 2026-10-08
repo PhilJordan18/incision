@@ -2,15 +2,16 @@
  * Contract of the race engine for the first race path (F-00.3): a race on a fixed text, from the
  * countdown to the results. Types only; the functions arrive with their cards (F-02.1, F-02.2,
  * F-04.1, F-04.4) and nothing in the application may stand in for them. Later cards extend
- * `RaceEvent` (grace period, inactivity, bonuses, bots) through engine pull requests.
+ * `RaceEvent` (grace period, inactivity, bonuses, bots) and `EntrantResult` (WPM series in F-07.1,
+ * bonuses received in F-06) through engine pull requests. The rules are summarised in the README.
  *
  * Four counters, never mixed up:
  * - `raceId`: which race a message belongs to. Another race is refused.
  * - `seq`: the entrant's own batch sequence, from 1. `ackSeq` is the last one applied.
  * - `textVersion`: the version of the entrant's own effective text (0 for the initial text). It
  *   changes only when a bonus changes that entrant's text, never because of another player.
- * - `revision`: the broadcast revision of the whole race, so clients can drop a stale snapshot.
- *   It is never a reason to refuse keystrokes.
+ * - `revision`: the broadcast revision of the race, from 0. Clients keep the highest revision for
+ *   the current `raceId` and drop stale snapshots. It is never a reason to refuse keystrokes.
  */
 import type { EntrantId, RaceId } from "../ids";
 import type { Measures, TypingCounters } from "../measures/types";
@@ -34,8 +35,9 @@ export type TerminalStatus = Exclude<EntrantStatus, "racing">;
 export type AbandonReason = "voluntary" | "disconnection" | "inactivity";
 
 /**
- * What a player's keyboard produced, in order. An `insert` carries exactly one grapheme after
- * any input-method composition; a deletion carries nothing. Navigation keys are never sent.
+ * What a player's keyboard produced, in order. An `insert` carries exactly one grapheme of at most
+ * `MAX_GRAPHEME_LENGTH` code units, after any input-method composition; a deletion carries
+ * nothing. Navigation keys are never sent.
  */
 export type InputEvent =
   | { readonly type: "insert"; readonly grapheme: string }
@@ -44,7 +46,11 @@ export type InputEvent =
 /**
  * One batch of keystrokes, as the engine receives it. The server builds it from the client's
  * payload: `entrantId` comes from the authenticated socket, never from the payload, and the
- * server's `now` times it. At most `MAX_BATCH_EVENTS` events, `MAX_BATCHES_PER_SECOND` per player.
+ * server's `now` times it.
+ *
+ * `seq` is a safe integer of at least 1, `textVersion` a safe integer of at least 0, and `events`
+ * holds at least one event; otherwise the batch is refused `INVALID_INPUT`. More than
+ * `MAX_BATCH_EVENTS` events are refused `BATCH_TOO_LARGE`.
  */
 export type KeystrokeBatch = {
   readonly raceId: RaceId;
@@ -60,14 +66,15 @@ export type KeystrokeBatch = {
  * One entrant's private typing state, held by the server.
  *
  * - Free mode: a wrong insert enters `typed` and counts as an error; `deleteBackward` removes the
- *   last grapheme, which allows a correction (D-09). The position is `typed.length`, errors
- *   included, and the entrant finishes when it reaches the target length.
+ *   last grapheme, which allows a correction (D-09), and does nothing at position 0. The position
+ *   is `typed.length`, errors included, and the entrant finishes when it reaches the target length.
  * - Mandatory correction: `typed` is always a correct prefix of the target. A wrong insert counts
  *   as an error, is never inserted, and sets `pendingError`, so the expected grapheme shows in
  *   error until the right one is typed (design screen 09). `deleteBackward` clears a pending error
  *   or, without one, removes the last grapheme.
  *
- * Inserts arriving after the entrant finished, in the same batch, are discarded and not counted.
+ * Every event after the finishing insert, in the same batch, is discarded: it is neither applied
+ * nor counted, and it does not count toward the plausibility total.
  */
 export type EntrantState = {
   readonly entrantId: EntrantId;
@@ -83,14 +90,14 @@ export type EntrantState = {
   /** Last batch applied; 0 before the first. */
   readonly ackSeq: number;
   readonly status: EntrantStatus;
-  /** When the entrant finished, timed out or abandoned. */
+  /** When the entrant finished, timed out or abandoned; a time-out ends at the deadline, not later. */
   readonly endedAt?: Instant;
   readonly abandonReason?: AbandonReason;
 };
 
 export type RaceState = {
   readonly raceId: RaceId;
-  /** Broadcast revision: +1 for every change other people can see. */
+  /** Broadcast revision: 0 at creation, +1 for every change other people can see. */
   readonly revision: number;
   readonly phase: RacePhase;
   readonly errorMode: ErrorMode;
@@ -101,6 +108,11 @@ export type RaceState = {
   /** `countdownAt` + COUNTDOWN_MS: the common start; no keystroke is accepted before it. */
   readonly startsAt: Instant;
   readonly endedAt?: Instant;
+  /**
+   * The latest instant the race has processed. The server injects a monotonic clock; an event
+   * whose `now` is earlier is handled at `clock`, so time never runs backwards inside a race.
+   */
+  readonly clock: Instant;
   /** The race text as revealed, in graphemes. */
   readonly text: readonly string[];
   /** Frozen at creation, in registration order; spectators are never entrants. */
@@ -124,17 +136,34 @@ export type CreateRaceResult =
   | { readonly ok: true; readonly race: RaceState }
   | { readonly ok: false; readonly reason: CreateRaceRefusal };
 
-/** Contract of F-04.1 (engine half): applies `startRefusal`, never a copy of it. */
+/**
+ * Contract of F-04.1 (engine half). Applies `startRefusal`, never a copy of it. An accepted race
+ * starts in `countdown`, revision 0, `clock` = `countdownAt` = `now`, `startsAt` = `now` +
+ * COUNTDOWN_MS, every entrant racing with `textVersion` 0 and `ackSeq` 0.
+ */
 export type CreateRace = (input: CreateRaceInput) => CreateRaceResult;
 
-/** First-path events. Later cards add the grace period, inactivity, bonuses and bots. */
+/**
+ * First-path events. Later cards add the grace period, inactivity, bonuses and bots.
+ *
+ * Before handling any event, the reducer applies every transition due at its `now`, so a late
+ * timer never decides a result (docs/architecture/state-machines.md §3):
+ * 1. `countdown` → `racing` once `now >= startsAt`;
+ * 2. with a time limit, `racing` → `ended` once `now >= startsAt + timeLimit`: entrants still racing
+ *    time out with `endedAt` = that deadline. The time limit wins a tie with any other deadline (D-06);
+ * 3. a race whose entrants are all terminal ends, at the latest of `startsAt` and the last `endedAt`,
+ *    never from `countdown`: when everyone abandons during the countdown, it ends at `startsAt`.
+ */
 export type RaceEvent =
-  /** Lets timers act: COUNTDOWN_MS elapsed starts the race; the time limit, if any, ends it. */
+  /** Lets due transitions happen when nothing else arrives; the runtime schedules it at `nextDeadline`. */
   | { readonly type: "tick"; readonly now: Instant }
   | { readonly type: "keystrokes"; readonly batch: KeystrokeBatch; readonly now: Instant }
   /** Confirmed abandon (COURSE-07), allowed during the countdown and the race. */
   | { readonly type: "abandon"; readonly entrantId: EntrantId; readonly now: Instant }
-  /** The race cannot go on (server restart, room closed): no results are produced (D-06). */
+  /**
+   * The race cannot go on because the room closes during it. No result is invented (D-06).
+   * After a server restart the race no longer exists in memory and no event is involved.
+   */
   | { readonly type: "interrupt"; readonly now: Instant };
 
 /** Refusals that leave the client without a usable entrant state: it reloads the race. */
@@ -152,20 +181,32 @@ export type EntrantKeystrokeRefusal =
 export type ResyncReason = "OUT_OF_ORDER" | "TEXT_VERSION_CHANGED";
 
 /**
- * The reply to the sender of a batch. A batch is applied whole or not at all, and a refusal never
- * consumes a `seq`: after any reply other than `applied`, the client rebuilds its typing zone from
- * the snapshot (when there is one) and sends its next batch with `seq = ackSeq + 1`.
+ * The reply to the sender of a batch; `seq` echoes the batch it answers. A batch is applied whole
+ * or not at all, and a refusal never consumes a `seq`.
  *
- * Checks, in this order: race, entrant, duplicate (`seq <= ackSeq`), phase and entrant status,
- * gap (`seq > ackSeq + 1`), text version, size, each input, plausibility of the new total.
+ * Client rules, with one batch in flight (`MAX_BATCHES_IN_FLIGHT`):
+ * - `applied`: the next batch is `seq + 1`.
+ * - `duplicate`: that batch had already been applied (a retry after a reconnection); the next batch
+ *   is `seq + 1`, never lower.
+ * - `resync`, or `refused` with a snapshot: drop the unapplied keystrokes, rebuild the typing zone
+ *   from the snapshot, and continue at `snapshot.ackSeq + 1`.
+ * - `refused` without a snapshot (`WRONG_RACE`, `UNKNOWN_ENTRANT`): reload the race.
+ *
+ * Checks, in this order: race, entrant (in `reduceRace`), then in `applyKeystrokes`: shape of the
+ * batch (`INVALID_INPUT`), duplicate (`seq <= ackSeq`), phase and entrant status, gap
+ * (`seq !== ackSeq + 1`), text version (any difference), size, each input, plausibility of the
+ * new total. A retry of the last batch therefore gets `duplicate` even after the race ended.
  */
 export type KeystrokeResult =
-  | { readonly outcome: "applied"; readonly ackSeq: number; readonly textVersion: number }
+  | { readonly outcome: "applied"; readonly seq: number; readonly ackSeq: number; readonly textVersion: number }
   /** Already applied (a retry): nothing changes. */
-  | { readonly outcome: "duplicate"; readonly ackSeq: number }
-  | { readonly outcome: "resync"; readonly reason: ResyncReason; readonly snapshot: EntrantSnapshot }
-  | { readonly outcome: "refused"; readonly reason: RaceKeystrokeRefusal }
-  | { readonly outcome: "refused"; readonly reason: EntrantKeystrokeRefusal; readonly snapshot: EntrantSnapshot };
+  | { readonly outcome: "duplicate"; readonly seq: number; readonly ackSeq: number }
+  | { readonly outcome: "resync"; readonly seq: number; readonly reason: ResyncReason; readonly snapshot: EntrantSnapshot }
+  | { readonly outcome: "refused"; readonly seq: number; readonly reason: RaceKeystrokeRefusal }
+  | { readonly outcome: "refused"; readonly seq: number; readonly reason: EntrantKeystrokeRefusal; readonly snapshot: EntrantSnapshot };
+
+/** Why an `abandon` event changed nothing. */
+export type AbandonIgnored = "UNKNOWN_ENTRANT" | "ENTRANT_TERMINAL" | "RACE_OVER";
 
 /** What the race reducer returns. */
 export type RaceOutput = {
@@ -175,12 +216,19 @@ export type RaceOutput = {
   /** For a `keystrokes` event: the reply to its sender. */
   readonly keystrokes?: KeystrokeResult;
   /** For an `abandon` event that changed nothing. */
-  readonly ignored?: "UNKNOWN_ENTRANT" | "ENTRANT_TERMINAL" | "NOT_RUNNING";
+  readonly ignored?: AbandonIgnored;
   /**
    * Exactly once, on the transition to `ended`. The server writes it in one transaction with the
    * room's move to results, and broadcasts only after the commit.
    */
   readonly ended?: RaceEnd;
+  /**
+   * Exactly once, on an `interrupt`: the results of the entrants who had already finished, the only
+   * real ones, ranked among themselves. Nobody else gets a result. (Under review.)
+   */
+  readonly interrupted?: RaceEnd;
+  /** The next instant at which a `tick` would change something (start, time limit), if any. */
+  readonly nextDeadline?: Instant;
 };
 
 /** Contract of F-04.1 (engine half). Pure: same state and event, same output. */
@@ -188,6 +236,8 @@ export type ReduceRace = (state: RaceState, event: RaceEvent) => RaceOutput;
 
 export type KeystrokeContext = {
   readonly errorMode: ErrorMode;
+  /** The race phase once due transitions are applied: only `racing` accepts keystrokes. */
+  readonly phase: RacePhase;
   readonly startsAt: Instant;
   readonly now: Instant;
 };
@@ -198,12 +248,12 @@ export type EntrantKeystrokeResult = {
 };
 
 /**
- * Contract of F-04.4 (engine half): the entrant-level checks and application used by
- * `reduceRace`, once the race and the entrant are known and the race is running.
+ * Contract of F-04.4 (engine half): every check after the race and the entrant are resolved, then
+ * the application, as `reduceRace` calls it.
  */
 export type ApplyKeystrokes = (entrant: EntrantState, batch: KeystrokeBatch, context: KeystrokeContext) => EntrantKeystrokeResult;
 
-/** Sent once, when the countdown begins (COURSE-03): the text is never sent before. */
+/** Sent when the countdown begins (COURSE-03), and again to a member who reconnects; never before. */
 export type RaceReveal = {
   readonly raceId: RaceId;
   readonly text: readonly string[];
@@ -213,6 +263,9 @@ export type RaceReveal = {
   readonly timeLimit: Duration | null;
 };
 
+/** Contract of F-04.1 (engine half). */
+export type ToRaceReveal = (state: RaceState) => RaceReveal;
+
 /** One entrant on the track, as everyone in the room sees it (COURSE-05). */
 export type PublicEntrantProgress = {
   readonly entrantId: EntrantId;
@@ -221,12 +274,12 @@ export type PublicEntrantProgress = {
   /** Progress is `position / length` (Appendix A). */
   readonly position: number;
   readonly length: number;
-  /** Current net WPM from the server's elapsed time. */
+  /** Net WPM over `measuredElapsed`: 0 during the countdown, frozen once the entrant ended. */
   readonly netWpm: number;
   readonly endedAt?: Instant;
 };
 
-/** The race's public state, broadcast after each change; clients keep the highest revision. */
+/** The race's public state, broadcast after each change; clients keep the highest revision of the current race. */
 export type RaceBroadcast = {
   readonly raceId: RaceId;
   readonly revision: number;
@@ -242,7 +295,7 @@ export type ToRaceBroadcast = (state: RaceState, now: Instant) => RaceBroadcast;
 
 /**
  * The private snapshot that rebuilds one player's typing zone, after a resync, a refusal or a
- * reconnection. Sent to that player only.
+ * reconnection (with the `RaceReveal`). Sent to that player only.
  */
 export type EntrantSnapshot = {
   readonly raceId: RaceId;
@@ -256,6 +309,9 @@ export type EntrantSnapshot = {
   readonly counters: TypingCounters;
 };
 
+/** Contract of F-04.4 (engine half): undefined for an entrant the race does not know. */
+export type ToEntrantSnapshot = (state: RaceState, entrantId: EntrantId) => EntrantSnapshot | undefined;
+
 /** What the ranking needs of each entrant, once every entrant is terminal. */
 export type RankInput = {
   readonly entrantId: EntrantId;
@@ -268,25 +324,31 @@ export type RankInput = {
 
 export type RankedEntrant = {
   readonly entrantId: EntrantId;
-  /** 1 for the winner; every rank is distinct. */
+  /** Exactly 1 to n over the n entrants, each rank once: no shared rank. */
   readonly rank: number;
 };
 
 /**
  * Contract of F-02.2 (COURSE-10): finishers by arrival (`endedAt`), then time-outs by progress,
- * then abandons by progress at the abandon. Exact ties: higher accuracy first, then `compareIds`.
- * Progress compares exactly (`position × otherLength` against `otherPosition × length`).
+ * then abandons by progress at the abandon. Exact ties: higher accuracy first, then `compareIds`,
+ * so every tie is broken. Progress compares exactly (`position × otherLength` against
+ * `otherPosition × length`).
  */
 export type RankEntrants = (entrants: readonly RankInput[]) => readonly RankedEntrant[];
 
-/** One entrant's final result, as the server persists it (RES-02, RES-05). */
+/**
+ * One entrant's final result, as the server persists it (RES-02). Every value is bounded:
+ * WPM ≤ `MAX_WPM`, accuracy in [0, 100], counters ≤ `MAX_ENTRANT_INSERTS`,
+ * position ≤ length ≤ `MAX_TEXT_GRAPHEMES`, elapsed ≤ `MAX_DURATION_MS`.
+ * The WPM series (RES-05) arrives with F-07.1 and the bonuses received with F-06.
+ */
 export type EntrantResult = {
   readonly entrantId: EntrantId;
   readonly kind: EntrantKind;
   readonly rank: number;
   readonly status: TerminalStatus;
   readonly abandonReason?: AbandonReason;
-  /** From `startsAt` to the entrant's `endedAt`. */
+  /** `measuredElapsed` at the entrant's end: 0 for an abandon during the countdown. */
   readonly elapsed: Duration;
   readonly position: number;
   readonly length: number;

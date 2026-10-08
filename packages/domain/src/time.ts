@@ -15,8 +15,11 @@ export type Duration = number & { readonly __brand: "Duration" };
 /** Latest instant the engine accepts: 2100-01-01T00:00:00Z. */
 export const MAX_INSTANT = 4_102_444_800_000;
 
-/** Longest span the engine handles. A race lasts minutes; 24 hours bounds every computation. */
-export const MAX_DURATION_MS = 86_400_000;
+/**
+ * Longest span a measure handles: seven days. A race has no hidden cap (D-17); measures clamp to
+ * this bound instead of throwing (see `measuredElapsed`), and every total stays far below 2^53.
+ */
+export const MAX_DURATION_MS = 604_800_000;
 
 /** Checks a server clock reading. Throws on a programming error, never on client input. */
 export function asInstant(milliseconds: number): Instant {

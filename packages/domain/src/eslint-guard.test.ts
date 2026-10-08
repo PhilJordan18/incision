@@ -21,6 +21,13 @@ describe("engine purity guard", () => {
     ["a Node module", "import { readFileSync } from 'node:fs';\nexport { readFileSync };", "no-restricted-imports"],
     ["the database package", "import * as database from '@incision/database';\nexport { database };", "no-restricted-imports"],
     ["the application", "import * as web from '../../apps/web/src/server/config';\nexport { web };", "no-restricted-imports"],
+    ["the database by a relative path", "import * as db from '../../../database/src/client';\nexport { db };", "no-restricted-imports"],
+    ["a bare Node module", "import { randomInt } from 'crypto';\nexport { randomInt };", "no-restricted-imports"],
+    ["a dynamic import", "export const load = () => import('pg');", "no-restricted-syntax"],
+    ["the clock through globalThis", "export const now = globalThis.Date.now();", "no-restricted-syntax"],
+    ["Math under another name", "const M = Math;\nexport const draw = M.random();", "no-restricted-syntax"],
+    ["Date reassigned", "let D: DateConstructor;\nD = Date;\nexport const now = new D();", "no-restricted-syntax"],
+    ["the performance global itself", "export const clock = performance;", "no-restricted-globals"],
   ])("refuses %s", (_label, source, ruleId) => {
     expect(violations(source)).toContain(ruleId);
   });
