@@ -2,17 +2,10 @@ import { admissionRefusal, canonicalDisplayName, localDisplayName, type MemberRo
 import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
+import { interruptRaceForClosedRoom } from "../races/interruption";
 import { firstRow } from "../rows";
 import { accounts, lobbies, lobbyMembers } from "../schema";
-
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-type Queryable = Database | Transaction;
-
-/**
- * The admission and departure rules rely on READ COMMITTED: after the room lock, each
- * statement sees every commit made before it (counts, taken names, memberships).
- */
-const READ_COMMITTED = { isolationLevel: "read committed" } as const;
+import { limitServerWaits, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
 export type ActiveMembership = {
@@ -196,12 +189,14 @@ export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boole
  */
 export async function leaveCurrentRoom(db: Database, accountId: string): Promise<LeaveRoomResult | undefined> {
   return db.transaction(async (tx) => {
+    // It may interrupt a race: bounded on the server like every race transaction.
+    await limitServerWaits(tx);
     const seen = await findActiveMembership(tx, accountId);
     if (seen === undefined) {
       return undefined;
     }
     const [lobby] = await tx
-      .select({ hostMemberId: lobbies.hostMemberId })
+      .select({ hostMemberId: lobbies.hostMemberId, phase: lobbies.phase, currentRaceId: lobbies.currentRaceId })
       .from(lobbies)
       .where(eq(lobbies.id, seen.lobbyId))
       .for("update");
@@ -210,6 +205,10 @@ export async function leaveCurrentRoom(db: Database, accountId: string): Promise
       return undefined;
     }
     const closesRoom = lobby.hostMemberId === current.memberId;
+    if (closesRoom && lobby.currentRaceId !== null && (lobby.phase === "countdown" || lobby.phase === "racing")) {
+      // No succession yet (SALLE-08): the race ends with the room, without results (D-06).
+      await interruptRaceForClosedRoom(tx, lobby.currentRaceId);
+    }
     if (closesRoom) {
       await tx
         .update(lobbyMembers)

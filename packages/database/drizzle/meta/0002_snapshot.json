@@ -1,0 +1,1057 @@
+{
+  "id": "71f5415e-34a1-465e-a8ea-edfc4e952949",
+  "prevId": "6091cf8e-108c-457d-a924-d1163d715e54",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.accounts": {
+      "name": "accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "login": {
+          "name": "login",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "login_canonical": {
+          "name": "login_canonical",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_version": {
+          "name": "session_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "accounts_login_canonical_unique": {
+          "name": "accounts_login_canonical_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "login_canonical"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "accounts_login_pair": {
+          "name": "accounts_login_pair",
+          "value": "(\"accounts\".\"login\" is null) = (\"accounts\".\"login_canonical\" is null)"
+        },
+        "accounts_login_format": {
+          "name": "accounts_login_format",
+          "value": "\"accounts\".\"login\" ~ '^[A-Za-z0-9_-]{3,32}$' and \"accounts\".\"login_canonical\" = lower(\"accounts\".\"login\")"
+        },
+        "accounts_password_requires_login": {
+          "name": "accounts_password_requires_login",
+          "value": "\"accounts\".\"password_hash\" is null or \"accounts\".\"login_canonical\" is not null"
+        },
+        "accounts_password_hash_not_empty": {
+          "name": "accounts_password_hash_not_empty",
+          "value": "\"accounts\".\"password_hash\" is null or \"accounts\".\"password_hash\" <> ''"
+        },
+        "accounts_password_hash_format": {
+          "name": "accounts_password_hash_format",
+          "value": "\"accounts\".\"password_hash\" is null or \"accounts\".\"password_hash\" ~ '^scrypt\\$[0-9]{2}\\$[0-9]{1,2}\\$[0-9]\\$[A-Za-z0-9_-]{22}\\$[A-Za-z0-9_-]{43}$'"
+        },
+        "accounts_session_version_positive": {
+          "name": "accounts_session_version_positive",
+          "value": "\"accounts\".\"session_version\" >= 1"
+        },
+        "accounts_display_name_length": {
+          "name": "accounts_display_name_length",
+          "value": "char_length(\"accounts\".\"display_name\") between 1 and 40 and btrim(\"accounts\".\"display_name\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.oauth_identities": {
+      "name": "oauth_identities",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "oauth_provider",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_subject": {
+          "name": "provider_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "oauth_identities_account_id_accounts_id_fk": {
+          "name": "oauth_identities_account_id_accounts_id_fk",
+          "tableFrom": "oauth_identities",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "oauth_identities_provider_subject_unique": {
+          "name": "oauth_identities_provider_subject_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "provider",
+            "provider_subject"
+          ]
+        },
+        "oauth_identities_account_provider_unique": {
+          "name": "oauth_identities_account_provider_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "account_id",
+            "provider"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "oauth_identities_subject_not_empty": {
+          "name": "oauth_identities_subject_not_empty",
+          "value": "char_length(\"oauth_identities\".\"provider_subject\") > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lobbies": {
+      "name": "lobbies",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "lobby_visibility",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'code'"
+        },
+        "capacity": {
+          "name": "capacity",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phase": {
+          "name": "phase",
+          "type": "lobby_phase",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'waiting'"
+        },
+        "host_member_id": {
+          "name": "host_member_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_race_id": {
+          "name": "current_race_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "lobbies_host_member_fk": {
+          "name": "lobbies_host_member_fk",
+          "tableFrom": "lobbies",
+          "tableTo": "lobby_members",
+          "columnsFrom": [
+            "id",
+            "host_member_id"
+          ],
+          "columnsTo": [
+            "lobby_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lobbies_current_race_fk": {
+          "name": "lobbies_current_race_fk",
+          "tableFrom": "lobbies",
+          "tableTo": "races",
+          "columnsFrom": [
+            "id",
+            "current_race_id"
+          ],
+          "columnsTo": [
+            "lobby_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lobbies_code_unique": {
+          "name": "lobbies_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lobbies_code_format": {
+          "name": "lobbies_code_format",
+          "value": "\"lobbies\".\"code\" ~ '^[2-9A-HJKMNP-Z]{6}$'"
+        },
+        "lobbies_capacity_range": {
+          "name": "lobbies_capacity_range",
+          "value": "\"lobbies\".\"capacity\" between 2 and 30"
+        },
+        "lobbies_revision_non_negative": {
+          "name": "lobbies_revision_non_negative",
+          "value": "\"lobbies\".\"revision\" >= 0"
+        },
+        "lobbies_closed_at_matches_phase": {
+          "name": "lobbies_closed_at_matches_phase",
+          "value": "(\"lobbies\".\"phase\" = 'closed') = (\"lobbies\".\"closed_at\" is not null)"
+        },
+        "lobbies_active_phase_has_race": {
+          "name": "lobbies_active_phase_has_race",
+          "value": "\"lobbies\".\"phase\" not in ('countdown', 'racing', 'results') or \"lobbies\".\"current_race_id\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lobby_members": {
+      "name": "lobby_members",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "lobby_id": {
+          "name": "lobby_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "member_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name_canonical": {
+          "name": "display_name_canonical",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "left_at": {
+          "name": "left_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "lobby_members_active_account_unique": {
+          "name": "lobby_members_active_account_unique",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"lobby_members\".\"left_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lobby_members_active_display_name_unique": {
+          "name": "lobby_members_active_display_name_unique",
+          "columns": [
+            {
+              "expression": "lobby_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "display_name_canonical",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"lobby_members\".\"left_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lobby_members_active_by_lobby_idx": {
+          "name": "lobby_members_active_by_lobby_idx",
+          "columns": [
+            {
+              "expression": "lobby_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "joined_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"lobby_members\".\"left_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lobby_members_lobby_id_lobbies_id_fk": {
+          "name": "lobby_members_lobby_id_lobbies_id_fk",
+          "tableFrom": "lobby_members",
+          "tableTo": "lobbies",
+          "columnsFrom": [
+            "lobby_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "lobby_members_account_id_accounts_id_fk": {
+          "name": "lobby_members_account_id_accounts_id_fk",
+          "tableFrom": "lobby_members",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lobby_members_lobby_id_id_unique": {
+          "name": "lobby_members_lobby_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "lobby_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lobby_members_left_after_joined": {
+          "name": "lobby_members_left_after_joined",
+          "value": "\"lobby_members\".\"left_at\" is null or \"lobby_members\".\"left_at\" >= \"lobby_members\".\"joined_at\""
+        },
+        "lobby_members_display_name_length": {
+          "name": "lobby_members_display_name_length",
+          "value": "char_length(\"lobby_members\".\"display_name\") between 1 and 40 and btrim(\"lobby_members\".\"display_name\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.race_entrants": {
+      "name": "race_entrants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "race_id": {
+          "name": "race_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name_snapshot": {
+          "name": "display_name_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "race_entrants_race_id_races_id_fk": {
+          "name": "race_entrants_race_id_races_id_fk",
+          "tableFrom": "race_entrants",
+          "tableTo": "races",
+          "columnsFrom": [
+            "race_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "race_entrants_member_id_lobby_members_id_fk": {
+          "name": "race_entrants_member_id_lobby_members_id_fk",
+          "tableFrom": "race_entrants",
+          "tableTo": "lobby_members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "race_entrants_account_id_accounts_id_fk": {
+          "name": "race_entrants_account_id_accounts_id_fk",
+          "tableFrom": "race_entrants",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "race_entrants_race_id_id_unique": {
+          "name": "race_entrants_race_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "race_id",
+            "id"
+          ]
+        },
+        "race_entrants_race_ordinal_unique": {
+          "name": "race_entrants_race_ordinal_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "race_id",
+            "ordinal"
+          ]
+        },
+        "race_entrants_member_race_unique": {
+          "name": "race_entrants_member_race_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "member_id",
+            "race_id"
+          ]
+        },
+        "race_entrants_account_race_unique": {
+          "name": "race_entrants_account_race_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "account_id",
+            "race_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "race_entrants_ordinal_range": {
+          "name": "race_entrants_ordinal_range",
+          "value": "\"race_entrants\".\"ordinal\" between 1 and 30"
+        },
+        "race_entrants_display_name_length": {
+          "name": "race_entrants_display_name_length",
+          "value": "char_length(\"race_entrants\".\"display_name_snapshot\") between 1 and 40 and btrim(\"race_entrants\".\"display_name_snapshot\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.race_results": {
+      "name": "race_results",
+      "schema": "",
+      "columns": {
+        "race_id": {
+          "name": "race_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entrant_id": {
+          "name": "entrant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "race_outcome",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rank": {
+          "name": "rank",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "elapsed_ms": {
+          "name": "elapsed_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "length": {
+          "name": "length",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "correct_inputs": {
+          "name": "correct_inputs",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_inputs": {
+          "name": "total_inputs",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "net_wpm": {
+          "name": "net_wpm",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "raw_wpm": {
+          "name": "raw_wpm",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accuracy": {
+          "name": "accuracy",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abandonment_reason": {
+          "name": "abandonment_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "race_results_entrant_fk": {
+          "name": "race_results_entrant_fk",
+          "tableFrom": "race_results",
+          "tableTo": "race_entrants",
+          "columnsFrom": [
+            "race_id",
+            "entrant_id"
+          ],
+          "columnsTo": [
+            "race_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "race_results_pk": {
+          "name": "race_results_pk",
+          "columns": [
+            "race_id",
+            "entrant_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "race_results_race_rank_unique": {
+          "name": "race_results_race_rank_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "race_id",
+            "rank"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "race_results_rank_positive": {
+          "name": "race_results_rank_positive",
+          "value": "\"race_results\".\"rank\" >= 1"
+        },
+        "race_results_counts_valid": {
+          "name": "race_results_counts_valid",
+          "value": "\"race_results\".\"elapsed_ms\" >= 0 and \"race_results\".\"position\" >= 0 and \"race_results\".\"correct_inputs\" >= 0"
+        },
+        "race_results_counts_exact": {
+          "name": "race_results_counts_exact",
+          "value": "\"race_results\".\"elapsed_ms\" <= 9007199254740991 and \"race_results\".\"total_inputs\" <= 9007199254740991"
+        },
+        "race_results_position_within_length": {
+          "name": "race_results_position_within_length",
+          "value": "\"race_results\".\"length\" >= 1 and \"race_results\".\"position\" <= \"race_results\".\"length\""
+        },
+        "race_results_correct_within_total": {
+          "name": "race_results_correct_within_total",
+          "value": "\"race_results\".\"correct_inputs\" <= \"race_results\".\"total_inputs\""
+        },
+        "race_results_finished_at_end": {
+          "name": "race_results_finished_at_end",
+          "value": "(\"race_results\".\"outcome\" = 'finished') = (\"race_results\".\"position\" = \"race_results\".\"length\")"
+        },
+        "race_results_speeds_valid": {
+          "name": "race_results_speeds_valid",
+          "value": "\"race_results\".\"net_wpm\" >= 0 and \"race_results\".\"raw_wpm\" >= \"race_results\".\"net_wpm\" and \"race_results\".\"raw_wpm\" < 'Infinity'::double precision"
+        },
+        "race_results_accuracy_range": {
+          "name": "race_results_accuracy_range",
+          "value": "\"race_results\".\"accuracy\" between 0 and 100"
+        },
+        "race_results_reason_matches_outcome": {
+          "name": "race_results_reason_matches_outcome",
+          "value": "(\"race_results\".\"outcome\" = 'abandoned') = (\"race_results\".\"abandonment_reason\" is not null)"
+        },
+        "race_results_reason_known": {
+          "name": "race_results_reason_known",
+          "value": "\"race_results\".\"abandonment_reason\" in ('voluntary', 'disconnection', 'inactivity')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.races": {
+      "name": "races",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "lobby_id": {
+          "name": "lobby_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "round_no": {
+          "name": "round_no",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "race_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'countdown'"
+        },
+        "rules_version": {
+          "name": "rules_version",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text_snapshot": {
+          "name": "text_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "config_snapshot": {
+          "name": "config_snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "countdown_at": {
+          "name": "countdown_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "interruption_reason": {
+          "name": "interruption_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "owner_epoch": {
+          "name": "owner_epoch",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "races_active_lease_idx": {
+          "name": "races_active_lease_idx",
+          "columns": [
+            {
+              "expression": "lease_expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"races\".\"state\" in ('countdown', 'racing')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "races_lobby_id_lobbies_id_fk": {
+          "name": "races_lobby_id_lobbies_id_fk",
+          "tableFrom": "races",
+          "tableTo": "lobbies",
+          "columnsFrom": [
+            "lobby_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "races_lobby_round_unique": {
+          "name": "races_lobby_round_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "lobby_id",
+            "round_no"
+          ]
+        },
+        "races_lobby_id_id_unique": {
+          "name": "races_lobby_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "lobby_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "races_round_no_positive": {
+          "name": "races_round_no_positive",
+          "value": "\"races\".\"round_no\" >= 1"
+        },
+        "races_rules_version_positive": {
+          "name": "races_rules_version_positive",
+          "value": "\"races\".\"rules_version\" >= 1"
+        },
+        "races_owner_epoch_positive": {
+          "name": "races_owner_epoch_positive",
+          "value": "\"races\".\"owner_epoch\" >= 1"
+        },
+        "races_text_not_empty": {
+          "name": "races_text_not_empty",
+          "value": "char_length(\"races\".\"text_snapshot\") > 0"
+        },
+        "races_config_is_object": {
+          "name": "races_config_is_object",
+          "value": "jsonb_typeof(\"races\".\"config_snapshot\") = 'object'"
+        },
+        "races_started_matches_state": {
+          "name": "races_started_matches_state",
+          "value": "(\"races\".\"state\" = 'countdown' and \"races\".\"started_at\" is null) or (\"races\".\"state\" in ('racing', 'finished') and \"races\".\"started_at\" is not null) or \"races\".\"state\" = 'interrupted'"
+        },
+        "races_ended_matches_state": {
+          "name": "races_ended_matches_state",
+          "value": "(\"races\".\"state\" in ('finished', 'interrupted')) = (\"races\".\"ended_at\" is not null)"
+        },
+        "races_reason_matches_state": {
+          "name": "races_reason_matches_state",
+          "value": "(\"races\".\"state\" = 'interrupted') = (\"races\".\"interruption_reason\" is not null)"
+        },
+        "races_reason_known": {
+          "name": "races_reason_known",
+          "value": "\"races\".\"interruption_reason\" in ('room_closed', 'server_stopped', 'owner_lost', 'save_failed')"
+        },
+        "races_times_ordered": {
+          "name": "races_times_ordered",
+          "value": "\"races\".\"started_at\" >= \"races\".\"countdown_at\" and \"races\".\"ended_at\" >= coalesce(\"races\".\"started_at\", \"races\".\"countdown_at\")"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.oauth_provider": {
+      "name": "oauth_provider",
+      "schema": "public",
+      "values": [
+        "github",
+        "discord"
+      ]
+    },
+    "public.lobby_phase": {
+      "name": "lobby_phase",
+      "schema": "public",
+      "values": [
+        "waiting",
+        "countdown",
+        "racing",
+        "results",
+        "closed"
+      ]
+    },
+    "public.lobby_visibility": {
+      "name": "lobby_visibility",
+      "schema": "public",
+      "values": [
+        "public",
+        "code",
+        "private"
+      ]
+    },
+    "public.member_role": {
+      "name": "member_role",
+      "schema": "public",
+      "values": [
+        "participant",
+        "spectator"
+      ]
+    },
+    "public.race_outcome": {
+      "name": "race_outcome",
+      "schema": "public",
+      "values": [
+        "finished",
+        "timed_out",
+        "abandoned"
+      ]
+    },
+    "public.race_state": {
+      "name": "race_state",
+      "schema": "public",
+      "values": [
+        "countdown",
+        "racing",
+        "finished",
+        "interrupted"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -4,6 +4,7 @@ import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
 import { firstRow } from "../rows";
 import { accounts, lobbies, lobbyMembers } from "../schema";
+import type { Transaction } from "../transaction";
 
 export const ROOM_CODE_ATTEMPTS = 5;
 
@@ -50,8 +51,6 @@ export async function createRoomWithHost(
   }
   return { ok: false, error: "CODE_ATTEMPTS_EXHAUSTED" };
 }
-
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 async function insertRoom(tx: Transaction, input: CreateRoomInput, code: RoomCode): Promise<CreateRoomResult> {
   const [account] = await tx

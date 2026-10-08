@@ -4,12 +4,18 @@ export type DatabaseCheck =
   | { readonly reachable: true }
   | { readonly reachable: false; readonly error: unknown };
 
+/**
+ * The client gives up on a query after this long. The race transactions end their own waits
+ * on the server before it (`SERVER_LIMITS_MS` in transaction.ts).
+ */
+export const QUERY_TIMEOUT_MS = 5_000;
+
 const POOL_OPTIONS = {
   // Neon's free plan limits connections; the pooled URL multiplexes them further.
   max: 5,
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
-  query_timeout: 5_000,
+  query_timeout: QUERY_TIMEOUT_MS,
 } as const;
 
 // Next bundles route handlers separately from the custom server, so a module-level
