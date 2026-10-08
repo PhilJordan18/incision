@@ -5,7 +5,7 @@ import { uniqueViolationOf } from "../errors";
 import { interruptRaceForClosedRoom } from "../races/interruption";
 import { firstRow } from "../rows";
 import { accounts, lobbies, lobbyMembers } from "../schema";
-import { type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
+import { limitServerWaits, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
 export type ActiveMembership = {
@@ -189,6 +189,8 @@ export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boole
  */
 export async function leaveCurrentRoom(db: Database, accountId: string): Promise<LeaveRoomResult | undefined> {
   return db.transaction(async (tx) => {
+    // It may interrupt a race: bounded on the server like every race transaction.
+    await limitServerWaits(tx);
     const seen = await findActiveMembership(tx, accountId);
     if (seen === undefined) {
       return undefined;

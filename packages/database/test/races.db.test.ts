@@ -441,6 +441,25 @@ describe("closing the room while the race runs", () => {
     expect(await resultCount(two.race.raceId)).toBe(0);
   });
 
+  it("tells a retry after the host left that the results, or the interruption, were saved", async () => {
+    const finished = await room("ABCDEF");
+    const one = await started(finished.hostId);
+    await beginRacing(db, one.race);
+    // The finalisation committed but its answer was lost; then the host left.
+    await finalizeRace(db, one.race, resultsFor(one.entrants));
+    expect(await leaveCurrentRoom(db, finished.hostId)).toMatchObject({ closed: true });
+    expect(await finalizeRace(db, one.race, resultsFor(one.entrants))).toEqual(REPLAYED);
+    expect(await interruptOwnRace(db, one.race, "save_failed")).toEqual({ won: false, resultsSaved: true });
+    expect(await raceOf(one.race.raceId)).toMatchObject({ state: "finished", owner_epoch: 1 });
+
+    const stopped = await room("BCDEFG");
+    const two = await started(stopped.hostId);
+    await interruptOwnRace(db, two.race, "server_stopped");
+    expect(await leaveCurrentRoom(db, stopped.hostId)).toMatchObject({ closed: true });
+    expect(await interruptOwnRace(db, two.race, "server_stopped")).toEqual(REPLAYED);
+    expect(await raceOf(two.race.raceId)).toMatchObject({ state: "interrupted", interruption_reason: "server_stopped" });
+  });
+
   it("ends the race when a release without races closed its room during an overlap", async () => {
     // As the release before races does: the room closes without touching its race.
     const closeLikeBefore = async (lobbyId: string) => {

@@ -200,12 +200,17 @@ function ownedAndActive({ raceId, ownerId, ownerEpoch }: RaceOwnership) {
 }
 
 /**
- * The room closed while its race was still active: only a release without races does that,
- * closing a room during a deployment overlap. The owner ends the race as the closing would
- * have (D-06); its transition loses.
+ * Whether the room is closed, in which case the owner's transition changes nothing but this:
+ * a race still active there is ended as the closing would have (D-06). Only a release without
+ * races leaves it active, by closing a room during a deployment overlap. A race this owner
+ * ended before the closing is left as it is, so a retry still learns about it.
  */
-async function endForClosedRoom(tx: Transaction, ownership: RaceOwnership): Promise<void> {
+async function endedForClosedRoom(tx: Transaction, ownership: RaceOwnership, phase: RoomPhase): Promise<boolean> {
+  if (phase !== "closed") {
+    return false;
+  }
   await tx.update(races).set(interruption("room_closed")).where(ownedAndActive(ownership));
+  return true;
 }
 
 /** Moves the room along with its race; a mismatch here means an invariant broke, so it throws. */
@@ -253,12 +258,8 @@ async function savedBy(tx: Transaction, ownership: RaceOwnership): Promise<boole
 export async function beginRacing(db: Database, ownership: RaceOwnership): Promise<Transition> {
   return db.transaction(async (tx): Promise<Transition> => {
     const phase = await lockRoom(tx, ownership);
-    if (phase === "closed") {
-      await endForClosedRoom(tx, ownership);
-      return { won: false };
-    }
     const started =
-      phase === undefined
+      phase === undefined || (await endedForClosedRoom(tx, ownership, phase))
         ? []
         : await tx
             .update(races)
@@ -302,12 +303,8 @@ export type RaceResultRow = {
 export async function finalizeRace(db: Database, ownership: RaceOwnership, results: readonly RaceResultRow[]): Promise<Transition> {
   return db.transaction(async (tx): Promise<Transition> => {
     const phase = await lockRoom(tx, ownership);
-    if (phase === "closed") {
-      await endForClosedRoom(tx, ownership);
-      return { won: false };
-    }
     const ended =
-      phase === undefined
+      phase === undefined || (await endedForClosedRoom(tx, ownership, phase))
         ? []
         : await tx
             .update(races)
@@ -346,12 +343,10 @@ export async function interruptOwnRace(
 ): Promise<Interruption> {
   return db.transaction(async (tx): Promise<Interruption> => {
     const phase = await lockRoom(tx, ownership);
-    if (phase === "closed") {
-      await endForClosedRoom(tx, ownership);
-      return { won: false, resultsSaved: false };
-    }
     const interrupted =
-      phase === undefined ? [] : await tx.update(races).set(interruption(reason)).where(ownedAndActive(ownership)).returning({ id: races.id });
+      phase === undefined || (await endedForClosedRoom(tx, ownership, phase))
+        ? []
+        : await tx.update(races).set(interruption(reason)).where(ownedAndActive(ownership)).returning({ id: races.id });
     if (interrupted.length === 0) {
       const race = await raceOfOwner(tx, ownership);
       // An interruption raises the generation: this owner's own one leaves it one higher.
