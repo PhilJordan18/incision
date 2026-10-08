@@ -354,7 +354,8 @@ export type RankEntrants = (entrants: readonly RankInput[]) => readonly RankedEn
 
 /**
  * One entrant's final result, as the server persists it (RES-02), with the exact counters and
- * elapsed time it comes from. Every value is bounded: WPM ≤ `MAX_COMPUTABLE_WPM`, accuracy in [0, 100], counters ≤ `MAX_ENTRANT_INSERTS`,
+ * elapsed time it comes from. Every value is bounded: WPM ≤ `MAX_COMPUTABLE_WPM`,
+ * accuracy in [0, 100], counters ≤ `MAX_ENTRANT_INSERTS`,
  * position ≤ length ≤ `MAX_TEXT_GRAPHEMES`, elapsed ≤ `MAX_DURATION_MS`.
  * The WPM series (RES-05) arrives with F-07.1 and the bonuses received with F-06.
  */
