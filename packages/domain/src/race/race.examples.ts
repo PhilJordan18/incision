@@ -50,7 +50,7 @@ function race(overrides: Partial<RaceState> = {}): RaceState {
     timeLimit: null,
     countdownAt: at(-3_000),
     startsAt: at(0),
-    clock: at(-3_000),
+    clock: at(0),
     text: toGraphemes("ab"),
     entrants: [runner(ALICE), runner(BOB)],
     ...overrides,
@@ -80,14 +80,12 @@ type RaceExpectation = {
   readonly endedAt?: Instant;
   /** `EntrantResult.elapsed` per entrant, when the race ends. */
   readonly elapsed?: readonly (readonly [EntrantId, Duration])[];
-  /** Entrant ids in `interrupted`, from rank 1. */
-  readonly interrupted?: readonly EntrantId[];
   readonly nextDeadline?: Instant;
 };
 
 const aliceDone = runner(ALICE, { typed: ["a", "b"], ackSeq: 1, status: "finished", endedAt: at(2_000), counters: { correctInserts: 2, totalInserts: 2 } });
 const bobHalfway = runner(BOB, { typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } });
-const countdown = race({ phase: "countdown" });
+const countdown = race({ phase: "countdown", clock: at(-3_000) });
 const thirtySeconds = asDuration(30_000);
 
 export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState; readonly event: RaceEvent }, RaceExpectation>[] = [
@@ -145,9 +143,9 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     expected: { phase: "countdown", changed: true, statuses: [[BOB, "abandoned"]], nextDeadline: at(0) },
   },
   {
-    name: "when everyone abandoned during the countdown, the race ends at startsAt, with zero elapsed time",
+    name: "when everyone abandoned during the countdown, the race ends at startsAt: all abandons, zero elapsed, ranked by id",
     input: {
-      state: race({ phase: "countdown", entrants: [runner(ALICE, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_500) }), runner(BOB, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_000) })] }),
+      state: race({ phase: "countdown", clock: at(-2_000), entrants: [runner(ALICE, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_000) }), runner(BOB, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_500) })] }),
       event: { type: "tick", now: at(0) },
     },
     expected: { phase: "ended", changed: true, ranking: [ALICE, BOB], endedAt: at(0), elapsed: [[ALICE, asDuration(0)], [BOB, asDuration(0)]] },
@@ -163,9 +161,29 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     expected: { phase: "ended", changed: true, statuses: [[BOB, "abandoned"]], ranking: [ALICE, BOB], endedAt: at(5_000) },
   },
   {
-    name: "a room closed during the race keeps the results already won, and invents none (D-06)",
+    name: "the last abandon during the countdown keeps the countdown until startsAt",
+    input: { state: race({ phase: "countdown", clock: at(-3_000), entrants: [runner(ALICE, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_500) }), runner(BOB)] }), event: { type: "abandon", entrantId: BOB, now: at(-1_000) } },
+    expected: { phase: "countdown", changed: true, statuses: [[BOB, "abandoned"]], nextDeadline: at(0) },
+  },
+  {
+    name: "a room closed before the race is finalised produces no official result, not even for finishers (D-06)",
     input: { state: race({ entrants: [aliceDone, bobHalfway] }), event: { type: "interrupt", now: at(5_000) } },
-    expected: { phase: "interrupted", changed: true, interrupted: [ALICE] },
+    expected: { phase: "interrupted", changed: true },
+  },
+  {
+    name: "a room closed after the race ended keeps its results: the interrupt changes nothing",
+    input: { state: race({ phase: "ended", endedAt: at(3_000), clock: at(3_000), entrants: [aliceDone, runner(BOB, { status: "finished", endedAt: at(3_000) })] }), event: { type: "interrupt", now: at(4_000) } },
+    expected: { phase: "ended", changed: false },
+  },
+  {
+    name: "a late timer never brings an interrupted race back",
+    input: { state: race({ phase: "interrupted", endedAt: at(-1_000), clock: at(-1_000) }), event: { type: "tick", now: at(0) } },
+    expected: { phase: "interrupted", changed: false },
+  },
+  {
+    name: "keystrokes after an interruption are refused",
+    input: { state: race({ phase: "interrupted", endedAt: at(5_000), clock: at(5_000) }), event: keystrokes("race-1", BOB, 1, "a", 6_000) },
+    expected: { phase: "interrupted", changed: false, keystrokes: { outcome: "refused", reason: "NOT_RACING" } },
   },
   {
     name: "on the first path, with no time limit, a tick never ends the race by itself (D-17)",

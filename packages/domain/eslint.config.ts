@@ -29,32 +29,28 @@ export default defineConfig(tseslint.configs.recommended, {
       { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: IMPURE },
       { selector: "CallExpression[callee.name='Date'][arguments.length=0]", message: IMPURE },
       // Indirect access would slip past the rules above.
-      { selector: "Identifier[name=/^(globalThis|global)$/]", message: IMPURE },
       { selector: `VariableDeclarator > Identifier.init[name=${AMBIENT}]`, message: IMPURE },
       { selector: `AssignmentExpression > Identifier.right[name=${AMBIENT}]`, message: IMPURE },
       { selector: "ImportExpression", message: OUTSIDE },
     ],
     "no-restricted-globals": [
       "error",
-      ...["setTimeout", "setInterval", "setImmediate", "queueMicrotask", "performance"].map((name) => ({ name, message: IMPURE })),
+      ...["setTimeout", "setInterval", "setImmediate", "queueMicrotask", "performance", "globalThis", "global"].map((name) => ({ name, message: IMPURE })),
       ...["fetch", "process", "XMLHttpRequest", "WebSocket", "window", "document", "localStorage"].map((name) => ({ name, message: OUTSIDE })),
     ],
     "no-restricted-imports": [
       "error",
       {
+        // Exact module names, so the package's own files (./events, ./timers…) stay importable.
+        paths: [
+          "fs", "net", "http", "https", "http2", "child_process", "worker_threads", "cluster", "crypto", "os",
+          "path", "url", "util", "stream", "events", "buffer", "dns", "tls", "zlib", "vm", "perf_hooks",
+          "timers", "readline", "process", "pg", "drizzle-orm", "socket.io", "socket.io-client", "next", "react",
+          "@incision/database", "@incision/web",
+        ].map((name) => ({ name, message: OUTSIDE })),
         patterns: [
-          {
-            group: [
-              "node:*", "fs", "fs/*", "net", "http", "https", "http2", "child_process", "worker_threads", "cluster",
-              "crypto", "os", "path", "url", "util", "stream", "events", "buffer", "dns", "tls", "zlib", "vm",
-              "perf_hooks", "timers", "timers/*", "readline",
-              "pg", "pg/*", "drizzle-orm", "drizzle-orm/*", "socket.io", "socket.io/*", "socket.io-client",
-              "next", "next/*", "react", "react/*",
-              "@incision/database", "@incision/database/*", "@incision/web", "@incision/web/*",
-              "**/apps/**", "**/database", "**/database/**",
-            ],
-            message: OUTSIDE,
-          },
+          { regex: "^(node:|fs/|timers/|pg/|drizzle-orm/|socket\\.io/|next/|react/|@incision/(database|web)/)", message: OUTSIDE },
+          { regex: "(^|/)(apps/|packages/database(/|$)|database/src(/|$))", message: OUTSIDE },
         ],
       },
     ],

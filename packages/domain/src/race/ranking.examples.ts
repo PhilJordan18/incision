@@ -53,11 +53,11 @@ export const RANKING_EXAMPLES: readonly ContractExample<readonly RankInput[], re
     expected: [id("amy"), id("kim"), id("zed")],
   },
   {
-    name: "abandons during the countdown (no insert, accuracy 0) fall to the stable id",
+    name: "abandons during the countdown (no insert, accuracy 0) fall to the stable id, not to the abandon time",
     input: [
-      { entrantId: id("second"), status: "abandoned", endedAt: at(-1_000), position: 0, length: 100, accuracy: 0 },
-      { entrantId: id("first"), status: "abandoned", endedAt: at(-2_000), position: 0, length: 100, accuracy: 0 },
+      { entrantId: id("zeta"), status: "abandoned", endedAt: at(-2_000), position: 0, length: 100, accuracy: 0 },
+      { entrantId: id("alpha"), status: "abandoned", endedAt: at(-1_000), position: 0, length: 100, accuracy: 0 },
     ],
-    expected: [id("first"), id("second")],
+    expected: [id("alpha"), id("zeta")],
   },
 ];

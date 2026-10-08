@@ -45,9 +45,11 @@ export const MAX_PLAUSIBLE_INSERTS_PER_SECOND = 25;
 export const PLAUSIBILITY_BURST_INSERTS = 20;
 
 /**
- * Most inserts an entrant can plausibly have made `sinceStart` after the start (COURSE-06).
- * A batch that would take the entrant's total of applied inserts above it is refused whole.
- * Counting from the start, not per batch, keeps a client that flushes after a stall within it.
+ * Most inserts an entrant can plausibly have made `sinceStart` after the start (COURSE-06), where
+ * `sinceStart` is the clamped `measuredElapsed(startsAt, now)`, so the check never throws and the
+ * counters stay within `MAX_ENTRANT_INSERTS`. A batch that would take the entrant's total of
+ * applied inserts above it is refused whole; discarded events after a finish never count. Counting
+ * from the start, not per batch, keeps a client that flushes after a stall within it.
  */
 export function maxPlausibleInserts(sinceStart: Duration): number {
   return Math.floor((MAX_PLAUSIBLE_INSERTS_PER_SECOND * sinceStart) / 1_000) + PLAUSIBILITY_BURST_INSERTS;

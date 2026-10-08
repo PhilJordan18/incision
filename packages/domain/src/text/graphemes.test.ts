@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MAX_GRAPHEME_LENGTH, singleGrapheme, toGraphemes } from "./graphemes";
 
 describe("toGraphemes", () => {
@@ -40,5 +40,16 @@ describe("singleGrapheme", () => {
     expect(singleGrapheme(`x${"\u0301".repeat(MAX_GRAPHEME_LENGTH - 1)}`)).toHaveLength(MAX_GRAPHEME_LENGTH);
     expect(singleGrapheme(`a${"\u0301".repeat(MAX_GRAPHEME_LENGTH)}`)).toBeUndefined();
     expect(singleGrapheme(`a${"\u0301".repeat(50_000)}`)).toBeUndefined();
+  });
+});
+
+describe("without Intl.Segmenter (older browsers)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to the code points of the NFC form", () => {
+    vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
+    expect(toGraphemes("e\u0301t")).toEqual(["é", "t"]);
   });
 });

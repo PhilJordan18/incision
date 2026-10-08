@@ -9,7 +9,10 @@
  * authoritative, and the corpus has no emoji.
  */
 
-/** Longest single grapheme accepted from a keyboard, in UTF-16 code units (the longest emoji sequences fit). */
+/**
+ * Longest single grapheme accepted from a keyboard, in UTF-16 code units of the input as received
+ * (the longest emoji sequences fit). Its NFC form may be longer, at most three times.
+ */
 export const MAX_GRAPHEME_LENGTH = 16;
 
 let segmenter: Intl.Segmenter | undefined;
@@ -27,9 +30,9 @@ export function toGraphemes(text: string): readonly string[] {
 }
 
 /**
- * The NFC form of `input` when it is exactly one grapheme of at most `MAX_GRAPHEME_LENGTH` code
- * units (what one `insert` event must carry, after any input-method composition), otherwise
- * undefined.
+ * The NFC form of `input` when `input` is exactly one grapheme of at most `MAX_GRAPHEME_LENGTH`
+ * code units as received (what one `insert` event must carry, after any input-method composition),
+ * otherwise undefined.
  */
 export function singleGrapheme(input: string): string | undefined {
   if (input.length === 0 || input.length > MAX_GRAPHEME_LENGTH) {

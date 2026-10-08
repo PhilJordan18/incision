@@ -4,9 +4,9 @@ import type { Duration } from "../time";
 export const CHARACTERS_PER_WORD = 5;
 
 /**
- * Highest WPM the engine ever returns. Appendix A is applied exactly, then capped: only an
- * implausible burst in the first instants of a race (20 inserts 10 ms after the start, then an
- * abandon, would give 24 000) reaches it. Stored WPM columns are sized from this constant.
+ * Highest WPM the engine ever returns. Appendix A is applied exactly, then capped. Within the
+ * plausibility limit the cap can bind only in the first 0.8 s of a race (20 inserts 10 ms after the
+ * start, then an abandon, would otherwise give 24 000). Stored WPM columns are sized from it.
  */
 export const MAX_WPM = 600;
 

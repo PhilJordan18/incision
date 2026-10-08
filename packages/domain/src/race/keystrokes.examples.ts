@@ -132,6 +132,11 @@ export const KEYSTROKE_EXAMPLES: readonly ContractExample<KeystrokeInput, Keystr
     expected: { result: applied(1), entrant: pending },
   },
   {
+    name: "mandatory correction: random key-mashing never advances; every wrong insert counts",
+    input: { entrant: entrant("abc"), batch: batch(1, inserts("xqzjw")), context: context("mandatory", 2_000) },
+    expected: { result: applied(1), entrant: entrant("abc", { pendingError: true, ackSeq: 1, counters: { correctInserts: 0, totalInserts: 5 }, missedKeys: { a: 5 } }) },
+  },
+  {
     name: "mandatory correction: a second wrong insert while an error is pending counts again",
     input: { entrant: pending, batch: batch(2, inserts("y")), context: context("mandatory", 1_500) },
     expected: { result: applied(2), entrant: entrant("ab", { pendingError: true, ackSeq: 2, counters: { correctInserts: 0, totalInserts: 2 }, missedKeys: { a: 2 } }) },
@@ -172,6 +177,14 @@ export const KEYSTROKE_EXAMPLES: readonly ContractExample<KeystrokeInput, Keystr
     expected: { result: { outcome: "duplicate", seq: 2, ackSeq: 2 }, entrant: finished },
   },
   {
+    name: "after a reconnection, the in-flight batch the server never received is resent unchanged and applied",
+    input: { entrant: typedAb, batch: batch(4, inserts("b")), context: context("free", 3_000) },
+    expected: {
+      result: applied(4),
+      entrant: entrant("ab", { typed: ["a", "b"], ackSeq: 4, status: "finished", endedAt: at(3_000), counters: { correctInserts: 2, totalInserts: 2 } }),
+    },
+  },
+  {
     name: "a gap in the sequence asks for a resync; the client continues at ackSeq + 1",
     input: { entrant: typedAb, batch: batch(5, inserts("b")), context: context("free", 3_000) },
     expected: { result: { outcome: "resync", seq: 5, reason: "OUT_OF_ORDER", snapshot: snapshot(typedAb) }, entrant: typedAb },
@@ -200,7 +213,7 @@ export const KEYSTROKE_EXAMPLES: readonly ContractExample<KeystrokeInput, Keystr
     expected: { result: { outcome: "refused", seq: 1, reason: "BATCH_TOO_LARGE", snapshot: snapshot(long) }, entrant: long },
   },
   {
-    name: "an empty batch is refused: it cannot be used to look active",
+    name: "an empty batch is refused: it carries nothing to apply",
     input: { entrant: ab, batch: batch(1, []), context: context("free", 1_000) },
     expected: { result: { outcome: "refused", seq: 1, reason: "INVALID_INPUT", snapshot: snapshot(ab) }, entrant: ab },
   },
@@ -240,6 +253,14 @@ export const KEYSTROKE_EXAMPLES: readonly ContractExample<KeystrokeInput, Keystr
     expected: {
       result: applied(5),
       entrant: entrant("a".repeat(100), { typed: toGraphemes("a".repeat(45)), ackSeq: 5, counters: { correctInserts: 45, totalInserts: 45 } }),
+    },
+  },
+  {
+    name: "inserts discarded after the finish never count toward the plausibility total",
+    input: { entrant: entrant("a".repeat(45), { typed: toGraphemes("a".repeat(44)), ackSeq: 4, counters: { correctInserts: 44, totalInserts: 44 } }), batch: batch(5, inserts("aaa")), context: context("free", 1_000) },
+    expected: {
+      result: applied(5),
+      entrant: entrant("a".repeat(45), { typed: toGraphemes("a".repeat(45)), ackSeq: 5, status: "finished", endedAt: at(1_000), counters: { correctInserts: 45, totalInserts: 45 } }),
     },
   },
   {

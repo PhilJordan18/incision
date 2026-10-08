@@ -24,7 +24,9 @@ describe("engine purity guard", () => {
     ["the database by a relative path", "import * as db from '../../../database/src/client';\nexport { db };", "no-restricted-imports"],
     ["a bare Node module", "import { randomInt } from 'crypto';\nexport { randomInt };", "no-restricted-imports"],
     ["a dynamic import", "export const load = () => import('pg');", "no-restricted-syntax"],
-    ["the clock through globalThis", "export const now = globalThis.Date.now();", "no-restricted-syntax"],
+    ["the clock through globalThis", "export const now = globalThis.Date.now();", "no-restricted-globals"],
+    ["a Date through globalThis", "export const now = new globalThis.Date();", "no-restricted-globals"],
+    ["a Node subpath", "import { setTimeout } from 'timers/promises';\nexport { setTimeout };", "no-restricted-imports"],
     ["Math under another name", "const M = Math;\nexport const draw = M.random();", "no-restricted-syntax"],
     ["Date reassigned", "let D: DateConstructor;\nD = Date;\nexport const now = new D();", "no-restricted-syntax"],
     ["the performance global itself", "export const clock = performance;", "no-restricted-globals"],
@@ -32,7 +34,13 @@ describe("engine purity guard", () => {
     expect(violations(source)).toContain(ruleId);
   });
 
-  it("accepts a date built from a given instant, and pure code", () => {
-    expect(violations("export const at = (instant: number) => new Date(instant).toISOString();")).toEqual([]);
+  it.each([
+    ["a date built from a given instant", "export const at = (instant: number) => new Date(instant).toISOString();"],
+    ["the package's own files named like Node modules", "import { a } from './events';\nimport { b } from '../text/path';\nexport { a, b };"],
+    ["a local folder named database", "import { c } from '../rooms/database';\nexport { c };"],
+    ["properties named global", "export const flags = { global: true };\nexport const isGlobal = (re: RegExp) => re.global;"],
+    ["Math functions", "export const clamp = (value: number) => Math.min(Math.max(value, 0), 1);"],
+  ])("accepts %s", (_label, source) => {
+    expect(violations(source)).toEqual([]);
   });
 });
