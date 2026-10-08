@@ -16,6 +16,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { accounts } from "./identity";
+import { races } from "./races";
 
 export const lobbyVisibility = pgEnum("lobby_visibility", ["public", "code", "private"]);
 /** COURSE-01 states: EN_ATTENTE, DECOMPTE, EN_COURSE, RESULTATS, FERMEE. */
@@ -73,6 +74,12 @@ export const lobbies = pgTable(
     revision: integer().notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     closedAt: timestamp("closed_at", { withTimezone: true }),
+    /**
+     * The race of the current or latest round. Kept after an interruption, so a returning
+     * player learns that their race was interrupted; transitions compare it with the race
+     * they act on (compare-and-set, ADR-0004).
+     */
+    currentRaceId: uuid("current_race_id"),
   },
   (table) => [
     unique("lobbies_code_unique").on(table.code),
@@ -89,5 +96,12 @@ export const lobbies = pgTable(
       columns: [table.id, table.hostMemberId],
       foreignColumns: [lobbyMembers.lobbyId, lobbyMembers.id],
     }).onDelete("no action"),
+    // The current race belongs to this room. NO ACTION: deleting a race that is still current fails.
+    foreignKey({
+      name: "lobbies_current_race_fk",
+      columns: [table.id, table.currentRaceId],
+      foreignColumns: [races.lobbyId, races.id],
+    }).onDelete("no action"),
+    check("lobbies_active_phase_has_race", sql`${table.phase} not in ('countdown', 'racing', 'results') or ${table.currentRaceId} is not null`),
   ],
 );
