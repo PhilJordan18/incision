@@ -48,6 +48,10 @@ function checkEntrants(entrants: readonly RankInput[]): void {
       throw new RangeError(`Duplicate entrant ${entrant.entrantId}`);
     }
     seen.add(entrant.entrantId);
+    // A status outside the three groups would compare as NaN and make the order depend on the input.
+    if (!Object.hasOwn(GROUP_ORDER, entrant.status)) {
+      throw new RangeError(`Invalid status ${String(entrant.status)} for ${entrant.entrantId}`);
+    }
     asInstant(entrant.endedAt);
     const { position, length, accuracy } = entrant;
     if (!Number.isSafeInteger(length) || length < 1 || !Number.isSafeInteger(position) || position < 0 || position > length) {
