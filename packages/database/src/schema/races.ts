@@ -23,6 +23,8 @@ import { lobbies, lobbyMembers } from "./rooms";
 /** A race from its countdown to its end; `interrupted` ends without official results (D-06). */
 export const RACE_STATES = ["countdown", "racing", "finished", "interrupted"] as const;
 export const raceState = pgEnum("race_state", RACE_STATES);
+/** A race that counts down or runs: it has an owner and a lease (ADR-0004). */
+export const ACTIVE_RACE_STATES = ["countdown", "racing"] as const;
 
 /** The three statuses of COURSE-10. A lost connection is a reason to abandon, not a fourth status. */
 export const RACE_OUTCOMES = ["finished", "timed_out", "abandoned"] as const;
@@ -33,7 +35,7 @@ export const raceOutcome = pgEnum("race_outcome", RACE_OUTCOMES);
  * later reason is one additive migration (an enum value cannot be used in the transaction
  * that adds it).
  */
-export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_lost"] as const;
+export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_lost", "save_failed"] as const;
 export type InterruptionReason = (typeof INTERRUPTION_REASONS)[number];
 
 /** The engine's reasons to abandon (`AbandonReason` in @incision/domain). */
@@ -41,6 +43,9 @@ export const ABANDONMENT_REASONS = ["voluntary", "disconnection", "inactivity"] 
 export type AbandonmentReason = (typeof ABANDONMENT_REASONS)[number];
 
 const inList = (values: readonly string[]) => sql.raw(values.map((value) => `'${value}'`).join(", "));
+
+/** JavaScript's largest safe integer (2^53 - 1): every integer up to it reads back exactly as written. */
+const MAX_EXACT_INTEGER = sql.raw(String(Number.MAX_SAFE_INTEGER));
 
 /**
  * One round of a room (COURSE-01). The room keeps its phase; the race keeps its frozen text and
@@ -159,10 +164,19 @@ export const raceResults = pgTable(
     unique("race_results_race_rank_unique").on(table.raceId, table.rank),
     check("race_results_rank_positive", sql`${table.rank} >= 1`),
     check("race_results_counts_valid", sql`${table.elapsedMs} >= 0 and ${table.position} >= 0 and ${table.correctInputs} >= 0`),
+    check(
+      "race_results_counts_exact",
+      sql`${table.elapsedMs} <= ${MAX_EXACT_INTEGER} and ${table.totalInputs} <= ${MAX_EXACT_INTEGER}`,
+    ),
     check("race_results_position_within_length", sql`${table.length} >= 1 and ${table.position} <= ${table.length}`),
     check("race_results_correct_within_total", sql`${table.correctInputs} <= ${table.totalInputs}`),
     check("race_results_finished_at_end", sql`(${table.outcome} = 'finished') = (${table.position} = ${table.length})`),
-    check("race_results_speeds_valid", sql`${table.netWpm} >= 0 and ${table.rawWpm} >= ${table.netWpm}`),
+    // Comparisons with 'Infinity' also refuse NaN, which PostgreSQL sorts above every number.
+    check(
+      "race_results_speeds_valid",
+      sql`${table.netWpm} >= 0 and ${table.rawWpm} >= ${table.netWpm} and ${table.rawWpm} < 'Infinity'::double precision`,
+    ),
+    // NaN is above 100 for PostgreSQL, so it is refused here too.
     check("race_results_accuracy_range", sql`${table.accuracy} between 0 and 100`),
     check("race_results_reason_matches_outcome", sql`(${table.outcome} = 'abandoned') = (${table.abandonmentReason} is not null)`),
     check("race_results_reason_known", sql`${table.abandonmentReason} in (${inList(ABANDONMENT_REASONS)})`),

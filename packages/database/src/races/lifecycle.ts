@@ -1,17 +1,20 @@
-import { and, asc, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import type { RoomPhase } from "@incision/domain";
+import { and, asc, count, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { firstRow } from "../rows";
-import { lobbies, lobbyMembers, type AbandonmentReason, raceEntrants, raceResults, races } from "../schema";
 import { findActiveMembership } from "../rooms/membership";
-import { interruption } from "./interruption";
-
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
-/**
- * After the room lock, each statement sees every commit made before it; the compare-and-set
- * updates re-evaluate their conditions on the latest row version.
- */
-const READ_COMMITTED = { isolationLevel: "read committed" } as const;
+import { firstRow } from "../rows";
+import {
+  ACTIVE_RACE_STATES,
+  type AbandonmentReason,
+  type InterruptionReason,
+  lobbies,
+  lobbyMembers,
+  raceEntrants,
+  raceResults,
+  races,
+} from "../schema";
+import { limitServerWaits, READ_COMMITTED, type Transaction } from "../transaction";
+import { endedNow, interruption } from "./interruption";
 
 /**
  * Lease of a race's owner, on the database clock (ADR-0004). Another process may take a race
@@ -20,11 +23,21 @@ const READ_COMMITTED = { isolationLevel: "read committed" } as const;
 export const RACE_LEASE_MS = 30_000;
 const leaseEnd = sql`statement_timestamp() + make_interval(secs => ${RACE_LEASE_MS / 1000})`;
 
-/** The process running a race and the generation of its ownership: every owner write checks both. */
-export type RaceOwnership = { readonly raceId: string; readonly ownerId: string; readonly ownerEpoch: number };
+/**
+ * The process running a race, the generation of its ownership and its room. It only ever comes
+ * from the runtime that started the race, never from a client.
+ */
+export type RaceOwnership = { readonly raceId: string; readonly lobbyId: string; readonly ownerId: string; readonly ownerEpoch: number };
 
-/** A transition that lost its compare-and-set changed nothing: someone else acted first. */
-export type Transition = { readonly won: true } | { readonly won: false };
+/**
+ * A transition that lost changed nothing: someone else acted first. `alreadyDone`: an earlier
+ * attempt of this same owner and generation committed, and its answer was lost (a client
+ * timeout after the commit, for instance); retrying after an uncertain failure is safe.
+ */
+export type Transition = { readonly won: true; readonly alreadyDone: boolean } | { readonly won: false };
+
+/** An interruption may lose to this owner's own finalisation: the results are then saved. */
+export type Interruption = { readonly won: true; readonly alreadyDone: boolean } | { readonly won: false; readonly resultsSaved: boolean };
 
 export type StartedEntrant = {
   readonly entrantId: string;
@@ -43,8 +56,8 @@ export type StartRaceInput<Refusal extends string> = {
   readonly config: Readonly<Record<string, unknown>>;
   readonly rulesVersion: number;
   /**
-   * The engine's start rule (`startRefusal` in @incision/domain), applied to the participants
-   * read under the room lock; never a copy of it here.
+   * The engine's start rule (`startRefusal`), applied to the participants read under the room
+   * lock; never a copy of it here.
    */
   readonly refuseStart: (participants: readonly { readonly kind: "human" }[]) => Refusal | undefined;
 };
@@ -52,7 +65,6 @@ export type StartRaceInput<Refusal extends string> = {
 export type StartRaceResult<Refusal extends string> =
   | {
       readonly ok: true;
-      readonly lobbyId: string;
       readonly race: RaceOwnership & { readonly roundNo: number; readonly countdownAt: Date; readonly leaseExpiresAt: Date };
       readonly entrants: readonly StartedEntrant[];
     }
@@ -70,6 +82,7 @@ export async function startRace<Refusal extends string>(
   input: StartRaceInput<Refusal>,
 ): Promise<StartRaceResult<Refusal>> {
   return db.transaction(async (tx): Promise<StartRaceResult<Refusal>> => {
+    await limitServerWaits(tx);
     const seen = await findActiveMembership(tx, input.accountId);
     if (seen === undefined) {
       return { ok: false, error: "NOT_IN_A_ROOM" };
@@ -114,7 +127,13 @@ export async function startRace<Refusal extends string>(
           ownerId: input.ownerId,
           leaseExpiresAt: leaseEnd,
         })
-        .returning({ id: races.id, roundNo: races.roundNo, countdownAt: races.countdownAt, leaseExpiresAt: races.leaseExpiresAt }),
+        .returning({
+          id: races.id,
+          roundNo: races.roundNo,
+          ownerEpoch: races.ownerEpoch,
+          countdownAt: races.countdownAt,
+          leaseExpiresAt: races.leaseExpiresAt,
+        }),
     );
     const inserted = await tx
       .insert(raceEntrants)
@@ -142,32 +161,56 @@ export async function startRace<Refusal extends string>(
       .where(eq(lobbies.id, lobby.id));
     return {
       ok: true,
-      lobbyId: lobby.id,
-      race: { raceId: race.id, ownerId: input.ownerId, ownerEpoch: 1, roundNo: race.roundNo, countdownAt: race.countdownAt, leaseExpiresAt: race.leaseExpiresAt },
+      race: {
+        raceId: race.id,
+        lobbyId: lobby.id,
+        ownerId: input.ownerId,
+        ownerEpoch: race.ownerEpoch,
+        roundNo: race.roundNo,
+        countdownAt: race.countdownAt,
+        leaseExpiresAt: race.leaseExpiresAt,
+      },
       entrants,
     };
   }, READ_COMMITTED);
 }
 
-/** The room whose current race this is, locked; undefined once another race replaced it. */
-async function lockRoomOf(tx: Transaction, raceId: string): Promise<{ readonly id: string } | undefined> {
-  const [lobby] = await tx.select({ id: lobbies.id }).from(lobbies).where(eq(lobbies.currentRaceId, raceId)).for("update");
-  return lobby;
+/**
+ * Locks the race's room by its key, provided this race is still its current one, and gives
+ * its phase. The limits on server waits come first, so this wait is bounded too.
+ */
+async function lockRoom(tx: Transaction, { lobbyId, raceId }: RaceOwnership): Promise<RoomPhase | undefined> {
+  await limitServerWaits(tx);
+  const [lobby] = await tx
+    .select({ phase: lobbies.phase })
+    .from(lobbies)
+    .where(and(eq(lobbies.id, lobbyId), eq(lobbies.currentRaceId, raceId)))
+    .for("update");
+  return lobby?.phase;
 }
 
-/** Condition of every owner write: the same process, the same generation, an active race. */
+/**
+ * Condition of every owner write: the same process, the same generation, an active race. A
+ * takeover always ends the race, so the active state alone already refuses a late write; the
+ * generation also protects a future takeover that would let a race continue, and tells a
+ * retry of this owner apart from a write that lost.
+ */
 function ownedAndActive({ raceId, ownerId, ownerEpoch }: RaceOwnership) {
-  return and(
-    eq(races.id, raceId),
-    eq(races.ownerId, ownerId),
-    eq(races.ownerEpoch, ownerEpoch),
-    inArray(races.state, ["countdown", "racing"]),
-  );
+  return and(eq(races.id, raceId), eq(races.ownerId, ownerId), eq(races.ownerEpoch, ownerEpoch), inArray(races.state, ACTIVE_RACE_STATES));
+}
+
+/**
+ * The room closed while its race was still active: only a release without races does that,
+ * closing a room during a deployment overlap. The owner ends the race as the closing would
+ * have (D-06); its transition loses.
+ */
+async function endForClosedRoom(tx: Transaction, ownership: RaceOwnership): Promise<void> {
+  await tx.update(races).set(interruption("room_closed")).where(ownedAndActive(ownership));
 }
 
 /** Moves the room along with its race; a mismatch here means an invariant broke, so it throws. */
 async function moveRoom(tx: Transaction, lobbyId: string, raceId: string, phase: "racing" | "results" | "waiting"): Promise<void> {
-  const from = phase === "racing" ? ["countdown" as const] : ["countdown" as const, "racing" as const];
+  const from = phase === "racing" ? ["countdown" as const] : ACTIVE_RACE_STATES;
   const moved = await tx
     .update(lobbies)
     .set({ phase, revision: sql`${lobbies.revision} + 1` })
@@ -178,23 +221,57 @@ async function moveRoom(tx: Transaction, lobbyId: string, raceId: string, phase:
   }
 }
 
-/** COUNTDOWN → RACING at the common start (COURSE-03), by the owner only. */
+/** The race as this owner left it, to recognise an earlier attempt that committed. */
+async function raceOfOwner(tx: Transaction, { raceId, ownerId }: RaceOwnership) {
+  const [race] = await tx
+    .select({ state: races.state, ownerEpoch: races.ownerEpoch, reason: races.interruptionReason })
+    .from(races)
+    .where(and(eq(races.id, raceId), eq(races.ownerId, ownerId)));
+  return race;
+}
+
+/**
+ * Whether this owner and generation already finished the race with every entrant's result:
+ * what a finalisation writes, all or nothing.
+ */
+async function savedBy(tx: Transaction, ownership: RaceOwnership): Promise<boolean> {
+  const race = await raceOfOwner(tx, ownership);
+  if (race?.state !== "finished" || race.ownerEpoch !== ownership.ownerEpoch) {
+    return false;
+  }
+  const saved = firstRow(
+    await tx
+      .select({ entrants: count(), results: count(raceResults.entrantId) })
+      .from(raceEntrants)
+      .leftJoin(raceResults, and(eq(raceResults.raceId, raceEntrants.raceId), eq(raceResults.entrantId, raceEntrants.id)))
+      .where(eq(raceEntrants.raceId, ownership.raceId)),
+  );
+  return saved.entrants === saved.results;
+}
+
+/** COUNTDOWN → RACING at the common start (COURSE-03), by the owner only: the first fenced write. */
 export async function beginRacing(db: Database, ownership: RaceOwnership): Promise<Transition> {
   return db.transaction(async (tx): Promise<Transition> => {
-    const lobby = await lockRoomOf(tx, ownership.raceId);
-    if (lobby === undefined) {
+    const phase = await lockRoom(tx, ownership);
+    if (phase === "closed") {
+      await endForClosedRoom(tx, ownership);
       return { won: false };
     }
-    const started = await tx
-      .update(races)
-      .set({ state: "racing", startedAt: sql`greatest(statement_timestamp(), ${races.countdownAt})` })
-      .where(and(ownedAndActive(ownership), eq(races.state, "countdown")))
-      .returning({ id: races.id });
+    const started =
+      phase === undefined
+        ? []
+        : await tx
+            .update(races)
+            .set({ state: "racing", startedAt: sql`greatest(statement_timestamp(), ${races.countdownAt})` })
+            .where(and(ownedAndActive(ownership), eq(races.state, "countdown")))
+            .returning({ id: races.id });
     if (started.length === 0) {
-      return { won: false };
+      const race = await raceOfOwner(tx, ownership);
+      const begun = race?.ownerEpoch === ownership.ownerEpoch && (race.state === "racing" || race.state === "finished");
+      return begun ? { won: true, alreadyDone: true } : { won: false };
     }
-    await moveRoom(tx, lobby.id, ownership.raceId, "racing");
-    return { won: true };
+    await moveRoom(tx, ownership.lobbyId, ownership.raceId, "racing");
+    return { won: true, alreadyDone: false };
   }, READ_COMMITTED);
 }
 
@@ -217,27 +294,28 @@ export type RaceResultRow = {
 /**
  * The race ends with its results, in one transaction with the room's move to RESULTS
  * (COURSE-09, RES-05). Only the owner of the current generation can finalise, and only once:
- * a second call, a call after an interruption or a takeover, or one for a replaced race
- * changes nothing. A race that ends during its countdown (everyone abandoned) finalises too.
- * Every entrant gets exactly one result, or nothing is written.
+ * a call after an interruption or a takeover, or one for a replaced race, changes nothing. A
+ * race that ends during its countdown (everyone abandoned) finalises too. Every entrant gets
+ * exactly one result, or nothing is written. A retry must pass the same results, frozen at the
+ * end of the race: `alreadyDone` says the earlier attempt saved them, not these.
  */
 export async function finalizeRace(db: Database, ownership: RaceOwnership, results: readonly RaceResultRow[]): Promise<Transition> {
   return db.transaction(async (tx): Promise<Transition> => {
-    const lobby = await lockRoomOf(tx, ownership.raceId);
-    if (lobby === undefined) {
+    const phase = await lockRoom(tx, ownership);
+    if (phase === "closed") {
+      await endForClosedRoom(tx, ownership);
       return { won: false };
     }
-    const ended = await tx
-      .update(races)
-      .set({
-        state: "finished",
-        startedAt: sql`coalesce(${races.startedAt}, greatest(statement_timestamp(), ${races.countdownAt}))`,
-        endedAt: sql`greatest(statement_timestamp(), coalesce(${races.startedAt}, ${races.countdownAt}))`,
-      })
-      .where(ownedAndActive(ownership))
-      .returning({ id: races.id });
+    const ended =
+      phase === undefined
+        ? []
+        : await tx
+            .update(races)
+            .set({ state: "finished", startedAt: sql`coalesce(${races.startedAt}, greatest(statement_timestamp(), ${races.countdownAt}))`, endedAt: endedNow })
+            .where(ownedAndActive(ownership))
+            .returning({ id: races.id });
     if (ended.length === 0) {
-      return { won: false };
+      return (await savedBy(tx, ownership)) ? { won: true, alreadyDone: true } : { won: false };
     }
     const entrants = await tx.select({ id: raceEntrants.id }).from(raceEntrants).where(eq(raceEntrants.raceId, ownership.raceId));
     if (entrants.length !== results.length) {
@@ -250,31 +328,40 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
     if (written.length !== results.length) {
       throw new Error("Not every result was written");
     }
-    await moveRoom(tx, lobby.id, ownership.raceId, "results");
-    return { won: true };
+    await moveRoom(tx, ownership.lobbyId, ownership.raceId, "results");
+    return { won: true, alreadyDone: false };
   }, READ_COMMITTED);
 }
 
 /**
- * The owner interrupts its own race when its process stops (SIGTERM): no result (D-06), the
- * room goes back to WAITING. Nothing changes if the race already ended or was taken over.
+ * The owner interrupts its own race, without results (D-06), and the room goes back to
+ * WAITING: when its process stops (`server_stopped`), or when it gives up saving results after
+ * its bounded attempts (`save_failed`). Nothing changes if the race already ended or was taken
+ * over; `resultsSaved` says that this owner's own finalisation ended it, results included.
  */
-export async function interruptOwnRace(db: Database, ownership: RaceOwnership): Promise<Transition> {
-  return db.transaction(async (tx): Promise<Transition> => {
-    const lobby = await lockRoomOf(tx, ownership.raceId);
-    if (lobby === undefined) {
-      return { won: false };
+export async function interruptOwnRace(
+  db: Database,
+  ownership: RaceOwnership,
+  reason: Extract<InterruptionReason, "server_stopped" | "save_failed">,
+): Promise<Interruption> {
+  return db.transaction(async (tx): Promise<Interruption> => {
+    const phase = await lockRoom(tx, ownership);
+    if (phase === "closed") {
+      await endForClosedRoom(tx, ownership);
+      return { won: false, resultsSaved: false };
     }
-    const interrupted = await tx
-      .update(races)
-      .set(interruption("server_stopped"))
-      .where(ownedAndActive(ownership))
-      .returning({ id: races.id });
+    const interrupted =
+      phase === undefined ? [] : await tx.update(races).set(interruption(reason)).where(ownedAndActive(ownership)).returning({ id: races.id });
     if (interrupted.length === 0) {
-      return { won: false };
+      const race = await raceOfOwner(tx, ownership);
+      // An interruption raises the generation: this owner's own one leaves it one higher.
+      if (race?.state === "interrupted" && race.reason === reason && race.ownerEpoch === ownership.ownerEpoch + 1) {
+        return { won: true, alreadyDone: true };
+      }
+      return { won: false, resultsSaved: await savedBy(tx, ownership) };
     }
-    await moveRoom(tx, lobby.id, ownership.raceId, "waiting");
-    return { won: true };
+    await moveRoom(tx, ownership.lobbyId, ownership.raceId, "waiting");
+    return { won: true, alreadyDone: false };
   }, READ_COMMITTED);
 }
 
@@ -284,66 +371,90 @@ export type LeaseRenewal = { readonly renewed: true; readonly expiresAt: Date } 
  * The owner extends its lease (ADR-0004). It fails for good once the race ended, was
  * interrupted or was taken over (another generation): the owner must then stop. A lease that
  * expired without a takeover is renewed: nobody else acted on the race. Touches the race row
- * only, never the room, so it cannot deadlock with a transition.
+ * only, never the room, so it cannot deadlock with a transition. A single statement: it waits
+ * only for a transition of its own race, itself bounded on the server. Under a REPEATABLE READ
+ * server default it may throw a serialisation failure, which the owner treats like an
+ * unreachable database (it retries).
  */
 export async function renewRaceLease(db: Database, ownership: RaceOwnership): Promise<LeaseRenewal> {
-  const [renewed] = await db
-    .update(races)
-    .set({ leaseExpiresAt: leaseEnd })
-    .where(ownedAndActive(ownership))
-    .returning({ expiresAt: races.leaseExpiresAt });
+  const [renewed] = await db.update(races).set({ leaseExpiresAt: leaseEnd }).where(ownedAndActive(ownership)).returning({ expiresAt: races.leaseExpiresAt });
   return renewed === undefined ? { renewed: false } : { renewed: true, expiresAt: renewed.expiresAt };
 }
+
+export type Recovery = {
+  /** Rooms that went back to WAITING. */
+  readonly rooms: readonly string[];
+  /** Expired races interrupted although they were no longer current in their room (boot only). */
+  readonly orphans: number;
+  /**
+   * Expired races left for later because another transaction held their room or their row
+   * (a transition or a renewal under way). In the scope of the call: one room, or all.
+   */
+  readonly remaining: number;
+};
 
 /**
  * Interrupts the races whose owner stopped renewing (ADR-0004): at boot, and when someone
  * opens a room whose race nobody runs. Only a lease that has expired on the database clock is
  * taken over, so a race still run by another live process (two processes overlapping during a
- * deployment) is left to it. Rooms are locked in id order, then their races: the order of every
- * transition. At boot, races whose room no longer points to them are interrupted too.
- * Returns the rooms that went back to WAITING.
+ * deployment) is left to it. Rooms and their races are locked together, in room order, and
+ * never waited for: a room or race row that another transaction holds is skipped and counted
+ * in `remaining`. At boot, expired races no longer current in their room are interrupted too.
  */
-export async function recoverAbandonedRaces(db: Database, scope: { readonly lobbyId?: string } = {}): Promise<readonly string[]> {
-  return db.transaction(async (tx) => {
+export async function recoverAbandonedRaces(db: Database, scope: { readonly lobbyId?: string } = {}): Promise<Recovery> {
+  return db.transaction(async (tx): Promise<Recovery> => {
+    // Nothing here waits for a row; the limits still bound a table lock (a migration).
+    await limitServerWaits(tx);
+    const expired = and(inArray(races.state, ACTIVE_RACE_STATES), sql`${races.leaseExpiresAt} <= statement_timestamp()`);
+    const inScope = scope.lobbyId === undefined ? undefined : eq(lobbies.id, scope.lobbyId);
     const candidates = await tx
       .select({ lobbyId: lobbies.id, raceId: races.id })
       .from(lobbies)
       .innerJoin(races, eq(races.id, lobbies.currentRaceId))
-      .where(
-        and(
-          inArray(lobbies.phase, ["countdown", "racing"]),
-          inArray(races.state, ["countdown", "racing"]),
-          sql`${races.leaseExpiresAt} <= statement_timestamp()`,
-          scope.lobbyId === undefined ? undefined : eq(lobbies.id, scope.lobbyId),
-        ),
-      )
+      .where(and(inArray(lobbies.phase, ACTIVE_RACE_STATES), expired, inScope))
       .orderBy(asc(lobbies.id))
-      .for("update", { of: lobbies });
-    const recovered: string[] = [];
+      .for("update", { of: [lobbies, races], skipLocked: true });
+    const rooms: string[] = [];
     for (const { lobbyId, raceId } of candidates) {
-      // Checked again on the latest row: a renewal that committed meanwhile keeps the race alive.
       const interrupted = await tx
         .update(races)
         .set(interruption("owner_lost"))
-        .where(and(eq(races.id, raceId), inArray(races.state, ["countdown", "racing"]), sql`${races.leaseExpiresAt} <= statement_timestamp()`))
+        .where(and(eq(races.id, raceId), expired))
         .returning({ id: races.id });
       if (interrupted.length === 1) {
         await moveRoom(tx, lobbyId, raceId, "waiting");
-        recovered.push(lobbyId);
+        rooms.push(lobbyId);
       }
     }
+    let orphans = 0;
     if (scope.lobbyId === undefined) {
-      await tx
+      const stillCurrent = tx
+        .select({ id: lobbies.id })
+        .from(lobbies)
+        .where(and(eq(lobbies.currentRaceId, races.id), inArray(lobbies.phase, ACTIVE_RACE_STATES)));
+      const lockedOrphans = tx
+        .select({ id: races.id })
+        .from(races)
+        .where(and(expired, notExists(stillCurrent)))
+        .for("update", { skipLocked: true });
+      const interrupted = await tx
         .update(races)
         .set(interruption("owner_lost"))
-        .where(
-          and(
-            inArray(races.state, ["countdown", "racing"]),
-            sql`${races.leaseExpiresAt} <= statement_timestamp()`,
-            sql`not exists (select 1 from ${lobbies} where ${lobbies.currentRaceId} = ${races.id} and ${lobbies.phase} in ('countdown', 'racing'))`,
-          ),
-        );
+        .where(and(inArray(races.id, lockedOrphans), expired))
+        .returning({ id: races.id });
+      orphans = interrupted.length;
     }
-    return recovered;
+    // A new statement sees this transaction's interruptions: what is left was skipped.
+    const ofRoom =
+      scope.lobbyId === undefined
+        ? undefined
+        : exists(
+            tx
+              .select({ id: lobbies.id })
+              .from(lobbies)
+              .where(and(eq(lobbies.id, scope.lobbyId), eq(lobbies.currentRaceId, races.id), inArray(lobbies.phase, ACTIVE_RACE_STATES))),
+          );
+    const left = firstRow(await tx.select({ value: count() }).from(races).where(and(expired, ofRoom)));
+    return { rooms, orphans, remaining: left.value };
   }, READ_COMMITTED);
 }

@@ -5,15 +5,7 @@ import { uniqueViolationOf } from "../errors";
 import { interruptRaceForClosedRoom } from "../races/interruption";
 import { firstRow } from "../rows";
 import { accounts, lobbies, lobbyMembers } from "../schema";
-
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-type Queryable = Database | Transaction;
-
-/**
- * The admission and departure rules rely on READ COMMITTED: after the room lock, each
- * statement sees every commit made before it (counts, taken names, memberships).
- */
-const READ_COMMITTED = { isolationLevel: "read committed" } as const;
+import { type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
 export type ActiveMembership = {

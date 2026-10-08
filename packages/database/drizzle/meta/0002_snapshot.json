@@ -1,5 +1,5 @@
 {
-  "id": "6320560f-d6e1-4851-8a2f-e5d965537ac5",
+  "id": "71f5415e-34a1-465e-a8ea-edfc4e952949",
   "prevId": "6091cf8e-108c-457d-a924-d1163d715e54",
   "version": "7",
   "dialect": "postgresql",
@@ -761,6 +761,10 @@
           "name": "race_results_counts_valid",
           "value": "\"race_results\".\"elapsed_ms\" >= 0 and \"race_results\".\"position\" >= 0 and \"race_results\".\"correct_inputs\" >= 0"
         },
+        "race_results_counts_exact": {
+          "name": "race_results_counts_exact",
+          "value": "\"race_results\".\"elapsed_ms\" <= 9007199254740991 and \"race_results\".\"total_inputs\" <= 9007199254740991"
+        },
         "race_results_position_within_length": {
           "name": "race_results_position_within_length",
           "value": "\"race_results\".\"length\" >= 1 and \"race_results\".\"position\" <= \"race_results\".\"length\""
@@ -775,7 +779,7 @@
         },
         "race_results_speeds_valid": {
           "name": "race_results_speeds_valid",
-          "value": "\"race_results\".\"net_wpm\" >= 0 and \"race_results\".\"raw_wpm\" >= \"race_results\".\"net_wpm\""
+          "value": "\"race_results\".\"net_wpm\" >= 0 and \"race_results\".\"raw_wpm\" >= \"race_results\".\"net_wpm\" and \"race_results\".\"raw_wpm\" < 'Infinity'::double precision"
         },
         "race_results_accuracy_range": {
           "name": "race_results_accuracy_range",
@@ -973,7 +977,7 @@
         },
         "races_reason_known": {
           "name": "races_reason_known",
-          "value": "\"races\".\"interruption_reason\" in ('room_closed', 'server_stopped', 'owner_lost')"
+          "value": "\"races\".\"interruption_reason\" in ('room_closed', 'server_stopped', 'owner_lost', 'save_failed')"
         },
         "races_times_ordered": {
           "name": "races_times_ordered",

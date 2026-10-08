@@ -33,10 +33,11 @@ CREATE TABLE "race_results" (
 	CONSTRAINT "race_results_race_rank_unique" UNIQUE("race_id","rank"),
 	CONSTRAINT "race_results_rank_positive" CHECK ("race_results"."rank" >= 1),
 	CONSTRAINT "race_results_counts_valid" CHECK ("race_results"."elapsed_ms" >= 0 and "race_results"."position" >= 0 and "race_results"."correct_inputs" >= 0),
+	CONSTRAINT "race_results_counts_exact" CHECK ("race_results"."elapsed_ms" <= 9007199254740991 and "race_results"."total_inputs" <= 9007199254740991),
 	CONSTRAINT "race_results_position_within_length" CHECK ("race_results"."length" >= 1 and "race_results"."position" <= "race_results"."length"),
 	CONSTRAINT "race_results_correct_within_total" CHECK ("race_results"."correct_inputs" <= "race_results"."total_inputs"),
 	CONSTRAINT "race_results_finished_at_end" CHECK (("race_results"."outcome" = 'finished') = ("race_results"."position" = "race_results"."length")),
-	CONSTRAINT "race_results_speeds_valid" CHECK ("race_results"."net_wpm" >= 0 and "race_results"."raw_wpm" >= "race_results"."net_wpm"),
+	CONSTRAINT "race_results_speeds_valid" CHECK ("race_results"."net_wpm" >= 0 and "race_results"."raw_wpm" >= "race_results"."net_wpm" and "race_results"."raw_wpm" < 'Infinity'::double precision),
 	CONSTRAINT "race_results_accuracy_range" CHECK ("race_results"."accuracy" between 0 and 100),
 	CONSTRAINT "race_results_reason_matches_outcome" CHECK (("race_results"."outcome" = 'abandoned') = ("race_results"."abandonment_reason" is not null)),
 	CONSTRAINT "race_results_reason_known" CHECK ("race_results"."abandonment_reason" in ('voluntary', 'disconnection', 'inactivity'))
@@ -67,7 +68,7 @@ CREATE TABLE "races" (
 	CONSTRAINT "races_started_matches_state" CHECK (("races"."state" = 'countdown' and "races"."started_at" is null) or ("races"."state" in ('racing', 'finished') and "races"."started_at" is not null) or "races"."state" = 'interrupted'),
 	CONSTRAINT "races_ended_matches_state" CHECK (("races"."state" in ('finished', 'interrupted')) = ("races"."ended_at" is not null)),
 	CONSTRAINT "races_reason_matches_state" CHECK (("races"."state" = 'interrupted') = ("races"."interruption_reason" is not null)),
-	CONSTRAINT "races_reason_known" CHECK ("races"."interruption_reason" in ('room_closed', 'server_stopped', 'owner_lost')),
+	CONSTRAINT "races_reason_known" CHECK ("races"."interruption_reason" in ('room_closed', 'server_stopped', 'owner_lost', 'save_failed')),
 	CONSTRAINT "races_times_ordered" CHECK ("races"."started_at" >= "races"."countdown_at" and "races"."ended_at" >= coalesce("races"."started_at", "races"."countdown_at"))
 );
 --> statement-breakpoint

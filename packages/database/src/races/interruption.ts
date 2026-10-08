@@ -1,8 +1,9 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import type { Database } from "../client";
-import { type InterruptionReason, races } from "../schema";
+import { ACTIVE_RACE_STATES, type InterruptionReason, races } from "../schema";
+import type { Transaction } from "../transaction";
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+/** When a race ends: now, but never before its start, so its times stay ordered. */
+export const endedNow = sql`greatest(statement_timestamp(), coalesce(${races.startedAt}, ${races.countdownAt}))`;
 
 /**
  * The columns of an interruption (D-06: no result). The ownership generation moves on, so any
@@ -12,7 +13,7 @@ export function interruption(reason: InterruptionReason) {
   return {
     state: "interrupted" as const,
     interruptionReason: reason,
-    endedAt: sql`greatest(statement_timestamp(), coalesce(${races.startedAt}, ${races.countdownAt}))`,
+    endedAt: endedNow,
     ownerEpoch: sql`${races.ownerEpoch} + 1`,
   };
 }
@@ -26,5 +27,5 @@ export async function interruptRaceForClosedRoom(tx: Transaction, raceId: string
   await tx
     .update(races)
     .set(interruption("room_closed"))
-    .where(and(eq(races.id, raceId), inArray(races.state, ["countdown", "racing"])));
+    .where(and(eq(races.id, raceId), inArray(races.state, ACTIVE_RACE_STATES)));
 }

@@ -62,6 +62,7 @@ async function main(): Promise<void> {
       onRecovered: notifyRoomChanged,
       schedule: (callback, delayMs) => void setTimeout(callback, delayMs).unref(),
       log: (message) => console.log(message),
+      logError: (message) => console.error(message),
     });
   }
 
@@ -79,7 +80,10 @@ async function main(): Promise<void> {
 
 const SHUTDOWN_GRACE_MS = 10_000;
 
-/** Opened on the first authenticated handshake only: anonymous sockets never reach the database. */
+/**
+ * Opened on first use: the boot recovery, then authenticated handshakes. Anonymous sockets
+ * never reach the database.
+ */
 function databaseOf(env: ServerEnv) {
   if (env.databaseUrl === undefined) {
     throw new Error("DATABASE_URL is not set: sessions cannot be checked");
