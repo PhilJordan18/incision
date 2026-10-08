@@ -18,7 +18,8 @@ import { RoomView } from "./room-view";
 export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): Promise<Metadata> {
   const [{ t }, { code }, session] = await Promise.all([getRequestDictionary(), params, getAccountSession()]);
   const parsed = parseRoomCode(code);
-  const state = parsed.ok && session !== null ? await loadRoomPage(session.accountId, parsed.code) : undefined;
+  // A non-canonical code is redirected by the page: no lookup for it here, so a view counts once.
+  const state = parsed.ok && parsed.code === code && session !== null ? await loadRoomPage(session.accountId, parsed.code) : undefined;
   if (state?.kind === "throttled") {
     return { title: t.rooms.throttledHeading, robots: { index: false } };
   }
@@ -53,6 +54,26 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
   switch (state.kind) {
     case "unknown":
       return <UnknownRoom t={t} code={code} />;
+    case "unavailable":
+      return (
+        <StatePanel
+          tone="error"
+          label={t.errorBoundary.label}
+          heading={{ bold: t.errorBoundary.title }}
+          actions={
+            <>
+              <Link href={`/rooms/${code}`} className={secondaryButton}>
+                {t.errorBoundary.retry}
+              </Link>
+              <Link href="/" className={discreetButton}>
+                {t.errorBoundary.backHome}
+              </Link>
+            </>
+          }
+        >
+          <p role="alert">{t.errorBoundary.body}</p>
+        </StatePanel>
+      );
     case "throttled":
       // The same panel whatever the code: it is not shown, and nothing about it is said.
       return (

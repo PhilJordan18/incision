@@ -10,7 +10,7 @@ import { safeRedirectPath } from "@/server/auth/safe-redirect";
 import { getAccountSession, requireAccountSession } from "@/server/auth/session";
 import { authDatabase } from "@/server/auth/store";
 import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
-import { allowOwnRoomRead, codeAttempts, joinSpendsBudget, requestAddressKey } from "./code-attempts";
+import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
 import { allowRoomChange } from "./room-change-limiter";
 import { notifyRoomChanged } from "./room-events";
 
@@ -79,22 +79,18 @@ export async function joinRoomAction(_previous: JoinFormState, formData: FormDat
   }
   const db = authDatabase();
   const addressKey = await requestAddressKey();
-  const codes = codeAttempts();
-  if (codes.isExhausted(addressKey)) {
-    // Only one's own room stays reachable, read by account id and bounded (never by code).
-    if (!allowOwnRoomRead(addressKey, session.accountId)) {
-      return { error: "CODE_RATE_LIMITED", code: typed };
-    }
-    let current: Awaited<ReturnType<typeof findActiveMembership>>;
-    try {
-      current = await findActiveMembership(db, session.accountId);
-    } catch (error: unknown) {
-      logFailure("current room lookup", error);
-      return { error: "UNAVAILABLE", code: typed };
-    }
-    if (current?.code !== parsed.code) {
-      return { error: "CODE_RATE_LIMITED", code: typed };
-    }
+  // One's own room first, by account id: it never waits in the code queue nor spends the budget.
+  let own: OwnRoom;
+  try {
+    own = await findOwnRoom(db, addressKey, session.accountId, parsed.code);
+  } catch (error: unknown) {
+    logFailure("current room lookup", error);
+    return { error: "UNAVAILABLE", code: typed };
+  }
+  if (own.kind === "limited") {
+    return { error: "CODE_RATE_LIMITED", code: typed };
+  }
+  if (own.kind === "own") {
     redirect(`/rooms/${parsed.code}`);
   }
   if (!allowRoomChange(session.accountId)) {
@@ -102,7 +98,7 @@ export async function joinRoomAction(_previous: JoinFormState, formData: FormDat
   }
   let attempt: CodeAttempt<Awaited<ReturnType<typeof joinRoomByCode>>>;
   try {
-    attempt = await codes.attempt(
+    attempt = await codeAttempts().attempt(
       addressKey,
       () => joinRoomByCode(db, { accountId: session.accountId, code: parsed.code, role }),
       joinSpendsBudget,

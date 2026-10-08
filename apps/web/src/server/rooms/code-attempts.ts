@@ -1,4 +1,5 @@
-import type { JoinRoomResult, RoomSnapshot } from "@incision/database";
+import { type ActiveMembership, type Database, findActiveMembership, type JoinRoomResult, type RoomSnapshot } from "@incision/database";
+import type { RoomCode } from "@incision/domain";
 import { headers } from "next/headers";
 import { type AttemptLimit, AttemptLimiter } from "@/server/auth/attempt-limiter";
 import { addressLimitKey, CLIENT_ADDRESS_HEADER } from "@/server/http/client-address";
@@ -52,6 +53,25 @@ export function allowOwnRoomRead(
   }
   limiters.ownRoomReads.recordFailure(accountId);
   return true;
+}
+
+export type OwnRoom =
+  /** The address is over budget and this account used its own-room allowance. */
+  | { readonly kind: "limited" }
+  | { readonly kind: "own"; readonly membership: ActiveMembership }
+  | { readonly kind: "elsewhere"; readonly membership: ActiveMembership | undefined };
+
+/**
+ * The account's own room, read by account id before any lookup by code. One's own room never
+ * goes through the code budget or its queue; while the address is over budget, this read is
+ * bounded per account. It never looks a code up: it can only reveal the account's own room.
+ */
+export async function findOwnRoom(db: Database, addressKey: string, accountId: string, code: RoomCode): Promise<OwnRoom> {
+  if (!allowOwnRoomRead(addressKey, accountId)) {
+    return { kind: "limited" };
+  }
+  const membership = await findActiveMembership(db, accountId);
+  return membership?.code === code ? { kind: "own", membership } : { kind: "elsewhere", membership };
 }
 
 /**
