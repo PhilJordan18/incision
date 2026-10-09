@@ -24,10 +24,16 @@ describe("RaceRegistry", () => {
     expect(one.stopped()).toBe(true);
   });
 
-  it("refuses a second race in a room that already runs one", () => {
+  it("replaces a stale race of the room with the new one, and stops the stale lease", () => {
     const registry = new RaceRegistry();
-    registry.add(owned("lobby-1").race);
-    expect(() => registry.add(owned("lobby-1", undefined, "race-other").race)).toThrow("already runs another race");
+    const stale = owned("lobby-1");
+    registry.add(stale.race);
+    const fresh = owned("lobby-1", undefined, "race-new");
+    expect(registry.add(fresh.race)).toBe(true);
+    expect(stale.stopped()).toBe(true);
+    expect(fresh.stopped()).toBe(false);
+    registry.remove(stale.race.ownership);
+    expect(registry.ownsRace("lobby-1")).toBe(true);
   });
 
   it("on stopping, refuses new races and ends each one through its own shutdown", async () => {
@@ -65,11 +71,15 @@ describe("RaceRegistry", () => {
         throw new Error("connect ECONNREFUSED");
       }).race,
     );
-    registry.add(owned("lobby-2", () => new Promise<ShutdownOutcome>(() => undefined)).race);
+    const hanging = owned("lobby-2", () => new Promise<ShutdownOutcome>(() => undefined));
+    registry.add(hanging.race);
     const started = performance.now();
     const report = await registry.stop({ onEnded: () => undefined, timeoutMs: 50 });
     expect(report).toEqual({ finalised: 0, interrupted: 0, left: 2, timedOut: true });
     expect(performance.now() - started).toBeLessThan(1_000);
+    // Still registered, so never recovered here, but no longer renewed.
+    expect(registry.ownsRace("lobby-2")).toBe(true);
+    expect(hanging.stopped()).toBe(true);
   });
 
   it("is one per process, shared by every bundled copy of the module", () => {

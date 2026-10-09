@@ -45,14 +45,18 @@ export class RaceRegistry {
     return this.#stopping;
   }
 
-  /** False once the process is stopping. A room runs one race at a time: a second is a bug. */
+  /**
+   * False once the process is stopping. A room runs one race at a time: a race still
+   * registered for the room is stale (the committed start proves it is no longer the room's
+   * current one), so its lease stops and the new race replaces it.
+   */
   add(race: OwnedRace): boolean {
     if (this.#stopping) {
       return false;
     }
     const current = this.#races.get(race.ownership.lobbyId);
     if (current !== undefined && current.ownership.raceId !== race.ownership.raceId) {
-      throw new Error("A room already runs another race in this process");
+      current.lease.stop();
     }
     this.#races.set(race.ownership.lobbyId, race);
     return true;
@@ -97,6 +101,12 @@ export class RaceRegistry {
       }),
     ]);
     clearTimeout(timer);
+    if (!settled) {
+      // Still registered (so never recovered here), but no renewal from a process about to exit.
+      for (const race of this.#races.values()) {
+        race.lease.stop();
+      }
+    }
     return { ...counts, left: owned.length - counts.finalised - counts.interrupted, timedOut: !settled };
   }
 }

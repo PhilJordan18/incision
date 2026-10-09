@@ -260,7 +260,8 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
  * the watch, so within its budget; only in an active phase and for a race this process does
  * not run. A recovered room is broadcast: every member learns that the race was interrupted.
  * While the lease still runs (its owner may be gone, or alive elsewhere), the room is looked at
- * once more when it expires, and only if someone still follows it: no periodic query.
+ * again when it ends, one pending look per room, and only while someone follows it: a live
+ * owner elsewhere costs one read per lease period, an empty room none.
  */
 function recoveryOnWatch(
   dependencies: RoomChannelDependencies,

@@ -481,5 +481,9 @@ export async function recoverRoomIfAbandoned(db: Database, lobbyId: string): Pro
     return { recovered: false, retryInMs: race.leaseLeftMs };
   }
   const { rooms } = await recoverAbandonedRaces(db, { lobbyId });
-  return rooms.includes(lobbyId) ? { recovered: true } : { recovered: false };
+  // Not recovered although expired: another transaction held the room or the race. Look again soon.
+  return rooms.includes(lobbyId) ? { recovered: true } : { recovered: false, retryInMs: SKIPPED_RETRY_MS };
 }
+
+/** When an expired race could not be recovered because something else held it. */
+const SKIPPED_RETRY_MS = 2_000;

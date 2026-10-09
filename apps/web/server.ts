@@ -96,6 +96,8 @@ async function main(): Promise<void> {
           console.log(`[races] stopped: ${report.finalised} finalised, ${report.interrupted} interrupted, ${report.left} left to their lease`);
         }
         await Promise.race([roomChannel.whenIdle(), new Promise((resolve) => setTimeout(resolve, BROADCAST_DRAIN_MS).unref())]);
+      } catch (error: unknown) {
+        console.error("[races] stop failed:", error instanceof Error ? error.name : "unknown error");
       } finally {
         void io.close(() => process.exit(0));
       }

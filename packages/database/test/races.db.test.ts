@@ -642,10 +642,10 @@ describe("ownership lease (ADR-0004)", () => {
     expect(running.recovered ? 0 : running.retryInMs).toBeLessThanOrEqual(30_000);
     expect(await raceOf(race.raceId)).toMatchObject({ state: "countdown", owner_epoch: 1 });
     await expireLease(race.raceId);
-    // Another transaction holds the room: nothing is recovered now, and no wait is suggested.
+    // Another transaction holds the room: nothing is recovered now; look again shortly.
     const held = await holdRoom(lobbyId);
     try {
-      expect(await recoverRoomIfAbandoned(db, lobbyId)).toEqual({ recovered: false });
+      expect(await recoverRoomIfAbandoned(db, lobbyId)).toEqual({ recovered: false, retryInMs: 2_000 });
     } finally {
       await held.commit();
     }

@@ -33,18 +33,14 @@ export const keystrokeBatchPayloadSchema = z
   .strict();
 export type KeystrokeBatchPayload = z.infer<typeof keystrokeBatchPayloadSchema>;
 
-/** The cheap first step: the size of the events array, before any event is parsed. */
-const batchSizeSchema = z.object({ events: z.array(z.unknown()).max(WIRE_MAX_EVENTS) }).loose();
-
 export type ParsedBatch =
   | { readonly success: true; readonly data: KeystrokeBatchPayload }
   | { readonly success: false; readonly issues: readonly { readonly path: readonly PropertyKey[]; readonly message: string }[] };
 
-/** Parses a batch payload, refusing an oversized array before parsing its events. */
+/** Parses a batch payload, refusing an oversized array, in constant time, before parsing any event. */
 export function parseKeystrokeBatch(payload: unknown): ParsedBatch {
-  const size = batchSizeSchema.safeParse(payload);
-  if (!size.success) {
-    return { success: false, issues: size.error.issues };
+  if (typeof payload === "object" && payload !== null && "events" in payload && Array.isArray(payload.events) && payload.events.length > WIRE_MAX_EVENTS) {
+    return { success: false, issues: [{ path: ["events"], message: `More than ${WIRE_MAX_EVENTS} events` }] };
   }
   const parsed = keystrokeBatchPayloadSchema.safeParse(payload);
   return parsed.success ? { success: true, data: parsed.data } : { success: false, issues: parsed.error.issues };

@@ -49,8 +49,8 @@ describe("keystroke batch payloads", () => {
   });
 
   it("refuse an oversized array before parsing any of its events", () => {
-    const parsed = parseKeystrokeBatch(batch({ events: Array.from({ length: 40_000 }, () => ({ type: "insert", grapheme: "x".repeat(60) })) }));
-    // The size step answers: no issue comes from the events themselves.
+    // Every event is invalid: parsing them would report one issue per event.
+    const parsed = parseKeystrokeBatch(batch({ events: Array.from({ length: 40_000 }, () => null) }));
     expect(parsed.success ? [] : parsed.issues.map((issue) => issue.path.join("."))).toEqual(["events"]);
   });
 
