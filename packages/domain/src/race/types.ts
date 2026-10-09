@@ -110,7 +110,10 @@ export type EntrantState = {
 
 export type RaceState = {
   readonly raceId: RaceId;
-  /** Broadcast revision: 0 at creation, +1 for every change other people can see. */
+  /**
+   * Broadcast revision: 0 at creation, then +1 for every output whose public view changed, exactly
+   * 1 however many transitions one event triggered.
+   */
   readonly revision: number;
   readonly phase: RacePhase;
   readonly errorMode: ErrorMode;
@@ -156,6 +159,12 @@ export type CreateRaceResult =
  * Contract of F-04.1 (engine half). Applies `startRefusal`, never a copy of it. An accepted race
  * starts in `countdown`, revision 0, `clock` = `countdownAt` = `now`, `startsAt` = `now` +
  * COUNTDOWN_MS, every entrant racing with `textVersion` 0 and `ackSeq` 0.
+ *
+ * It refuses through `createRaceRefusal`, in this order: the start rule, a duplicate entrant, an
+ * empty text, a text longer than `MAX_TEXT_GRAPHEMES` NFC graphemes, a time limit that is neither
+ * null nor an integer from `TIME_LIMIT_MIN_MS` to `TIME_LIMIT_MAX_MS` inclusive. Values only the
+ * server produces (ids, kinds, error mode, its clock) are programming errors when invalid: they
+ * throw a `RangeError`, as does a `now` whose start or time-limit deadline would pass `MAX_INSTANT`.
  */
 export type CreateRace = (input: CreateRaceInput) => CreateRaceResult;
 
@@ -178,14 +187,15 @@ export type RaceEvent =
   /** Lets due transitions happen when nothing else arrives; the runtime schedules it at `nextDeadline`. */
   | { readonly type: "tick"; readonly now: Instant }
   | { readonly type: "keystrokes"; readonly batch: KeystrokeBatch; readonly now: Instant }
-  /** Confirmed abandon (COURSE-07), allowed during the countdown and the race. */
+  /** Confirmed abandon (COURSE-07), allowed during the countdown and the race; its reason is `voluntary`. */
   | { readonly type: "abandon"; readonly entrantId: EntrantId; readonly now: Instant }
   /**
    * The room closes before the race is finalised: the race produces no official result (D-06), and
    * the performances held in memory are never persisted. A race already `ended` keeps its results:
    * an `interrupt` after the end changes nothing. When closing and finalising compete, the server
    * lets one transaction win under the room lock. After a server restart the race no longer exists
-   * in memory and no event is involved.
+   * in memory and no event is involved. The race becomes `interrupted` at the handled `now`;
+   * entrant statuses stay as they were.
    */
   | { readonly type: "interrupt"; readonly now: Instant };
 
@@ -233,13 +243,17 @@ export type KeystrokeResult =
   | { readonly outcome: "refused"; readonly seq: number; readonly reason: RaceKeystrokeRefusal }
   | { readonly outcome: "refused"; readonly seq: number; readonly reason: EntrantKeystrokeRefusal; readonly snapshot: EntrantSnapshot };
 
-/** Why an `abandon` event changed nothing. */
+/** Why an `abandon` event changed nothing, checked in this order: the entrant, then the race, then the entrant's status. */
 export type AbandonIgnored = "UNKNOWN_ENTRANT" | "ENTRANT_TERMINAL" | "RACE_OVER";
 
 /** What the race reducer returns. */
 export type RaceOutput = {
   readonly state: RaceState;
-  /** True when `revision` moved: the server broadcasts the public progress. */
+  /**
+   * True when `revision` moved, because the public view (`toRaceBroadcast`) changed: the server
+   * broadcasts the public progress. The private state and the clock can move without it, so the
+   * server always keeps `state`.
+   */
   readonly changed: boolean;
   /** For a `keystrokes` event: the reply to its sender. */
   readonly keystrokes?: KeystrokeResult;
@@ -254,7 +268,12 @@ export type RaceOutput = {
   readonly nextDeadline?: Instant;
 };
 
-/** Contract of F-04.1 (engine half). Pure: same state and event, same output. */
+/**
+ * Contract of F-04.1 (engine half). Pure: same state and event, same output. An `ended` or
+ * `interrupted` race is returned as is, clock included, whatever the event; a batch still gets its
+ * reply (`duplicate` for a retry, otherwise `NOT_RACING`). An invalid `now` is a programming error
+ * and throws a `RangeError`.
+ */
 export type ReduceRace = (state: RaceState, event: RaceEvent) => RaceOutput;
 
 export type KeystrokeContext = {
