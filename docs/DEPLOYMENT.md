@@ -96,6 +96,33 @@ Il ne lit ni n'écrit aucune table : il prend seulement des verrous consultatifs
 
 Chaque vérification affiche `PASS` ou `FAIL` avec ce qu'elle a mesuré; le script ne lit aucun fichier `.env` et n'affiche jamais l'URL, mais un échec de connexion peut nommer l'hôte ou le rôle Neon.
 
+**Vérification locale à travers PgBouncer** (9 octobre 2026) : `packages/database/test/pgbouncer/` lance un PostgreSQL 17.11 et un PgBouncer 1.26.0 isolés (image `edoburu/pgbouncer`, empreinte fixée dans `compose.yaml`; projet, réseau et ports à part, identifiants factices), en mode transaction avec les réglages que Neon publie. Résultats :
+
+- le script de vérification passe 7 sur 7 à travers ce PgBouncer ;
+- `test/pgbouncer.db.test.ts` (9 tests, ignorés sans ce montage) montre que :
+  - les limites restent propres à leur transaction ;
+  - les attentes de verrou (55P03) et les requêtes lentes (57014) se terminent côté serveur ;
+  - une transaction dont le client part est annulée aussitôt, car PgBouncer ferme sa connexion au serveur ;
+  - un BEGIN sans réponse libère sa place ;
+  - une coupure pendant une requête libère les verrous au plus 3 s après ;
+  - une session terminée par le serveur ne fait pas planter le processus ;
+  - aucune connexion n'attend dans PgBouncer ensuite ;
+- cas du « trou noir », où la fermeture du client n'arrive jamais : une transaction bornée est terminée par la limite d'inactivité, en 4 s environ ; sans les limites, ses verrous restent tenus, car PgBouncer n'y met pas fin avec ses réglages par défaut.
+
+Ce montage s'approche du pooler de Neon sans l'être : Neon ne publie qu'une partie de sa configuration, et seule une vérification sur une branche Neon confirmerait son comportement exact.
+
+```bash
+docker compose -f packages/database/test/pgbouncer/compose.yaml up -d --wait
+```
+
+```bash
+PGBOUNCER_TEST_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:6451/incision_pgb PGBOUNCER_DIRECT_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:5451/incision_pgb TEST_DATABASE_URL=postgresql://incision_test:incision_test_only@localhost:5433/postgres npm run test:db -w @incision/database -- test/pgbouncer.db.test.ts
+```
+
+```bash
+docker compose -f packages/database/test/pgbouncer/compose.yaml down -v
+```
+
 ## Authentification
 
 Auth.js v5 avec des sessions JWT ([ADR-0003](adr/0003-authentication.md)). Seulement les **noms** des variables; les valeurs vivent dans App Service et dans le `.env` local, jamais dans le dépôt ni dans une conversation.

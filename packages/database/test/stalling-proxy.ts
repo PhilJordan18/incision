@@ -9,6 +9,11 @@ export type StallingProxy = {
   readonly resume: () => void;
   /** Cuts every connection, as a network reset does. */
   readonly cut: () => void;
+  /**
+   * From now on, a client that closes its side is not passed on: the server keeps a live
+   * connection whose client is gone, as when the close is lost in a stalled network.
+   */
+  readonly blackHole: () => void;
   readonly close: () => Promise<void>;
 };
 
@@ -19,6 +24,7 @@ export type StallingProxy = {
 export async function startStallingProxy(databaseUrl: string): Promise<StallingProxy> {
   const target = new URL(databaseUrl);
   let stalled = false;
+  let swallowCloses = false;
   let held: (() => void)[] = [];
   const sockets = new Set<net.Socket>();
   const server = net.createServer((client) => {
@@ -27,11 +33,19 @@ export async function startStallingProxy(databaseUrl: string): Promise<StallingP
     sockets.add(upstream);
     const closeBoth = () => {
       client.destroy();
-      upstream.destroy();
       sockets.delete(client);
-      sockets.delete(upstream);
+      if (!swallowCloses) {
+        upstream.destroy();
+        sockets.delete(upstream);
+      }
     };
     client.on("data", (chunk) => upstream.write(chunk));
+    // The server's side may outlive the client's (black hole): its answers then go nowhere.
+    upstream.on("close", () => {
+      client.destroy();
+      sockets.delete(client);
+      sockets.delete(upstream);
+    });
     upstream.on("data", (chunk) => {
       if (stalled) {
         held.push(() => client.write(chunk));
@@ -40,7 +54,6 @@ export async function startStallingProxy(databaseUrl: string): Promise<StallingP
       }
     });
     client.on("close", closeBoth);
-    upstream.on("close", closeBoth);
     client.on("error", closeBoth);
     upstream.on("error", closeBoth);
   });
@@ -64,6 +77,9 @@ export async function startStallingProxy(databaseUrl: string): Promise<StallingP
       for (const deliver of pending) {
         deliver();
       }
+    },
+    blackHole: () => {
+      swallowCloses = true;
     },
     cut: () => {
       held = [];
