@@ -48,7 +48,7 @@ There are four counters, never mixed up:
 | `raceId` | the race | A batch for another race is refused (`WRONG_RACE`). |
 | `seq`, `ackSeq` | one entrant | `seq` starts at 1, and every reply echoes the `seq` it answers. A retry (`seq <= ackSeq`) is a harmless `duplicate`; a gap asks for a resync. |
 | `textVersion` | one entrant's text | 0 for the initial text. It changes only when a bonus changes that entrant's text. A batch typed against any other version gets a resync and is never reinterpreted. |
-| `revision` | the broadcast | Starts at 0 for each race and moves by exactly 1 for each output whose public view changed (`changed`), however many transitions one event triggered. Clients keep the highest revision of the current `raceId` and drop stale snapshots. It never refuses keystrokes: another player's progress never invalidates a batch. |
+| `revision` | the broadcast | Starts at 0 for each race and moves by exactly 1 for each output whose public view changed (`changed`: `toRaceBroadcast` at the handled instant, revision aside), however many transitions one event triggered. Clients keep the highest revision of the current `raceId` and drop stale snapshots. It never refuses keystrokes: another player's progress never invalidates a batch. |
 
 **One batch in flight per entrant, not per tab.** The client sends its next batch only after the
 reply to the previous one, gathering keystrokes meanwhile, and splits more than `MAX_BATCH_EVENTS`
@@ -152,7 +152,8 @@ reducer returns.
 - A race that already ended keeps its results when the room closes later.
 - When closing and finalising compete, one transaction wins under the room lock.
 - An ended or interrupted race is final: no later event, including a late timer, changes it. The
-  reducer returns it as is, clock included; a batch still gets its reply (`duplicate` for a retry).
+  reducer returns it as is, clock included; a batch still gets its reply after the usual checks
+  (`duplicate` for a retry, `NOT_RACING` for a new well-formed batch of a known entrant).
 - The results (`ended`) come exactly once, on the transition to `ended`.
 
 ## Limits and bounds (`src/race/limits.ts`, `src/measures/types.ts`)

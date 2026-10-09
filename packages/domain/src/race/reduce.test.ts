@@ -100,7 +100,9 @@ describe("reduceRace: the contract examples (F-04.1)", () => {
     expect(output.ended?.results.map((result) => result.entrantId)).toEqual(expected.ranking);
     if (expected.endedAt !== undefined) {
       expect(output.state.endedAt).toBe(expected.endedAt);
-      expect(output.ended?.endedAt ?? expected.endedAt).toBe(expected.endedAt);
+    }
+    if (expected.endedAt !== undefined && expected.ranking !== undefined) {
+      expect(output.ended?.endedAt).toBe(expected.endedAt);
     }
     for (const [entrantId, elapsed] of expected.elapsed ?? []) {
       expect(output.ended?.results.find((result) => result.entrantId === entrantId)?.elapsed).toBe(elapsed);
@@ -119,6 +121,15 @@ describe("reduceRace: time and deadlines", () => {
     const output = reduceRace(race({ clock: at(5_000) }), tick(4_000));
     expect(output.state.clock).toBe(at(5_000));
     expect(reduceRace(race({ clock: at(5_000) }), tick(6_000)).state.clock).toBe(at(6_000));
+  });
+
+  it("a finishing batch earlier than the clock finishes at the clock", () => {
+    const output = reduceRace(race({ clock: at(5_000) }), keystrokes(BOB, 1, [insert("a"), insert("b")], 4_000));
+    expect(entrantOf(output, BOB)).toMatchObject({ status: "finished", endedAt: at(5_000) });
+  });
+
+  it("an interrupt earlier than the clock interrupts at the clock", () => {
+    expect(reduceRace(race({ clock: at(5_000) }), interrupt(4_000)).state).toMatchObject({ phase: "interrupted", endedAt: at(5_000) });
   });
 
   it("an abandon earlier than the clock ends at the clock, not before", () => {
@@ -208,6 +219,21 @@ describe("reduceRace: events", () => {
     expect(entrantOf(output, BOB)).toMatchObject({ pendingError: true, counters: { correctInserts: 0, totalInserts: 1 }, ackSeq: 1 });
   });
 
+  it("moves the revision when the only public change is the net WPM, seen at the handled instant", () => {
+    // Free mode: a correct insert then its deletion leaves the position at 0, but 1 correct insert in 1 s shows 12 WPM.
+    const output = reduceRace(race(), keystrokes(BOB, 1, [insert("a"), { type: "deleteBackward" }], 1_000));
+    expect(output.keystrokes).toMatchObject({ outcome: "applied" });
+    expect(entrantOf(output, BOB)).toMatchObject({ typed: [], counters: { correctInserts: 1, totalInserts: 1 } });
+    expect(output).toMatchObject({ changed: true, state: { revision: 5 } });
+  });
+
+  it("checks plausibility from the race's start, not from the reveal (COURSE-06)", () => {
+    const wrong = Array.from({ length: 21 }, () => insert("x"));
+    const output = reduceRace(race({ errorMode: "mandatory" }), keystrokes(BOB, 1, wrong, 0));
+    expect(output.keystrokes).toMatchObject({ outcome: "refused", reason: "IMPLAUSIBLE" });
+    expect(output.changed).toBe(false);
+  });
+
   it("records a confirmed abandon as voluntary, at the handled instant", () => {
     const output = reduceRace(race(), abandon(BOB, 1_500));
     expect(entrantOf(output, BOB)).toMatchObject({ status: "abandoned", abandonReason: "voluntary", endedAt: at(1_500) });
@@ -269,6 +295,38 @@ describe("reduceRace: results", () => {
         { entrantId: BOB, kind: "human", rank: 3, status: "abandoned", abandonReason: "voluntary", elapsed: 6_000, position: 1, length: 2, counters: { correctInserts: 1, totalInserts: 1 }, errors: 0, measures: computeMeasures({ correctInserts: 1, totalInserts: 1 }, asDuration(6_000)), missedKeys: {} },
       ],
     });
+  });
+
+  it("ranks finishers by arrival, not by id", () => {
+    const bobFirst = runner(BOB, { typed: ["a", "b"], ackSeq: 1, status: "finished", endedAt: at(1_000), counters: { correctInserts: 2, totalInserts: 2 } });
+    const output = reduceRace(race({ clock: at(1_000), entrants: [runner(ALICE), bobFirst] }), keystrokes(ALICE, 1, [insert("a"), insert("b")], 2_000));
+    expect(output.ended?.results.map((result) => [result.entrantId, result.rank])).toEqual([
+      [BOB, 1],
+      [ALICE, 2],
+    ]);
+  });
+
+  it("ranks time-outs, then abandons, by progress, not by id or accuracy", () => {
+    const target = toGraphemes("abc");
+    const carol = asEntrantId("carol");
+    const dave = asEntrantId("dave");
+    const state = race({
+      timeLimit: thirtySeconds,
+      text: target,
+      entrants: [
+        runner(ALICE, { target, typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } }),
+        runner(BOB, { target, typed: ["a", "x"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { b: 1 } }),
+        runner(carol, { target, typed: ["a"], ackSeq: 1, status: "abandoned", abandonReason: "voluntary", endedAt: at(9_000), counters: { correctInserts: 1, totalInserts: 1 } }),
+        runner(dave, { target, typed: ["a", "b"], ackSeq: 1, status: "abandoned", abandonReason: "voluntary", endedAt: at(8_000), counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { a: 1 } }),
+      ],
+    });
+    const output = reduceRace(state, tick(30_000));
+    expect(output.ended?.results.map((result) => [result.entrantId, result.status, result.position])).toEqual([
+      [BOB, "timedOut", 2],
+      [ALICE, "timedOut", 1],
+      [dave, "abandoned", 2],
+      [carol, "abandoned", 1],
+    ]);
   });
 
   it("breaks an exact tie by accuracy, computed from the counters, before the id", () => {
@@ -399,9 +457,8 @@ describe("reduceRace invariants over seeded random events", () => {
           continue;
         }
         expect(after.clock).toBe(Math.max(before.clock, event.now));
-        // Both views at one instant after every end, so only the reducer's changes can differ.
-        const probe = asInstant(after.clock + 3_600_000);
-        expect(output.changed).toBe(publicView(before, probe) !== publicView(after, probe));
+        // The contract's definition, through JSON rather than the reducer's own comparison.
+        expect(output.changed).toBe(publicView(before, after.clock) !== publicView(after, after.clock));
         expect(after.revision).toBe(before.revision + (output.changed ? 1 : 0));
         if (after.phase === "ended" && before.phase === "countdown") {
           expect(after.clock).toBeGreaterThanOrEqual(after.startsAt);

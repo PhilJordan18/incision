@@ -250,9 +250,9 @@ export type AbandonIgnored = "UNKNOWN_ENTRANT" | "ENTRANT_TERMINAL" | "RACE_OVER
 export type RaceOutput = {
   readonly state: RaceState;
   /**
-   * True when `revision` moved, because the public view (`toRaceBroadcast`) changed: the server
-   * broadcasts the public progress. The private state and the clock can move without it, so the
-   * server always keeps `state`.
+   * True when `revision` moved, because the public view changed: `toRaceBroadcast` at the handled
+   * instant, revision aside. The server then broadcasts the public progress. The private state and
+   * the clock can move without it, so the server always keeps `state`.
    */
   readonly changed: boolean;
   /** For a `keystrokes` event: the reply to its sender. */
@@ -271,8 +271,9 @@ export type RaceOutput = {
 /**
  * Contract of F-04.1 (engine half). Pure: same state and event, same output. An `ended` or
  * `interrupted` race is returned as is, clock included, whatever the event; a batch still gets its
- * reply (`duplicate` for a retry, otherwise `NOT_RACING`). An invalid `now` is a programming error
- * and throws a `RangeError`.
+ * reply after the usual checks (see `KeystrokeResult`): `duplicate` for a retry, `NOT_RACING` for a
+ * new well-formed batch of a known entrant. An invalid `now` is a programming error and throws a
+ * `RangeError`.
  */
 export type ReduceRace = (state: RaceState, event: RaceEvent) => RaceOutput;
 

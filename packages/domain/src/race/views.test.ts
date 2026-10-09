@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { asEntrantId, type EntrantId } from "../ids";
 import { toGraphemes } from "../text/graphemes";
-import { asDuration, asInstant, type Instant } from "../time";
+import { asDuration, asInstant, MAX_INSTANT, type Instant } from "../time";
 import { EXAMPLE_ENTRANT, EXAMPLE_RACE } from "./keystrokes.examples";
 import type { EntrantState, RaceState } from "./types";
 import { toRaceBroadcast, toRaceReveal } from "./views";
@@ -83,10 +83,12 @@ describe("toRaceBroadcast (F-04.1)", () => {
     expect(wpmOf(state, at(30_000), ALICE)).toBe(0);
   });
 
-  it("freezes everyone at the end of an interrupted race", () => {
-    const state = race({ phase: "interrupted", endedAt: at(12_000), clock: at(12_000) });
+  it("freezes everyone at the end of an interrupted race, and a finisher at their own end", () => {
+    const finisher = runner(BOB, { typed: toGraphemes("abcde"), status: "finished", endedAt: at(6_000), counters: { correctInserts: 5, totalInserts: 5 } });
+    const state = race({ phase: "interrupted", endedAt: at(12_000), clock: at(12_000), entrants: [runner(ALICE, { typed: ["a", "b"], counters: { correctInserts: 2, totalInserts: 3 } }), finisher] });
     expect(toRaceBroadcast(state, at(24_000))).toMatchObject({ phase: "interrupted", endedAt: at(12_000) });
     expect(wpmOf(state, at(24_000), ALICE)).toBe(2);
+    expect(wpmOf(state, at(24_000), BOB)).toBe(10);
   });
 
   it("omits the end instants that do not exist yet", () => {
@@ -95,8 +97,8 @@ describe("toRaceBroadcast (F-04.1)", () => {
     expect(broadcast.entrants.every((entrant) => !("endedAt" in entrant))).toBe(true);
   });
 
-  it("refuses a now that is not a valid instant, a programming error", () => {
-    expect(() => toRaceBroadcast(race(), Number.NaN as Instant)).toThrow(RangeError);
+  it.each([Number.NaN, -1, MAX_INSTANT + 1, 1.5])("refuses now = %s, not a valid instant: a programming error", (now) => {
+    expect(() => toRaceBroadcast(race(), now as Instant)).toThrow(RangeError);
   });
 });
 

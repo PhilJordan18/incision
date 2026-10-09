@@ -15,6 +15,7 @@ import type {
   ReduceRace,
   TerminalStatus,
 } from "./types";
+import { toRaceBroadcast } from "./views";
 
 /**
  * The race reducer (F-04.1). Pure: the same state and event always give the same output.
@@ -23,10 +24,12 @@ import type {
  *   runs backwards inside a race.
  * - **Deadlines.** Every transition due at that instant applies before and after the event, so a
  *   late timer never decides a result.
- * - **Revision.** It moves by exactly 1 when the public view changed (`changed`), however many
- *   transitions the event triggered. The private state and the clock can move without it.
+ * - **Revision.** It moves by exactly 1 when the public view (`toRaceBroadcast` at the handled
+ *   instant) changed, however many transitions the event triggered. The private state and the
+ *   clock can move without it.
  * - **Final races.** An `ended` or `interrupted` race is returned as is, clock included; a batch
- *   still gets its reply (`duplicate` for a retry, otherwise `NOT_RACING`).
+ *   still gets its reply after the usual checks (see `KeystrokeResult`): `duplicate` for a retry,
+ *   `NOT_RACING` for a new well-formed batch of a known entrant.
  * - **Results.** `ended` comes exactly once, on the transition to `ended`; an interrupted race
  *   has none (D-06).
  */
@@ -38,7 +41,7 @@ export const reduceRace: ReduceRace = (state, event) => {
   const now = at < state.clock ? state.clock : at;
   const handled = handle(applyDue(state, now), event, now);
   const after = applyDue(handled.state, now);
-  const changed = !samePublicView(state, after);
+  const changed = !samePublicView(state, after, now);
   const next: RaceState = { ...after, clock: now, revision: changed ? state.revision + 1 : state.revision };
   const deadline = nextDeadline(next);
   return {
@@ -154,25 +157,26 @@ function nextDeadline(state: RaceState): Instant | undefined {
   return state.phase === "racing" ? timeLimitDeadline(state) : undefined;
 }
 
-/** What everyone in the room sees (`toRaceBroadcast`), apart from the passing of time. */
-function samePublicView(before: RaceState, after: RaceState): boolean {
-  return (
-    before.phase === after.phase &&
-    before.endedAt === after.endedAt &&
-    before.entrants.length === after.entrants.length &&
-    before.entrants.every((entrant, index) => {
-      const other = after.entrants[index];
-      return (
-        other !== undefined &&
-        entrant.entrantId === other.entrantId &&
-        entrant.status === other.status &&
-        entrant.typed.length === other.typed.length &&
-        entrant.target.length === other.target.length &&
-        entrant.counters.correctInserts === other.counters.correctInserts &&
-        entrant.endedAt === other.endedAt
-      );
-    })
-  );
+/**
+ * Whether everyone in the room sees the same race in both states at `at`, revision aside: the
+ * broadcast itself is compared, so any public field, including those later cards add, counts.
+ */
+function samePublicView(before: RaceState, after: RaceState, at: Instant): boolean {
+  return equalData({ ...toRaceBroadcast(before, at), revision: 0 }, { ...toRaceBroadcast(after, at), revision: 0 });
+}
+
+/** Deep equality of plain data: primitives, arrays and records. */
+function equalData(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null || Array.isArray(left) !== Array.isArray(right)) {
+    return false;
+  }
+  const leftRecord = left as Readonly<Record<string, unknown>>;
+  const rightRecord = right as Readonly<Record<string, unknown>>;
+  const keys = Object.keys(leftRecord);
+  return keys.length === Object.keys(rightRecord).length && keys.every((key) => Object.hasOwn(rightRecord, key) && equalData(leftRecord[key], rightRecord[key]));
 }
 
 /** The official results (RES-02, COURSE-10), computed once from the ended race. */
