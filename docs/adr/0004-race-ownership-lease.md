@@ -43,7 +43,13 @@ Each race records the process that runs it, the generation of that ownership, an
 
 **Process stop** (with the runtime). On SIGTERM, a process refuses new starts and interrupts its own races (reason `server_stopped`) through the fenced write. A crash leaves the lease to expire.
 
-**Results that cannot be saved** (with the runtime). The owner freezes the results at the end of the race and retries the finalisation with them a bounded number of times; a retry after a commit whose answer was lost learns that they are saved. If it gives up, it interrupts its race (reason `save_failed`), without results, like any interruption (D-06).
+**Results that cannot be saved** (with the runtime):
+
+- The owner freezes the results at the end of the race and keeps them until a transaction confirms them; every attempt sends that same frozen array.
+- A transient failure (database unreachable, timeout, a wait ended by the server) or a lost answer is never an abandonment: the owner retries the finalisation, a bounded number of times, on failure only.
+- The retry is idempotent: when an earlier attempt committed but its answer was lost, it returns `alreadyDone` and the frozen results are published as saved. A saved result is never reported as lost.
+- `save_failed` is used only for an explicit, terminal abandonment after the bounded retries: the owner interrupts its race with it, without results, like any interruption (D-06). If that call reports `resultsSaved`, an earlier finalisation had committed after all, and the saved results are published, not an interruption.
+- If the database stays unreachable so that neither the results nor the interruption can be confirmed, the owner publishes neither: players see that the results are being confirmed, and the pages show what the database holds once it answers (the results, or later an `owner_lost` interruption once the lease has expired).
 
 **Recovery.** At boot, one transaction interrupts the races whose lease has expired (reason `owner_lost`). It locks the rooms and their races together, in room order, and also interrupts expired races no longer current in their room. It never waits for a row: a room or race that another transaction holds (a transition or a renewal under way) is skipped (`SKIP LOCKED`) and counted as left for later; only a table lock (a migration) is waited for, within the bounded waits. While the database does not answer, or while races are left for later, it tries again after 5, 15 and 45 s, then stops. A race whose lease was still valid at boot, or still left for later, is recovered when someone opens or joins its room (with the runtime).
 
