@@ -4,6 +4,7 @@ import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
 import { firstRow } from "../rows";
 import { accounts, lobbies, lobbyMembers } from "../schema";
+import { limitServerWaits, type Transaction } from "../transaction";
 
 export const ROOM_CODE_ATTEMPTS = 5;
 
@@ -36,7 +37,10 @@ export async function createRoomWithHost(
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const code = generateRoomCode(input.randomIndex);
     try {
-      return await db.transaction((tx) => insertRoom(tx, input, code));
+      return await db.transaction(async (tx) => {
+        await limitServerWaits(tx);
+        return insertRoom(tx, input, code);
+      });
     } catch (error: unknown) {
       const constraint = uniqueViolationOf(error);
       if (constraint === "lobbies_code_unique") {
@@ -50,8 +54,6 @@ export async function createRoomWithHost(
   }
   return { ok: false, error: "CODE_ATTEMPTS_EXHAUSTED" };
 }
-
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 async function insertRoom(tx: Transaction, input: CreateRoomInput, code: RoomCode): Promise<CreateRoomResult> {
   const [account] = await tx

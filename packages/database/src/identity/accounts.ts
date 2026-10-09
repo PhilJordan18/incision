@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { firstRow } from "../rows";
 import { accounts, oauthIdentities, oauthProvider } from "../schema";
+import { limitServerWaits } from "../transaction";
 
 export type OAuthProvider = (typeof oauthProvider.enumValues)[number];
 export const OAUTH_PROVIDERS: readonly OAuthProvider[] = oauthProvider.enumValues;
@@ -37,6 +38,7 @@ export async function findOrCreateOAuthAccount(db: Database, signIn: OAuthSignIn
   }
   try {
     return await db.transaction(async (tx) => {
+      await limitServerWaits(tx);
       const account = firstRow(
         await tx
           .insert(accounts)

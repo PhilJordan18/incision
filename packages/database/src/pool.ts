@@ -4,12 +4,18 @@ export type DatabaseCheck =
   | { readonly reachable: true }
   | { readonly reachable: false; readonly error: unknown };
 
+/**
+ * The client gives up on a query after this long. Transactions end their own waits on the
+ * server before it (`SERVER_LIMITS_MS` in transaction.ts).
+ */
+export const QUERY_TIMEOUT_MS = 5_000;
+
 const POOL_OPTIONS = {
   // Neon's free plan limits connections; the pooled URL multiplexes them further.
   max: 5,
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
-  query_timeout: 5_000,
+  query_timeout: QUERY_TIMEOUT_MS,
 } as const;
 
 // Next bundles route handlers separately from the custom server, so a module-level
@@ -24,7 +30,7 @@ const processGlobal = globalThis as typeof globalThis & {
  * A process talks to one database: another connection string is a programming error.
  */
 export function getDatabasePool(connectionString: string): pg.Pool {
-  processGlobal.incisionDatabase ??= { connectionString, pool: createPool(connectionString) };
+  processGlobal.incisionDatabase ??= { connectionString, pool: createDatabasePool(connectionString) };
   if (processGlobal.incisionDatabase.connectionString !== connectionString) {
     throw new Error("The database pool already exists for another connection string");
   }
@@ -120,12 +126,71 @@ function isQueryWrapper(error: unknown): error is Error & { readonly query: unkn
   return error instanceof Error && "query" in error && "params" in error;
 }
 
-function createPool(connectionString: string): pg.Pool {
-  const pool = new pg.Pool({ connectionString, ...POOL_OPTIONS });
-  // Neon closes idle connections when its compute suspends. Without a listener,
-  // that error on an idle client would crash the whole process.
-  pool.on("error", (error) => {
-    console.error("[database] idle client error:", describeDatabaseError(error));
+type ConnectCallback = Parameters<pg.Pool["connect"]>[0];
+
+/**
+ * A pool that never hands out a connection still inside a transaction, and whose clients
+ * never crash the process with an error.
+ *
+ * - Drizzle releases a transaction's client without an error even when its rollback timed
+ *   out (a statement blocked for more than twice the client timeout, or a network stall).
+ *   That client is still inside its transaction on the server: reused, the next borrower
+ *   would run in it, and commit it. A client released while its transaction is open or
+ *   failed (`getTransactionStatus()` other than idle) is destroyed instead; closing its
+ *   connection ends the session, so the server rolls the transaction back.
+ * - pg-pool listens to a client's errors only while it is idle in the pool. When the server
+ *   ends the session of a checked-out client that is not running a query (a termination,
+ *   an idle-transaction limit, a Neon restart), the client emits an `error` that nobody
+ *   would handle, and Node would exit. Every client keeps a listener for its whole life:
+ *   the client is then only unusable, and the pool discards it when it is released.
+ */
+class GuardedPool extends pg.Pool {
+  constructor(config: pg.PoolConfig) {
+    super(config);
+    this.on("connect", (client) => {
+      client.on("error", (error) => {
+        console.error("[database] client error:", describeDatabaseError(error));
+      });
+    });
+    // Already logged by the client's own listener; without this one, pg-pool's report of
+    // an error on an idle client would itself crash the process.
+    this.on("error", () => undefined);
+  }
+
+  override connect(): Promise<pg.PoolClient>;
+  override connect(callback: ConnectCallback): void;
+  override connect(callback?: ConnectCallback): Promise<pg.PoolClient> | undefined {
+    // pool.query() uses the callback form and already releases a failed client with its
+    // error; transactions use the promise form.
+    if (callback !== undefined) {
+      super.connect(callback);
+      return undefined;
+    }
+    return super.connect().then(guardRelease);
+  }
+}
+
+function guardRelease(client: pg.PoolClient): pg.PoolClient {
+  const release = client.release.bind(client);
+  client.release = (error?: Error | boolean) => {
+    if (error === undefined || error === false) {
+      if (client.getTransactionStatus() !== "I") {
+        console.error("[database] client released inside a transaction: discarded");
+        release(new Error("Released inside a transaction"));
+        return;
+      }
+    }
+    release(error);
+  };
+  return client;
+}
+
+/** The application's pool; tests may shorten its timeout or size. */
+export function createDatabasePool(connectionString: string, overrides: { readonly max?: number; readonly queryTimeoutMs?: number } = {}): pg.Pool {
+  return new GuardedPool({
+    connectionString,
+    ...POOL_OPTIONS,
+    ...(overrides.max === undefined ? {} : { max: overrides.max }),
+    ...(overrides.queryTimeoutMs === undefined ? {} : { query_timeout: overrides.queryTimeoutMs }),
   });
-  return pool;
 }
