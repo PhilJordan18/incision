@@ -114,16 +114,18 @@ test.describe("room-code attempts per address (SALLE-10)", () => {
     }
     // A room in RACING points to its race (lobbies_active_phase_has_race): a test fixture,
     // nothing runs it.
-    await query(
+    const racingRooms = await query(
       `with room as (select id from lobbies where code = $1),
        race as (
          insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, owner_id, lease_expires_at)
          select id, 1, 'racing', 1, 'Texte de test.', '{}'::jsonb, now(), now(), gen_random_uuid(), now() + interval '30 seconds' from room
          returning id, lobby_id
        )
-       update lobbies set phase = 'racing', current_race_id = race.id from race where lobbies.id = race.lobby_id`,
+       update lobbies set phase = 'racing', current_race_id = race.id from race where lobbies.id = race.lobby_id
+       returning lobbies.id`,
       [openCode],
     );
+    expect(racingRooms).toHaveLength(1);
     for (let index = 0; index < 3; index += 1) {
       expect(await titleOf(page, via, openCode)).toBe(`Salle ${openCode} · Incision`);
     }
