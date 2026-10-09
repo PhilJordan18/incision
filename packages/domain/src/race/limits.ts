@@ -43,8 +43,7 @@ export const MAX_BATCH_EVENTS = 64;
  * Plausibility limit, the reason to refuse a batch (COURSE-06): 25 inserts per second sustained,
  * that is 25 × 60 ÷ 5 = 300 WPM. It is a plausibility threshold chosen for the product, not an
  * absolute guarantee: set far above the speeds expected from students of 12 to 17, it aims at
- * scripts and replays while leaving room for exceptional players. F-04.4 keeps it: no real race
- * has been measured yet, so any change is a product decision.
+ * scripts and replays while leaving room for exceptional players. F-04.4 tunes it.
  */
 export const MAX_PLAUSIBLE_INSERTS_PER_SECOND = 25;
 

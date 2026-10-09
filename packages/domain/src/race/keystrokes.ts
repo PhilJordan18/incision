@@ -111,6 +111,7 @@ function normalizedEvents(events: readonly InputEvent[]): readonly InputEvent[] 
       normalized.push(event);
       continue;
     }
+    // The type promises a string; the check keeps a malformed payload a refusal, not a throw.
     const grapheme = event.type === "insert" && typeof event.grapheme === "string" ? singleGrapheme(event.grapheme) : undefined;
     if (grapheme === undefined) {
       return undefined;
