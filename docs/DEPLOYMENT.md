@@ -67,6 +67,23 @@ Règles pour chaque changement de schéma (voir aussi [SETUP.md](SETUP.md)) :
 - Si une migration réussit mais que le déploiement échoue, l'application précédente continue de tourner sur le schéma additif; redéployer ou faire un revert comme dans [Rollback](#rollback).
 - Migrate s'exécute automatiquement à la promotion : créer une branche de sauvegarde Neon **avant** de promouvoir une migration risquée.
 
+## Connexions et transactions
+
+L'application passe par l'URL poolée de Neon (PgBouncer en mode transaction), avec un pool de 5 connexions dont le client abandonne une requête après 5 s.
+
+- **Aucune connexion n'est rendue au pool au milieu d'une transaction.** Quand une requête, puis son annulation, dépassent toutes deux ce délai (un verrou tenu longtemps, une coupure réseau), la connexion est détruite au lieu d'être réutilisée : fermer la connexion met fin à la session, et PostgreSQL annule la transaction. Sans cela, la requête suivante s'exécuterait dans la transaction abandonnée et pourrait la valider avec la sienne.
+- **Une session terminée par le serveur ne fait jamais planter le processus**, même quand la connexion est empruntée sans requête en cours : chaque connexion garde son propre écouteur d'erreurs, devient seulement inutilisable, et le pool la jette.
+- **Chaque transaction des salles et des comptes borne ses attentes côté serveur**, pour elle seule (`set_config(…, true)`, l'équivalent de `SET LOCAL`, le seul réglage que permet le pooling en mode transaction de Neon) : 2 s d'attente de verrou, 3 s par requête et 4 s d'inactivité dans une transaction, tous sous le délai de 5 s du client.
+- **Log stream** : `[database] client error: <code et message>` quand le serveur met fin à une session (redémarrage du calcul Neon, transaction inactive), et `[database] client released inside a transaction: discarded` quand une connexion abandonnée est jetée. Quelques lignes après un incident réseau sont normales; une répétition régulière est un problème à étudier.
+
+**Vérifier à travers le pooler de Neon** : `scripts/check-pooled-transactions.ts` passe par le vrai chemin de connexion et vérifie que ces limites restent propres à leur transaction, qu'elles s'appliquent, qu'une transaction inactive est terminée sans planter le processus, qu'un client fermé dans sa transaction libère ses verrous (comportement de PgBouncer) et qu'après un double dépassement du délai client, la requête suivante démarre une transaction neuve. Il ne lit ni n'écrit aucune table : il prend seulement des verrous consultatifs de transaction sur des clés aléatoires, attend et lit des réglages. Je le lance sur une branche Neon, jamais sur la production sans décision explicite, en tapant l'URL poolée de la branche à l'invite plutôt que sur la ligne de commande :
+
+```bash
+read -rs POOLED_CHECK_URL && export POOLED_CHECK_URL && npm run db:check-pooled -w @incision/database; unset POOLED_CHECK_URL
+```
+
+Chaque vérification affiche `PASS` ou `FAIL` avec sa durée, jamais l'URL; le script ne lit aucun fichier `.env`.
+
 ## Authentification
 
 Auth.js v5 avec des sessions JWT ([ADR-0003](adr/0003-authentication.md)). Seulement les **noms** des variables; les valeurs vivent dans App Service et dans le `.env` local, jamais dans le dépôt ni dans une conversation.
