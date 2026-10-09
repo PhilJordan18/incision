@@ -4,7 +4,7 @@ import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
 import { firstRow } from "../rows";
 import { accounts, lobbies, lobbyMembers } from "../schema";
-import { limitServerWaits, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
+import { boundedTransaction, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
 export type ActiveMembership = {
@@ -107,10 +107,7 @@ export type JoinRoomResult =
  */
 export async function joinRoomByCode(db: Database, input: JoinRoomInput): Promise<JoinRoomResult> {
   try {
-    return await db.transaction(async (tx) => {
-      await limitServerWaits(tx);
-      return admit(tx, input);
-    }, READ_COMMITTED);
+    return await boundedTransaction(db, (tx) => admit(tx, input), READ_COMMITTED);
   } catch (error: unknown) {
     // A concurrent join of the same account into another room won the unique index.
     if (uniqueViolationOf(error) === "lobby_members_active_account_unique") {
@@ -190,8 +187,7 @@ export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boole
  * lock (`statement_timestamp()`), so they never precede a join committed just before.
  */
 export async function leaveCurrentRoom(db: Database, accountId: string): Promise<LeaveRoomResult | undefined> {
-  return db.transaction(async (tx) => {
-    await limitServerWaits(tx);
+  return boundedTransaction(db, async (tx) => {
     const seen = await findActiveMembership(tx, accountId);
     if (seen === undefined) {
       return undefined;

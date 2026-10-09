@@ -5,8 +5,8 @@ export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 export type Queryable = Database | Transaction;
 
 /**
- * The room and race rules rely on READ COMMITTED: after the room lock, each statement sees
- * every commit made before it (counts, taken names, memberships, the latest race row).
+ * The room rules rely on READ COMMITTED: after the room lock, each statement sees every
+ * commit made before it (counts, taken names, memberships).
  */
 export const READ_COMMITTED = { isolationLevel: "read committed" } as const;
 
@@ -21,7 +21,9 @@ export const SERVER_LIMITS_MS = { lock: 2_000, statement: 3_000, idleInTransacti
 
 /**
  * Applies `SERVER_LIMITS_MS` to the current transaction only, in one statement:
- * `set_config(…, true)` is `SET LOCAL`, the only kind Neon's transaction pooling allows.
+ * `set_config(…, true)` is `SET LOCAL`, the only kind of setting that is safe under Neon's
+ * transaction pooling. A limited transaction must await nothing but the database: 4 s spent
+ * elsewhere end its session.
  */
 export async function limitServerWaits(tx: Transaction): Promise<void> {
   await tx.execute(
@@ -29,4 +31,19 @@ export async function limitServerWaits(tx: Transaction): Promise<void> {
       set_config('statement_timeout', ${`${SERVER_LIMITS_MS.statement}ms`}, true),
       set_config('idle_in_transaction_session_timeout', ${`${SERVER_LIMITS_MS.idleInTransaction}ms`}, true)`,
   );
+}
+
+/**
+ * A transaction that applies `SERVER_LIMITS_MS` before anything else, so no transaction of the
+ * application can forget them.
+ */
+export async function boundedTransaction<Result>(
+  db: Database,
+  work: (tx: Transaction) => Promise<Result>,
+  config?: Parameters<Database["transaction"]>[1],
+): Promise<Result> {
+  return db.transaction(async (tx) => {
+    await limitServerWaits(tx);
+    return work(tx);
+  }, config);
 }

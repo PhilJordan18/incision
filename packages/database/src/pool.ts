@@ -126,71 +126,144 @@ function isQueryWrapper(error: unknown): error is Error & { readonly query: unkn
   return error instanceof Error && "query" in error && "params" in error;
 }
 
+// The callback overload is pg's last one, the one `Parameters` reads.
 type ConnectCallback = Parameters<pg.Pool["connect"]>[0];
 
+/** A client checked out longer than this is reclaimed: every transaction ends well before. */
+export const CHECKOUT_LIMIT_MS = 30_000;
+
+/** Smaller pools and shorter limits, for the tests and the check script. */
+type PoolOverrides = { readonly max?: number; readonly queryTimeoutMs?: number; readonly checkoutLimitMs?: number };
+
 /**
- * A pool that never hands out a connection still inside a transaction, and whose clients
- * never crash the process with an error.
+ * The application's pool: a plain `pg.Pool` (Drizzle recognises it in every bundled copy of
+ * pg, by class or by name), whose clients never carry an unfinished transaction to the next
+ * borrower and never crash the process.
  *
  * - Drizzle releases a transaction's client without an error even when its rollback timed
- *   out (a statement blocked for more than twice the client timeout, or a network stall).
- *   That client is still inside its transaction on the server: reused, the next borrower
- *   would run in it, and commit it. A client released while its transaction is open or
- *   failed (`getTransactionStatus()` other than idle) is destroyed instead; closing its
- *   connection ends the session, so the server rolls the transaction back.
+ *   out, and never releases it when BEGIN itself fails. Each checkout is therefore guarded
+ *   (`guardCheckout`): the client is destroyed, instead of reused, on its first client-side
+ *   failure, on its own error, when released inside a transaction or with a query in flight,
+ *   or when held too long. Closing the connection ends the session, and the server rolls the
+ *   transaction back once its current statement ends.
  * - pg-pool listens to a client's errors only while it is idle in the pool. When the server
- *   ends the session of a checked-out client that is not running a query (a termination,
- *   an idle-transaction limit, a Neon restart), the client emits an `error` that nobody
- *   would handle, and Node would exit. Every client keeps a listener for its whole life:
- *   the client is then only unusable, and the pool discards it when it is released.
+ *   ends the session of a checked-out client that runs no query (a termination, an idle
+ *   transaction limit, a Neon restart), nobody would handle the client's `error`, and Node
+ *   would exit. Every client keeps a listener for its whole life.
  */
-class GuardedPool extends pg.Pool {
-  constructor(config: pg.PoolConfig) {
-    super(config);
-    this.on("connect", (client) => {
-      client.on("error", (error) => {
-        console.error("[database] client error:", describeDatabaseError(error));
-      });
-    });
-    // Already logged by the client's own listener; without this one, pg-pool's report of
-    // an error on an idle client would itself crash the process.
-    this.on("error", () => undefined);
-  }
-
-  override connect(): Promise<pg.PoolClient>;
-  override connect(callback: ConnectCallback): void;
-  override connect(callback?: ConnectCallback): Promise<pg.PoolClient> | undefined {
-    // pool.query() uses the callback form and already releases a failed client with its
-    // error; transactions use the promise form.
-    if (callback !== undefined) {
-      super.connect(callback);
-      return undefined;
-    }
-    return super.connect().then(guardRelease);
-  }
-}
-
-function guardRelease(client: pg.PoolClient): pg.PoolClient {
-  const release = client.release.bind(client);
-  client.release = (error?: Error | boolean) => {
-    if (error === undefined || error === false) {
-      if (client.getTransactionStatus() !== "I") {
-        console.error("[database] client released inside a transaction: discarded");
-        release(new Error("Released inside a transaction"));
-        return;
-      }
-    }
-    release(error);
-  };
-  return client;
-}
-
-/** The application's pool; tests may shorten its timeout or size. */
-export function createDatabasePool(connectionString: string, overrides: { readonly max?: number; readonly queryTimeoutMs?: number } = {}): pg.Pool {
-  return new GuardedPool({
+export function createDatabasePool(connectionString: string, overrides: PoolOverrides = {}): pg.Pool {
+  const pool = new pg.Pool({
     connectionString,
     ...POOL_OPTIONS,
-    ...(overrides.max === undefined ? {} : { max: overrides.max }),
-    ...(overrides.queryTimeoutMs === undefined ? {} : { query_timeout: overrides.queryTimeoutMs }),
+    max: overrides.max ?? POOL_OPTIONS.max,
+    query_timeout: overrides.queryTimeoutMs ?? QUERY_TIMEOUT_MS,
   });
+  const checkoutLimitMs = overrides.checkoutLimitMs ?? CHECKOUT_LIMIT_MS;
+  pool.on("connect", (client) => {
+    client.on("error", (error) => {
+      console.error("[database] client error:", describeDatabaseError(error));
+    });
+  });
+  // Already logged by the client's own listener; without this one, pg-pool's report of an
+  // error on an idle client would itself crash the process.
+  pool.on("error", () => undefined);
+  const acquire = pool.connect.bind(pool);
+  function connect(): Promise<pg.PoolClient>;
+  function connect(callback: ConnectCallback): void;
+  function connect(callback?: ConnectCallback): Promise<pg.PoolClient> | undefined {
+    if (callback === undefined) {
+      return acquire().then((client) => guardCheckout(client, checkoutLimitMs));
+    }
+    // pool.query() takes this path: its client is guarded too.
+    acquire((error, client, done) => {
+      const guarded = client === undefined ? undefined : guardCheckout(client, checkoutLimitMs);
+      callback(error, guarded, guarded === undefined ? done : guarded.release);
+    });
+    return undefined;
+  }
+  pool.connect = connect;
+  return pool;
+}
+
+/** pg's DatabaseError: the server answered, so the connection is still in step with it. */
+function answeredByServer(error: unknown): boolean {
+  return error instanceof Error && "severity" in error && typeof error.severity === "string";
+}
+
+/**
+ * Releases the client exactly once: reused only when idle, outside any transaction, with no
+ * query in flight; destroyed otherwise. A query that fails on the client (a timeout, a broken
+ * connection) leaves the connection out of step with the server, so the client is destroyed
+ * at once, which also frees its slot when Drizzle never releases it (a failed BEGIN).
+ */
+function guardCheckout(client: pg.PoolClient, checkoutLimitMs: number): pg.PoolClient {
+  const release = client.release;
+  const query = client.query;
+  let inFlight = 0;
+  let released = false;
+  const finish = (error?: Error | boolean, reason?: string): void => {
+    if (released) {
+      return;
+    }
+    released = true;
+    clearTimeout(watchdog);
+    client.removeListener("error", onError);
+    Reflect.deleteProperty(client, "query");
+    const unsafe = error === undefined || error === false ? unsafeToReuse() : undefined;
+    const discard = reason ?? unsafe;
+    if (discard !== undefined) {
+      console.error(`[database] client discarded: ${discard}`);
+    }
+    release(error === undefined || error === false ? (unsafe === undefined ? undefined : new Error(unsafe)) : error);
+  };
+  const unsafeToReuse = (): string | undefined => {
+    if (inFlight > 0) {
+      return "released with a query in flight";
+    }
+    return client.getTransactionStatus() === "I" ? undefined : "released inside a transaction";
+  };
+  const failedOnClient = (error: unknown) => {
+    if (!answeredByServer(error)) {
+      finish(error instanceof Error ? error : new Error("Query failed"), `query failed on the client (${describeDatabaseError(error)})`);
+    }
+  };
+  const watchdog = setTimeout(() => finish(new Error("Held too long"), `held longer than ${checkoutLimitMs} ms`), checkoutLimitMs);
+  watchdog.unref();
+  // Logged by the client's permanent listener.
+  const onError = (error: Error) => finish(error);
+  client.on("error", onError);
+  // Counts the queries in flight and catches client-side failures, for both calling styles.
+  const guardedQuery = (...args: unknown[]): unknown => {
+    inFlight += 1;
+    const last = args.at(-1);
+    if (typeof last === "function") {
+      args[args.length - 1] = (error: unknown, result: unknown) => {
+        inFlight -= 1;
+        if (error) {
+          failedOnClient(error);
+        }
+        Reflect.apply(last, undefined, [error, result]);
+      };
+      return Reflect.apply(query, client, args);
+    }
+    const result: unknown = Reflect.apply(query, client, args);
+    if (result instanceof Promise) {
+      result.then(
+        () => {
+          inFlight -= 1;
+        },
+        (error: unknown) => {
+          inFlight -= 1;
+          failedOnClient(error);
+        },
+      );
+    } else {
+      inFlight -= 1;
+    }
+    return result;
+  };
+  // pg's query is heavily overloaded; the wrapper forwards every form unchanged.
+  client.query = guardedQuery as pg.PoolClient["query"];
+  client.release = finish;
+  return client;
 }

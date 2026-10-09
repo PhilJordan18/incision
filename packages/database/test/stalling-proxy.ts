@@ -7,6 +7,8 @@ export type StallingProxy = {
   readonly stall: () => void;
   /** Delivers what was held back, then forwards again. */
   readonly resume: () => void;
+  /** Cuts every connection, as a network reset does. */
+  readonly cut: () => void;
   readonly close: () => Promise<void>;
 };
 
@@ -61,6 +63,12 @@ export async function startStallingProxy(databaseUrl: string): Promise<StallingP
       held = [];
       for (const deliver of pending) {
         deliver();
+      }
+    },
+    cut: () => {
+      held = [];
+      for (const socket of sockets) {
+        socket.destroy();
       }
     },
     close: async () => {

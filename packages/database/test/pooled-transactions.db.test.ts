@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { createDatabase, type Database } from "../src/client";
 import { findOrCreateOAuthAccount } from "../src/identity/accounts";
 import { runMigrations } from "../src/migrations";
+import { sqlStateOf } from "../src/errors";
 import { createDatabasePool, QUERY_TIMEOUT_MS } from "../src/pool";
 import { createRoomWithHost } from "../src/rooms/create-room";
 import { joinRoomByCode, leaveCurrentRoom } from "../src/rooms/membership";
@@ -39,25 +40,31 @@ afterAll(async () => {
 });
 
 /** The application's pool, with one connection so that the next borrower reuses it. */
-function appPool(url: string, queryTimeoutMs = QUERY_TIMEOUT_MS): { pool: pg.Pool; db: Database } {
-  const pool = createDatabasePool(url, { max: 1, queryTimeoutMs });
+function appPool(url: string, queryTimeoutMs = QUERY_TIMEOUT_MS, checkoutLimitMs?: number): { pool: pg.Pool; db: Database } {
+  const pool = createDatabasePool(url, { max: 1, queryTimeoutMs, checkoutLimitMs });
   opened.push(pool);
   return { pool, db: createDatabase(pool) };
 }
 
+/** Ends a pool before its proxy closes, so no late error lands after the test. */
+async function endPool(pool: pg.Pool): Promise<void> {
+  opened.splice(opened.indexOf(pool), 1);
+  await pool.end();
+}
+
+/** Waits until `console.error` (mocked) was called with a line that contains `text`. */
+async function loggedSoon(text: string): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (vi.mocked(console.error).mock.calls.some((call) => call.join(" ").includes(text))) {
+      return;
+    }
+    await sleep(20);
+  }
+  throw new Error(`Never logged: ${text}`);
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** The SQLSTATE of an error, looking through Drizzle's wrapper. */
-function sqlStateOf(error: unknown): string | undefined {
-  let current: unknown = error;
-  for (let depth = 0; depth < 5 && typeof current === "object" && current !== null; depth += 1) {
-    if ("code" in current && typeof current.code === "string" && /^[0-9A-Z]{5}$/.test(current.code)) {
-      return current.code;
-    }
-    current = "cause" in current ? current.cause : undefined;
-  }
-  return undefined;
-}
 
 async function failureOf(work: () => Promise<unknown>): Promise<{ state: string | undefined; elapsedMs: number }> {
   const started = performance.now();
@@ -70,10 +77,10 @@ async function failureOf(work: () => Promise<unknown>): Promise<{ state: string 
 }
 
 /** Another session holds `statement`'s locks until `release`. */
-async function holding(statement: string, params: readonly unknown[] = []): Promise<{ release: () => Promise<void> }> {
+async function holding(statement: string): Promise<{ release: () => Promise<void> }> {
   const client = await admin.connect();
   await client.query("begin");
-  await client.query(statement, [...params]);
+  await client.query(statement);
   let released = false;
   return {
     release: async () => {
@@ -104,6 +111,10 @@ async function noOpenTransactionLeft(): Promise<void> {
   throw new Error("A session is still idle in a transaction");
 }
 
+async function backendPid(db: Database): Promise<number | undefined> {
+  return (await db.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`)).rows[0]?.pid;
+}
+
 /** True when a statement starts its own transaction, not one left open by someone else. */
 async function startsFresh(db: Database): Promise<boolean> {
   const { rows } = await db.execute<{ fresh: boolean }>(sql`select now() = statement_timestamp() as fresh`);
@@ -123,34 +134,42 @@ describe("the application's pool", () => {
   it("never hands out a connection whose transaction was abandoned after a double client timeout", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     await admin.query("insert into probe values (1, 0)");
-    const { pool, db } = appPool(database.url, 300);
+    const { db } = appPool(database.url, 300);
+    let abandonedPid: number | undefined;
     const lock = await holding("select 1 from probe where id = 1 for update");
     try {
-      // Blocked on the row: the update, then the rollback, time out on the client.
-      await expect(db.transaction(async (tx) => tx.execute(sql`update probe set value = 1 where id = 1`))).rejects.toThrow();
+      // Blocked on the row: the update times out on the client.
+      await expect(
+        db.transaction(async (tx) => {
+          abandonedPid = (await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`)).rows[0]?.pid;
+          await tx.execute(sql`update probe set value = 1 where id = 1`);
+        }),
+      ).rejects.toThrow();
     } finally {
       await lock.release();
     }
-    // The next borrower commits its own work only, never the abandoned update.
+    // The next borrower, on another connection, commits its own work only.
     await db.transaction(async (tx) => tx.execute(sql`insert into probe values (2, 2)`));
     await noOpenTransactionLeft();
     expect(await probeRows()).toEqual([
       { id: 1, value: 0 },
       { id: 2, value: 2 },
     ]);
-    expect(pool.totalCount).toBe(1);
-    expect(console.error).toHaveBeenCalledWith("[database] client released inside a transaction: discarded");
+    expect(await backendPid(db)).not.toBe(abandonedPid);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("[database] client discarded: query failed on the client"));
   });
 
   it("never hands out a connection whose transaction a network stall interrupted", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     await admin.query("insert into probe values (1, 0)");
     const proxy = await startStallingProxy(database.url);
+    const { pool, db } = appPool(proxy.url, 300);
     try {
-      const { pool, db } = appPool(proxy.url, 300);
-      // The update reaches the server and runs; its answer, then the rollback's, never come back.
+      let abandonedPid: number | undefined;
+      // The update reaches the server and runs; its answer never comes back.
       await expect(
         db.transaction(async (tx) => {
+          abandonedPid = (await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`)).rows[0]?.pid;
           proxy.stall();
           await tx.execute(sql`update probe set value = 1 where id = 1`);
         }),
@@ -162,11 +181,120 @@ describe("the application's pool", () => {
         { id: 1, value: 0 },
         { id: 2, value: 2 },
       ]);
-      // A new connection served the next borrower.
-      expect(pool.totalCount).toBe(1);
+      expect(await backendPid(db)).not.toBe(abandonedPid);
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining("[database] client discarded: query failed on the client"));
     } finally {
+      await endPool(pool);
       await proxy.close();
     }
+  });
+
+  it("frees the slot of a transaction whose BEGIN never comes back, or whose connection is cut during it", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const proxy = await startStallingProxy(database.url);
+    const { pool, db } = appPool(proxy.url, 300);
+    try {
+      // Drizzle sends BEGIN before its own error handling: it never releases a client whose BEGIN fails.
+      proxy.stall();
+      await expect(db.transaction(async (tx) => tx.execute(sql`select 1`))).rejects.toThrow();
+      proxy.resume();
+      expect(pool.totalCount).toBe(0);
+      expect(await startsFresh(db)).toBe(true);
+
+      proxy.stall();
+      const cut = db.transaction(async (tx) => tx.execute(sql`select 1`));
+      await sleep(50);
+      proxy.cut();
+      await expect(cut).rejects.toThrow();
+      proxy.resume();
+      expect(pool.totalCount).toBe(0);
+      expect(await startsFresh(db)).toBe(true);
+      await noOpenTransactionLeft();
+    } finally {
+      await endPool(pool);
+      await proxy.close();
+    }
+  });
+
+  it("never reuses a connection released inside its transaction", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await admin.query("insert into probe values (1, 0)");
+    const { pool, db } = appPool(database.url);
+    const client = await pool.connect();
+    await client.query("begin");
+    await client.query("update probe set value = 1 where id = 1");
+    client.release();
+    expect(pool.totalCount).toBe(0);
+    expect(console.error).toHaveBeenCalledWith("[database] client discarded: released inside a transaction");
+    await db.transaction(async (tx) => tx.execute(sql`insert into probe values (2, 2)`));
+    await noOpenTransactionLeft();
+    expect(await probeRows()).toEqual([
+      { id: 1, value: 0 },
+      { id: 2, value: 2 },
+    ]);
+  });
+
+  it("never reuses a connection released with a query still in flight", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { pool, db } = appPool(database.url);
+    const client = await pool.connect();
+    await client.query("begin");
+    await client.query("commit");
+    // Idle as far as pg knows, but a statement is still running on the server.
+    const running = client.query("begin; select pg_sleep(1)").catch(() => undefined);
+    expect(client.getTransactionStatus()).toBe("I");
+    client.release();
+    await running;
+    expect(pool.totalCount).toBe(0);
+    expect(console.error).toHaveBeenCalledWith("[database] client discarded: released with a query in flight");
+    expect(await startsFresh(db)).toBe(true);
+    await noOpenTransactionLeft();
+  });
+
+  it("frees the slot of a checked-out client whose session the server ends, before its holder notices", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { pool, db } = appPool(database.url);
+    const client = await pool.connect();
+    const { rows } = await client.query<{ pid: number }>("select pg_backend_pid() as pid");
+    await admin.query("select pg_terminate_backend($1)", [rows[0]?.pid]);
+    await sleep(300);
+    expect(pool.totalCount).toBe(0);
+    expect(await startsFresh(db)).toBe(true);
+    // The holder's own release, later, changes nothing.
+    client.release();
+    expect(pool.totalCount).toBe(1);
+  });
+
+  it("reuses a connection after a commit or after an error answered by the server", async () => {
+    const { db } = appPool(database.url);
+    const first = await backendPid(db);
+    await db.transaction(async (tx) => tx.execute(sql`select 1`));
+    expect(await backendPid(db)).toBe(first);
+    await expect(
+      db.transaction(async (tx) => {
+        await tx.execute(sql`select 1`);
+        throw new Error("the caller gives up");
+      }),
+    ).rejects.toThrow("the caller gives up");
+    expect(await backendPid(db)).toBe(first);
+    await expect(db.transaction(async (tx) => tx.execute(sql`select 1 / 0`))).rejects.toThrow();
+    expect(await backendPid(db)).toBe(first);
+  });
+
+  it("reclaims a connection held longer than the checkout limit", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { pool, db } = appPool(database.url, QUERY_TIMEOUT_MS, 300);
+    await expect(
+      db.transaction(async (tx) => {
+        await tx.execute(sql`select 1`);
+        await sleep(600);
+        await tx.execute(sql`select 1`);
+      }),
+    ).rejects.toThrow();
+    expect(pool.totalCount).toBe(0);
+    expect(console.error).toHaveBeenCalledWith("[database] client discarded: held longer than 300 ms");
+    expect(await startsFresh(db)).toBe(true);
+    await noOpenTransactionLeft();
   });
 
   it("survives the server ending the session of a checked-out client that runs no query", async () => {
@@ -175,15 +303,28 @@ describe("the application's pool", () => {
     await expect(
       db.transaction(async (tx) => {
         const { rows } = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
-        await admin.query("select pg_terminate_backend($1)", [rows[0]?.pid]);
-        // The termination arrives while no query runs: only the client's own listener hears it.
-        await sleep(300);
+        // Waits until the backend has exited, then for the client to hear it while no query runs.
+        await admin.query("select pg_terminate_backend($1, 5000)", [rows[0]?.pid]);
+        await loggedSoon("57P01");
         await tx.execute(sql`select 1`);
       }),
     ).rejects.toThrow();
     expect(pool.totalCount).toBe(0);
     expect(await startsFresh(db)).toBe(true);
     expect(console.error).toHaveBeenCalledWith("[database] client error:", expect.stringContaining("57P01"));
+  });
+
+  it("survives the server ending the session of a client idle in the pool", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { pool, db } = appPool(database.url);
+    const pid = await backendPid(db);
+    const removed = new Promise((resolve) => pool.once("remove", resolve));
+    // As when Neon suspends its compute: pg-pool reports the error of an idle client on the pool.
+    await admin.query("select pg_terminate_backend($1, 5000)", [pid]);
+    await removed;
+    expect(pool.totalCount).toBe(0);
+    expect(console.error).toHaveBeenCalledWith("[database] client error:", expect.stringContaining("57P01"));
+    expect(await backendPid(db)).not.toBe(pid);
   });
 
   it("lets the server end a transaction left idle, without crashing", async () => {
@@ -249,7 +390,7 @@ describe("room and account transactions", () => {
         await lock.release();
       }
       // lock_not_available, raised by the server after its own limit.
-      expect([name, outcome.state]).toEqual([name, "55P03"]);
+      expect(outcome.state, name).toBe("55P03");
       expect(outcome.elapsedMs, name).toBeGreaterThanOrEqual(SERVER_LIMITS_MS.lock - 100);
       expect(outcome.elapsedMs, name).toBeLessThan(QUERY_TIMEOUT_MS);
       expect(await startsFresh(db), name).toBe(true);
