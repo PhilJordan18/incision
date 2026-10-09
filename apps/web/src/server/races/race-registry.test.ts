@@ -1,55 +1,74 @@
 import type { RaceOwnership } from "@incision/database";
-import { describe, expect, it, vi } from "vitest";
-import { getRaceRegistry, type OwnedRace, RaceRegistry } from "./race-registry";
+import { describe, expect, it } from "vitest";
+import { getRaceRegistry, type OwnedRace, RaceRegistry, type ShutdownOutcome } from "./race-registry";
 
-function owned(lobbyId: string): OwnedRace & { readonly stopped: () => boolean } {
+function owned(lobbyId: string, shutdown: () => Promise<ShutdownOutcome> = async () => "interrupted", raceId = `race-${lobbyId}`) {
   let stopped = false;
-  const ownership: RaceOwnership = { raceId: `race-${lobbyId}`, lobbyId, ownerId: "owner", ownerEpoch: 1 };
-  return { ownership, lease: { stop: () => (stopped = true) }, stopped: () => stopped };
+  const ownership: RaceOwnership = { raceId, lobbyId, ownerId: "owner", ownerEpoch: 1 };
+  const race: OwnedRace = { ownership, lease: { stop: () => (stopped = true) }, shutdown };
+  return { race, stopped: () => stopped };
 }
 
 describe("RaceRegistry", () => {
-  it("knows the races this process runs, one per room, and stops a lease when its race ends", () => {
+  it("knows the race each room runs here, and stops its lease when that race ends", () => {
     const registry = new RaceRegistry();
-    const race = owned("lobby-1");
-    expect(registry.add(race)).toBe(true);
+    const one = owned("lobby-1");
+    expect(registry.add(one.race)).toBe(true);
     expect(registry.ownsRace("lobby-1")).toBe(true);
     expect(registry.ownsRace("lobby-2")).toBe(false);
-    registry.remove("lobby-1");
+    // Removing another race of the room changes nothing.
+    registry.remove({ lobbyId: "lobby-1", raceId: "race-older" });
+    expect(registry.ownsRace("lobby-1")).toBe(true);
+    registry.remove(one.race.ownership);
     expect(registry.ownsRace("lobby-1")).toBe(false);
-    expect(race.stopped()).toBe(true);
+    expect(one.stopped()).toBe(true);
   });
 
-  it("on stopping, refuses new races, interrupts its own ones and tells their rooms", async () => {
+  it("refuses a second race in a room that already runs one", () => {
     const registry = new RaceRegistry();
-    const [one, two, lost] = [owned("lobby-1"), owned("lobby-2"), owned("lobby-3")];
-    registry.add(one);
-    registry.add(two);
-    registry.add(lost);
-    const interrupt = vi.fn(async ({ lobbyId }: RaceOwnership) => lobbyId !== "lobby-3");
-    const told: string[] = [];
-    const outcome = await registry.stop({ interrupt, onInterrupted: (lobbyId) => told.push(lobbyId), timeoutMs: 1_000 });
-    expect(outcome).toEqual({ interrupted: 2, left: 1, timedOut: false });
-    expect(told.sort()).toEqual(["lobby-1", "lobby-2"]);
-    // Every lease stops, interrupted or not: no renewal after the stop.
-    expect([one, two, lost].every((race) => race.stopped())).toBe(true);
-    expect(registry.add(owned("lobby-4"))).toBe(false);
+    registry.add(owned("lobby-1").race);
+    expect(() => registry.add(owned("lobby-1", undefined, "race-other").race)).toThrow("already runs another race");
+  });
+
+  it("on stopping, refuses new races and ends each one through its own shutdown", async () => {
+    const registry = new RaceRegistry();
+    const races = [owned("lobby-1", async () => "finalised"), owned("lobby-2", async () => "interrupted"), owned("lobby-3", async () => "left")];
+    for (const { race } of races) {
+      registry.add(race);
+    }
+    const ended: [string, string][] = [];
+    const report = await registry.stop({ onEnded: (lobbyId, outcome) => ended.push([lobbyId, outcome]), timeoutMs: 1_000 });
+    expect(report).toEqual({ finalised: 1, interrupted: 1, left: 1, timedOut: false });
+    expect(ended.sort()).toEqual([
+      ["lobby-1", "finalised"],
+      ["lobby-2", "interrupted"],
+    ]);
+    expect(races.every(({ stopped }) => stopped())).toBe(true);
+    expect(registry.add(owned("lobby-4").race)).toBe(false);
+  });
+
+  it("keeps a race registered until its shutdown settles, so it is never recovered here meanwhile", async () => {
+    const registry = new RaceRegistry();
+    const finish = Promise.withResolvers<ShutdownOutcome>();
+    registry.add(owned("lobby-1", () => finish.promise).race);
+    const stopping = registry.stop({ onEnded: () => undefined, timeoutMs: 1_000 });
+    expect(registry.ownsRace("lobby-1")).toBe(true);
+    finish.resolve("interrupted");
+    await stopping;
     expect(registry.ownsRace("lobby-1")).toBe(false);
   });
 
-  it("leaves a race to its lease when its interruption fails or does not answer in time", async () => {
+  it("leaves a race to its lease when its shutdown fails or does not answer in time", async () => {
     const registry = new RaceRegistry();
-    registry.add(owned("lobby-1"));
-    registry.add(owned("lobby-2"));
-    const interrupt = vi.fn(async ({ lobbyId }: RaceOwnership) => {
-      if (lobbyId === "lobby-1") {
+    registry.add(
+      owned("lobby-1", async () => {
         throw new Error("connect ECONNREFUSED");
-      }
-      return new Promise<boolean>(() => undefined);
-    });
+      }).race,
+    );
+    registry.add(owned("lobby-2", () => new Promise<ShutdownOutcome>(() => undefined)).race);
     const started = performance.now();
-    const outcome = await registry.stop({ interrupt, onInterrupted: () => undefined, timeoutMs: 50 });
-    expect(outcome).toEqual({ interrupted: 0, left: 2, timedOut: true });
+    const report = await registry.stop({ onEnded: () => undefined, timeoutMs: 50 });
+    expect(report).toEqual({ finalised: 0, interrupted: 0, left: 2, timedOut: true });
     expect(performance.now() - started).toBeLessThan(1_000);
   });
 

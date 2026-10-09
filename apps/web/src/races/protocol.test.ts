@@ -1,44 +1,61 @@
 import { MAX_BATCH_EVENTS } from "@incision/domain";
 import { describe, expect, it } from "vitest";
-import { abandonPayloadSchema, keystrokeBatchPayloadSchema } from "./protocol";
+import { abandonPayloadSchema, keystrokeBatchPayloadSchema, parseKeystrokeBatch } from "./protocol";
 
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
 const batch = (change: Record<string, unknown> = {}) => ({ raceId: RACE, seq: 1, textVersion: 0, events: [{ type: "insert", grapheme: "a" }], ...change });
+const deletions = (count: number) => Array.from({ length: count }, () => ({ type: "deleteBackward" }));
 
-describe("keystrokeBatchPayloadSchema", () => {
-  it("accepts a batch the engine can judge, inserts of one grapheme of any size included", () => {
-    expect(keystrokeBatchPayloadSchema.safeParse(batch()).success).toBe(true);
-    const events = [{ type: "insert", grapheme: "👩‍👩‍👧‍👦" }, { type: "insert", grapheme: "é" }, { type: "deleteBackward" }];
-    expect(keystrokeBatchPayloadSchema.safeParse(batch({ events })).success).toBe(true);
-    const full = Array.from({ length: MAX_BATCH_EVENTS }, () => ({ type: "deleteBackward" }));
-    expect(keystrokeBatchPayloadSchema.safeParse(batch({ events: full })).success).toBe(true);
+describe("keystroke batch payloads", () => {
+  it("let through every batch the engine itself judges, its refusals included", () => {
+    const forTheEngine = [
+      batch(),
+      batch({ events: [{ type: "insert", grapheme: "👩‍👩‍👧‍👦" }, { type: "insert", grapheme: "é" }, { type: "deleteBackward" }] }),
+      // The engine refuses these with INVALID_INPUT or BATCH_TOO_LARGE, and a snapshot.
+      batch({ seq: 0 }),
+      batch({ seq: 1.5 }),
+      batch({ textVersion: -1 }),
+      batch({ events: [] }),
+      batch({ events: [{ type: "insert", grapheme: "" }] }),
+      batch({ events: [{ type: "insert", grapheme: "ab" }] }),
+      batch({ events: deletions(MAX_BATCH_EVENTS + 1) }),
+      // A line break counts as one wrong grapheme for the engine; the client never sends Enter (D-16).
+      batch({ events: [{ type: "insert", grapheme: "\n" }] }),
+    ];
+    for (const payload of forTheEngine) {
+      expect(parseKeystrokeBatch(payload).success).toBe(true);
+    }
   });
 
   it.each([
     ["a null event", { events: [null] }],
     ["events that are not an array", { events: { 0: { type: "insert", grapheme: "a" } } }],
-    ["no event", { events: [] }],
-    ["more events than the engine takes", { events: Array.from({ length: MAX_BATCH_EVENTS + 1 }, () => ({ type: "deleteBackward" })) }],
     ["an unknown event type", { events: [{ type: "paste", text: "abc" }] }],
-    ["Enter", { events: [{ type: "insert", grapheme: "\n" }] }],
-    ["a carriage return", { events: [{ type: "insert", grapheme: "\r\n" }] }],
-    ["an empty insert", { events: [{ type: "insert", grapheme: "" }] }],
-    ["an oversized insert", { events: [{ type: "insert", grapheme: "a".repeat(65) }] }],
     ["an extra field on an event", { events: [{ type: "deleteBackward", count: 3 }] }],
-    ["a sequence below 1", { seq: 0 }],
-    ["a fractional sequence", { seq: 1.5 }],
-    ["an unsafe sequence", { seq: Number.MAX_SAFE_INTEGER + 2 }],
-    ["a negative text version", { textVersion: -1 }],
+    ["an insert that is not a string", { events: [{ type: "insert", grapheme: 7 }] }],
+    ["an insert beyond the wire bound", { events: [{ type: "insert", grapheme: "a".repeat(65) }] }],
+    ["more events than a message carries", { events: deletions(2 * MAX_BATCH_EVENTS + 1) }],
+    ["a sequence that is not a number", { seq: "1" }],
     ["a race id that is not a UUID", { raceId: "race-1" }],
     ["an entrant id from the client", { entrantId: RACE }],
-  ])("refuses %s", (_label, change) => {
-    expect(keystrokeBatchPayloadSchema.safeParse(batch(change)).success).toBe(false);
+  ])("refuse %s, which is not a batch", (_label, change) => {
+    expect(parseKeystrokeBatch(batch(change)).success).toBe(false);
   });
 
-  it("refuses a payload that is not an object", () => {
+  it("refuse a payload that is not an object", () => {
     for (const payload of [null, "batch", 42, [batch()]]) {
-      expect(keystrokeBatchPayloadSchema.safeParse(payload).success).toBe(false);
+      expect(parseKeystrokeBatch(payload).success).toBe(false);
     }
+  });
+
+  it("refuse an oversized array before parsing any of its events", () => {
+    const parsed = parseKeystrokeBatch(batch({ events: Array.from({ length: 40_000 }, () => ({ type: "insert", grapheme: "x".repeat(60) })) }));
+    // The size step answers: no issue comes from the events themselves.
+    expect(parsed.success ? [] : parsed.issues.map((issue) => issue.path.join("."))).toEqual(["events"]);
+  });
+
+  it("match the full schema whenever the size step passes", () => {
+    expect(keystrokeBatchPayloadSchema.safeParse(batch()).success).toBe(parseKeystrokeBatch(batch()).success);
   });
 });
 

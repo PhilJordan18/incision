@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { createServer, type Server as HttpServer } from "node:http";
-import type { ActiveMembership, RoomSnapshot } from "@incision/database";
+import type { ActiveMembership, RoomRecovery, RoomSnapshot } from "@incision/database";
 import type { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,7 +25,7 @@ let presence: RoomPresence;
 let registry: SessionRegistry;
 let findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
 let readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
-let recoverAbandonedRace: (lobbyId: string) => Promise<boolean>;
+let recoverAbandonedRace: (lobbyId: string) => Promise<RoomRecovery>;
 const ownedRaces = new Set<string>();
 const memberships = new Map<string, ActiveMembership>();
 const snapshots = new Map<string, RoomSnapshot>();
@@ -76,7 +76,7 @@ beforeEach(async () => {
   });
   findActiveMembership = vi.fn(async (accountId: string) => memberships.get(accountId));
   readRoomSnapshot = vi.fn(async (lobbyId: string) => snapshots.get(lobbyId));
-  recoverAbandonedRace = vi.fn(async () => false);
+  recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => ({ recovered: false }));
   ownedRaces.clear();
   io = attachRealtimeServer(httpServer, { allowedOrigin: baseUrl, isProduction: true, authenticate, registry });
   registerRoomChannel(io, {
@@ -86,8 +86,7 @@ beforeEach(async () => {
     events,
     findActiveMembership: (accountId) => findActiveMembership(accountId),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
-    recoverAbandonedRace: (lobbyId) => recoverAbandonedRace(lobbyId),
-    ownsRace: (lobbyId) => ownedRaces.has(lobbyId),
+    raceRecovery: { recover: (lobbyId) => recoverAbandonedRace(lobbyId), ownsRace: (lobbyId) => ownedRaces.has(lobbyId) },
   });
 });
 
@@ -405,38 +404,84 @@ describe("recovery of an abandoned race when a member watches its room (ADR-0004
     snapshots.set(lobbyId, { ...snapshotOf(lobbyId), phase: "racing", revision });
   }
 
-  it("recovers the race of a room in RACING that this process does not run, then tells the members", async () => {
-    racing("lobby-1");
-    recoverAbandonedRace = vi.fn(async (lobbyId: string) => {
-      snapshots.set(lobbyId, { ...snapshotOf(lobbyId), phase: "waiting", revision: 3 });
-      return true;
+  /** The room's race is recovered by the next call: the room goes back to WAITING. */
+  function recoveredNext(lobbyId: string): void {
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      snapshots.set(lobbyId, { ...snapshotOf(lobbyId), phase: "waiting", revision: snapshotOf(lobbyId).revision + 1 });
+      return { recovered: true };
     });
-    const alice = await open("session=alice");
-    const fresh = nextSnapshot(alice, 1_000);
-    expect(await watch(alice)).toMatchObject({ ok: true });
+  }
+
+  it("recovers the race of a room in RACING that this process does not run, then tells every member", async () => {
+    racing("lobby-1");
+    const first = await open("session=alice");
+    await watch(first);
+    // A second socket of the same member: its watch alone triggers no broadcast.
+    recoveredNext("lobby-1");
+    const told = nextSnapshot(first, 1_000);
+    const second = await open("session=alice");
+    expect(await watch(second)).toMatchObject({ ok: true });
     expect(recoverAbandonedRace).toHaveBeenCalledWith("lobby-1");
-    expect(await fresh).toMatchObject({ phase: "waiting", revision: 3 });
+    expect(await told).toMatchObject({ phase: "waiting", revision: 3 });
   });
 
-  it("never touches a race this process runs, nor a room in another phase", async () => {
+  it("never touches a race this process runs, a room in another phase, a non-member's watch or a failed read", async () => {
     racing("lobby-1");
     ownedRaces.add("lobby-1");
     const alice = await open("session=alice");
     await watch(alice);
     const clo = await open("session=clo");
     await watch(clo, "BCDEFG");
+    racing("lobby-2");
+    // Clo's room again, but Clo is not a member of lobby-1.
+    expect(await watch(clo, "ABCDEF")).toMatchObject({ ok: false, error: "NOT_A_MEMBER" });
+    ownedRaces.clear();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    readRoomSnapshot = vi.fn(async () => {
+      throw new Error("connect ECONNREFUSED");
+    });
+    const bob = await open("session=bob");
+    expect(await watch(bob)).toMatchObject({ ok: false, error: "UNAVAILABLE" });
+    logged.mockRestore();
     expect(recoverAbandonedRace).not.toHaveBeenCalled();
   });
 
   it("answers the watch even when the recovery fails, and logs it without detail", async () => {
     racing("lobby-1");
     const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    recoverAbandonedRace = vi.fn(async () => {
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
       throw new Error("connect ECONNREFUSED");
     });
     const alice = await open("session=alice");
     expect(await watch(alice)).toMatchObject({ ok: true, snapshot: { phase: "racing" } });
     expect(logged).toHaveBeenCalledWith("[races] recovery on watch failed:", "connect ECONNREFUSED");
     logged.mockRestore();
+  });
+
+  it("looks again once the lease has run out, while someone still follows the room", async () => {
+    racing("lobby-1");
+    recoverAbandonedRace = vi.fn(async (lobbyId: string): Promise<RoomRecovery> => {
+      // Next time, the lease has expired and the race is recovered.
+      recoveredNext(lobbyId);
+      return { recovered: false, retryInMs: 50 };
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    const told = await nextSnapshot(alice, 3_000);
+    expect(told).toMatchObject({ phase: "waiting", revision: 3 });
+  });
+
+  it("does not look again once nobody follows the room", async () => {
+    racing("lobby-1");
+    let calls = 0;
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      calls += 1;
+      return { recovered: false, retryInMs: 50 };
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    alice.close();
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+    expect(calls).toBe(1);
   });
 });

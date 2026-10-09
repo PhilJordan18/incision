@@ -23,6 +23,9 @@ import { endedNow, interruption } from "./interruption";
 export const RACE_LEASE_MS = 30_000;
 const leaseEnd = sql`statement_timestamp() + make_interval(secs => ${RACE_LEASE_MS / 1000})`;
 
+/** An active race whose lease has passed on the database clock: another process may take it over. */
+const expiredActiveRace = and(inArray(races.state, ACTIVE_RACE_STATES), sql`${races.leaseExpiresAt} <= statement_timestamp()`);
+
 /**
  * The process running a race, the generation of its ownership and its room. It only ever comes
  * from the runtime that started the race, never from a client.
@@ -397,7 +400,7 @@ export type Recovery = {
 export async function recoverAbandonedRaces(db: Database, scope: { readonly lobbyId?: string } = {}): Promise<Recovery> {
   // Nothing here waits for a row; the limits still bound a table lock (a migration).
   return boundedTransaction(db, async (tx): Promise<Recovery> => {
-    const expired = and(inArray(races.state, ACTIVE_RACE_STATES), sql`${races.leaseExpiresAt} <= statement_timestamp()`);
+    const expired = expiredActiveRace;
     const inScope = scope.lobbyId === undefined ? undefined : eq(lobbies.id, scope.lobbyId);
     const candidates = await tx
       .select({ lobbyId: lobbies.id, raceId: races.id })
@@ -451,28 +454,32 @@ export async function recoverAbandonedRaces(db: Database, scope: { readonly lobb
   }, READ_COMMITTED);
 }
 
+export type RoomRecovery =
+  | { readonly recovered: true }
+  /** `retryInMs`: the room's race is active and its lease runs this much longer (database clock). */
+  | { readonly recovered: false; readonly retryInMs?: number };
+
 /**
  * Recovers the race of one room whose owner stopped renewing (ADR-0004), for a room someone
  * opens or watches. One read first: only an active race with an expired lease leads to the
- * recovery transaction, so a race in progress costs one read. True when the room went back to
- * WAITING.
+ * recovery transaction. While the lease runs, it says how long it still runs, so the caller can
+ * look again once, then; nothing is recovered.
  */
-export async function recoverRoomIfAbandoned(db: Database, lobbyId: string): Promise<boolean> {
-  const [expired] = await db
-    .select({ raceId: races.id })
+export async function recoverRoomIfAbandoned(db: Database, lobbyId: string): Promise<RoomRecovery> {
+  const [race] = await db
+    .select({
+      expired: sql<boolean>`${races.leaseExpiresAt} <= statement_timestamp()`,
+      leaseLeftMs: sql<number>`greatest(0, ceil(extract(epoch from (${races.leaseExpiresAt} - statement_timestamp())) * 1000))::float8`,
+    })
     .from(lobbies)
     .innerJoin(races, eq(races.id, lobbies.currentRaceId))
-    .where(
-      and(
-        eq(lobbies.id, lobbyId),
-        inArray(lobbies.phase, ACTIVE_RACE_STATES),
-        inArray(races.state, ACTIVE_RACE_STATES),
-        sql`${races.leaseExpiresAt} <= statement_timestamp()`,
-      ),
-    );
-  if (expired === undefined) {
-    return false;
+    .where(and(eq(lobbies.id, lobbyId), inArray(lobbies.phase, ACTIVE_RACE_STATES), inArray(races.state, ACTIVE_RACE_STATES)));
+  if (race === undefined) {
+    return { recovered: false };
+  }
+  if (!race.expired) {
+    return { recovered: false, retryInMs: race.leaseLeftMs };
   }
   const { rooms } = await recoverAbandonedRaces(db, { lobbyId });
-  return rooms.includes(lobbyId);
+  return rooms.includes(lobbyId) ? { recovered: true } : { recovered: false };
 }

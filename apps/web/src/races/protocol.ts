@@ -1,43 +1,54 @@
-import { MAX_BATCH_EVENTS } from "@incision/domain";
+import { MAX_BATCH_EVENTS, MAX_GRAPHEME_LENGTH } from "@incision/domain";
 import { z } from "zod";
 
 /**
- * Race events over Socket.IO (F-04.0), shared by the browser and the server. The schemas
- * guarantee the structure the engine assumes (an object, a bounded array of non-null events);
- * the engine itself judges the values (sequence, text version, one grapheme per insert) and
- * refuses them with INVALID_INPUT. The entrant always comes from the session, never from here.
+ * Race events over Socket.IO (F-04.0), shared by the browser and the server. These schemas
+ * check the structure only: what the engine assumes (an object, an array of non-null events of
+ * its two kinds) and what bounds the work of one message. The values are the engine's to judge
+ * (`applyKeystrokes`): a sequence below 1, an empty batch, an empty or multi-grapheme insert, or
+ * more than MAX_BATCH_EVENTS events are refused by it, with the snapshot its contract promises.
+ * A payload that fails these schemas is not a batch at all. The entrant always comes from the
+ * session, never from here.
  */
 export const RACE_BATCH_EVENT = "race:batch";
 export const RACE_ABANDON_EVENT = "race:abandon";
 
-/**
- * One typed grapheme, or a deletion. A grapheme is short (an emoji sequence stays well under
- * this bound); a line break is never typed (D-16): the client does not send Enter, and the
- * server refuses it before the engine, where it would count as a wrong grapheme.
- */
+/** What one message may carry: twice what the engine accepts, so its own refusal stays reachable. */
+const WIRE_MAX_EVENTS = 2 * MAX_BATCH_EVENTS;
+/** A wire bound on one insert, above the engine's grapheme bound (which refuses longer ones). */
+const WIRE_MAX_INSERT_LENGTH = 4 * MAX_GRAPHEME_LENGTH;
+
 const inputEventSchema = z.discriminatedUnion("type", [
-  z
-    .object({
-      type: z.literal("insert"),
-      grapheme: z
-        .string()
-        .min(1)
-        .max(64)
-        .refine((grapheme) => !/[\r\n]/.test(grapheme), "Enter is never typed"),
-    })
-    .strict(),
+  z.object({ type: z.literal("insert"), grapheme: z.string().max(WIRE_MAX_INSERT_LENGTH) }).strict(),
   z.object({ type: z.literal("deleteBackward") }).strict(),
 ]);
 
 export const keystrokeBatchPayloadSchema = z
   .object({
     raceId: z.uuid(),
-    seq: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-    textVersion: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
-    events: z.array(inputEventSchema).min(1).max(MAX_BATCH_EVENTS),
+    seq: z.number(),
+    textVersion: z.number(),
+    events: z.array(inputEventSchema).max(WIRE_MAX_EVENTS),
   })
   .strict();
 export type KeystrokeBatchPayload = z.infer<typeof keystrokeBatchPayloadSchema>;
+
+/** The cheap first step: the size of the events array, before any event is parsed. */
+const batchSizeSchema = z.object({ events: z.array(z.unknown()).max(WIRE_MAX_EVENTS) }).loose();
+
+export type ParsedBatch =
+  | { readonly success: true; readonly data: KeystrokeBatchPayload }
+  | { readonly success: false; readonly issues: readonly { readonly path: readonly PropertyKey[]; readonly message: string }[] };
+
+/** Parses a batch payload, refusing an oversized array before parsing its events. */
+export function parseKeystrokeBatch(payload: unknown): ParsedBatch {
+  const size = batchSizeSchema.safeParse(payload);
+  if (!size.success) {
+    return { success: false, issues: size.error.issues };
+  }
+  const parsed = keystrokeBatchPayloadSchema.safeParse(payload);
+  return parsed.success ? { success: true, data: parsed.data } : { success: false, issues: parsed.error.issues };
+}
 
 /** Leaving the race on purpose (COURSE-07): the reason is always `voluntary`, set by the server. */
 export const abandonPayloadSchema = z.object({ raceId: z.uuid() }).strict();

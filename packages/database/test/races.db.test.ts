@@ -633,24 +633,27 @@ describe("ownership lease (ADR-0004)", () => {
     expect(await resultCount(two.race.raceId)).toBe(0);
   });
 
-  it("recovers a room's race on opening only when its lease has expired, after one read", async () => {
+  it("recovers a room's race on opening only once its lease has expired, and says how long it still runs", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
     const { race } = await started(hostId);
-    expect(await recoverRoomIfAbandoned(db, lobbyId)).toBe(false);
+    const running = await recoverRoomIfAbandoned(db, lobbyId);
+    expect(running.recovered).toBe(false);
+    expect(running.recovered ? 0 : running.retryInMs).toBeGreaterThan(25_000);
+    expect(running.recovered ? 0 : running.retryInMs).toBeLessThanOrEqual(30_000);
     expect(await raceOf(race.raceId)).toMatchObject({ state: "countdown", owner_epoch: 1 });
     await expireLease(race.raceId);
-    // Another transaction holds the room: nothing is recovered now.
+    // Another transaction holds the room: nothing is recovered now, and no wait is suggested.
     const held = await holdRoom(lobbyId);
     try {
-      expect(await recoverRoomIfAbandoned(db, lobbyId)).toBe(false);
+      expect(await recoverRoomIfAbandoned(db, lobbyId)).toEqual({ recovered: false });
     } finally {
       await held.commit();
     }
-    expect(await recoverRoomIfAbandoned(db, lobbyId)).toBe(true);
+    expect(await recoverRoomIfAbandoned(db, lobbyId)).toEqual({ recovered: true });
     expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "waiting" });
     expect(await raceOf(race.raceId)).toMatchObject({ state: "interrupted", interruption_reason: "owner_lost" });
-    // A waiting room: nothing to recover.
-    expect(await recoverRoomIfAbandoned(db, lobbyId)).toBe(false);
+    // A waiting room: nothing to recover, nothing to wait for.
+    expect(await recoverRoomIfAbandoned(db, lobbyId)).toEqual({ recovered: false });
   });
 
   it("recovers one room on demand, and leaves the others to their own owners", async () => {
@@ -756,7 +759,9 @@ describe("results read by an entrant (HIST-02)", () => {
     await beginRacing(db, race);
     await finalizeRace(db, race, resultsFor(entrants));
     const view = await readRaceForEntrant(db, race.raceId, hostId);
-    expect(view).toMatchObject({ raceId: race.raceId, roundNo: 1, state: "finished", interruptionReason: null, roomCode: "ABCDEF" });
+    expect(view).toMatchObject({ raceId: race.raceId, roundNo: 1, state: "finished", interruptionReason: null });
+    // Independent of the room (HIST-02): no room code in the history view.
+    expect(view).not.toHaveProperty("roomCode");
     expect(view?.entrants.map((entrant) => [entrant.displayName, entrant.isSelf, entrant.result?.rank])).toEqual([
       ["Hôte", true, 1],
       ["Bea", false, 2],
@@ -771,7 +776,21 @@ describe("results read by an entrant (HIST-02)", () => {
     // Still readable once the room is purged.
     await pool.query("update lobbies set host_member_id = null where id = $1", [lobbyId]);
     await pool.query("delete from lobbies where id = $1", [lobbyId]);
-    expect(await readRaceForEntrant(db, race.raceId, hostId)).toMatchObject({ state: "finished", roomCode: null });
+    expect((await readRaceForEntrant(db, race.raceId, hostId))?.entrants).toHaveLength(2);
+  });
+
+  it("shows results only for a finished race", async () => {
+    const { hostId } = await room("ABCDEF");
+    const { race, entrants } = await started(hostId);
+    await beginRacing(db, race);
+    // As if read between the two statements of a finalisation: results already there, race still racing.
+    await pool.query(
+      "insert into race_results (race_id, entrant_id, outcome, rank, elapsed_ms, position, length, correct_inputs, total_inputs, net_wpm, raw_wpm, accuracy) values ($1, $2, 'finished', 1, 1000, 17, 17, 17, 17, 20, 20, 100)",
+      [race.raceId, entrants[0]?.entrantId],
+    );
+    const view = await readRaceForEntrant(db, race.raceId, hostId);
+    expect(view?.state).toBe("racing");
+    expect(view?.entrants.every((entrant) => entrant.result === undefined)).toBe(true);
   });
 
   it("shows an interrupted race without any result (D-06)", async () => {

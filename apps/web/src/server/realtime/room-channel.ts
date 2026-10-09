@@ -1,5 +1,5 @@
 import type { EventEmitter } from "node:events";
-import { describeDatabaseError, type ActiveMembership, type RoomSnapshot } from "@incision/database";
+import { describeDatabaseError, type ActiveMembership, type RoomRecovery, type RoomSnapshot } from "@incision/database";
 import { parseRoomCode, type RoomPhase } from "@incision/domain";
 import type { Server, Socket } from "socket.io";
 import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
@@ -17,14 +17,20 @@ export type RoomChannelDependencies = {
   readonly events: EventEmitter<RoomEvents>;
   readonly findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
   readonly readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
-  /**
-   * Recovers the room's race if its owner stopped renewing (`recoverRoomIfAbandoned`); true
-   * when the room went back to WAITING.
-   */
-  readonly recoverAbandonedRace?: (lobbyId: string) => Promise<boolean>;
-  /** Whether this process runs the room's race; such a race is never recovered here. */
-  readonly ownsRace?: (lobbyId: string) => boolean;
+  /** Recovery of races nobody runs any more (ADR-0004); both parts together, or none. */
+  readonly raceRecovery?: {
+    /** `recoverRoomIfAbandoned`: recovers the room's race once its owner stopped renewing. */
+    readonly recover: (lobbyId: string) => Promise<RoomRecovery>;
+    /** Whether this process runs the room's race; such a race is never recovered here. */
+    readonly ownsRace: (lobbyId: string) => boolean;
+  };
   readonly now?: () => number;
+};
+
+/** What the server needs from the channel when it stops. */
+export type RoomChannel = {
+  /** Resolves once every broadcast under way has gone out. */
+  readonly whenIdle: () => Promise<void>;
 };
 
 /**
@@ -52,10 +58,10 @@ const channelOf = (lobbyId: string) => `lobby:${lobbyId}`;
  * the payload or `socket.id`. Members get a fresh snapshot after every committed change
  * and whenever someone's connection comes or goes.
  */
-export function registerRoomChannel(io: Server, dependencies: RoomChannelDependencies): void {
+export function registerRoomChannel(io: Server, dependencies: RoomChannelDependencies): RoomChannel {
   const { presence, events, now = Date.now } = dependencies;
   // One snapshot read per room at a time; changes during a read trigger one more read.
-  const broadcasting = new Map<string, { again: boolean }>();
+  const broadcasting = new Map<string, { again: boolean; done: Promise<void> }>();
   const watchesInFlight = new Map<string, number>();
   // Newest revision broadcast per followed room, to catch a watch that read an older one.
   const lastBroadcast = new Map<string, number>();
@@ -66,9 +72,9 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       running.again = true;
       return;
     }
-    const state = { again: false };
+    const state = { again: false, done: Promise.resolve() };
     broadcasting.set(lobbyId, state);
-    void (async () => {
+    state.done = (async () => {
       try {
         do {
           state.again = false;
@@ -112,7 +118,10 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
   }
 
   events.on("changed", scheduleBroadcast);
-  const recoverIfAbandoned = recoveryOnWatch(dependencies, scheduleBroadcast);
+  const recoverIfAbandoned = recoveryOnWatch(dependencies, {
+    scheduleBroadcast,
+    followed: (lobbyId) => (io.sockets.adapter.rooms.get(channelOf(lobbyId))?.size ?? 0) > 0,
+  });
 
   io.on("connection", (socket: Socket) => {
     const budget: WatchBudget = { startedAt: now(), used: 0, inFlight: false };
@@ -236,28 +245,60 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       snapshot: publicSnapshot(snapshot, presence.onlineMembers(room.lobbyId)),
     };
   }
+
+  return {
+    whenIdle: async () => {
+      while (broadcasting.size > 0) {
+        await Promise.all([...broadcasting.values()].map((state) => state.done));
+      }
+    },
+  };
 }
 
 /**
  * Recovery of a race nobody runs any more, when a member watches its room (ADR-0004). Inside
  * the watch, so within its budget; only in an active phase and for a race this process does
  * not run. A recovered room is broadcast: every member learns that the race was interrupted.
+ * While the lease still runs (its owner may be gone, or alive elsewhere), the room is looked at
+ * once more when it expires, and only if someone still follows it: no periodic query.
  */
-function recoveryOnWatch(dependencies: RoomChannelDependencies, scheduleBroadcast: (lobbyId: string) => void) {
-  return async (lobbyId: string, phase: RoomPhase): Promise<void> => {
-    const { recoverAbandonedRace, ownsRace } = dependencies;
-    if (recoverAbandonedRace === undefined || (phase !== "countdown" && phase !== "racing") || ownsRace?.(lobbyId) === true) {
+function recoveryOnWatch(
+  dependencies: RoomChannelDependencies,
+  room: { readonly scheduleBroadcast: (lobbyId: string) => void; readonly followed: (lobbyId: string) => boolean },
+) {
+  const lookAgain = new Map<string, NodeJS.Timeout>();
+  const recover = async (lobbyId: string): Promise<void> => {
+    const recovery = dependencies.raceRecovery;
+    if (recovery === undefined || recovery.ownsRace(lobbyId)) {
       return;
     }
     try {
-      if (await recoverAbandonedRace(lobbyId)) {
-        scheduleBroadcast(lobbyId);
+      const outcome = await recovery.recover(lobbyId);
+      if (outcome.recovered) {
+        room.scheduleBroadcast(lobbyId);
+      } else if (outcome.retryInMs !== undefined && !lookAgain.has(lobbyId)) {
+        const timer = setTimeout(() => {
+          lookAgain.delete(lobbyId);
+          if (room.followed(lobbyId)) {
+            void recover(lobbyId);
+          }
+        }, outcome.retryInMs + LOOK_AGAIN_MARGIN_MS);
+        timer.unref();
+        lookAgain.set(lobbyId, timer);
       }
     } catch (error: unknown) {
       console.error("[races] recovery on watch failed:", describeDatabaseError(error));
     }
   };
+  return async (lobbyId: string, phase: RoomPhase): Promise<void> => {
+    if (phase === "countdown" || phase === "racing") {
+      await recover(lobbyId);
+    }
+  };
 }
+
+/** After the lease's end on the database clock, a margin for the clocks and the last renewal. */
+const LOOK_AGAIN_MARGIN_MS = 1_000;
 
 function watchedRoomOf(data: unknown): WatchedRoom | undefined {
   if (typeof data !== "object" || data === null || !("room" in data)) {

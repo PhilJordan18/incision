@@ -1,25 +1,41 @@
 import type { RaceOwnership } from "@incision/database";
 
-/** A race this process runs: its ownership (ADR-0004) and what keeps its lease. */
+/** How a race ended when its process stopped. */
+export type ShutdownOutcome =
+  /** Its frozen results were saved (`finalizeRace` won or had already). */
+  | "finalised"
+  /** Interrupted through the fenced write (`interruptOwnRace`, `server_stopped`). */
+  | "interrupted"
+  /** Neither in time: left to its lease, which another process recovers once it expires. */
+  | "left";
+
+/** A race this process runs (ADR-0004), as its runtime registers it. */
 export type OwnedRace = {
   readonly ownership: RaceOwnership;
   /** Stopping it ends the renewals for good (`RaceLease.stop`). */
   readonly lease: { readonly stop: () => void };
+  /**
+   * Ends the race for a stopping process. The runtime decides how: a race whose results are
+   * frozen may get one attempt to save them before it is interrupted.
+   */
+  readonly shutdown: () => Promise<ShutdownOutcome>;
 };
 
 export type StopOptions = {
-  /** The owner's own interruption (`interruptOwnRace(…, "server_stopped")`); true when it won. */
-  readonly interrupt: (ownership: RaceOwnership) => Promise<boolean>;
-  /** Told about each room whose race was interrupted, so its members learn it. */
-  readonly onInterrupted: (lobbyId: string) => void;
-  /** The interruptions run at once and are not awaited beyond this, within the shutdown grace. */
+  /** Told about each room whose race was finalised or interrupted, so its members learn it. */
+  readonly onEnded: (lobbyId: string, outcome: Exclude<ShutdownOutcome, "left">) => void;
+  /** The shutdowns run at once and are not awaited beyond this, within the process's grace. */
   readonly timeoutMs: number;
 };
 
+export type StopReport = { readonly finalised: number; readonly interrupted: number; readonly left: number; readonly timedOut: boolean };
+
 /**
- * The races this process runs, one per room (F-04.0, ADR-0004). When the process stops it
- * refuses new races, then interrupts its own ones through the fenced write: a race it cannot
- * interrupt in time is left to its lease, which another process recovers once it expires.
+ * The races this process runs, one per room (F-04.0, ADR-0004). The start path checks
+ * `stopping` before it starts a race, and a race `add` refuses (the process began stopping in
+ * between) is interrupted by its starter. When the process stops, every race ends through its
+ * own shutdown; a race stays registered until that settles, so it is never recovered here as
+ * an abandoned one meanwhile.
  */
 export class RaceRegistry {
   readonly #races = new Map<string, OwnedRace>();
@@ -29,43 +45,48 @@ export class RaceRegistry {
     return this.#stopping;
   }
 
-  /** False once the process is stopping: no race may start then. */
+  /** False once the process is stopping. A room runs one race at a time: a second is a bug. */
   add(race: OwnedRace): boolean {
     if (this.#stopping) {
       return false;
+    }
+    const current = this.#races.get(race.ownership.lobbyId);
+    if (current !== undefined && current.ownership.raceId !== race.ownership.raceId) {
+      throw new Error("A room already runs another race in this process");
     }
     this.#races.set(race.ownership.lobbyId, race);
     return true;
   }
 
-  /** The race of `lobbyId` ended here (finished, interrupted, or its lease lost). */
-  remove(lobbyId: string): void {
-    this.#races.get(lobbyId)?.lease.stop();
-    this.#races.delete(lobbyId);
+  /** The race ended here (finished, interrupted, or its lease lost); another race of the room is kept. */
+  remove({ lobbyId, raceId }: Pick<RaceOwnership, "lobbyId" | "raceId">): void {
+    const current = this.#races.get(lobbyId);
+    if (current?.ownership.raceId === raceId) {
+      current.lease.stop();
+      this.#races.delete(lobbyId);
+    }
   }
 
   ownsRace(lobbyId: string): boolean {
     return this.#races.has(lobbyId);
   }
 
-  /**
-   * `interrupted`: races given back through the fenced write; `left`: races left to their lease
-   * (lost to another writer, failed, or not done when the time ran out).
-   */
-  async stop({ interrupt, onInterrupted, timeoutMs }: StopOptions): Promise<{ readonly interrupted: number; readonly left: number; readonly timedOut: boolean }> {
+  async stop({ onEnded, timeoutMs }: StopOptions): Promise<StopReport> {
     this.#stopping = true;
+    const counts = { finalised: 0, interrupted: 0 };
     const owned = [...this.#races.values()];
-    this.#races.clear();
-    let interrupted = 0;
-    const attempts = owned.map(async ({ ownership, lease }) => {
-      lease.stop();
+    const attempts = owned.map(async (race) => {
+      let outcome: ShutdownOutcome = "left";
       try {
-        if (await interrupt(ownership)) {
-          interrupted += 1;
-          onInterrupted(ownership.lobbyId);
-        }
+        outcome = await race.shutdown();
       } catch {
-        // Left to its lease: another process recovers it once the lease expires.
+        // Left to its lease.
+      } finally {
+        this.remove(race.ownership);
+      }
+      if (outcome !== "left") {
+        counts[outcome] += 1;
+        onEnded(race.ownership.lobbyId, outcome);
       }
     });
     let timer: NodeJS.Timeout | undefined;
@@ -76,7 +97,7 @@ export class RaceRegistry {
       }),
     ]);
     clearTimeout(timer);
-    return { interrupted, left: owned.length - interrupted, timedOut: !settled };
+    return { ...counts, left: owned.length - counts.finalised - counts.interrupted, timedOut: !settled };
   }
 }
 

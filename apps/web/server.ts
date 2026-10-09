@@ -4,7 +4,6 @@ import path from "node:path";
 import {
   findActiveMembership,
   getDatabase,
-  interruptOwnRace,
   readRoomSnapshot,
   readSessionVersion,
   recoverAbandonedRaces,
@@ -55,15 +54,17 @@ async function main(): Promise<void> {
     registry,
   });
   // Room presence (CP-06): membership from the database, changes from the server actions.
-  registerRoomChannel(io, {
+  const roomChannel = registerRoomChannel(io, {
     allowedOrigin: env.appOrigin,
     registry,
     presence: new RoomPresence(),
     events: roomEvents(),
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
-    recoverAbandonedRace: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),
-    ownsRace: (lobbyId) => getRaceRegistry().ownsRace(lobbyId),
+    raceRecovery: {
+      recover: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),
+      ownsRace: (lobbyId) => getRaceRegistry().ownsRace(lobbyId),
+    },
   });
 
   // Races a previous process left behind (ADR-0004): recovered without delaying the server.
@@ -85,25 +86,27 @@ async function main(): Promise<void> {
   process.once("SIGTERM", () => {
     console.log("[server] SIGTERM received, closing");
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
-    // Own races first (ADR-0004): no new start, then each one interrupted through the fenced write.
-    void getRaceRegistry()
-      .stop({
-        interrupt: async (ownership) => (await interruptOwnRace(databaseOf(env), ownership, "server_stopped")).won,
-        onInterrupted: notifyRoomChanged,
-        timeoutMs: RACE_STOP_MS,
-      })
-      .then(({ interrupted, left }) => {
-        if (interrupted + left > 0) {
-          console.log(`[races] stopped: ${interrupted} race(s) interrupted, ${left} left to their lease`);
+    // Own races first (ADR-0004): no new start, then each one ends through its own shutdown
+    // (its frozen results saved, or interrupted as server_stopped); their rooms are told before
+    // the sockets close.
+    void (async () => {
+      try {
+        const report = await getRaceRegistry().stop({ onEnded: (lobbyId) => notifyRoomChanged(lobbyId), timeoutMs: RACE_STOP_MS });
+        if (report.finalised + report.interrupted + report.left > 0) {
+          console.log(`[races] stopped: ${report.finalised} finalised, ${report.interrupted} interrupted, ${report.left} left to their lease`);
         }
-      })
-      .finally(() => void io.close(() => process.exit(0)));
+        await Promise.race([roomChannel.whenIdle(), new Promise((resolve) => setTimeout(resolve, BROADCAST_DRAIN_MS).unref())]);
+      } finally {
+        void io.close(() => process.exit(0));
+      }
+    })();
   });
 }
 
 const SHUTDOWN_GRACE_MS = 10_000;
-/** Part of the grace given to interrupting the races this process runs. */
+/** Part of the grace given to ending the races this process runs, then to telling their rooms. */
 const RACE_STOP_MS = 5_000;
+const BROADCAST_DRAIN_MS = 2_000;
 
 /**
  * Opened on first use: the boot recovery, then authenticated handshakes. Anonymous sockets
