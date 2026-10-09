@@ -317,7 +317,7 @@ describe("reduceRace: results", () => {
         runner(ALICE, { target, typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } }),
         runner(BOB, { target, typed: ["a", "x"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { b: 1 } }),
         runner(carol, { target, typed: ["a"], ackSeq: 1, status: "abandoned", abandonReason: "voluntary", endedAt: at(9_000), counters: { correctInserts: 1, totalInserts: 1 } }),
-        runner(dave, { target, typed: ["a", "b"], ackSeq: 1, status: "abandoned", abandonReason: "voluntary", endedAt: at(8_000), counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { a: 1 } }),
+        runner(dave, { target, typed: ["x", "b"], ackSeq: 1, status: "abandoned", abandonReason: "voluntary", endedAt: at(8_000), counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { a: 1 } }),
       ],
     });
     const output = reduceRace(state, tick(30_000));
