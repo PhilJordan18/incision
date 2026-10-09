@@ -1,7 +1,7 @@
 # ADR-0004 — A fenced lease for the process that runs a race
 
 - Status: **accepted**, October 8, 2026, for F-04.0 (first complete race). Implemented in its data foundations; the runtime that uses it comes with the integration.
-- Requirements: COURSE-01, COURSE-06, COURSE-09, RES-05; decisions D-06 (no result for an interrupted race) and D-17 (a race lasts at most 10 minutes, which bounds its renewals).
+- Requirements: COURSE-01, COURSE-06, COURSE-09, RES-05; decisions D-06 (no result for an interrupted race) and D-17 (inactivity: a runner silent for 120 s abandons, so a race with no time limit still ends once its last runner stops typing).
 - Related: [ADR-0001](0001-realtime.md) (one process, race state in memory), [ADR-0002](0002-hosting.md) (one App Service instance, Neon free plan).
 
 ## Context
