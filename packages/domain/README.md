@@ -169,7 +169,7 @@ Stored values are bounded, so database columns can be sized from these constants
 ## Contracts and examples
 
 - **Types first.** Functions that are not implemented yet exist only as types, so there is never a
-  stub to call: `RankEntrants`, `CreateRace`, `ReduceRace`, `ToRaceBroadcast` and `ToRaceReveal`.
+  stub to call: `CreateRace`, `ReduceRace`, `ToRaceBroadcast` and `ToRaceReveal`.
 - **Implementing a contract.** A function that implements a contract type is declared
   `export const name: ContractType = …`, so the compiler checks it against the contract.
 - **Examples.** `*.examples.ts` hold the worked examples, which are not exported from `index.ts`.
@@ -178,6 +178,7 @@ Stored values are bounded, so database columns can be sized from these constants
   - `applyKeystrokes` and `toEntrantSnapshot`: one entrant's batch, whole or not at all, and its
     authoritative snapshot (F-04.4, engine half);
   - `computeMeasures`: Appendix A, exact and never capped (F-02.1);
+  - `rankEntrants`: the final ranking of COURSE-10, ranks 1 to n (F-02.2);
   - `startRefusal` (COURSE-02);
   - `toGraphemes` and `singleGrapheme`;
   - `measuredElapsed`;
