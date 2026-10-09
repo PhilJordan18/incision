@@ -12,6 +12,8 @@ describe("sqlStateOf", () => {
   it("has none for a client-side failure, nor for a Node error code", () => {
     expect(sqlStateOf(new Error("Query read timeout"))).toBeUndefined();
     expect(sqlStateOf(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }))).toBeUndefined();
+    // Five characters, like a SQLSTATE: raised when pg writes to a socket the server closed.
+    expect(sqlStateOf(Object.assign(new Error("write EPIPE"), { code: "EPIPE" }))).toBeUndefined();
     expect(sqlStateOf("not an error")).toBeUndefined();
   });
 

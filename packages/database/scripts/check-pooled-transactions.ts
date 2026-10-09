@@ -8,8 +8,8 @@ import { createDatabasePool, describeDatabaseError } from "../src/pool";
 import { usesVerifiedTls } from "../src/tls";
 import { boundedTransaction, SERVER_LIMITS_MS } from "../src/transaction";
 
-// Usage (docs/DEPLOYMENT.md, "Connexions et transactions"): type the pooled URL of a Neon
-// branch at the prompt, never on the command line:
+// Usage (docs/DEPLOYMENT.md, "Connexions et transactions"), from the repository root: type the
+// pooled URL of a Neon branch at the prompt, never on the command line:
 //   ( printf 'URL poolée : ' >&2; read -rs POOLED_CHECK_URL && export POOLED_CHECK_URL && echo >&2 && npm run db:check-pooled -w @incision/database )
 //
 // Checks, through the real connection path (Neon's PgBouncer in transaction mode), what the
@@ -220,7 +220,7 @@ const checks: readonly Check[] = [
       ),
   },
   {
-    name: "after a double client timeout, the next borrower starts a fresh transaction",
+    name: "after a client timeout, the next borrower starts fresh and the abandoned session ends",
     run: (url) =>
       withPool(url, async (observer) => {
         const key = lockKey();
@@ -239,7 +239,9 @@ const checks: readonly Check[] = [
             if (fresh !== true) {
               throw new Error("the next borrower ran inside the abandoned transaction");
             }
-            return `fresh, ${pool.totalCount} connection(s) in the pool`;
+            // The abandoned session took the lock once released; it must lose it when its session ends.
+            const ms = await msUntilLockFree(observer, key, 15_000);
+            return `fresh, ${pool.totalCount} connection(s) in the pool; the abandoned session's lock freed after ${ms} ms`;
           },
           { max: 1, queryTimeoutMs: 1_000 },
         );

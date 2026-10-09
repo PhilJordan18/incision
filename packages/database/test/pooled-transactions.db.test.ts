@@ -9,7 +9,7 @@ import { sqlStateOf } from "../src/errors";
 import { createDatabasePool, QUERY_TIMEOUT_MS } from "../src/pool";
 import { createRoomWithHost } from "../src/rooms/create-room";
 import { joinRoomByCode, leaveCurrentRoom } from "../src/rooms/membership";
-import { limitServerWaits, SERVER_LIMITS_MS } from "../src/transaction";
+import { boundedTransaction, SERVER_LIMITS_MS } from "../src/transaction";
 import { startStallingProxy } from "./stalling-proxy";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
@@ -194,11 +194,17 @@ describe("the application's pool", () => {
     const proxy = await startStallingProxy(database.url);
     const { pool, db } = appPool(proxy.url, 300);
     try {
+      // A connection already in the pool, so BEGIN itself is what never comes back.
+      expect(await startsFresh(db)).toBe(true);
       // Drizzle sends BEGIN before its own error handling: it never releases a client whose BEGIN fails.
       proxy.stall();
+      const begun = performance.now();
       await expect(db.transaction(async (tx) => tx.execute(sql`select 1`))).rejects.toThrow();
-      proxy.resume();
+      // The client timeout, not the 5 s connection timeout nor the 30 s checkout limit.
+      expect(performance.now() - begun).toBeLessThan(2_000);
       expect(pool.totalCount).toBe(0);
+      expect(console.error).toHaveBeenCalledWith("[database] client discarded: query failed on the client (Query read timeout)");
+      proxy.resume();
       expect(await startsFresh(db)).toBe(true);
 
       proxy.stall();
@@ -256,8 +262,10 @@ describe("the application's pool", () => {
     const { pool, db } = appPool(database.url);
     const client = await pool.connect();
     const { rows } = await client.query<{ pid: number }>("select pg_backend_pid() as pid");
-    await admin.query("select pg_terminate_backend($1)", [rows[0]?.pid]);
-    await sleep(300);
+    await admin.query("select pg_terminate_backend($1, 5000)", [rows[0]?.pid]);
+    for (let attempt = 0; attempt < 100 && pool.totalCount > 0; attempt += 1) {
+      await sleep(20);
+    }
     expect(pool.totalCount).toBe(0);
     expect(await startsFresh(db)).toBe(true);
     // The holder's own release, later, changes nothing.
@@ -265,8 +273,13 @@ describe("the application's pool", () => {
     expect(pool.totalCount).toBe(1);
   });
 
-  it("reuses a connection after a commit or after an error answered by the server", async () => {
-    const { db } = appPool(database.url);
+  it("reuses a connection after a commit or after an error answered by the server, unwrapped", async () => {
+    const { pool, db } = appPool(database.url);
+    const client = await pool.connect();
+    client.release();
+    // Each checkout wraps `query`; a reused client must not carry one wrapper per reuse.
+    expect(Object.hasOwn(client, "query")).toBe(false);
+    expect(client.query).toBe(pg.Client.prototype.query);
     const first = await backendPid(db);
     await db.transaction(async (tx) => tx.execute(sql`select 1`));
     expect(await backendPid(db)).toBe(first);
@@ -331,9 +344,8 @@ describe("the application's pool", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { pool, db } = appPool(database.url);
     await expect(
-      db.transaction(async (tx) => {
-        await limitServerWaits(tx);
-        await sleep(SERVER_LIMITS_MS.idleInTransaction + 500);
+      boundedTransaction(db, async (tx) => {
+        await sleep(SERVER_LIMITS_MS.idleInTransaction + 1_000);
         await tx.execute(sql`select 1`);
       }),
     ).rejects.toThrow();
@@ -345,10 +357,7 @@ describe("the application's pool", () => {
   it("sets the server limits for the transaction only", async () => {
     const { db } = appPool(database.url);
     const settings = sql`select current_setting('lock_timeout') as lock, current_setting('statement_timeout') as statement, current_setting('idle_in_transaction_session_timeout') as idle`;
-    const inside = await db.transaction(async (tx) => {
-      await limitServerWaits(tx);
-      return (await tx.execute(settings)).rows[0];
-    });
+    const inside = await boundedTransaction(db, async (tx) => (await tx.execute(settings)).rows[0]);
     expect(inside).toEqual({ lock: "2s", statement: "3s", idle: "4s" });
     // The same connection afterwards: back to the server's defaults.
     expect((await db.execute(settings)).rows[0]).toEqual({ lock: "0", statement: "0", idle: "0" });

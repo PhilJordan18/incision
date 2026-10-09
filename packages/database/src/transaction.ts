@@ -25,7 +25,7 @@ export const SERVER_LIMITS_MS = { lock: 2_000, statement: 3_000, idleInTransacti
  * transaction pooling. A limited transaction must await nothing but the database: 4 s spent
  * elsewhere end its session.
  */
-export async function limitServerWaits(tx: Transaction): Promise<void> {
+async function limitServerWaits(tx: Transaction): Promise<void> {
   await tx.execute(
     sql`select set_config('lock_timeout', ${`${SERVER_LIMITS_MS.lock}ms`}, true),
       set_config('statement_timeout', ${`${SERVER_LIMITS_MS.statement}ms`}, true),

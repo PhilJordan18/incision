@@ -1,11 +1,14 @@
 /** Wrapped causes are followed this deep at most, so a cyclic `cause` cannot loop. */
-const MAX_CAUSE_DEPTH = 5;
+export const MAX_CAUSE_DEPTH = 5;
+
+/** A SQLSTATE: five characters, and no class starts with E, unlike Node's EPIPE or EPERM. */
+const SQLSTATE = /^[0-9A-DF-Z][0-9A-Z]{4}$/;
 
 /** The first error in the chain of causes that PostgreSQL raised (Drizzle wraps pg's). */
 function postgresErrorOf(error: unknown): (object & { readonly code: string }) | undefined {
   let current: unknown = error;
   for (let depth = 0; depth < MAX_CAUSE_DEPTH && typeof current === "object" && current !== null; depth += 1) {
-    if ("code" in current && typeof current.code === "string" && /^[0-9A-Z]{5}$/.test(current.code)) {
+    if ("code" in current && typeof current.code === "string" && SQLSTATE.test(current.code)) {
       return current as object & { readonly code: string };
     }
     current = "cause" in current ? current.cause : undefined;

@@ -1,4 +1,5 @@
 import pg from "pg";
+import { MAX_CAUSE_DEPTH } from "./errors";
 
 export type DatabaseCheck =
   | { readonly reachable: true }
@@ -55,8 +56,6 @@ export function describeDatabaseError(error: unknown): string {
   return describe(error, 0);
 }
 
-/** Wrapped causes are followed this deep at most, so a cyclic `cause` cannot loop. */
-const MAX_CAUSE_DEPTH = 5;
 
 function describe(error: unknown, depth: number): string {
   if (depth > MAX_CAUSE_DEPTH) {
@@ -185,9 +184,12 @@ export function createDatabasePool(connectionString: string, overrides: PoolOver
   return pool;
 }
 
-/** pg's DatabaseError: the server answered, so the connection is still in step with it. */
+/**
+ * An error the server answered and survived, so the connection is still in step with it. A
+ * FATAL or PANIC answer ends the session: the connection is as good as broken.
+ */
 function answeredByServer(error: unknown): boolean {
-  return error instanceof Error && "severity" in error && typeof error.severity === "string";
+  return error instanceof Error && isServerError(error) && "severity" in error && error.severity !== "FATAL" && error.severity !== "PANIC";
 }
 
 /**
@@ -209,12 +211,17 @@ function guardCheckout(client: pg.PoolClient, checkoutLimitMs: number): pg.PoolC
     clearTimeout(watchdog);
     client.removeListener("error", onError);
     Reflect.deleteProperty(client, "query");
-    const unsafe = error === undefined || error === false ? unsafeToReuse() : undefined;
+    const releasedCleanly = error === undefined || error === false;
+    const unsafe = releasedCleanly ? unsafeToReuse() : undefined;
     const discard = reason ?? unsafe;
     if (discard !== undefined) {
       console.error(`[database] client discarded: ${discard}`);
     }
-    release(error === undefined || error === false ? (unsafe === undefined ? undefined : new Error(unsafe)) : error);
+    if (!releasedCleanly) {
+      release(error);
+    } else {
+      release(unsafe === undefined ? undefined : new Error(unsafe));
+    }
   };
   const unsafeToReuse = (): string | undefined => {
     if (inFlight > 0) {
@@ -232,7 +239,9 @@ function guardCheckout(client: pg.PoolClient, checkoutLimitMs: number): pg.PoolC
   // Logged by the client's permanent listener.
   const onError = (error: Error) => finish(error);
   client.on("error", onError);
-  // Counts the queries in flight and catches client-side failures, for both calling styles.
+  // Counts the queries in flight and catches client-side failures, for both calling styles. A
+  // Submittable (a cursor, a stream) returns no promise and counts as finished at once; the
+  // application uses none.
   const guardedQuery = (...args: unknown[]): unknown => {
     inFlight += 1;
     const last = args.at(-1);
