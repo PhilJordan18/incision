@@ -5,8 +5,8 @@ import { asInstant, type Instant } from "../time";
 import { measuredElapsed } from "./elapsed";
 import { applyKeystrokes, toEntrantSnapshot } from "./keystrokes";
 import { EXAMPLE_ENTRANT, EXAMPLE_RACE, KEYSTROKE_EXAMPLES } from "./keystrokes.examples";
-import { maxPlausibleInserts } from "./limits";
-import type { EntrantState, ErrorMode, InputEvent, KeystrokeBatch, KeystrokeContext, RaceState } from "./types";
+import { MAX_BATCH_EVENTS, maxPlausibleInserts } from "./limits";
+import type { EntrantState, ErrorMode, InputEvent, KeystrokeBatch, KeystrokeContext, RacePhase, RaceState } from "./types";
 
 const STARTS_AT = asInstant(1_000_000);
 const at = (milliseconds: number): Instant => asInstant(1_000_000 + milliseconds);
@@ -32,7 +32,13 @@ function batch(seq: number, events: readonly InputEvent[], textVersion = 0): Key
 }
 
 const insert = (grapheme: string): InputEvent => ({ type: "insert", grapheme });
-const context = (errorMode: ErrorMode, sinceStart: number): KeystrokeContext => ({ errorMode, phase: "racing", startsAt: STARTS_AT, now: at(sinceStart) });
+const deleteBackward: InputEvent = { type: "deleteBackward" };
+const context = (errorMode: ErrorMode, sinceStart: number, phase: RacePhase = "racing"): KeystrokeContext => ({
+  errorMode,
+  phase,
+  startsAt: STARTS_AT,
+  now: at(sinceStart),
+});
 
 /** A plain deep copy (these inputs hold only strings, numbers, arrays and records). */
 function copy<T>(value: T): T {
@@ -62,37 +68,76 @@ function seeded(seed: number): () => number {
   };
 }
 
+/** The outcome of a reply, with its reason when it has one. */
+function outcomeOf(result: { readonly outcome: string; readonly reason?: string }): string {
+  return result.reason ?? result.outcome;
+}
+
 describe("applyKeystrokes (F-04.4)", () => {
   it.each(KEYSTROKE_EXAMPLES.map((example) => [example.name, example] as const))("%s", (_name, example) => {
     const { entrant: before, batch: sent, context: ctx } = example.input;
-    const output = applyKeystrokes(frozen(copy(before)), frozen(copy(sent)), ctx);
+    const input = frozen(copy(before));
+    const output = applyKeystrokes(input, frozen(copy(sent)), ctx);
     expect(output.result).toEqual(example.expected.result);
     expect(output.entrant).toEqual(example.expected.entrant);
+    if (example.expected.result.outcome !== "applied") {
+      // Not a copy: the very same object, so a refusal provably changes nothing.
+      expect(output.entrant).toBe(input);
+    }
   });
 
-  it("returns the very same entrant object for every reply other than applied", () => {
+  const finished = entrant("ab", { typed: ["a", "b"], ackSeq: 2, status: "finished", endedAt: at(9_000), counters: { correctInserts: 2, totalInserts: 2 } });
+  const sixtyFive = (last: InputEvent = insert("a")): InputEvent[] => [...Array.from({ length: MAX_BATCH_EVENTS }, () => insert("a")), last];
+  it.each([
+    ["phase before status", finished, batch(3, [insert("a")]), context("free", 1_000, "ended"), "NOT_RACING"],
+    ["phase before the sequence gap", entrant("ab"), batch(2, [insert("a")]), context("free", 1_000, "ended"), "NOT_RACING"],
+    ["status before the sequence gap", finished, batch(4, [insert("a")]), context("free", 1_000), "ENTRANT_TERMINAL"],
+    ["sequence gap before text version", entrant("ab"), batch(2, [insert("a")], 1), context("free", 1_000), "OUT_OF_ORDER"],
+    ["sequence gap before size", entrant("ab"), batch(2, sixtyFive()), context("free", 1_000), "OUT_OF_ORDER"],
+    ["text version before size", entrant("ab"), batch(1, sixtyFive(), 1), context("free", 1_000), "TEXT_VERSION_CHANGED"],
+    ["size before each input", entrant("a".repeat(100)), batch(1, sixtyFive(insert("ab"))), context("free", 60_000), "BATCH_TOO_LARGE"],
+    ["each input before plausibility", entrant("a".repeat(100)), batch(1, [...Array.from({ length: 21 }, () => insert("a")), insert("ab")]), context("free", 0), "INVALID_INPUT"],
+  ] as const)("checks %s", (_label, before, sent, ctx, reason) => {
+    const output = applyKeystrokes(before, sent, ctx);
+    expect(output.result).toMatchObject({ reason });
+    expect(output.entrant).toBe(before);
+  });
+
+  it("refuses that same batch for plausibility once every input is valid", () => {
+    const before = entrant("a".repeat(100));
+    const output = applyKeystrokes(before, batch(1, Array.from({ length: 21 }, () => insert("a"))), context("free", 0));
+    expect(output.result).toMatchObject({ outcome: "refused", reason: "IMPLAUSIBLE" });
+    expect(output.entrant).toBe(before);
+  });
+
+  it("answers an older seq as a duplicate, with the current ackSeq", () => {
     const before = entrant("ab", { typed: ["a"], ackSeq: 3, counters: { correctInserts: 1, totalInserts: 1 } });
-    for (const [sent, ctx] of [
-      [batch(3, [insert("b")]), context("free", 1_000)],
-      [batch(5, [insert("b")]), context("free", 1_000)],
-      [batch(4, [insert("b")], 1), context("free", 1_000)],
-      [batch(4, [insert("ab")]), context("free", 1_000)],
-      [batch(4, [insert("b")]), { ...context("free", 1_000), phase: "ended" as const }],
-    ] as const) {
-      expect(applyKeystrokes(before, sent, ctx).entrant).toBe(before);
-    }
+    const output = applyKeystrokes(before, batch(2, [insert("b")]), context("free", 1_000));
+    expect(output.result).toEqual({ outcome: "duplicate", seq: 2, ackSeq: 3 });
+    expect(output.entrant).toBe(before);
+  });
+
+  it("in mandatory correction, clears a pending error without removing a grapheme, then removes one", () => {
+    const before = entrant("ab", { typed: ["a"], pendingError: true, ackSeq: 2, counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { b: 1 } });
+    const once = applyKeystrokes(before, batch(3, [deleteBackward]), context("mandatory", 1_000));
+    expect(once.entrant).toMatchObject({ typed: ["a"], pendingError: false, counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { b: 1 } });
+    const twice = applyKeystrokes(before, batch(3, [deleteBackward, deleteBackward]), context("mandatory", 1_000));
+    expect(twice.entrant).toMatchObject({ typed: [], pendingError: false, counters: { correctInserts: 1, totalInserts: 2 } });
   });
 
   it.each([0, -1, Number.MAX_SAFE_INTEGER + 1])("refuses seq %s as an invalid shape", (seq) => {
     expect(applyKeystrokes(entrant("ab"), batch(seq, [insert("a")]), context("free", 1_000)).result).toMatchObject({ outcome: "refused", reason: "INVALID_INPUT" });
   });
 
-  it.each([-1, 0.5])("refuses textVersion %s as an invalid shape", (textVersion) => {
+  it.each([-1, 0.5, Number.MAX_SAFE_INTEGER + 1])("refuses textVersion %s as an invalid shape", (textVersion) => {
     expect(applyKeystrokes(entrant("ab"), batch(1, [insert("a")], textVersion), context("free", 1_000)).result).toMatchObject({ outcome: "refused", reason: "INVALID_INPUT" });
   });
 
-  it("refuses an event of an unknown type", () => {
-    const sent = batch(1, [{ type: "paste", text: "ab" } as unknown as InputEvent]);
+  it.each([
+    ["an event of an unknown type", { type: "paste", text: "ab" }],
+    ["an insert without a string", { type: "insert", grapheme: 42 }],
+  ])("refuses %s", (_label, event) => {
+    const sent = batch(1, [event as unknown as InputEvent]);
     expect(applyKeystrokes(entrant("ab"), sent, context("free", 1_000)).result).toMatchObject({ outcome: "refused", reason: "INVALID_INPUT" });
   });
 
@@ -136,22 +181,40 @@ describe("toEntrantSnapshot", () => {
 });
 
 describe("applyKeystrokes invariants over seeded random batches", () => {
-  const graphemes = ["a", "b", " ", "é", "é", "x", "ab"];
+  const graphemes = ["a", "b", " ", "é", "é", "x", "ab"];
+  const text = "ab é ba a b ab é ba a b ab é ba a b";
   for (const errorMode of ["free", "mandatory"] as const) {
-    it(`holds in ${errorMode} mode`, () => {
+    it(`holds in ${errorMode} mode, and reaches every outcome`, () => {
       const random = seeded(errorMode === "free" ? 7 : 11);
+      const reached = new Set<string>();
       for (let run = 0; run < 200; run += 1) {
-        let state = entrant("ab é ba a b");
+        // A third of the runs type far too fast, so the plausibility limit is reached.
+        const pace = random() < 0.3 ? 50 : 400;
+        let state = entrant(text);
         let now = 0;
         for (let step = 0; step < 30; step += 1) {
-          now += Math.floor(random() * 400);
+          now += Math.floor(random() * pace);
           const roll = random();
           const seq = roll < 0.1 ? state.ackSeq : roll < 0.15 ? state.ackSeq + 2 : state.ackSeq + 1;
-          const events: InputEvent[] = Array.from({ length: 1 + Math.floor(random() * 8) }, () =>
-            random() < 0.2 ? { type: "deleteBackward" } : insert(graphemes[Math.floor(random() * graphemes.length)] ?? "a"),
-          );
+          const length = random() < 0.02 ? MAX_BATCH_EVENTS + 1 : 1 + Math.floor(random() * 8);
+          const events: InputEvent[] = [];
+          let cursor = state.typed.length;
+          while (events.length < length) {
+            const expected = state.target[cursor];
+            if (random() < 0.2) {
+              events.push(deleteBackward);
+            } else if (errorMode === "mandatory" && expected !== undefined && random() < 0.6) {
+              // Mandatory correction only moves on the expected grapheme: offer it often enough to finish.
+              events.push(insert(expected));
+              cursor += 1;
+            } else {
+              events.push(insert(graphemes[Math.floor(random() * graphemes.length)] ?? "a"));
+            }
+          }
+          const phase = random() < 0.02 ? "ended" : "racing";
           const before = state;
-          const { entrant: after, result } = applyKeystrokes(before, batch(seq, events, random() < 0.05 ? 1 : 0), context(errorMode, now));
+          const { entrant: after, result } = applyKeystrokes(before, batch(seq, events, random() < 0.05 ? 1 : 0), context(errorMode, now, phase));
+          reached.add(outcomeOf(result));
           if (result.outcome !== "applied") {
             expect(after).toBe(before);
             continue;
@@ -164,17 +227,22 @@ describe("applyKeystrokes invariants over seeded random batches", () => {
           expect(after.counters.totalInserts).toBeLessThanOrEqual(maxPlausibleInserts(measuredElapsed(STARTS_AT, at(now))));
           expect(after.typed.length).toBeLessThanOrEqual(after.target.length);
           expect(after.status === "finished").toBe(after.typed.length === after.target.length);
+          if (after.status === "finished") {
+            reached.add("finished");
+            expect(after.endedAt).toBe(at(now));
+          }
           if (errorMode === "mandatory") {
             expect(after.typed).toEqual(after.target.slice(0, after.typed.length));
           } else {
             expect(after.pendingError).toBe(false);
           }
           state = after;
-          if (state.status !== "racing") {
-            break;
-          }
         }
       }
+      // Batches after the finish keep coming, so ENTRANT_TERMINAL is reached too.
+      expect([...reached].sort()).toEqual(
+        ["BATCH_TOO_LARGE", "ENTRANT_TERMINAL", "IMPLAUSIBLE", "INVALID_INPUT", "NOT_RACING", "OUT_OF_ORDER", "TEXT_VERSION_CHANGED", "applied", "duplicate", "finished"].sort(),
+      );
     });
   }
 });

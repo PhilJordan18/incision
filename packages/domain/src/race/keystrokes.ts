@@ -19,6 +19,9 @@ import type {
  * Applies one batch of a known entrant, whole or not at all (F-04.4). The checks run in the
  * contract's order; any reply other than `applied` returns the entrant object untouched, so a
  * refusal never consumes a `seq`.
+ *
+ * Precondition: the batch belongs to this race and this entrant. `reduceRace` answers
+ * `WRONG_RACE` and `UNKNOWN_ENTRANT` before calling it, so snapshots take `raceId` from the batch.
  */
 export const applyKeystrokes: ApplyKeystrokes = (entrant, batch, context) => {
   const { seq } = batch;
@@ -47,15 +50,15 @@ export const applyKeystrokes: ApplyKeystrokes = (entrant, batch, context) => {
   if (events === undefined) {
     return refused(entrant, batch, "INVALID_INPUT");
   }
-  const typed = typeEvents(entrant, events, context.errorMode);
+  const typing = typeEvents(entrant, events, context.errorMode);
   // COURSE-06: the entrant's applied inserts, counted from the start, must stay plausible.
-  if (typed.counters.totalInserts > maxPlausibleInserts(measuredElapsed(context.startsAt, context.now))) {
+  if (typing.counters.totalInserts > maxPlausibleInserts(measuredElapsed(context.startsAt, context.now))) {
     return refused(entrant, batch, "IMPLAUSIBLE");
   }
-  const finished = typed.typed.length === entrant.target.length;
+  const finished = typing.typed.length === entrant.target.length;
   const next: EntrantState = {
     ...entrant,
-    ...typed,
+    ...typing,
     ackSeq: seq,
     ...(finished ? { status: "finished", endedAt: context.now } : {}),
   };
@@ -108,7 +111,7 @@ function normalizedEvents(events: readonly InputEvent[]): readonly InputEvent[] 
       normalized.push(event);
       continue;
     }
-    const grapheme = event.type === "insert" ? singleGrapheme(event.grapheme) : undefined;
+    const grapheme = event.type === "insert" && typeof event.grapheme === "string" ? singleGrapheme(event.grapheme) : undefined;
     if (grapheme === undefined) {
       return undefined;
     }
