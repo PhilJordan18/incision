@@ -271,6 +271,16 @@ describe("reduceRace: results", () => {
     });
   });
 
+  it("breaks an exact tie by accuracy, computed from the counters, before the id", () => {
+    // Alice finished first in id order, at the same instant as Bob, with a lower accuracy (2 of 3).
+    const alice = runner(ALICE, { typed: ["a", "b"], ackSeq: 2, status: "finished", endedAt: at(2_000), counters: { correctInserts: 2, totalInserts: 3 }, missedKeys: { b: 1 } });
+    const output = reduceRace(race({ clock: at(2_000), entrants: [alice, runner(BOB)] }), keystrokes(BOB, 1, [insert("a"), insert("b")], 2_000));
+    expect(output.ended?.results.map((result) => [result.entrantId, result.measures.netWpm, result.measures.accuracy])).toEqual([
+      [BOB, 12, 100],
+      [ALICE, 12, (2 * 100) / 3],
+    ]);
+  });
+
   it("produces the results exactly once over a whole race", () => {
     const created = createRace({ raceId: EXAMPLE_RACE, text: "ab", errorMode: "free", timeLimit: null, participants: [{ entrantId: ALICE, kind: "human" }, { entrantId: BOB, kind: "bot" }], now: at(-3_000) });
     if (!created.ok) {

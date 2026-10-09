@@ -108,7 +108,8 @@ function withEntrant(state: RaceState, index: number, entrant: EntrantState): Ra
 /**
  * The transitions due at `now`, in order: the start; then, while racing, the end once everyone is
  * terminal, at the latest of `startsAt` and the last `endedAt`; then the time limit, inclusive,
- * which times out whoever is still racing at its deadline. The time limit wins a tie (D-06).
+ * which times out whoever is still racing at its deadline. The time limit wins a tie (D-06): since
+ * these transitions apply before every event, no entrant ends at or after the deadline.
  */
 function applyDue(state: RaceState, now: Instant): RaceState {
   const started = state.phase === "countdown" && now >= state.startsAt ? { ...state, phase: "racing" as const } : state;
@@ -117,7 +118,7 @@ function applyDue(state: RaceState, now: Instant): RaceState {
   }
   const deadline = timeLimitDeadline(started);
   const lastEnd = allTerminalAt(started);
-  if (lastEnd !== undefined && (deadline === undefined || lastEnd < deadline)) {
+  if (lastEnd !== undefined) {
     return { ...started, phase: "ended", endedAt: lastEnd };
   }
   if (deadline !== undefined && now >= deadline) {
