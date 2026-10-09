@@ -120,7 +120,7 @@ describe("joinRoomByCode", () => {
     expect(await joinRoomByCode(db, { accountId: bob, code: code("ZZZZZZ"), role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
     // Nothing reveals a private room, not even that it is racing or full (SALLE-03, SALLE-10).
     // A room in RACING points to its race (lobbies_active_phase_has_race): a fixture, nothing runs it.
-    await pool.query(
+    const racing = await pool.query(
       `with race as (
          insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, owner_id, lease_expires_at)
          values ($1, 1, 'racing', 1, 'x', '{}', statement_timestamp(), statement_timestamp(), gen_random_uuid(), statement_timestamp())
@@ -129,6 +129,7 @@ describe("joinRoomByCode", () => {
        update lobbies set phase = 'racing', current_race_id = race.id from race where lobbies.id = $1`,
       [lobbyId],
     );
+    expect(racing.rowCount).toBe(1);
     expect(await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
     await pool.query("update lobbies set phase = 'waiting', capacity = 2 where id = $1", [lobbyId]);
     await pool.query("insert into lobby_members (lobby_id, account_id, role, display_name, display_name_canonical) values ($1, $2, 'participant', 'Clo', 'clo')", [
