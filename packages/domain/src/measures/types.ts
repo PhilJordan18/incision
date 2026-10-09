@@ -6,8 +6,9 @@ export const CHARACTERS_PER_WORD = 5;
 /**
  * Inserts counted as D-09 defines them: every inserted grapheme, spaces included. A deletion
  * never counts, and a wrong insert stays counted even once it is corrected. Errors are
- * `totalInserts - correctInserts`. Both are integers with `0 <= correctInserts <= totalInserts`;
- * anything else is a programming error and throws.
+ * `totalInserts - correctInserts`. Both are integers with
+ * `0 <= correctInserts <= totalInserts <= MAX_ENTRANT_INSERTS`; anything else is a programming error
+ * and throws.
  */
 export type TypingCounters = {
   readonly correctInserts: number;
