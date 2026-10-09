@@ -107,16 +107,16 @@ Chaque vérification affiche `PASS` ou `FAIL` avec ce qu'elle a mesuré; le scri
   - une coupure pendant une requête libère les verrous au plus 3 s après ;
   - une session terminée par le serveur ne fait pas planter le processus ;
   - aucune connexion n'attend dans PgBouncer ensuite ;
-- cas du « trou noir », où la fermeture du client n'arrive jamais : une transaction bornée est terminée par la limite d'inactivité, en 4 s environ ; sans les limites, ses verrous restent tenus, car PgBouncer n'y met pas fin avec ses réglages par défaut.
+- cas du « trou noir », où la fermeture du client n'arrive jamais : une transaction bornée est terminée par la limite d'inactivité, en 4 s environ. Sans les limites, ses verrous restent tenus au moins le temps observé (7 s), en pratique jusqu'à ce que TCP abandonne la connexion (de l'ordre du quart d'heure, voire de deux heures avec les réglages par défaut du système), car PgBouncer n'y met pas fin avec ses réglages par défaut.
 
-Ce montage s'approche du pooler de Neon sans l'être : Neon ne publie qu'une partie de sa configuration, et seule une vérification sur une branche Neon confirmerait son comportement exact.
+Ce montage s'approche du pooler de Neon sans l'être. Neon ne publie qu'une partie de sa configuration. Surtout, l'application ne s'y connecte pas directement à PgBouncer : l'hôte `-pooler` mène au proxy de Neon, qui reçoit en premier la fermeture d'une connexion, ou sa perte. Seule une vérification sur une branche Neon confirmerait son comportement exact.
 
 ```bash
 docker compose -f packages/database/test/pgbouncer/compose.yaml up -d --wait
 ```
 
 ```bash
-PGBOUNCER_TEST_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:6451/incision_pgb PGBOUNCER_DIRECT_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:5451/incision_pgb TEST_DATABASE_URL=postgresql://incision_test:incision_test_only@localhost:5433/postgres npm run test:db -w @incision/database -- test/pgbouncer.db.test.ts
+PGBOUNCER_TEST_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:6451/incision_pgb PGBOUNCER_DIRECT_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:5451/incision_pgb npm run test:db -w @incision/database -- test/pgbouncer.db.test.ts
 ```
 
 ```bash

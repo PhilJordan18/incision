@@ -6,7 +6,8 @@ name: incision-pgbouncer-check
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # PostgreSQL 17.11 (postgres:17-alpine on 9 October 2026)
+    image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     environment:
       POSTGRES_USER: incision_pgb
       POSTGRES_PASSWORD: pgbouncer_test_only

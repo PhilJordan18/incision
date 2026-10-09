@@ -8,6 +8,7 @@ import { runMigrations } from "../src/migrations";
 import { createDatabasePool, QUERY_TIMEOUT_MS } from "../src/pool";
 import { boundedTransaction, SERVER_LIMITS_MS } from "../src/transaction";
 import { startStallingProxy, type StallingProxy } from "./stalling-proxy";
+import { localTestServerUrl } from "./test-database";
 
 // Runs only against the isolated harness of test/pgbouncer/compose.yaml (PgBouncer 1.26 in
 // transaction mode, with the settings Neon publishes), never against the shared test database:
@@ -15,6 +16,7 @@ import { startStallingProxy, type StallingProxy } from "./stalling-proxy";
 //   PGBOUNCER_TEST_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:6451/incision_pgb \
 //   PGBOUNCER_DIRECT_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:5451/incision_pgb \
 //   npm run test:db -w @incision/database -- test/pgbouncer.db.test.ts
+// Both URLs must point to localhost: this file creates and drops a database there.
 // It shows how the pool and the bounded transactions behave behind a transaction pooler. It is
 // not Neon: Neon publishes only part of its pooler's configuration.
 const POOLED_URL = process.env.PGBOUNCER_TEST_URL;
@@ -38,6 +40,8 @@ describe.skipIf(POOLED_URL === undefined || DIRECT_URL === undefined)("behind Pg
   const proxies: StallingProxy[] = [];
 
   beforeAll(async () => {
+    localTestServerUrl(POOLED_URL);
+    localTestServerUrl(DIRECT_URL);
     const server = new pg.Client({ connectionString: DIRECT_URL });
     await server.connect();
     await server.query(`create database "${name}"`);
@@ -45,7 +49,9 @@ describe.skipIf(POOLED_URL === undefined || DIRECT_URL === undefined)("behind Pg
     const directUrl = onDatabase(DIRECT_URL ?? "", name);
     await runMigrations({ connectionString: directUrl });
     pooledUrl = onDatabase(POOLED_URL ?? "", name);
-    direct = new pg.Pool({ connectionString: directUrl, max: 4 });
+    // Named, so that ending the server sessions of this database spares the observer.
+    direct = new pg.Pool({ connectionString: directUrl, max: 4, application_name: "pgbouncer-test-observer" });
+    direct.on("error", () => undefined);
     await direct.query("create table probe (id integer primary key, value integer not null)");
   });
 
@@ -220,16 +226,20 @@ describe.skipIf(POOLED_URL === undefined || DIRECT_URL === undefined)("behind Pg
     const proxy = await proxied();
     const { db } = appPool(proxy.url, 300);
     proxy.blackHole();
+    let idleSince = 0;
     await expect(
       boundedTransaction(db, async (tx) => {
         await tx.execute(sql`update probe set value = 1 where id = 1`);
         proxy.stall();
+        // The server's idle timer starts once this statement ends, which is now.
+        idleSince = performance.now();
         await tx.execute(sql`select 1`);
       }),
     ).rejects.toThrow();
     // PgBouncer still believes its client alive: only the server's idle limit (4 s) frees the row.
-    const ms = await msUntilRowFree(10_000);
-    expect(ms).toBeGreaterThan(SERVER_LIMITS_MS.idleInTransaction - 1_000);
+    await msUntilRowFree(10_000);
+    const ms = performance.now() - idleSince;
+    expect(ms).toBeGreaterThan(SERVER_LIMITS_MS.idleInTransaction - 500);
     expect(ms).toBeLessThan(SERVER_LIMITS_MS.idleInTransaction + 2_000);
     expect(await probeRows()).toEqual([{ id: 1, value: 0 }]);
   });
@@ -258,7 +268,9 @@ describe.skipIf(POOLED_URL === undefined || DIRECT_URL === undefined)("behind Pg
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { pool, db } = appPool(pooledUrl);
     const terminateServers = () =>
-      direct.query("select pg_terminate_backend(pid, 5000) from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid()");
+      direct.query(
+        "select pg_terminate_backend(pid, 5000) from pg_stat_activity where datname = current_database() and application_name <> 'pgbouncer-test-observer'",
+      );
     // Idle in the application's pool: PgBouncer simply opens another server session.
     expect(await startsFresh(db)).toBe(true);
     await terminateServers();
@@ -286,7 +298,10 @@ describe.skipIf(POOLED_URL === undefined || DIRECT_URL === undefined)("behind Pg
       await sleep(200);
       const { rows } = await admin.query<{ database: string; cl_active: string; cl_waiting: string; sv_active: string }>("SHOW POOLS");
       const ours = rows.filter((row) => row.database === name);
+      expect(ours.length).toBeGreaterThan(0);
       for (const pool of ours) {
+        // No client left behind by the black holes, none waiting, no server busy.
+        expect(Number(pool.cl_active)).toBe(0);
         expect(Number(pool.cl_waiting)).toBe(0);
         expect(Number(pool.sv_active)).toBe(0);
       }

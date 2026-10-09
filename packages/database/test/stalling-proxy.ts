@@ -11,7 +11,10 @@ export type StallingProxy = {
   readonly cut: () => void;
   /**
    * From now on, a client that closes its side is not passed on: the server keeps a live
-   * connection whose client is gone, as when the close is lost in a stalled network.
+   * connection whose client is gone, as when the close is lost in a stalled network. Only the
+   * TCP close is swallowed: data the client sends (a protocol Terminate) still goes through,
+   * and the proxy acknowledges packets, so TCP itself never gives up as it would on a real
+   * black hole.
    */
   readonly blackHole: () => void;
   readonly close: () => Promise<void>;
