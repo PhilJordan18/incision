@@ -1,6 +1,6 @@
 import type { EventEmitter } from "node:events";
 import { describeDatabaseError, type ActiveMembership, type RoomSnapshot } from "@incision/database";
-import { parseRoomCode } from "@incision/domain";
+import { parseRoomCode, type RoomPhase } from "@incision/domain";
 import type { Server, Socket } from "socket.io";
 import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
 import { publicSnapshot } from "../../rooms/public-snapshot";
@@ -17,6 +17,13 @@ export type RoomChannelDependencies = {
   readonly events: EventEmitter<RoomEvents>;
   readonly findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
   readonly readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
+  /**
+   * Recovers the room's race if its owner stopped renewing (`recoverRoomIfAbandoned`); true
+   * when the room went back to WAITING.
+   */
+  readonly recoverAbandonedRace?: (lobbyId: string) => Promise<boolean>;
+  /** Whether this process runs the room's race; such a race is never recovered here. */
+  readonly ownsRace?: (lobbyId: string) => boolean;
   readonly now?: () => number;
 };
 
@@ -105,6 +112,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
   }
 
   events.on("changed", scheduleBroadcast);
+  const recoverIfAbandoned = recoveryOnWatch(dependencies, scheduleBroadcast);
 
   io.on("connection", (socket: Socket) => {
     const budget: WatchBudget = { startedAt: now(), used: 0, inFlight: false };
@@ -216,6 +224,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     if (socket.connected) {
       socket.data.room = { ...room, since: snapshot.revision } satisfies WatchedRoom;
     }
+    await recoverIfAbandoned(room.lobbyId, snapshot.phase);
     // A broadcast newer than this read went out meanwhile and skipped this socket: one more
     // tells it (and drops it if the member left in between).
     if (cameOnline || (lastBroadcast.get(room.lobbyId) ?? -1) > snapshot.revision) {
@@ -227,6 +236,27 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       snapshot: publicSnapshot(snapshot, presence.onlineMembers(room.lobbyId)),
     };
   }
+}
+
+/**
+ * Recovery of a race nobody runs any more, when a member watches its room (ADR-0004). Inside
+ * the watch, so within its budget; only in an active phase and for a race this process does
+ * not run. A recovered room is broadcast: every member learns that the race was interrupted.
+ */
+function recoveryOnWatch(dependencies: RoomChannelDependencies, scheduleBroadcast: (lobbyId: string) => void) {
+  return async (lobbyId: string, phase: RoomPhase): Promise<void> => {
+    const { recoverAbandonedRace, ownsRace } = dependencies;
+    if (recoverAbandonedRace === undefined || (phase !== "countdown" && phase !== "racing") || ownsRace?.(lobbyId) === true) {
+      return;
+    }
+    try {
+      if (await recoverAbandonedRace(lobbyId)) {
+        scheduleBroadcast(lobbyId);
+      }
+    } catch (error: unknown) {
+      console.error("[races] recovery on watch failed:", describeDatabaseError(error));
+    }
+  };
 }
 
 function watchedRoomOf(data: unknown): WatchedRoom | undefined {

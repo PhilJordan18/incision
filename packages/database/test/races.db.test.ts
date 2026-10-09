@@ -11,6 +11,7 @@ import {
   interruptOwnRace,
   type RaceResultRow,
   recoverAbandonedRaces,
+  recoverRoomIfAbandoned,
   renewRaceLease,
   startRace,
   type StartedEntrant,
@@ -629,6 +630,26 @@ describe("ownership lease (ADR-0004)", () => {
     expect(taken).toEqual(recovered([takenFirst.lobbyId]));
     expect(lateFinal).toEqual({ won: false });
     expect(await resultCount(two.race.raceId)).toBe(0);
+  });
+
+  it("recovers a room's race on opening only when its lease has expired, after one read", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF");
+    const { race } = await started(hostId);
+    expect(await recoverRoomIfAbandoned(db, lobbyId)).toBe(false);
+    expect(await raceOf(race.raceId)).toMatchObject({ state: "countdown", owner_epoch: 1 });
+    await expireLease(race.raceId);
+    // Another transaction holds the room: nothing is recovered now.
+    const held = await holdRoom(lobbyId);
+    try {
+      expect(await recoverRoomIfAbandoned(db, lobbyId)).toBe(false);
+    } finally {
+      await held.commit();
+    }
+    expect(await recoverRoomIfAbandoned(db, lobbyId)).toBe(true);
+    expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "waiting" });
+    expect(await raceOf(race.raceId)).toMatchObject({ state: "interrupted", interruption_reason: "owner_lost" });
+    // A waiting room: nothing to recover.
+    expect(await recoverRoomIfAbandoned(db, lobbyId)).toBe(false);
   });
 
   it("recovers one room on demand, and leaves the others to their own owners", async () => {

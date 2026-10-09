@@ -450,3 +450,29 @@ export async function recoverAbandonedRaces(db: Database, scope: { readonly lobb
     return { rooms, orphans, remaining: left.value };
   }, READ_COMMITTED);
 }
+
+/**
+ * Recovers the race of one room whose owner stopped renewing (ADR-0004), for a room someone
+ * opens or watches. One read first: only an active race with an expired lease leads to the
+ * recovery transaction, so a race in progress costs one read. True when the room went back to
+ * WAITING.
+ */
+export async function recoverRoomIfAbandoned(db: Database, lobbyId: string): Promise<boolean> {
+  const [expired] = await db
+    .select({ raceId: races.id })
+    .from(lobbies)
+    .innerJoin(races, eq(races.id, lobbies.currentRaceId))
+    .where(
+      and(
+        eq(lobbies.id, lobbyId),
+        inArray(lobbies.phase, ACTIVE_RACE_STATES),
+        inArray(races.state, ACTIVE_RACE_STATES),
+        sql`${races.leaseExpiresAt} <= statement_timestamp()`,
+      ),
+    );
+  if (expired === undefined) {
+    return false;
+  }
+  const { rooms } = await recoverAbandonedRaces(db, { lobbyId });
+  return rooms.includes(lobbyId);
+}

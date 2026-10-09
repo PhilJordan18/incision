@@ -1,7 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
-import { findActiveMembership, getDatabase, readRoomSnapshot, readSessionVersion, recoverAbandonedRaces } from "@incision/database";
+import {
+  findActiveMembership,
+  getDatabase,
+  interruptOwnRace,
+  readRoomSnapshot,
+  readSessionVersion,
+  recoverAbandonedRaces,
+  recoverRoomIfAbandoned,
+} from "@incision/database";
 import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
 import { assignClientAddress } from "./src/server/http/client-address";
@@ -11,6 +19,7 @@ import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
 import { authenticateHandshake } from "./src/server/realtime/socket-session";
 import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
+import { getRaceRegistry } from "./src/server/races/race-registry";
 import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
@@ -53,6 +62,8 @@ async function main(): Promise<void> {
     events: roomEvents(),
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
+    recoverAbandonedRace: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),
+    ownsRace: (lobbyId) => getRaceRegistry().ownsRace(lobbyId),
   });
 
   // Races a previous process left behind (ADR-0004): recovered without delaying the server.
@@ -74,11 +85,25 @@ async function main(): Promise<void> {
   process.once("SIGTERM", () => {
     console.log("[server] SIGTERM received, closing");
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
-    void io.close(() => process.exit(0));
+    // Own races first (ADR-0004): no new start, then each one interrupted through the fenced write.
+    void getRaceRegistry()
+      .stop({
+        interrupt: async (ownership) => (await interruptOwnRace(databaseOf(env), ownership, "server_stopped")).won,
+        onInterrupted: notifyRoomChanged,
+        timeoutMs: RACE_STOP_MS,
+      })
+      .then(({ interrupted, left }) => {
+        if (interrupted + left > 0) {
+          console.log(`[races] stopped: ${interrupted} race(s) interrupted, ${left} left to their lease`);
+        }
+      })
+      .finally(() => void io.close(() => process.exit(0)));
   });
 }
 
 const SHUTDOWN_GRACE_MS = 10_000;
+/** Part of the grace given to interrupting the races this process runs. */
+const RACE_STOP_MS = 5_000;
 
 /**
  * Opened on first use: the boot recovery, then authenticated handshakes. Anonymous sockets
