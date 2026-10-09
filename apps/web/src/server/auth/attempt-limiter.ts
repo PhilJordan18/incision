@@ -35,7 +35,7 @@ export class AttemptLimiter {
     this.#windows.set(key, { failures: 1, startedAt: this.now() });
   }
 
-  /** Takes back one failure counted for an attempt that succeeded. */
+  /** Takes back one failure counted for an attempt that succeeded, or that never ran. */
   forgive(key: string): void {
     const window = this.#current(key);
     if (window !== undefined && window.failures > 0) {
