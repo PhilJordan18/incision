@@ -184,7 +184,8 @@ describe("applyKeystrokes invariants over seeded random batches", () => {
   const graphemes = ["a", "b", " ", "é", "é", "x", "ab"];
   const text = "ab é ba a b ab é ba a b ab é ba a b";
   for (const errorMode of ["free", "mandatory"] as const) {
-    it(`holds in ${errorMode} mode, and reaches every outcome`, () => {
+    // 6 000 batches per mode: about 0.5 s alone, but several seconds on a loaded machine.
+    it(`holds in ${errorMode} mode, and reaches every outcome`, { timeout: 30_000 }, () => {
       const random = seeded(errorMode === "free" ? 7 : 11);
       const reached = new Set<string>();
       for (let run = 0; run < 200; run += 1) {
