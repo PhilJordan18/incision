@@ -1,6 +1,18 @@
 import { DrizzleQueryError } from "drizzle-orm/errors";
+import pg from "pg";
 import { describe, expect, it } from "vitest";
-import { describeDatabaseError } from "./pool";
+import { createDatabasePool, describeDatabaseError } from "./pool";
+
+describe("createDatabasePool", () => {
+  it("is a plain pg.Pool, which Drizzle recognises in every bundled copy of pg", async () => {
+    // Drizzle detects a pool by `instanceof Pool` or by a class name containing "Pool"; a
+    // subclass minified by Next's bundler would match neither from the other copy of pg.
+    const pool = createDatabasePool("postgresql://nobody@localhost:1/none");
+    expect(Object.getPrototypeOf(pool)).toBe(pg.Pool.prototype);
+    expect(pool.constructor.name).toContain("Pool");
+    await pool.end();
+  });
+});
 
 describe("describeDatabaseError", () => {
   it("lists the inner errors of an AggregateError, whose own message is empty", () => {

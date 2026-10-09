@@ -15,7 +15,8 @@
     "test:db": "vitest run --config vitest.db.config.mts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed:demo": "tsx scripts/seed-demo.ts"
+    "db:seed:demo": "tsx scripts/seed-demo.ts",
+    "db:check-pooled": "tsx scripts/check-pooled-transactions.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",

@@ -13,7 +13,7 @@ import {
   raceResults,
   races,
 } from "../schema";
-import { limitServerWaits, READ_COMMITTED, type Transaction } from "../transaction";
+import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transaction";
 import { endedNow, interruption } from "./interruption";
 
 /**
@@ -81,8 +81,7 @@ export async function startRace<Refusal extends string>(
   db: Database,
   input: StartRaceInput<Refusal>,
 ): Promise<StartRaceResult<Refusal>> {
-  return db.transaction(async (tx): Promise<StartRaceResult<Refusal>> => {
-    await limitServerWaits(tx);
+  return boundedTransaction(db, async (tx): Promise<StartRaceResult<Refusal>> => {
     const seen = await findActiveMembership(tx, input.accountId);
     if (seen === undefined) {
       return { ok: false, error: "NOT_IN_A_ROOM" };
@@ -177,10 +176,9 @@ export async function startRace<Refusal extends string>(
 
 /**
  * Locks the race's room by its key, provided this race is still its current one, and gives
- * its phase. The limits on server waits come first, so this wait is bounded too.
+ * its phase. Bounded on the server like every wait of a race transaction.
  */
 async function lockRoom(tx: Transaction, { lobbyId, raceId }: RaceOwnership): Promise<RoomPhase | undefined> {
-  await limitServerWaits(tx);
   const [lobby] = await tx
     .select({ phase: lobbies.phase })
     .from(lobbies)
@@ -256,7 +254,7 @@ async function savedBy(tx: Transaction, ownership: RaceOwnership): Promise<boole
 
 /** COUNTDOWN → RACING at the common start (COURSE-03), by the owner only: the first fenced write. */
 export async function beginRacing(db: Database, ownership: RaceOwnership): Promise<Transition> {
-  return db.transaction(async (tx): Promise<Transition> => {
+  return boundedTransaction(db, async (tx): Promise<Transition> => {
     const phase = await lockRoom(tx, ownership);
     const started =
       phase === undefined || (await endedForClosedRoom(tx, ownership, phase))
@@ -301,7 +299,7 @@ export type RaceResultRow = {
  * end of the race: `alreadyDone` says the earlier attempt saved them, not these.
  */
 export async function finalizeRace(db: Database, ownership: RaceOwnership, results: readonly RaceResultRow[]): Promise<Transition> {
-  return db.transaction(async (tx): Promise<Transition> => {
+  return boundedTransaction(db, async (tx): Promise<Transition> => {
     const phase = await lockRoom(tx, ownership);
     const ended =
       phase === undefined || (await endedForClosedRoom(tx, ownership, phase))
@@ -341,7 +339,7 @@ export async function interruptOwnRace(
   ownership: RaceOwnership,
   reason: Extract<InterruptionReason, "server_stopped" | "save_failed">,
 ): Promise<Interruption> {
-  return db.transaction(async (tx): Promise<Interruption> => {
+  return boundedTransaction(db, async (tx): Promise<Interruption> => {
     const phase = await lockRoom(tx, ownership);
     const interrupted =
       phase === undefined || (await endedForClosedRoom(tx, ownership, phase))
@@ -397,9 +395,8 @@ export type Recovery = {
  * in `remaining`. At boot, expired races no longer current in their room are interrupted too.
  */
 export async function recoverAbandonedRaces(db: Database, scope: { readonly lobbyId?: string } = {}): Promise<Recovery> {
-  return db.transaction(async (tx): Promise<Recovery> => {
-    // Nothing here waits for a row; the limits still bound a table lock (a migration).
-    await limitServerWaits(tx);
+  // Nothing here waits for a row; the limits still bound a table lock (a migration).
+  return boundedTransaction(db, async (tx): Promise<Recovery> => {
     const expired = and(inArray(races.state, ACTIVE_RACE_STATES), sql`${races.leaseExpiresAt} <= statement_timestamp()`);
     const inScope = scope.lobbyId === undefined ? undefined : eq(lobbies.id, scope.lobbyId);
     const candidates = await tx
