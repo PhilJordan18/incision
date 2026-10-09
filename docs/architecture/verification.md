@@ -1,6 +1,6 @@
 # Delivery and evidence — checkpoint 1 delivered, then the final submission
 
-Updated on **October 7, 2026, evening**: checkpoint 1 is submitted on Léa and production runs the submitted commit. Final submission: **Friday, November 13, 2026**. My own target: **81 of the 90 requirements complete by Monday, October 19**, then three weeks to go beyond the brief before the final submission. No server provided by the cégep; budget **$0 out of pocket**.
+Updated on **October 7, 2026, evening**: checkpoint 1 is submitted on Léa and production runs the submitted commit. Final submission: **Friday, November 13, 2026**. My own internal targets: **the first complete race by Saturday, October 10**, and **81 of the 90 requirements complete by Monday, October 19**. That is three weeks before the official deadline, to fix errors, make the product reliable and go beyond the brief. No server provided by the cégep; budget **$0 out of pocket**.
 
 ## Checkpoint 1 — delivered
 
@@ -29,35 +29,61 @@ Cards CP-01 to CP-07 (issues #2 to #9) are closed; the pull requests that delive
 
 ## Final submission plan
 
-Each remaining requirement belongs to exactly one lot. Track A is the server, realtime and interface; track B is the pure engine in `packages/domain` (no network, no database, seeded tests), which runs in parallel in its own worktree. Decisions D-16 to D-24 of the [requirements matrix](../EXIGENCES.md) settle the remaining ambiguities.
+Each remaining requirement belongs to exactly one lot. Two Claude Code sessions work in parallel, each in its own worktrees:
+
+- **Track A** covers the server, realtime, database and interface (`apps/web`, `packages/database`).
+- **Track B** covers the pure engine in `packages/domain`: no network, no database, injected clock and seed, unit tests. It also covers the load harness in `tools/load`.
+
+Any decision computable from data lives in the engine. On a card shared by both tracks, B delivers the rule and A integrates it, validates the whole and updates the matrix row. Codex reviews the riskiest pull requests independently. Decisions D-16 to D-24 of the [requirements matrix](../EXIGENCES.md) settle the remaining ambiguities.
+
+| Date | Target | Nature |
+|---|---|---|
+| October 10 | The first complete race, end to end, in two browsers, with its E2E test (F-04.0) | Internal: integration proven early |
+| October 19 | 81 of the 90 requirements complete | Internal, three weeks before the deadline |
+| October 24 | The nine requirements allowed to slip, if they slipped | Internal, hard limit |
+| October 20–November 1 | Extras beyond the brief | Reserve, only once the mandatory scope is complete and stable |
+| November 13 | Final submission | Official deadline |
 
 | Lot | Requirements | Observable result | Track | Target |
 |---|---|---|---|---|
-| 0 — Upkeep | TECH-01, TECH-08 | Next.js 16.4 and React 19.3 in production; Azure cost forecast checked against the student credit. | A | Oct 8 |
-| 1 — Guests and complete rooms | AUTH-02, AUTH-03, SALLE-03 to SALLE-08, SALLE-10, CONF-11 | A guest picks a nickname and joins; public, code and private rooms; IP-bound invitation links; kick without return; succession to the longest-present human; 10 code attempts per minute per IP. | A | Oct 8–10 |
-| 2 — Texts and measures | CONF-02 to CONF-07 | Public-domain FR/EN corpus in the database, random words, three measurable complexities, text options and characters; Appendix A measures and the ranking as pure functions. | B | Oct 8–10 |
-| 3 — Configuration and discovery | CONF-01, CONF-08, CONF-12, JOIN-02, JOIN-03 | The host configures the race and everyone sees it change live; realtime public explorer with language and complexity filters; quickplay. | A | Oct 10–11 |
-| 4 — The race | COURSE-01 to COURSE-11, TECH-06, PERF-02, DES-04, DES-06, SALLE-09 | 3-2-1 countdown, typing with immediate feedback and paste blocked, signature track at about 4 updates per second, authoritative server, 30 s resumption, abandon, end, ranking, restart or close. | A + B | Oct 11–14 |
-| 5 — Bots | BOT-01 to BOT-05, CONF-10 | Five seeded levels, variable speed, hesitations on hard words, errors corrected according to the error mode, identified on the track. | B, wired by A | Oct 11–14 |
-| 6 — Catch-up bonuses | BONUS-01 to BONUS-04, CONF-09 | Bonuses at the 25/50/75 % milestones, three effects announced on the track and to the target, consistent progress and WPM. | A + B | Oct 15 |
-| 7 — Results, history, profile | RES-01 to RES-05, HIST-01, HIST-02, AUTH-04 to AUTH-06, SEC-02, I18N-03, TECH-04 | Podium, full table, WPM chart for everyone and missed-keys heatmap, personal record, paginated history, validated profile photo, statistics, seed with history. | A + B | Oct 16–17 |
-| 8 — Cross-cutting quality | PERF-03, A11Y-01 to A11Y-04, I18N-01, TEST-01, TEST-02, TECH-07, SEC-01 | 30 smooth runners (29 bots and a human, plus spectators), axe clean on every screen in both themes, FR/EN everywhere, race E2E, security review of the host actions. | A + B | Oct 18–19 |
+| 0 — Upkeep | TECH-01, TECH-08 | Next.js 16.4 and React 19.3 in production; Azure cost forecast checked against the student credit; contracts of the engine for the first race path. | A + B | Oct 8 |
+| 4 — The race | COURSE-01 to COURSE-11, TECH-06, PERF-02, DES-04, DES-06, SALLE-09 | **First, F-04.0:** two accounts, a room by code, a fixed text, the countdown, keystrokes validated by the server, the ranking, saved results reopened from the history. Then on that base: persisted and guarded phase transitions, recovery after a restart, refused batches, signature track at about 4 updates per second, 30 s resumption, inactivity (D-17), restart or close, phone message. | A + B | Oct 8–12 |
+| 2 — Texts and measures | CONF-02 to CONF-07 | Appendix A measures and the ranking as pure functions; random words safe for minors; three measurable complexities and text options; public-domain FR/EN corpus that I validate, loaded into the database. | B, then A | Oct 8–15 |
+| 1 — Guests and complete rooms | AUTH-02, AUTH-03, SALLE-03 to SALLE-08, SALLE-10, CONF-11 | A guest picks a nickname and joins; public, code and private rooms; IP-bound invitation links; kick without return; succession to the longest-present human; at most 10 failed code attempts per minute per IP. | A + B | Oct 8–14 |
+| 3 — Configuration and discovery | CONF-01, CONF-08, CONF-12, JOIN-02, JOIN-03 | The host configures the race with a control for every option, and everyone sees it change live; realtime public explorer with language and complexity filters; quickplay. | A + B | Oct 10–16 |
+| 5 — Bots | BOT-01 to BOT-05, CONF-10 | Five seeded levels whose documented ranges are checked, variable speed, hesitations, corrected errors, guaranteed termination, identified on the track. | B, then A | Oct 13–16 |
+| 6 — Catch-up bonuses | BONUS-01 to BONUS-04, CONF-09 | Bonuses at the 25/50/75 % milestones, fired with Enter (D-16), announced on the track and to the target, consistent progress and WPM. | B, then A | Oct 15–18 |
+| 7 — Results, history, profile | RES-01 to RES-05, HIST-01, HIST-02, AUTH-04 to AUTH-06, SEC-02, I18N-03, TECH-04 | Podium, full table, WPM chart for everyone and missed-keys heatmap, personal record, paginated history, bounded and validated profile photo, statistics, seed with history; every authenticated participant keeps a result. | A + B | Oct 15–18 |
+| 8 — Cross-cutting quality | PERF-03, A11Y-01 to A11Y-04, I18N-01, TEST-01, TEST-02, TECH-07, SEC-01 | 30 simulated clients really sending keystrokes (first run on October 17), smooth track in a browser, axe clean on every screen in both themes, FR/EN everywhere, race E2E, audit of the host actions. | A + B | Oct 16–19 |
 
-**Definition of done for every lot:** each delivered screen passes axe in both themes, in French and English, at 360 px and with the keyboard, with its E2E test. Lot 8 then confirms instead of catching up.
+**Definition of done for every lot:** each delivered screen passes axe in both themes, in French and English, at 360 px and with the keyboard, and has its E2E test. Every server input has its schema. Each engine rule has tests that fail without it, and a placeholder never counts as evidence. Lot 8 then confirms instead of catching up. What F-04.0 delivers is deducted from the cards it anticipates.
 
-**Slip order, fixed in advance:** the bonuses (lot 6) first, then the profile, then the charts. The race (lot 4) never slips: everything else depends on it.
+**Requirements allowed to slip past October 19**, all due by October 24:
 
-**Production:** a promotion every two or three days (targets: October 11, 14, 17 and 19), outside class hours, since a deployment interrupts a race in progress (D-06). Production stays functional and the commit history stays regular.
+1. The bonuses: BONUS-01 to BONUS-04 and CONF-09.
+2. The profile photo: AUTH-04 and SEC-02.
+3. The charts: RES-03.
+4. The load test: PERF-03.
+
+The race, the rooms, guests, configuration, results, history, the rest of the profile and the bots never slip.
+
+**Production:** a promotion on October 11, 14, 17 and 19, outside class hours, since a deployment interrupts a race in progress (D-06). Production stays functional, and the commit history stays regular.
 
 ### Beyond the brief
 
-Only after the 81 complete requirements, and only extras that reuse a part the brief already requires and that show in a two-minute demo:
+A reserve, not a commitment: it starts only once the mandatory scope is complete and stable, and its hours fund the mandatory scope first if that scope runs late. Each extra reuses a part the brief already requires and shows in a two-minute demo:
 
 - **Replay a race, race my ghost:** any race from the history replays on the track from its stored series (RES-05); a ghost is a bot that replays my best run.
-- **Classroom projection mode:** the spectator host goes full screen for a projector: giant code, a track of 30 readable from the back of the room, animated podium.
+- **Classroom projection mode:** the spectator host goes full screen for a projector, with a giant code, a track of 30 readable from the back of the room and an animated podium.
 - **Targeted practice:** from the missed-keys heatmap, a solo room with a bot at my level and a random text that includes my weak keys (CONF-07).
-- **Already drawn in my art direction:** sound effects (off by default), reduced motion, keyboard layout for the heatmap (including the Canadian French layout used in Québec), manual host transfer, following a runner on a phone, "back to the room in 20 s" and rank changes on the results, account and data deletion (Québec's Law 25; the audience is minors).
-- **Visible engineering:** a published load test (30 runners in several rooms at once, p95 latency), explainable plausibility checks shown as a "verified race" badge, an English case study.
+- **Already drawn in my art direction:**
+  - sound effects, off by default;
+  - reduced motion;
+  - keyboard layouts for the heatmap, including the Canadian French layout used in Québec;
+  - manual host transfer and following a runner on a phone;
+  - "back to the room in 20 s" and rank changes on the results;
+  - account and data deletion (Québec's Law 25; the audience is minors).
+- **Visible engineering:** a published load test (several rooms of 30 at once, p95 latency), explainable plausibility checks shown as a "verified race" badge, an English case study.
 
 Not planned: public profiles and social features (the audience is minors), account linking (D-14), a teacher's class space (declined by the client), several instances.
 
@@ -65,8 +91,10 @@ Not planned: public profiles and social features (the audience is minors), accou
 
 | Window | Testable result | Scope |
 |---|---|---|
-| October 8–19 | 81 requirements complete | Lots 0 to 8, four promotions to production. |
-| October 20–November 1 | Beyond the brief | The extras above; checkpoint feedback as soon as it arrives. |
+| October 8–10 | First complete race | F-04.0 on both tracks. |
+| October 11–19 | 81 requirements complete | Lots 0 to 8, four promotions to production. |
+| October 20–24 | Slipped requirements closed | Only the nine named above. |
+| October 20–November 1 | Beyond the brief | The reserve above; checkpoint feedback as soon as it arrives. |
 | November 2–8 | Hardening and final documents | Load, security, accessibility; ARCHITECTURE with the realtime message flow and the bots ADR; IA.md with three cases from its log and my reflection; README with screenshots and the demo account. |
 | November 9–12 | Freeze and submission rehearsal | Freshly cloned repository, complete seed, timed demo, case study. |
 | November 13 | Submission | No feature planned that day. |
@@ -75,7 +103,10 @@ The dates are a **work plan**, not new teacher deadlines. Lots move forward as s
 
 ## Lightweight process
 
-One issue per lot, with a sub-issue per slice, in the GitHub project of the final submission: status (Analysis, Ready, In progress, Review, Done), track, estimate in hours and target dates. Branch from dev; review and test, then merge into dev; release to main when stable. Architecture, security, data and UX reviews happen according to risk, in parallel on the same commit.
+- **Tracking.** One issue per lot, with a sub-issue per slice, in the [GitHub project of the final submission](https://github.com/users/PhilJordan18/projects/3). Each card carries a status (Backlog, Analysis, Ready, In progress, Review, Done), a track, an estimate in hours and target dates.
+- **Branches.** A card branches from `dev` and catches up with it by merging, never by rebasing published work. It is reviewed and tested, then merged into `dev`; `dev` is released to `main` when stable.
+- **Reviews.** Architecture, security, data and UX reviews happen according to risk, in parallel on the same commit. A fix is re-reviewed on its new commit, with the diff of the changes.
+- **Matrix.** A matrix row is updated by the pull request that makes its requirement observable.
 
 ## Hosting without spending
 
