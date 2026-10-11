@@ -236,6 +236,8 @@ Stored values are bounded, so database columns can be sized from these constants
 - **Implemented now:**
   - `createRaceRefusal`, `createRace`, `reduceRace`, `toRaceBroadcast` and `toRaceReveal`: a race
     on a fixed text, from the reveal to the results (F-04.1, engine half);
+  - `toEntrantMeasures`: one entrant's live measures, timed exactly as the broadcast's net WPM
+    (COURSE-04);
   - `predictTyping` and `typedMarks`: immediate, visual-only feedback from the same fold;
   - `applyKeystrokes` and `toEntrantSnapshot`: one entrant's batch, whole or not at all, and its
     authoritative snapshot (F-04.4, engine half);
