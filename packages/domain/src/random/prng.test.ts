@@ -46,11 +46,23 @@ describe("xoshiro128** (PRNG_VERSION)", () => {
     expect(PRNG_VERSION).toBe("xoshiro128ss-1.1");
   });
 
-  it("matches the reference outputs for the state [1, 2, 3, 4]", () => {
-    // Reference implementation (prng.di.unimi.it/xoshiro128starstar.c), as cited by the rand_xoshiro tests.
-    expect(draws(createRandom([1, 2, 3, 4]), 10)).toEqual([
-      11520, 0, 5927040, 70819200, 2031721883, 1637235492, 1287239034, 3734860849, 3729100597, 4258142804,
-    ]);
+  // Vectors from the reference C file itself (prng.di.unimi.it/xoshiro128starstar.c, SHA-256
+  // 2e3e540e…0a141a67, fetched 2026-10-11), compiled unchanged; the first one is also cited by the
+  // rand_xoshiro tests.
+  it.each<[string, RandomState, number[]]>([
+    ["[1, 2, 3, 4]", [1, 2, 3, 4], [11520, 0, 5927040, 70819200, 2031721883, 1637235492, 1287239034, 3734860849, 3729100597, 4258142804]],
+    ["all ones", [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff], [4294962679, 4294962679, 4292019319, 2943360, 1509943680, 246671744]],
+    ["mixed high bits", [0xdead_beef, 0x0123_4567, 0x89ab_cdef, 0xfedc_ba98], [2576977298, 1162350735, 558593417, 7144843, 2523195487, 3129381430]],
+    ["a single low bit", [0, 0, 0, 1], [0, 0, 5760, 11802240, 2699105920, 137178368]],
+  ])("starts from the initial state %s exactly like the reference", (_label, state, expected) => {
+    expect(draws(createRandom(state), expected.length)).toEqual(expected);
+  });
+
+  it("holds the reference state after 1 000 draws, and resumes from it like the reference", () => {
+    const random = createRandom([1, 2, 3, 4]);
+    draws(random, 1_000);
+    expect(random.state()).toEqual([2954884481, 294556968, 2598411021, 550772539]);
+    expect(draws(createRandom([2954884481, 294556968, 2598411021, 550772539]), 4)).toEqual([136054147, 2224941748, 1458134130, 3964477073]);
   });
 
   it("agrees with the BigInt model on states with high bits set, over many outputs", () => {

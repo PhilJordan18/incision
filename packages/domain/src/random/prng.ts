@@ -3,8 +3,9 @@
  * (F-06.1). Never for anything secret: room codes and tokens keep a crypto source (D-01).
  *
  * Algorithm: xoshiro128** 1.1 by David Blackman and Sebastiano Vigna (2018), reference
- * https://prng.di.unimi.it/xoshiro128starstar.c, dedicated to the public domain (CC0). This is
- * written from the published algorithm; no code is copied.
+ * https://prng.di.unimi.it/xoshiro128starstar.c, whose authors dedicate it to the public domain
+ * and grant permission to use, copy, modify and distribute it. This is written from the published
+ * algorithm; no code is copied.
  */
 import type { RandomIndex } from "../rooms/room-code";
 
