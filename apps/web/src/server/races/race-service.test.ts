@@ -252,21 +252,21 @@ describe("RaceService", () => {
 
   it("logs a failed lease renewal once per outage, and again for the next outage", async () => {
     const logged: string[] = [];
-    const failing = harness();
+    const base = harness();
     const renewalLogs = () => logged.filter((line) => line.includes("lease renewal")).length;
     // Renewals 1 to 4 fail (one outage), the 5th succeeds, the next ones fail (a second outage).
-    // Each renewal records how many failures were logged before it, by the renewals before it.
+    // Each renewal records how many failure lines were logged before it.
     const loggedBefore: number[] = [];
-    const renew = vi.fn(async () => {
+    const renew = async () => {
       loggedBefore.push(renewalLogs());
       if (loggedBefore.length === 5) {
         return { renewed: true };
       }
       throw new Error("ECONNREFUSED");
-    });
+    };
     const service = new RaceService({
       ownerId: "owner-a",
-      store: { ...failing.store, renewRaceLease: renew },
+      store: { ...base.store, renewRaceLease: renew },
       now: () => START,
       monotonic: () => START,
       schedule: (callback, delayMs) => {
@@ -281,9 +281,13 @@ describe("RaceService", () => {
     });
     await service.start(tab("t-host", "a-host").connection, {});
     // Waited for by count, not for a fixed time (a busy machine may run a single renewal in a
-    // short window), and not for the first log: eight renewals span both outages.
-    await vi.waitFor(() => expect(loggedBefore.length).toBeGreaterThanOrEqual(8), { timeout: 5_000, interval: 5 });
-    await service.stop({ onEnded: () => undefined, timeoutMs: 100 });
+    // short window), and not for the first log: eight renewals span both outages. Bounded below
+    // the test's own timeout, so a failure says how far the renewals got; stopped either way.
+    try {
+      await vi.waitFor(() => expect(loggedBefore.length).toBeGreaterThanOrEqual(8), { timeout: 2_000, interval: 5 });
+    } finally {
+      await service.stop({ onEnded: () => undefined, timeoutMs: 100 });
+    }
     // Renewals 2 to 5 see the first outage's single line (four failed attempts, one line), the 6th
     // sees no new line after the success, the 7th and 8th see the second outage's own line.
     expect(loggedBefore.slice(0, 8)).toEqual([0, 1, 1, 1, 1, 1, 2, 2]);
