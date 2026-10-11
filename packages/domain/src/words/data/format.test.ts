@@ -29,7 +29,9 @@ describe("parseWordListSource", () => {
     ["another kind", `${WORD_DATA_SENTINEL} exclusions fr v1\n500 de`],
     ["an unknown language", `${WORD_DATA_SENTINEL} words es v1\n500 de`],
     ["a missing version", `${WORD_DATA_SENTINEL} words fr\n500 de`],
-    ["an invalid version", `${WORD_DATA_SENTINEL} words fr V 1\n500 de`],
+    ["an uppercase version", `${WORD_DATA_SENTINEL} words fr V1\n500 de`],
+    ["a version with an underscore", `${WORD_DATA_SENTINEL} words fr v_1\n500 de`],
+    ["a version split in two", `${WORD_DATA_SENTINEL} words fr v 1\n500 de`],
     ["an extra header field", `${WORD_DATA_SENTINEL} words fr v1 extra\n500 de`],
   ])("refuses %s", (_label, source) => {
     expect(() => parseWordListSource(source)).toThrow(RangeError);
