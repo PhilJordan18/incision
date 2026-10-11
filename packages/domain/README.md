@@ -43,6 +43,12 @@ re-implement one. A missing rule is added here, not copied there.
   "\r\n") or any other mandatory break of Unicode. `containsLineBreak` is exported so the
   interface can filter Enter with the same rule, and the text pipeline can turn line breaks into
   spaces before a race.
+- **Randomness** (`src/random/prng.ts`). Seeded, never drawn here: the server draws a
+  `RandomState` (four uint32, not all zero) with crypto and passes it in. `createRandom` runs
+  xoshiro128** 1.1 (Blackman and Vigna, public domain), local to one pure call. `state()` resumes
+  the exact sequence, so a stored state and `PRNG_VERSION` reproduce a draw. `index` is unbiased by
+  rejection and fits `RandomIndex`; `shuffled` is Fisher–Yates on a copy. Never for codes, tokens
+  or anything secret: room codes keep crypto (D-01).
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
 ## Keystroke protocol (`src/race/types.ts`)
@@ -248,5 +254,6 @@ Stored values are bounded, so database columns can be sized from these constants
   - `measuredElapsed`;
   - the time and id validators, and `compareIds`;
   - `maxPlausibleInserts`.
+  - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4).
 - **Changes.** A contract changes only through an engine pull request, announced before the
   integration that depends on it.
