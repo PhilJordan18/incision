@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MAX_GRAPHEME_LENGTH, singleGrapheme, toGraphemes } from "./graphemes";
+import { containsLineBreak, MAX_GRAPHEME_LENGTH, singleGrapheme, toGraphemes } from "./graphemes";
 
 describe("toGraphemes", () => {
   it("counts a decomposed accent once, as its precomposed NFC form", () => {
@@ -34,6 +34,10 @@ describe("singleGrapheme", () => {
     expect(singleGrapheme("ab")).toBeUndefined();
   });
 
+  it.each([["a line feed", "\n"], ["a carriage return", "\r"], ["a CRLF, one grapheme", "\r\n"]])("refuses %s: Enter is never typed (D-16)", (_label, input) => {
+    expect(singleGrapheme(input)).toBeUndefined();
+  });
+
   it("accepts a long emoji sequence but refuses a grapheme over the length bound", () => {
     expect(singleGrapheme("👩‍💻")).toBe("👩‍💻");
     // "x" has no precomposed accented form, so NFC keeps all 16 code units.
@@ -52,5 +56,17 @@ describe("without Intl.Segmenter (older browsers)", () => {
     vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
     // A segmenter would give one grapheme; the fallback gives woman, zero-width joiner, laptop.
     expect(toGraphemes("e\u0301👩‍💻")).toEqual(["é", "👩", "\u200d", "💻"]);
+  });
+});
+
+describe("containsLineBreak (D-16)", () => {
+  it.each([
+    ["a line feed", "ab\ncd", true],
+    ["a carriage return", "ab\rcd", true],
+    ["a CRLF", "ab\r\ncd", true],
+    ["spaces and a tab only", "ab \tcd", false],
+    ["an empty text", "", false],
+  ])("%s gives %s", (_label, text, expected) => {
+    expect(containsLineBreak(text)).toBe(expected);
   });
 });

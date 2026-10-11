@@ -30,12 +30,20 @@ export function toGraphemes(text: string): readonly string[] {
 }
 
 /**
+ * Whether `text` holds a line break ("\n", "\r", or both as one "\r\n" grapheme). Enter activates a
+ * bonus and never appears in a race text (D-16), so a line break is never typed and never expected.
+ */
+export function containsLineBreak(text: string): boolean {
+  return text.includes("\n") || text.includes("\r");
+}
+
+/**
  * The NFC form of `input` when `input` is exactly one grapheme of at most `MAX_GRAPHEME_LENGTH`
  * code units as received (what one `insert` event must carry, after any input-method composition),
- * otherwise undefined.
+ * otherwise undefined. A line break is never one (D-16).
  */
 export function singleGrapheme(input: string): string | undefined {
-  if (input.length === 0 || input.length > MAX_GRAPHEME_LENGTH) {
+  if (input.length === 0 || input.length > MAX_GRAPHEME_LENGTH || containsLineBreak(input)) {
     return undefined;
   }
   const graphemes = toGraphemes(input);

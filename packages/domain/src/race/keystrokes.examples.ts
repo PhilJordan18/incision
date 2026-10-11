@@ -238,6 +238,11 @@ export const KEYSTROKE_EXAMPLES: readonly ContractExample<KeystrokeInput, Keystr
     expected: { result: { outcome: "refused", seq: 1, reason: "INVALID_INPUT", snapshot: snapshot(ab) }, entrant: ab },
   },
   {
+    name: "Enter is never typed (D-16): an insert of a line break refuses the whole batch, in either mode",
+    input: { entrant: ab, batch: batch(1, [insert("a"), insert("\n")]), context: context("mandatory", 1_000) },
+    expected: { result: { outcome: "refused", seq: 1, reason: "INVALID_INPUT", snapshot: snapshot(ab) }, entrant: ab },
+  },
+  {
     name: "an invalid insert after the finishing insert still refuses the whole batch",
     input: { entrant: entrant("a"), batch: batch(1, [insert("a"), insert("ab")]), context: context("free", 1_000) },
     expected: { result: { outcome: "refused", seq: 1, reason: "INVALID_INPUT", snapshot: snapshot(entrant("a")) }, entrant: entrant("a") },
