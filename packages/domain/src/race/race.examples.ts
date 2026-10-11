@@ -203,7 +203,7 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
   {
     name: "a late tick ends the race at the deadline, not at the tick",
     input: { state: race({ timeLimit: thirtySeconds, entrants: [aliceDone, bobHalfway] }), event: { type: "tick", now: at(30_500) } },
-    expected: { phase: "ended", changed: true, statuses: [[BOB, "timedOut"]], endedAt: at(30_000), elapsed: [[ALICE, asDuration(2_000)], [BOB, asDuration(30_000)]] },
+    expected: { phase: "ended", changed: true, statuses: [[BOB, "timedOut"]], ranking: [ALICE, BOB], endedAt: at(30_000), elapsed: [[ALICE, asDuration(2_000)], [BOB, asDuration(30_000)]] },
   },
   {
     name: "a keystroke at the time limit arrives too late: refused, and the race ends once",
@@ -213,7 +213,7 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
   {
     name: "an abandon at the time limit is a time-out: the time limit wins the tie (D-06)",
     input: { state: race({ timeLimit: thirtySeconds, entrants: [aliceDone, bobHalfway] }), event: { type: "abandon", entrantId: BOB, now: at(30_000) } },
-    expected: { phase: "ended", changed: true, ignored: "RACE_OVER", statuses: [[BOB, "timedOut"]] },
+    expected: { phase: "ended", changed: true, ignored: "RACE_OVER", statuses: [[BOB, "timedOut"]], ranking: [ALICE, BOB] },
   },
   {
     name: "an event earlier than the race clock is handled at the clock: time never runs backwards",

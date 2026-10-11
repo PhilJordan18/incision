@@ -48,7 +48,7 @@ There are four counters, never mixed up:
 | `raceId` | the race | A batch for another race is refused (`WRONG_RACE`). |
 | `seq`, `ackSeq` | one entrant | `seq` starts at 1, and every reply echoes the `seq` it answers. A retry (`seq <= ackSeq`) is a harmless `duplicate`; a gap asks for a resync. |
 | `textVersion` | one entrant's text | 0 for the initial text. It changes only when a bonus changes that entrant's text. A batch typed against any other version gets a resync and is never reinterpreted. |
-| `revision` | the broadcast | Starts at 0 for each race. Clients keep the highest revision of the current `raceId` and drop stale snapshots. It never refuses keystrokes: another player's progress never invalidates a batch. |
+| `revision` | the broadcast | Starts at 0 for each race and moves by exactly 1 for each output whose public view changed (`changed`: `toRaceBroadcast` at the handled instant, revision aside), however many transitions one event triggered. Clients keep the highest revision of the current `raceId` and drop stale snapshots. It never refuses keystrokes: another player's progress never invalidates a batch. |
 
 **One batch in flight per entrant, not per tab.** The client sends its next batch only after the
 reply to the previous one, gathering keystrokes meanwhile, and splits more than `MAX_BATCH_EVENTS`
@@ -102,10 +102,30 @@ After the reconnection, the server sends the `RaceReveal` again, then the snapsh
   advances; this limits mashing, but it is not a general guarantee against cheating.
 - **After the finishing insert,** every later event in the same batch is discarded and not counted.
 
+## Starting a race (`createRace`)
+
+`createRaceRefusal` gives the reason `createRace` would refuse, checked in this order:
+
+1. the start rule (`startRefusal`, COURSE-02);
+2. a duplicate entrant;
+3. an empty text;
+4. a text longer than `MAX_TEXT_GRAPHEMES` NFC graphemes;
+5. a time limit that is neither null nor an integer from 30 000 to 600 000 ms, inclusive.
+
+`createRace` applies it first, so the two never disagree. It reads only the participants, the text
+and the time limit. Passing it guarantees valid parameters, not that the host may start or that the
+room is still available: under the room lock, the start rechecks the host, the phase and the
+participants, and gives `createRace` the text, configuration and entrants frozen for that
+transaction.
+
+Values only the server produces (the ids, the kinds, the error mode, its clock) are programming
+errors when invalid: `createRace` throws a `RangeError` for them.
+
 ## Deadlines (`RaceEvent`)
 
-Before and after handling any event, `reduceRace` applies every transition due at its `now`, so a
-late timer never decides a result:
+Time never runs backwards: an event earlier than the race `clock` is handled at the clock. Before
+and after handling any event, `reduceRace` applies every transition due at that instant, so a late
+timer never decides a result:
 
 1. **The start.** The race starts at `startsAt`.
 2. **The time limit** (when there is one). The race ends at `startsAt + timeLimit`, inclusive, and
@@ -115,6 +135,10 @@ late timer never decides a result:
    - every entrant is an abandon;
    - the elapsed time and the measures are zero, and the countdown never counts as typing time;
    - no victory and no record is awarded.
+
+A confirmed abandon (COURSE-07) is `voluntary`, during the countdown or the race. An abandon that
+changes nothing is ignored for an unknown entrant, then for a race already over, then for an entrant
+already terminal.
 
 With no time limit there is no hidden cap (CONF-01, D-17). A configured limit is announced before
 the start and shown during the race. The runtime schedules one `tick` at the `nextDeadline` that the
@@ -127,7 +151,10 @@ reducer returns.
   records.
 - A race that already ended keeps its results when the room closes later.
 - When closing and finalising compete, one transaction wins under the room lock.
-- An ended or interrupted race is final: no later event, including a late timer, changes it.
+- An ended or interrupted race is final: no later event, including a late timer, changes it. The
+  reducer returns it as is, clock included; a batch still gets its reply after the usual checks
+  (`duplicate` for a retry, `NOT_RACING` for a new well-formed batch of a known entrant).
+- The results (`ended`) come exactly once, on the transition to `ended`.
 
 ## Limits and bounds (`src/race/limits.ts`, `src/measures/types.ts`)
 
@@ -169,12 +196,15 @@ Stored values are bounded, so database columns can be sized from these constants
 ## Contracts and examples
 
 - **Types first.** Functions that are not implemented yet exist only as types, so there is never a
-  stub to call: `CreateRace`, `ReduceRace`, `ToRaceBroadcast` and `ToRaceReveal`.
+  stub to call. Every function of the first race path is implemented; later cards add theirs the
+  same way.
 - **Implementing a contract.** A function that implements a contract type is declared
   `export const name: ContractType = …`, so the compiler checks it against the contract.
 - **Examples.** `*.examples.ts` hold the worked examples, which are not exported from `index.ts`.
   They are type-checked, and they count as evidence only once the implementing card runs them.
 - **Implemented now:**
+  - `createRaceRefusal`, `createRace`, `reduceRace`, `toRaceBroadcast` and `toRaceReveal`: a race
+    on a fixed text, from the reveal to the results (F-04.1, engine half);
   - `applyKeystrokes` and `toEntrantSnapshot`: one entrant's batch, whole or not at all, and its
     authoritative snapshot (F-04.4, engine half);
   - `computeMeasures`: Appendix A, exact and never capped (F-02.1);
