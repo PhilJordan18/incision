@@ -130,16 +130,27 @@ errors when invalid: `createRace` throws a `RangeError` for them.
 ## Immediate feedback (`predictTyping`, COURSE-04)
 
 The typing zone reacts to every key before the server replies. `predictTyping(start, events,
-errorMode)` applies the engine's own typing fold, the one `applyKeystrokes` uses, to the pending
-events, from the player's last snapshot (or the revealed text):
+errorMode)` applies the engine's own typing fold, the one `applyKeystrokes` uses:
 
 - It gives the typed graphemes, one mark per grapheme (`typedMarks`), the pending error and the
   finish, and nothing else: no counter, measure, rank or `seq`.
 - It skips the checks only the server can make (sequence, phase, status, text version, size,
   plausibility). For a batch the server applies, the prediction equals the applied state.
-- An event the server would refuse (`INVALID_INPUT`, Enter included) gives `{ ok: false }`.
-- Any reply replaces the prediction: the client rebuilds from the snapshot and predicts again the
-  events still pending. A wrong prediction is only visual.
+
+The client keeps a confirmed start and predicts from it the batch in flight followed by the events
+gathered since:
+
+| Moment | Start | Events predicted |
+|---|---|---|
+| Reveal | the text, nothing typed, no pending error | everything typed so far |
+| `applied` or `duplicate` of the batch in flight | that batch's prediction from the previous start, which equals the server's state | the events gathered since |
+| `resync`, or `refused` with a snapshot | the snapshot | none: the unapplied keystrokes are dropped (keystroke protocol) |
+| Reconnection | the snapshot | the batch in flight when `snapshot.ackSeq` is below its `seq`, then the rest |
+
+When an event would be refused (`INVALID_INPUT`, Enter included), `predictTyping` gives
+`{ ok: false }`, and the zone shows the start, marked with `typedMarks`. A client that filters
+Enter and sends one grapheme per insert never sees it. A wrong prediction is only visual: any
+snapshot replaces it.
 
 ## Deadlines (`RaceEvent`)
 

@@ -6,6 +6,11 @@ import type { EntrantState, ErrorMode, InputEvent } from "./types";
  * prediction is never a second implementation. Internal: the package index does not export it.
  */
 
+/** An entrant has finished once the typed text reaches the target's length (errors included in free mode). */
+export function isFinished(target: readonly string[], typed: readonly string[]): boolean {
+  return typed.length === target.length;
+}
+
 /** The engine's one comparison: the grapheme typed at `position` is the expected one. */
 export function isExpected(target: readonly string[], position: number, grapheme: string): boolean {
   return grapheme === target[position];

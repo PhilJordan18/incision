@@ -360,8 +360,10 @@ export type EntrantSnapshot = {
 export type ToEntrantSnapshot = (state: RaceState, entrantId: EntrantId) => EntrantSnapshot | undefined;
 
 /**
- * Immediate typing feedback (COURSE-04), for the display only. The start is what the player holds
- * for their own entrant: the last snapshot, or the revealed text with nothing typed.
+ * Immediate typing feedback (COURSE-04), for the display only. The start is the entrant's last
+ * confirmed typing state: the revealed text with nothing typed; after `applied` or `duplicate`, the
+ * prediction of the confirmed batch from the previous start (it equals the server's state); after a
+ * reply or a reconnection carrying a snapshot, that snapshot.
  */
 export type TypingStart = Pick<EntrantSnapshot, "target" | "typed" | "pendingError">;
 

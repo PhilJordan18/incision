@@ -1,5 +1,5 @@
 import type { PredictTyping, TypedMark } from "./types";
-import { isExpected, normalizedEvents, typeEvents } from "./typing-fold";
+import { isExpected, isFinished, normalizedEvents, typeEvents } from "./typing-fold";
 
 /**
  * Immediate feedback for the typing zone (COURSE-04): the engine's own fold applied to the pending
@@ -11,7 +11,7 @@ export const predictTyping: PredictTyping = (start, events, errorMode) => {
     return { ok: false, reason: "INVALID_INPUT" };
   }
   const { typed, pendingError } = typeEvents({ ...start, counters: { correctInserts: 0, totalInserts: 0 }, missedKeys: {} }, normalized, errorMode);
-  return { ok: true, typed, marks: typedMarks(start.target, typed), pendingError, finished: typed.length === start.target.length };
+  return { ok: true, typed, marks: typedMarks(start.target, typed), pendingError, finished: isFinished(start.target, typed) };
 };
 
 /** One mark per typed grapheme, for a prediction or a snapshot as received. */
