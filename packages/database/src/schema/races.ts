@@ -35,7 +35,7 @@ export const raceOutcome = pgEnum("race_outcome", RACE_OUTCOMES);
  * later reason is one additive migration (an enum value cannot be used in the transaction
  * that adds it).
  */
-export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_lost", "save_failed"] as const;
+export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_lost", "save_failed", "engine_error"] as const;
 export type InterruptionReason = (typeof INTERRUPTION_REASONS)[number];
 
 /** The engine's reasons to abandon (`AbandonReason` in @incision/domain). */

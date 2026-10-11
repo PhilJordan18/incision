@@ -14,7 +14,7 @@ import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
 import { interruptRaceForClosedRoom } from "../races/interruption";
 import { firstRow } from "../rows";
-import { accounts, lobbies, lobbyMembers } from "../schema";
+import { accounts, type InterruptionReason, lobbies, lobbyMembers, type RACE_STATES, races } from "../schema";
 import { boundedTransaction, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
@@ -57,6 +57,13 @@ export type RoomMember = {
   readonly isHost: boolean;
 };
 
+/** The room's current (or latest) race, as the database holds it: what a page shows after a reconnection. */
+export type RoomRace = {
+  readonly raceId: string;
+  readonly state: (typeof RACE_STATES)[number];
+  readonly interruptionReason: InterruptionReason | null;
+};
+
 export type RoomSnapshot = {
   readonly lobbyId: string;
   readonly code: string;
@@ -66,6 +73,8 @@ export type RoomSnapshot = {
   readonly revision: number;
   /** Active members, oldest first. */
   readonly members: readonly RoomMember[];
+  /** Kept once the room goes back to waiting, so its members learn how that race ended. */
+  readonly race?: RoomRace;
 };
 
 /**
@@ -84,8 +93,12 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
       accountId: lobbyMembers.accountId,
       displayName: lobbyMembers.displayName,
       role: lobbyMembers.role,
+      raceId: races.id,
+      raceState: races.state,
+      interruptionReason: races.interruptionReason,
     })
     .from(lobbies)
+    .leftJoin(races, eq(races.id, lobbies.currentRaceId))
     .leftJoin(lobbyMembers, and(eq(lobbyMembers.lobbyId, lobbies.id), isNull(lobbyMembers.leftAt)))
     .where(eq(lobbies.id, lobbyId))
     .orderBy(asc(lobbyMembers.joinedAt), asc(lobbyMembers.id));
@@ -100,7 +113,11 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
       members.push({ memberId, accountId, displayName, role, isHost: memberId === lobby.hostMemberId });
     }
   }
-  return { lobbyId, code: lobby.code, phase: lobby.phase, capacity: lobby.capacity, revision: lobby.revision, members };
+  const race =
+    lobby.raceId === null || lobby.raceState === null
+      ? undefined
+      : { raceId: lobby.raceId, state: lobby.raceState, interruptionReason: lobby.interruptionReason };
+  return { lobbyId, code: lobby.code, phase: lobby.phase, capacity: lobby.capacity, revision: lobby.revision, members, ...(race === undefined ? {} : { race }) };
 }
 
 export type JoinRoomInput = { readonly accountId: string; readonly code: RoomCode; readonly role: MemberRole };

@@ -1,6 +1,6 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { type InterruptionReason, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
+import { type InterruptionReason, lobbies, lobbyMembers, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -40,15 +40,49 @@ export type RaceResultView = {
 /**
  * A race as frozen in the database (HIST-02), for one of its entrants only. Anyone else, an
  * unknown id or a malformed one get the same `undefined`, so a race id reveals nothing.
- * Results are written once, with the move to RESULTS, and shown only for a finished race: a
- * finalisation committing between the two reads cannot pair a race in progress with results.
  */
 export async function readRaceForEntrant(db: Database, raceId: string, accountId: string): Promise<RaceResultView | undefined> {
   if (!UUID.test(raceId)) {
     return undefined;
   }
+  return readRaceView(
+    db,
+    accountId,
+    and(
+      eq(races.id, raceId),
+      sql`exists (select 1 from ${raceEntrants} where ${raceEntrants.raceId} = ${races.id} and ${raceEntrants.accountId} = ${accountId})`,
+    ),
+  );
+}
+
+/**
+ * The current (or latest) race of the room `accountId` occupies, for any of its members,
+ * spectators included: what the room shows once its race ended. Undefined when the account is
+ * not an active member of that room, or when the room never raced.
+ */
+export async function readRoomRaceForMember(db: Database, lobbyId: string, accountId: string): Promise<RaceResultView | undefined> {
+  if (!UUID.test(lobbyId)) {
+    return undefined;
+  }
+  const member = db
+    .select({ id: lobbyMembers.id })
+    .from(lobbyMembers)
+    .where(and(eq(lobbyMembers.lobbyId, lobbies.id), eq(lobbyMembers.accountId, accountId), isNull(lobbyMembers.leftAt)));
+  const roomRace = db
+    .select({ id: lobbies.id })
+    .from(lobbies)
+    .where(and(eq(lobbies.id, lobbyId), eq(lobbies.currentRaceId, races.id), sql`exists (${member})`));
+  return readRaceView(db, accountId, sql`exists (${roomRace})`);
+}
+
+/**
+ * Results are written once, with the move to RESULTS, and shown only for a finished race: a
+ * finalisation committing between the two reads cannot pair a race in progress with results.
+ */
+async function readRaceView(db: Database, accountId: string, condition: SQL | undefined): Promise<RaceResultView | undefined> {
   const [race] = await db
     .select({
+      raceId: races.id,
       roundNo: races.roundNo,
       state: races.state,
       interruptionReason: races.interruptionReason,
@@ -57,12 +91,7 @@ export async function readRaceForEntrant(db: Database, raceId: string, accountId
       endedAt: races.endedAt,
     })
     .from(races)
-    .where(
-      and(
-        eq(races.id, raceId),
-        sql`exists (select 1 from ${raceEntrants} where ${raceEntrants.raceId} = ${races.id} and ${raceEntrants.accountId} = ${accountId})`,
-      ),
-    );
+    .where(condition);
   if (race === undefined) {
     return undefined;
   }
@@ -85,11 +114,10 @@ export async function readRaceForEntrant(db: Database, raceId: string, accountId
     })
     .from(raceEntrants)
     .leftJoin(raceResults, and(eq(raceResults.raceId, raceEntrants.raceId), eq(raceResults.entrantId, raceEntrants.id)))
-    .where(eq(raceEntrants.raceId, raceId))
+    .where(eq(raceEntrants.raceId, race.raceId))
     .orderBy(sql`${raceResults.rank} asc nulls last`, asc(raceEntrants.ordinal));
   const finished = race.state === "finished";
   return {
-    raceId,
     ...race,
     entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, result }) => ({
       ordinal,
