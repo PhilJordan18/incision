@@ -185,7 +185,7 @@ export type CreateRace = (input: CreateRaceInput) => CreateRaceResult;
  * Race events. Later cards add bonuses and bots.
  *
  * Before and after handling any event, the reducer applies every transition due at its `now`, in
- * the order they fall due, so a late timer never decides a result (docs/architecture/
+ * this order, so a late timer never decides a result (docs/architecture/
  * state-machines.md §3):
  * 1. `countdown` → `racing` once `now >= startsAt`;
  * 2. each racing human's own abandon (D-06, D-17), independent of the others, the earlier deadline

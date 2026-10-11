@@ -420,6 +420,9 @@ describe("reduceRace: grace and inactivity (F-04.6, D-06, D-17)", () => {
     expect(started.state.phase).toBe("racing");
     expect(started.nextDeadline).toBe(MAX_INSTANT);
     expect(reduceRace(started.state, { type: "present", entrantId: ALICE, now: asInstant(MAX_INSTANT - 1_000) }).ignored).toBeUndefined();
+    const gone = reduceRace(started.state, { type: "connectionLost", entrantId: BOB, now: asInstant(MAX_INSTANT - 1_000) });
+    expect(gone.ignored).toBeUndefined();
+    expect(gone.nextDeadline).toBe(MAX_INSTANT);
     // Without a time limit, every presence deadline lies past MAX_INSTANT: no next deadline at all.
     const unlimited = createRace({ raceId: EXAMPLE_RACE, text: "ab", errorMode: "free", timeLimit: null, participants: [{ entrantId: ALICE, kind: "human" }, { entrantId: BOB, kind: "human" }], now: asInstant(MAX_INSTANT - 3_000 - 30_000) });
     if (!unlimited.ok) {

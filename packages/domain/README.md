@@ -155,8 +155,8 @@ snapshot replaces it.
 ## Deadlines (`RaceEvent`)
 
 Time never runs backwards: an event earlier than the race `clock` is handled at the clock. Before
-and after handling any event, `reduceRace` applies every transition due at that instant, in the
-order they fall due, so a late timer never decides a result:
+and after handling any event, `reduceRace` applies every transition due at that instant, in this
+order, so a late timer never decides a result:
 
 1. **The start.** The race starts at `startsAt`.
 2. **Each racing human's own abandon** (D-06, D-17), independent of the others; the earlier
