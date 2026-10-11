@@ -84,12 +84,15 @@ export type RuntimeTiming = {
   /** Waits before each retry of a write that failed, never periodic (ADR-0004). */
   readonly saveRetriesMs: readonly number[];
   readonly interruptRetriesMs: readonly number[];
+  /** After the typing tab closed: the same page may come back before another tab takes over. */
+  readonly handoverGraceMs: number;
 };
 
 const TIMING: RuntimeTiming = {
   progressEveryMs: 250,
   saveRetriesMs: [1_000, 2_000, 4_000, 8_000],
   interruptRetriesMs: [1_000, 2_000],
+  handoverGraceMs: 3_000,
 };
 
 /**
@@ -119,6 +122,8 @@ export class RaceRuntime implements OwnedRace {
   #results: readonly RaceResultRow[] | undefined;
   /** Entrant id → the tab that types for it, and its page. */
   readonly #control = new Map<string, { readonly connectionId: string; readonly pageId: string | undefined }>();
+  /** Entrant id → the pending hand-over of its input to another open tab, cancellable. */
+  readonly #handovers = new Map<string, () => void>();
   #cancelTick: (() => void) | undefined;
   #cancelProgress: (() => void) | undefined;
   #progressSentAt = Number.NEGATIVE_INFINITY;
@@ -164,6 +169,7 @@ export class RaceRuntime implements OwnedRace {
     if (entrant !== undefined && (!this.#controllerFollows(entrant.entrantId) || this.#samePage(entrant.entrantId, connection))) {
       // No typing tab, or this page reconnected: its former socket's late batches are discarded.
       this.#control.set(entrant.entrantId, { connectionId: connection.id, pageId: connection.pageId });
+      this.#cancelHandover(entrant.entrantId);
     }
     const reveal = this.#revealFor(entrant?.entrantId);
     const progress = this.#progress();
@@ -182,9 +188,9 @@ export class RaceRuntime implements OwnedRace {
   }
 
   /**
-   * A tab closed or left the room. If it typed, the entrant's most recent other tab still
-   * following takes the input (state-machines §2), and learns it; otherwise the next tab that
-   * follows or asks does.
+   * A tab closed or left the room. If it typed, its input is free: the next tab that follows
+   * takes it (the same page coming back after a network blip, typically). After a short grace,
+   * the entrant's most recent other open tab takes it and learns it (state-machines §2).
    */
   unfollow(connectionId: string): void {
     for (const [entrantId, controller] of this.#control) {
@@ -192,16 +198,36 @@ export class RaceRuntime implements OwnedRace {
         continue;
       }
       this.#control.delete(entrantId);
-      const entrant = this.#entrants.get(entrantId);
-      const next = entrant === undefined ? undefined : [...this.#connectionsOf(entrant.accountId)].at(-1);
-      if (next !== undefined && (this.#stage === "running" || this.#stage === "saving")) {
-        this.#control.set(entrantId, { connectionId: next.id, pageId: next.pageId });
-        const self = this.#selfFor(entrantId, next.id);
-        if (self !== undefined) {
-          next.emit(RACE_SELF_EVENT, self);
-        }
-      }
+      this.#cancelHandover(entrantId);
+      this.#handovers.set(
+        entrantId,
+        this.#options.schedule(() => {
+          this.#handovers.delete(entrantId);
+          this.#handOver(entrantId);
+        }, this.#timing.handoverGraceMs),
+      );
     }
+  }
+
+  #handOver(entrantId: string): void {
+    if (this.#control.has(entrantId) || (this.#stage !== "running" && this.#stage !== "saving")) {
+      return;
+    }
+    const entrant = this.#entrants.get(entrantId);
+    const next = entrant === undefined ? undefined : [...this.#connectionsOf(entrant.accountId)].at(-1);
+    if (next === undefined) {
+      return;
+    }
+    this.#control.set(entrantId, { connectionId: next.id, pageId: next.pageId });
+    const self = this.#selfFor(entrantId, next.id);
+    if (self !== undefined) {
+      next.emit(RACE_SELF_EVENT, self);
+    }
+  }
+
+  #cancelHandover(entrantId: string): void {
+    this.#handovers.get(entrantId)?.();
+    this.#handovers.delete(entrantId);
   }
 
   /** The input moves to this tab; the previous one observes, and its late batches are discarded. */
@@ -222,6 +248,7 @@ export class RaceRuntime implements OwnedRace {
       return "ok";
     }
     this.#control.set(entrant.entrantId, { connectionId: connection.id, pageId: connection.pageId });
+    this.#cancelHandover(entrant.entrantId);
     // A change of control must arrive: never volatile.
     this.#sendSelf(entrant.entrantId, { volatile: false });
     return this.#stage === "running" ? "ok" : "NO_RACE";
@@ -563,6 +590,10 @@ export class RaceRuntime implements OwnedRace {
     this.#cancelTick = undefined;
     this.#cancelProgress?.();
     this.#cancelProgress = undefined;
+    for (const cancel of this.#handovers.values()) {
+      cancel();
+    }
+    this.#handovers.clear();
   }
 
   /** Runs `write`, then retries it after each wait while it throws; undefined if every attempt threw. */

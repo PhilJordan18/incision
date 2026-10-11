@@ -266,7 +266,7 @@ describe("RaceRuntime", () => {
     expect(other.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
   });
 
-  it("hands the input to the player's other tab when the typing tab closes, and tells it", async () => {
+  it("hands the input to the player's other tab once the typing tab is gone for good, and tells it", async () => {
     const { runtime, time, alice, followers } = setup();
     runtime.start();
     await time.advance(COUNTDOWN_MS);
@@ -276,8 +276,34 @@ describe("RaceRuntime", () => {
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
     followers.splice(followers.indexOf(alice.connection), 1);
     runtime.unfollow(alice.connection.id);
+    // A grace first: the closed page may come back.
+    await time.advance(2_999);
+    expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
+    await time.advance(1);
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
     expect(runtime.keystrokes(second.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+  });
+
+  it("keeps the input with the page that comes back within the grace, even with another tab open", async () => {
+    const { runtime, time, followers } = setup();
+    const typing = tab("tab-page-1", ALICE.accountId, "page-1");
+    const other = tab("tab-page-2", ALICE.accountId, "page-2");
+    followers.splice(0, 1, typing.connection);
+    followers.push(other.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    expect(typing.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+    // A network blip on the typing page: its socket closes, then the page reconnects.
+    followers.splice(followers.indexOf(typing.connection), 1);
+    runtime.unfollow(typing.connection.id);
+    await time.advance(500);
+    const back = tab("tab-page-1-again", ALICE.accountId, "page-1");
+    followers.push(back.connection);
+    runtime.follow(back.connection);
+    await time.advance(5_000);
+    expect(back.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+    expect(other.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
+    expect(runtime.keystrokes(back.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
   });
 
   it("accepts nothing and broadcasts nothing while its lease is not confirmed, then catches up", async () => {

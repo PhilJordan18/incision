@@ -58,6 +58,9 @@ async function tab(origin: string, cookie: string): Promise<Tab> {
   return opened;
 }
 
+const FIRST_PAGE = "1c7e2a5b-3f4d-4e6a-8b9c-0d1e2f3a4b5c";
+const SECOND_PAGE = "2d8f3b6c-4a5e-4f7b-9c0d-1e2f3a4b5c6d";
+
 let codes = 0;
 /** A waiting room by code, hosted by `host` (participant), joined by `guests`, through the database functions the server actions use. */
 async function room(host: { id: string }, guests: { id: string }[]): Promise<string> {
@@ -183,7 +186,8 @@ describe("an integrated race (F-04.0)", () => {
     const h = await tab(a.origin, host.cookie);
     const first = await tab(a.origin, guest.cookie);
     await h.ask("room:watch", { code });
-    await first.ask("room:watch", { code });
+    // Each page keeps its own id across reconnections, as the room page does.
+    await first.ask("room:watch", { code, pageId: FIRST_PAGE });
     expect(await h.ask("race:start", {})).toEqual({ ok: true });
     const reveal = (await first.next("race:reveal")) as RaceRevealPayload;
     const raceId = reveal.reveal.raceId;
@@ -191,7 +195,7 @@ describe("an integrated race (F-04.0)", () => {
 
     // A second tab of the same member observes; its batches are discarded before the engine.
     const second = await tab(a.origin, guest.cookie);
-    await second.ask("room:watch", { code });
+    await second.ask("room:watch", { code, pageId: SECOND_PAGE });
     expect(((await second.next("race:self")) as RaceSelfPayload).control).toBe("observing");
     await startsAt(reveal);
     expect(await second.ask("race:batch", { raceId, seq: 1, textVersion: 0, events: [{ type: "insert", grapheme: "T" }] })).toEqual({ ok: false, error: "NOT_CONTROLLING" });
@@ -200,11 +204,12 @@ describe("an integrated race (F-04.0)", () => {
     expect(await first.ask("race:batch", { raceId, seq, textVersion: 0, events: [{ type: "insert", grapheme: "e" }] })).toEqual({ ok: false, error: "NOT_CONTROLLING" });
     seq = await typeAll(second, raceId, reveal.reveal.text.slice(4, 6), seq);
 
-    // The typing tab goes away; a new connection takes the input and learns what was applied.
+    // The typing page loses its connection and reconnects: it takes its input back and learns
+    // what was applied, whether or not the server has seen its former socket close yet.
     second.socket.close();
     first.socket.close();
     const back = await tab(a.origin, guest.cookie);
-    await back.ask("room:watch", { code });
+    await back.ask("room:watch", { code, pageId: SECOND_PAGE });
     const self = (await back.next("race:self")) as RaceSelfPayload;
     expect(self).toMatchObject({ control: "controlling", snapshot: { ackSeq: seq - 1, typed: reveal.reveal.text.slice(0, 6) } });
     // A batch already applied, sent again after the reconnection, is recognised.
