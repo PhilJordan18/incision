@@ -77,7 +77,7 @@ Auth.js v5 avec des sessions JWT ([ADR-0003](adr/0003-authentication.md)). Seule
 | `AUTH_SECRET` | 32 octets aléatoires : `openssl rand -base64 32` | Un par environnement. Le changer déconnecte tout le monde (pas de liste de rotation au checkpoint). Socket.IO déchiffre le même cookie avec lui. |
 | `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | application OAuth GitHub de production | GitHub permet une seule URL de callback par application OAuth : une application pour la production, une autre pour le développement local. |
 | `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET` | application Discord | Une seule application peut lister les deux URL de redirection. |
-| `TRUSTED_PROXY_HOPS` | `1` | Le frontal d'Azure ajoute l'adresse du client à `X-Forwarded-For`; seule cette dernière entrée est jugée fiable, celles qu'un client écrit sont ignorées. `0` en local. Garder `1` sauf si un autre proxy (par exemple Front Door) est ajouté : avec `0`, tous les visiteurs partagent l'adresse du frontal, donc 100 connexions échouées suspendent la connexion locale pour tout le monde; avec `2`, l'entrée écrite par un client est jugée fiable et la limite par adresse peut être contournée. |
+| `TRUSTED_PROXY_HOPS` | `1` | Le frontal d'Azure ajoute l'adresse du client à `X-Forwarded-For`; seule cette dernière entrée est jugée fiable, celles qu'un client écrit sont ignorées. Les limites de connexion et de codes de salle en dépendent. `0` en local. Les tests E2E tournent avec `1` : les requêtes sans `X-Forwarded-For` gardent l'adresse TCP (le bouclage), et seule `e2e/code-limit.spec.ts` passe par un proxy de test qui joue le frontal. Garder `1` sauf si un autre proxy (par exemple Front Door) est ajouté : avec `0`, tous les visiteurs partagent l'adresse du frontal, donc 100 connexions échouées suspendent la connexion locale pour tout le monde, et 10 codes de salle ratés en une minute bloquent la recherche par code pour tout le monde; avec `2`, l'entrée écrite par un client est jugée fiable et la limite par adresse peut être contournée. |
 
 URL de callback exactes à enregistrer :
 
@@ -98,11 +98,17 @@ Permissions : GitHub ne demande **aucun scope** (profil public seulement), Disco
 
 Les salles par code (CP-06) n'exigent aucune nouvelle variable ni migration. La présence vit dans la mémoire du processus, comme le registre des sessions : une seule instance App Service (ADR-0001); une mise à l'échelle horizontale répartirait les salles entre plusieurs instances.
 
-**Limites** (en mémoire, remises à zéro par un redémarrage) : un socket peut envoyer 5 événements `room:watch` par 10 secondes, un à la fois, et au-delà il est déconnecté; un compte a au plus 2 suivis (watches) en cours sur l'ensemble de ses sockets, pour que ni un socket ni plusieurs sockets d'un même compte ne puissent épuiser le pool de 5 connexions à la base de données. Un compte peut créer, rejoindre ou quitter une salle 10 fois par minute. Les diffusions font une seule lecture à la fois par salle et ignorent les salles que personne ne suit.
+**Limites** (en mémoire, remises à zéro par un redémarrage) : un socket peut envoyer 5 événements `room:watch` par 10 secondes, un à la fois, et au-delà il est déconnecté; un compte a au plus 2 suivis (watches) en cours sur l'ensemble de ses sockets, pour que ni un socket ni plusieurs sockets d'un même compte ne puissent épuiser le pool de 5 connexions à la base de données. Un compte peut créer, rejoindre ou quitter une salle 10 fois par minute. Une adresse peut faire au plus 10 essais de code ratés (code inconnu, salle privée ou fermée) par minute glissante; les admissions et les codes valides ne comptent pas. Les recherches par code passent par une file : au plus 1 à la fois par adresse et 2 pour tout le serveur, 30 demandes en attente par adresse et 100 au total, 5 s d'attente au plus; 10 000 adresses retenues au plus. Les diffusions font une seule lecture à la fois par salle et ignorent les salles que personne ne suit.
 
 **Risques résiduels, acceptés au checkpoint :**
 
-- Deviner des codes (SALLE-10 non réalisée) : un compte connecté peut essayer des codes; les salles privées répondent exactement comme des codes inconnus. Avec 31⁶ codes et une vingtaine de salles ouvertes, tomber sur une salle demande des millions de requêtes.
+- Limite des codes (SALLE-10) :
+  - Un seul budget par adresse, risque accepté pour l'instant : une classe derrière l'adresse de son école le partage. Dix codes ratés en une minute, par des fautes de frappe ou par un seul élève, bloquent la recherche par code pour toute la classe pendant au plus une minute; chacun garde l'accès à sa propre salle.
+  - Les recherches par code d'une même adresse passent une à la fois, avec 5 s d'attente au plus, et au plus 30 attendent : au-delà d'environ 31 demandes simultanées, les suivantes reçoivent « Trop de demandes » tout de suite. En local, 30 comptes qui cliquent en même temps depuis la même adresse sont tous admis (test E2E); le temps d'une admission en production reste à mesurer (5 s d'attente gardées en attendant cette mesure). Si une classe entière arrive en même temps et que chaque admission est lente (base de données éloignée ou qui se réveille), les derniers élèves peuvent recevoir « Trop de demandes »; ils réessaient, sans rien dépenser du budget ni de leurs changements de salle.
+  - Les codes valides ne dépensent rien : quelques adresses qui rouvrent sans arrêt la page d'une salle ouverte peuvent remplir la file commune (2 recherches en cours, 100 en attente), et les autres reçoivent « Trop de demandes » pendant ce temps. Ce n'est pas plus coûteux qu'un simple flot de requêtes, qui occupait déjà le pool avant cette limite : cette limite n'est pas une protection complète contre le déni de service.
+  - Dix mille adresses actives à la fois remplissent la mémoire de la limite : une nouvelle adresse reçoit alors « Trop de demandes » plutôt que d'être admise sans contrôle.
+  - Les compteurs vivent dans la mémoire du processus : un redémarrage ou un déploiement les remet à zéro, et deux processus qui se chevauchent un instant ont chacun leur budget.
+  - L'adresse dépend du format de `X-Forwarded-For` derrière Azure, que les tests reproduisent sans le prouver : voir la vérification à deux réseaux ci-dessous.
 - Les handshakes des sockets ne sont pas limités par compte (chacun lit `session_version` une fois) : de nombreux comptes, ou un flot de handshakes, partagent quand même l'unique pool de 5 connexions de la seule instance, comme le font les simples requêtes HTTP.
 - Les salles fermées et les membres partis restent dans la base de données (pas encore de purge) : environ 700 octets par salle; la limite par compte borne la croissance.
 - Un membre qui se déconnecte reste dans la salle, affiché hors ligne, jusqu'à son retour ou au départ de l'hôte (l'expulsion viendra avec SALLE-07).
@@ -135,6 +141,17 @@ Le Health check sur `/api/health/live` échoue jusqu'à ce premier déploiement 
 ```sh
 npm run smoke -w @incision/web -- https://<default-domain> --database up
 ```
+
+**Après la promotion qui livre la limite des codes (SALLE-10)**, vérifier à la main, depuis deux réseaux :
+
+1. Réseau A (par exemple un téléphone en données cellulaires), connecté : ouvrir 10 codes de salle inconnus; le onzième affiche « Trop d'essais ».
+2. Depuis le réseau A encore, la même requête avec des en-têtes `X-Forwarded-For` et `x-incision-client-address` inventés reste refusée.
+3. Un second appareil sur le réseau A, connecté avec l'autre compte de démonstration : un code inconnu affiche aussi « Trop d'essais » (le budget est partagé par le réseau).
+4. Réseau B (par exemple le Wi-Fi de la maison) : un code inconnu affiche toujours « Code introuvable ».
+
+Si le réseau B est bloqué par les échecs du réseau A, toutes les requêtes partagent une seule adresse : redéployer l'artefact précédent (section Rollback, aucune migration en jeu) et corriger le nombre de proxys de confiance. Si, à l'étape 2, la requête aux en-têtes inventés n'est plus refusée, des en-têtes écrits par le client changent l'adresse comptée et la limite se contourne : corriger `TRUSTED_PROXY_HOPS` dans les paramètres d'App Service; un rollback n'y change rien.
+
+Une panne de base de données sur la page d'une salle affiche l'état « Avarie » avec une réponse 200 : elle apparaît dans le Log stream (`[rooms] room page failed`), pas dans les erreurs 5xx d'App Service.
 
 Logs : App Service → Log stream. Deux endpoints, tous deux sans détails internes :
 

@@ -22,3 +22,8 @@ export function allowRoomChange(accountId: string, limiter: AttemptLimiter = roo
   limiter.recordFailure(accountId);
   return true;
 }
+
+/** Gives back the change counted for a join that the code limit refused before anything changed. */
+export function forgiveRoomChange(accountId: string, limiter: AttemptLimiter = roomChanges()): void {
+  limiter.forgive(accountId);
+}

@@ -9,7 +9,9 @@ import { CODE_INPUT_MAX_LENGTH } from "@/rooms/code-input";
 import { safeRedirectPath } from "@/server/auth/safe-redirect";
 import { getAccountSession, requireAccountSession } from "@/server/auth/session";
 import { authDatabase } from "@/server/auth/store";
-import { allowRoomChange } from "./room-change-limiter";
+import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
+import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
+import { allowRoomChange, forgiveRoomChange } from "./room-change-limiter";
 import { notifyRoomChanged } from "./room-events";
 
 export type JoinError =
@@ -19,6 +21,7 @@ export type JoinError =
   | "ROOM_FULL"
   | "ALREADY_IN_ANOTHER_ROOM"
   | "RATE_LIMITED"
+  | CodeAttemptRefusal
   | "UNAVAILABLE";
 
 export type JoinFormState = {
@@ -54,9 +57,10 @@ function logFailure(action: string, error: unknown): void {
 }
 
 /**
- * Join a room by code (JOIN-01, SALLE-06/09): the code is checked with the domain rule,
- * then the account is admitted in one transaction. A visitor without a session signs in
- * first and comes back to the room's page.
+ * Join a room by code (JOIN-01, SALLE-06/09/10): the code is checked with the domain rule,
+ * then the account is admitted in one transaction, within its address's budget of failed
+ * code attempts. A visitor without a session signs in first and comes back to the room's
+ * page. Once the budget is spent, every code gets the same answer, before any lookup.
  */
 export async function joinRoomAction(_previous: JoinFormState, formData: FormData): Promise<JoinFormState> {
   const input = formData.get("code");
@@ -73,16 +77,44 @@ export async function joinRoomAction(_previous: JoinFormState, formData: FormDat
   if (role === undefined) {
     return { error: "UNAVAILABLE", code: typed };
   }
+  const db = authDatabase();
+  const addressKey = await requestAddressKey();
+  // One's own room first, by account id: it never waits in the code queue nor spends the budget.
+  let own: OwnRoom;
+  try {
+    own = await findOwnRoom({ addressKey, accountId: session.accountId, code: parsed.code }, (accountId) =>
+      findActiveMembership(db, accountId),
+    );
+  } catch (error: unknown) {
+    logFailure("current room lookup", error);
+    return { error: "UNAVAILABLE", code: typed };
+  }
+  if (own.kind === "limited") {
+    return { error: "CODE_RATE_LIMITED", code: typed };
+  }
+  if (own.kind === "own") {
+    redirect(`/rooms/${parsed.code}`);
+  }
   if (!allowRoomChange(session.accountId)) {
     return { error: "RATE_LIMITED", code: typed };
   }
-  let joined: Awaited<ReturnType<typeof joinRoomByCode>>;
+  let attempt: CodeAttempt<Awaited<ReturnType<typeof joinRoomByCode>>>;
   try {
-    joined = await joinRoomByCode(authDatabase(), { accountId: session.accountId, code: parsed.code, role });
+    attempt = await codeAttempts().attempt(
+      addressKey,
+      () => joinRoomByCode(db, { accountId: session.accountId, code: parsed.code, role }),
+      joinSpendsBudget,
+    );
   } catch (error: unknown) {
     logFailure("join", error);
     return { error: "UNAVAILABLE", code: typed };
   }
+  if (!attempt.ok) {
+    // Refused before any lookup: no room change happened.
+    forgiveRoomChange(session.accountId);
+    return { error: attempt.refusal, code: typed };
+  }
+  const joined = attempt.value;
   if (!joined.ok) {
     // An account deleted meanwhile cannot join: its session is refused on the next request.
     const error = joined.error === "ACCOUNT_NOT_FOUND" ? "UNAVAILABLE" : joined.error;

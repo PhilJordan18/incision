@@ -18,7 +18,15 @@ import { RoomView } from "./room-view";
 export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): Promise<Metadata> {
   const [{ t }, { code }, session] = await Promise.all([getRequestDictionary(), params, getAccountSession()]);
   const parsed = parseRoomCode(code);
-  if (!parsed.ok || (session !== null && (await loadRoomPage(session.accountId, parsed.code)).kind === "unknown")) {
+  // A non-canonical code is redirected by the page: no lookup for it here, so a view counts once.
+  const state = parsed.ok && parsed.code === code && session !== null ? await loadRoomPage(session.accountId, parsed.code) : undefined;
+  if (state?.kind === "throttled") {
+    return { title: t.rooms.throttledHeadings[state.refusal], robots: { index: false } };
+  }
+  if (state?.kind === "unavailable") {
+    return { title: t.errorBoundary.title, robots: { index: false } };
+  }
+  if (!parsed.ok || state?.kind === "unknown") {
     // Answered with 200 (no notFound(), see apps/web/AGENTS.md): keep it out of indexes.
     return { title: t.rooms.unknownHeading, robots: { index: false } };
   }
@@ -49,6 +57,48 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
   switch (state.kind) {
     case "unknown":
       return <UnknownRoom t={t} code={code} />;
+    case "unavailable":
+      return (
+        <StatePanel
+          tone="error"
+          label={t.errorBoundary.label}
+          heading={{ bold: t.errorBoundary.title }}
+          actions={
+            <>
+              <Link href={`/rooms/${code}`} prefetch={false} className={secondaryButton}>
+                {t.errorBoundary.retry}
+              </Link>
+              <Link href="/" className={discreetButton}>
+                {t.errorBoundary.backHome}
+              </Link>
+            </>
+          }
+        >
+          <p role="alert">{t.errorBoundary.body}</p>
+        </StatePanel>
+      );
+    case "throttled":
+      // The same panel whatever the code (the refusal depends on the address only): nothing
+      // about the code is said. Retrying reloads the address the student came with.
+      return (
+        <StatePanel
+          tone="warning"
+          label={t.rooms.unknownLabel}
+          heading={{ bold: t.rooms.throttledHeadings[state.refusal] }}
+          actions={
+            <>
+              <Link href={`/rooms/${code}`} prefetch={false} className={secondaryButton}>
+                {t.rooms.retry}
+              </Link>
+              <Link href="/" className={discreetButton}>
+                {t.rooms.backHome}
+              </Link>
+            </>
+          }
+        >
+          <p>{t.home.codeErrors[state.refusal]}</p>
+        </StatePanel>
+      );
     case "member":
       // Presence comes with the socket; the first render shows nobody online yet. Keyed by
       // member: a new membership of the same room starts a fresh view.
