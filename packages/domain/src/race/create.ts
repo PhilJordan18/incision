@@ -80,6 +80,8 @@ export const createRace: CreateRace = (input) => {
       missedKeys: {},
       ackSeq: 0,
       status: "racing",
+      lastActivityAt: startsAt,
+      inactive: false,
     };
   });
   return {

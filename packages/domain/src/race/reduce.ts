@@ -2,13 +2,15 @@ import { computeMeasures } from "../measures/compute";
 import { asInstant, type Instant } from "../time";
 import { measuredElapsed } from "./elapsed";
 import { applyKeystrokes } from "./keystrokes";
+import { INACTIVITY_ABANDON_MS, INACTIVITY_WARNING_MS, RESUME_GRACE_MS } from "./limits";
 import { rankEntrants } from "./ranking";
 import type {
-  AbandonIgnored,
+  AbandonReason,
   EntrantResult,
   EntrantState,
   KeystrokeBatch,
   KeystrokeResult,
+  PresenceIgnored,
   RaceEnd,
   RaceEvent,
   RaceState,
@@ -53,7 +55,7 @@ export const reduceRace: ReduceRace = (state, event) => {
   };
 };
 
-type Reply = { readonly keystrokes?: KeystrokeResult; readonly ignored?: AbandonIgnored };
+type Reply = { readonly keystrokes?: KeystrokeResult; readonly ignored?: PresenceIgnored };
 type Handled = { readonly state: RaceState; readonly reply: Reply };
 
 function isFinal(state: RaceState): boolean {
@@ -72,7 +74,50 @@ function handle(state: RaceState, event: RaceEvent, now: Instant): Handled {
       return abandon(state, event.entrantId, now);
     case "keystrokes":
       return keystrokes(state, event.batch, now);
+    case "connectionLost":
+      return presence(state, event.entrantId, (entrant) =>
+        entrant.disconnectedAt === undefined ? { ...entrant, disconnectedAt: now } : "ALREADY_DISCONNECTED",
+      );
+    case "connectionResumed":
+      // Not activity (D-17): only a batch or « Je suis là » resets the inactivity.
+      return presence(state, event.entrantId, (entrant) => (entrant.disconnectedAt === undefined ? "NOT_DISCONNECTED" : connected(entrant)));
+    case "present":
+      return presence(state, event.entrantId, (entrant) => active(entrant, now));
   }
+}
+
+/**
+ * A presence event (D-06, D-17) for one racing human, ignored in the documented order: the
+ * entrant, the race, the entrant's status, a bot, then `change`'s own reason.
+ */
+function presence(state: RaceState, entrantId: EntrantState["entrantId"], change: (entrant: EntrantState) => EntrantState | PresenceIgnored): Handled {
+  const index = state.entrants.findIndex((entrant) => entrant.entrantId === entrantId);
+  const entrant = state.entrants[index];
+  if (entrant === undefined) {
+    return { state, reply: { ignored: "UNKNOWN_ENTRANT" } };
+  }
+  if (isFinal(state)) {
+    return { state, reply: { ignored: "RACE_OVER" } };
+  }
+  if (entrant.status !== "racing") {
+    return { state, reply: { ignored: "ENTRANT_TERMINAL" } };
+  }
+  if (entrant.kind === "bot") {
+    return { state, reply: { ignored: "BOT_ENTRANT" } };
+  }
+  const next = change(entrant);
+  return typeof next === "string" ? { state, reply: { ignored: next } } : { state: withEntrant(state, index, next), reply: {} };
+}
+
+/** Activity (D-17): never earlier than the start, since nobody types during the countdown. */
+function active(entrant: EntrantState, now: Instant): EntrantState {
+  return { ...entrant, lastActivityAt: now > entrant.lastActivityAt ? now : entrant.lastActivityAt, inactive: false };
+}
+
+/** The same entrant without a running grace. */
+function connected(entrant: EntrantState): EntrantState {
+  const { disconnectedAt, ...rest } = entrant;
+  return disconnectedAt === undefined ? entrant : rest;
 }
 
 function keystrokes(state: RaceState, batch: KeystrokeBatch, now: Instant): Handled {
@@ -85,7 +130,11 @@ function keystrokes(state: RaceState, batch: KeystrokeBatch, now: Instant): Hand
     return { state, reply: { keystrokes: { outcome: "refused", seq: batch.seq, reason: "UNKNOWN_ENTRANT" } } };
   }
   const { entrant: next, result } = applyKeystrokes(entrant, batch, { errorMode: state.errorMode, phase: state.phase, startsAt: state.startsAt, now });
-  return { state: next === entrant ? state : withEntrant(state, index, next), reply: { keystrokes: result } };
+  if (result.outcome !== "applied") {
+    // A duplicate, a refusal or a resync is not activity (D-17): only a newly applied batch is.
+    return { state, reply: { keystrokes: result } };
+  }
+  return { state: withEntrant(state, index, active(next, now)), reply: { keystrokes: result } };
 }
 
 /** A confirmed abandon (COURSE-07), allowed during the countdown and the race. */
@@ -109,10 +158,15 @@ function withEntrant(state: RaceState, index: number, entrant: EntrantState): Ra
 }
 
 /**
- * The transitions due at `now`, in order: the start; then, while racing, the end once everyone is
- * terminal, at the latest of `startsAt` and the last `endedAt`; then the time limit, inclusive,
- * which times out whoever is still racing at its deadline. The time limit wins a tie (D-06): since
- * these transitions apply before every event, no entrant ends at or after the deadline.
+ * The transitions due at `now`, in the order they fall due:
+ * 1. the start;
+ * 2. while racing, each human's own abandon (inactivity or disconnection, D-06, D-17), earliest
+ *    first, as long as it comes before the time limit; the race ends as soon as everyone is
+ *    terminal, at the latest of `startsAt` and the last `endedAt`, so a later deadline, the time
+ *    limit included, never turns those abandons into time-outs;
+ * 3. the time limit, inclusive, which times out whoever is still racing at its deadline and wins a
+ *    tie with any other deadline (D-06);
+ * 4. the inactive marker of those still racing (INACTIVITY_WARNING_MS, inclusive).
  */
 function applyDue(state: RaceState, now: Instant): RaceState {
   const started = state.phase === "countdown" && now >= state.startsAt ? { ...state, phase: "racing" as const } : state;
@@ -120,15 +174,64 @@ function applyDue(state: RaceState, now: Instant): RaceState {
     return started;
   }
   const deadline = timeLimitDeadline(started);
-  const lastEnd = allTerminalAt(started);
+  let race: RaceState = started;
+  for (const expiry of dueExpiries(started, now)) {
+    if (deadline !== undefined && expiry.at >= deadline) {
+      break;
+    }
+    const entrant = race.entrants[expiry.index];
+    if (entrant !== undefined) {
+      race = withEntrant(race, expiry.index, { ...entrant, status: "abandoned", abandonReason: expiry.reason, endedAt: expiry.at });
+    }
+  }
+  const lastEnd = allTerminalAt(race);
   if (lastEnd !== undefined) {
-    return { ...started, phase: "ended", endedAt: lastEnd };
+    return { ...race, phase: "ended", endedAt: lastEnd };
   }
   if (deadline !== undefined && now >= deadline) {
-    const entrants = started.entrants.map((entrant): EntrantState => (entrant.status === "racing" ? { ...entrant, status: "timedOut", endedAt: deadline } : entrant));
-    return { ...started, phase: "ended", endedAt: deadline, entrants };
+    const entrants = race.entrants.map((entrant): EntrantState => (entrant.status === "racing" ? { ...entrant, status: "timedOut", endedAt: deadline } : entrant));
+    return { ...race, phase: "ended", endedAt: deadline, entrants };
   }
-  return started;
+  return { ...race, entrants: race.entrants.map((entrant) => (shownInactive(entrant, now) ? { ...entrant, inactive: true } : entrant)) };
+}
+
+type Expiry = { readonly index: number; readonly at: Instant; readonly reason: AbandonReason };
+
+/**
+ * The abandons due at `now` (strictly after their deadline, so a reaction at the deadline counts),
+ * earliest first. An entrant's earlier deadline wins; at the same instant the reason is
+ * `disconnection`. Bots have none (D-17).
+ */
+function dueExpiries(state: RaceState, now: Instant): readonly Expiry[] {
+  const expiries: Expiry[] = [];
+  state.entrants.forEach((entrant, index) => {
+    if (entrant.status !== "racing" || entrant.kind === "bot") {
+      return;
+    }
+    const grace = graceDeadline(entrant);
+    const idle = inactivityDeadline(entrant);
+    const expiry: Expiry = grace !== undefined && grace <= idle ? { index, at: grace, reason: "disconnection" } : { index, at: idle, reason: "inactivity" };
+    if (now > expiry.at) {
+      expiries.push(expiry);
+    }
+  });
+  return expiries.sort((left, right) => left.at - right.at || left.index - right.index);
+}
+
+function graceDeadline(entrant: EntrantState): Instant | undefined {
+  return entrant.disconnectedAt === undefined ? undefined : asInstant(entrant.disconnectedAt + RESUME_GRACE_MS);
+}
+
+function inactivityDeadline(entrant: EntrantState): Instant {
+  return asInstant(entrant.lastActivityAt + INACTIVITY_ABANDON_MS);
+}
+
+function warningInstant(entrant: EntrantState): Instant {
+  return asInstant(entrant.lastActivityAt + INACTIVITY_WARNING_MS);
+}
+
+function shownInactive(entrant: EntrantState, now: Instant): boolean {
+  return entrant.status === "racing" && entrant.kind !== "bot" && !entrant.inactive && now >= warningInstant(entrant);
 }
 
 function timeLimitDeadline(state: RaceState): Instant | undefined {
@@ -149,12 +252,34 @@ function allTerminalAt(state: RaceState): Instant | undefined {
   return latest;
 }
 
-/** The next instant at which a `tick` would change something: the start, then the time limit. */
+/**
+ * The next instant at which a `tick` would change something: the start, the time limit, and each
+ * racing human's inactive marker, inactivity abandon and grace expiry (one millisecond after their
+ * deadline, since a reaction at the deadline still counts).
+ */
 function nextDeadline(state: RaceState): Instant | undefined {
-  if (state.phase === "countdown") {
-    return state.startsAt;
+  if (state.phase !== "countdown" && state.phase !== "racing") {
+    return undefined;
   }
-  return state.phase === "racing" ? timeLimitDeadline(state) : undefined;
+  const candidates: number[] = state.phase === "countdown" ? [state.startsAt] : [];
+  const limit = timeLimitDeadline(state);
+  if (limit !== undefined) {
+    candidates.push(limit);
+  }
+  for (const entrant of state.entrants) {
+    if (entrant.status !== "racing" || entrant.kind === "bot") {
+      continue;
+    }
+    if (!entrant.inactive) {
+      candidates.push(warningInstant(entrant));
+    }
+    candidates.push(inactivityDeadline(entrant) + 1);
+    const grace = graceDeadline(entrant);
+    if (grace !== undefined) {
+      candidates.push(grace + 1);
+    }
+  }
+  return candidates.length === 0 ? undefined : asInstant(Math.min(...candidates));
 }
 
 /**
