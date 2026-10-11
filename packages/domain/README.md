@@ -230,6 +230,23 @@ Stored values are bounded, so database columns can be sized from these constants
 | Elapsed time | ≤ `MAX_DURATION_MS` (the instant range, about 4.1 × 10¹² ms): 64-bit integer column, exact |
 | Ranks | exactly 1 to n, each once |
 
+## Words for random texts (`src/words/`, F-02.4)
+
+- **Data, server only.** The lists, the exclusions (P-2) and the forbidden pairs come from the
+  subpath `@incision/domain/words`, never from `index.ts`, which exports only the types and the
+  pure functions. Today they are hand-written fixtures (`WORD_DATA_NOTICE`). The reviewed lists
+  replace them only after Philippe approves their packaging, licences and attributions.
+- **Leak detection.** Each list is one string literal opening with `WORD_DATA_SENTINEL`, so no
+  bundler can keep the words and drop the marker. `tools/word-lists` fails when a client asset
+  holds the sentinel or a fingerprint word, and checks that the sentinel lives only under
+  `src/words/data/`.
+- **`buildWordPool`** applies the exclusions first and always, on exact folded forms
+  (`foldForExclusion`: no accents, œ and æ spelled out, straight apostrophe, lowercase). Excluding
+  "con" never removes "conte". An `accept` filter (a level, letters without accents…) runs after.
+- **`forbiddenPairRule`** says whether two words may not follow each other, in either order. A word
+  of a pair stays drawable alone. The generator (F-02.5) applies it with a bounded, deterministic
+  search and a typed refusal; it never deletes a word after drawing.
+
 ## Contracts and examples
 
 - **Types first.** Functions that are not implemented yet exist only as types, so there is never a
@@ -255,5 +272,7 @@ Stored values are bounded, so database columns can be sized from these constants
   - the time and id validators, and `compareIds`;
   - `maxPlausibleInserts`.
   - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4).
+  - `buildWordPool`, `foldForExclusion` and `forbiddenPairRule`, with the data on the
+    `./words` subpath (F-02.4).
 - **Changes.** A contract changes only through an engine pull request, announced before the
   integration that depends on it.

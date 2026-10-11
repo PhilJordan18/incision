@@ -19,3 +19,5 @@ export * from "./rooms/room-admission";
 export * from "./rooms/room-code";
 export * from "./text/graphemes";
 export * from "./time";
+export * from "./words/pool";
+export * from "./words/types";
