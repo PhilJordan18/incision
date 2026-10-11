@@ -136,7 +136,7 @@ describe("toEntrantMeasures (COURSE-04)", () => {
     expect(toEntrantMeasures(race(), asEntrantId("mallory"), at(12_000))).toBeUndefined();
   });
 
-  it.each([Number.NaN, -1, 1.5])("refuses now = %s, not a valid instant", (now) => {
+  it.each([Number.NaN, -1, MAX_INSTANT + 1, 1.5])("refuses now = %s, not a valid instant", (now) => {
     expect(() => toEntrantMeasures(race(), ALICE, now as Instant)).toThrow(RangeError);
   });
 

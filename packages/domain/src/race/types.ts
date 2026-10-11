@@ -341,8 +341,9 @@ export type RaceBroadcast = {
 export type ToRaceBroadcast = (state: RaceState, now: Instant) => RaceBroadcast;
 
 /**
- * One entrant's live measures (COURSE-04), timed as `toRaceBroadcast` times net WPM: the same
- * instant and the same freeze at the entrant's or the race's end. Undefined for an unknown entrant.
+ * One entrant's live measures (COURSE-04), for that entrant's own display: the public broadcast
+ * carries net WPM only. Timed as `toRaceBroadcast` times net WPM: the same instant and the same
+ * freeze at the entrant's or the race's end. Undefined for an unknown entrant.
  */
 export type ToEntrantMeasures = (state: RaceState, entrantId: EntrantId, now: Instant) => Measures | undefined;
 
