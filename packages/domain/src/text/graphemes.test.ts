@@ -34,7 +34,14 @@ describe("singleGrapheme", () => {
     expect(singleGrapheme("ab")).toBeUndefined();
   });
 
-  it.each([["a line feed", "\n"], ["a carriage return", "\r"], ["a CRLF, one grapheme", "\r\n"]])("refuses %s: Enter is never typed (D-16)", (_label, input) => {
+  it.each([
+    ["a line feed", "\n"],
+    ["a carriage return", "\r"],
+    ["a CRLF, one grapheme", "\r\n"],
+    ["a line separator", "\u2028"],
+    ["a paragraph separator", "\u2029"],
+    ["a next-line control", "\u0085"],
+  ])("refuses %s: Enter is never typed (D-16)", (_label, input) => {
     expect(singleGrapheme(input)).toBeUndefined();
   });
 
@@ -64,9 +71,14 @@ describe("containsLineBreak (D-16)", () => {
     ["a line feed", "ab\ncd", true],
     ["a carriage return", "ab\rcd", true],
     ["a CRLF", "ab\r\ncd", true],
+    ["a vertical tab", "ab\vcd", true],
+    ["a form feed", "ab\fcd", true],
+    ["a next-line control", "ab\u0085cd", true],
+    ["a line separator", "ab\u2028cd", true],
+    ["a paragraph separator", "ab\u2029cd", true],
     ["spaces and a tab only", "ab \tcd", false],
     ["an empty text", "", false],
-  ])("%s gives %s", (_label, text, expected) => {
+  ])("%s (%j) gives %s", (_label, text, expected) => {
     expect(containsLineBreak(text)).toBe(expected);
   });
 });
