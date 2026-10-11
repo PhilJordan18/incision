@@ -1,5 +1,6 @@
 import { ENTRANT_KINDS, ERROR_MODES, MAX_BATCH_EVENTS, MAX_GRAPHEME_LENGTH } from "@incision/domain";
 import { z } from "zod";
+import { LOCALES } from "../i18n/locale";
 
 /**
  * Race events over Socket.IO (F-04.0), shared by the browser and the server. These schemas
@@ -98,6 +99,8 @@ export const raceRevealPayloadSchema = z.object({
     startsAt: instant,
     timeLimit: instant.nullable(),
   }),
+  /** The language of the text, so pages mark it for assistive technology (WCAG 3.1.2). */
+  language: z.enum(LOCALES),
   entrants: z.array(z.object({ entrantId: z.string(), displayName: z.string() })).readonly(),
   /** The reader's own entrant; null for a spectator. */
   selfEntrantId: z.string().nullable(),

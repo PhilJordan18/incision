@@ -1,7 +1,7 @@
 "use client";
 
 import { containsLineBreak, toGraphemes } from "@incision/domain";
-import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { memo, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { card, monoLabel, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
@@ -14,6 +14,8 @@ type RaceViewProps = {
   readonly t: Dictionary["races"];
   readonly locale: Locale;
   readonly roomLabel: string;
+  /** The race the room's snapshot names: a reveal of another (an older round) is not this race. */
+  readonly expectedRaceId: string | undefined;
   /** Asks the server to move the input to this tab (state-machines §2). */
   readonly onTakeControl: (raceId: string) => void;
 };
@@ -25,11 +27,11 @@ const TYPING_INPUT_ID = "race-typing";
  * clock, then the text, the typing field and everyone's progress. What is typed shows at once
  * (the engine's prediction); progress, measures and results come from the server.
  */
-export function RaceView({ race, t, locale, roomLabel, onTakeControl }: RaceViewProps) {
+export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeControl }: RaceViewProps) {
   const state = useSyncExternalStore(race.subscribe, race.getState, race.getState);
   const now = useServerClock(race, state);
-  const waitedLong = useWaitedLong(state.reveal === undefined);
-  const { reveal } = state;
+  const reveal = expectedRaceId === undefined || state.reveal?.raceId === expectedRaceId ? state.reveal : undefined;
+  const waitedLong = useWaitedLong(reveal === undefined);
   if (reveal === undefined) {
     // The room counts down or races, but no race reached this tab: it runs elsewhere (two
     // processes overlapping) or its process stopped; the room recovers it once its lease ends.
@@ -45,6 +47,12 @@ export function RaceView({ race, t, locale, roomLabel, onTakeControl }: RaceView
   const typedCount = state.typing?.typed.length ?? selfProgress?.position ?? 0;
   const length = reveal.text.length;
   const remaining = reveal.timeLimit === null ? undefined : reveal.timeLimit - Math.max(0, now - reveal.startsAt);
+  const seconds = Math.max(1, Math.ceil((reveal.startsAt - now) / 1_000));
+  // Over the faded text (screen 07), so that nothing moves when typing opens.
+  const countdown = counting ? <Countdown seconds={seconds} t={t} /> : undefined;
+  // One speed for "me", the broadcast's, as on the track; accuracy from the server's measures.
+  const speed = selfProgress?.netWpm ?? state.measures?.netWpm ?? 0;
+  const typedAnything = (state.typing?.totalInserts ?? 0) > 0;
   return (
     <div className="flex flex-col gap-6">
       <p className={`${monoLabel} flex flex-wrap gap-x-4 gap-y-1`}>
@@ -62,7 +70,10 @@ export function RaceView({ race, t, locale, roomLabel, onTakeControl }: RaceView
         )}
       </p>
 
-      {counting ? <Countdown seconds={Math.ceil((reveal.startsAt - now) / 1_000)} t={t} /> : <GoAnnouncement t={t} />}
+      {/* One live region from the reveal on: 3, 2, 1, then the start, announced once each. */}
+      <p aria-live="assertive" aria-atomic="true" className="sr-only">
+        {counting ? String(seconds) : t.countdownGo}
+      </p>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
         <div className="flex min-w-0 flex-col gap-5">
@@ -70,8 +81,8 @@ export function RaceView({ race, t, locale, roomLabel, onTakeControl }: RaceView
             <Tile label={t.tiles.time} value={remaining === undefined ? "—" : formatClock(counting ? reveal.timeLimit ?? 0 : remaining)} />
             {state.selfEntrantId !== null && (
               <>
-                <Tile label={t.tiles.speed} value={formatWpm(state.measures?.netWpm ?? 0, locale)} unit={t.wpm} />
-                <Tile label={t.tiles.accuracy} value={formatAccuracy(state.measures?.accuracy ?? 0, locale)} />
+                <Tile label={t.tiles.speed} value={formatWpm(speed, locale)} unit={t.wpm} />
+                <Tile label={t.tiles.accuracy} value={typedAnything ? formatAccuracy(state.measures?.accuracy ?? 0, locale) : "—"} />
                 <Tile label={t.tiles.progress} value={formatProgress(typedCount, length, locale)} />
               </>
             )}
@@ -80,10 +91,18 @@ export function RaceView({ race, t, locale, roomLabel, onTakeControl }: RaceView
           {state.selfEntrantId === null ? (
             <>
               <p className="text-embrun">{t.spectating}</p>
-              <RaceText target={reveal.text} typing={undefined} label={t.textLabel} />
+              <RaceText target={reveal.text} typing={undefined} label={t.textLabel} language={state.language ?? locale} overlay={countdown} />
             </>
           ) : (
-            <TypingZone race={race} state={state} t={t} canType={!counting && phase === "racing"} onTakeControl={onTakeControl} />
+            <TypingZone
+              race={race}
+              state={state}
+              t={t}
+              canType={!counting && phase === "racing"}
+              onTakeControl={onTakeControl}
+              overlay={countdown}
+              language={state.language ?? locale}
+            />
           )}
 
           {state.confirming && (
@@ -129,26 +148,25 @@ function useServerClock(race: RaceClient, state: RaceClientState): number {
   return now;
 }
 
-/** Screen 07: the digit in its ring; a timer announced to assistive technology. */
+/**
+ * Screen 07 over the faded text: the digit in its ring. A timer for assistive technology, whose
+ * announcements come from the view's single live region.
+ */
 function Countdown({ seconds, t }: { readonly seconds: number; readonly t: Dictionary["races"] }) {
   return (
-    <section aria-labelledby="countdown-label" className="flex flex-col items-center gap-3 py-4">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-carte bg-nuit/85">
       <p id="countdown-label" className={monoLabel}>
         {t.countdownLabel}
       </p>
-      <p role="timer" aria-live="assertive" aria-atomic="true" className="grid size-48 place-items-center rounded-full border-4 border-ligne font-display text-[120px] leading-none font-black sm:size-60 sm:text-[160px]">
-        {Math.max(1, seconds)}
+      <p
+        role="timer"
+        aria-labelledby="countdown-label"
+        className="grid size-28 place-items-center rounded-full border-4 border-ligne font-display text-7xl leading-none font-black sm:size-36 sm:text-8xl"
+      >
+        {seconds}
       </p>
-      <p className="font-serif text-3xl italic">{t.countdownMood}</p>
-    </section>
-  );
-}
-
-function GoAnnouncement({ t }: { readonly t: Dictionary["races"] }) {
-  return (
-    <p role="status" className="sr-only">
-      {t.countdownGo}
-    </p>
+      <p className="font-serif text-2xl italic">{t.countdownMood}</p>
+    </div>
   );
 }
 
@@ -158,12 +176,16 @@ function TypingZone({
   t,
   canType,
   onTakeControl,
+  overlay,
+  language,
 }: {
   readonly race: RaceClient;
   readonly state: RaceClientState;
   readonly t: Dictionary["races"];
   readonly canType: boolean;
   readonly onTakeControl: (raceId: string) => void;
+  readonly overlay: ReactNode;
+  readonly language: Locale;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const { typing, block, reveal } = state;
@@ -247,7 +269,7 @@ function TypingZone({
               : t.typingHint;
   return (
     <div className="flex flex-col gap-4">
-      <RaceText target={reveal?.text ?? []} typing={typing} label={t.textLabel} />
+      <RaceText target={reveal?.text ?? []} typing={typing} label={t.textLabel} language={language} overlay={overlay} />
       <div className="flex flex-col gap-2">
         <label htmlFor={TYPING_INPUT_ID} className={monoLabel}>
           {t.typingLabel}
@@ -290,16 +312,21 @@ const RaceText = memo(function RaceText({
   target,
   typing,
   label,
+  language,
+  overlay,
 }: {
   readonly target: readonly string[];
   readonly typing: RaceClientState["typing"];
   readonly label: string;
+  readonly language: Locale;
+  /** The countdown, over the faded text; the card keeps one height before and after. */
+  readonly overlay?: ReactNode;
 }) {
   const typed = typing?.typed.length ?? 0;
   return (
-    <div className={`${card} p-5`}>
+    <div className={`${card} relative min-h-60 p-5`}>
       <p className={`${monoLabel} mb-2`}>{label}</p>
-      <p className="course-texte break-words">
+      <p lang={language} className={`course-texte break-words ${overlay === undefined ? "" : "opacity-40"}`}>
         {target.map((grapheme, index) => {
           const mark = typing?.marks[index];
           const blocked = typing?.pendingError === true && index === typed;
@@ -320,7 +347,7 @@ const RaceText = memo(function RaceText({
 function Track({ state, t, locale }: { readonly state: RaceClientState; readonly t: Dictionary["races"]; readonly locale: Locale }) {
   const names = new Map(state.entrants.map((entrant) => [entrant.entrantId, entrant.displayName]));
   return (
-    <section aria-labelledby="track-heading" className={`${card} flex flex-col gap-4 self-start bg-mer`}>
+    <section aria-labelledby="track-heading" className={`${card} flex flex-col gap-4 self-start`}>
       <h2 id="track-heading" className="font-display text-2xl font-extrabold uppercase">
         {t.trackHeading}
       </h2>
@@ -342,8 +369,8 @@ function Track({ state, t, locale }: { readonly state: RaceClientState; readonly
                 aria-label={names.get(entrant.entrantId)}
                 value={entrant.position}
                 max={entrant.length}
-                className={`h-2 w-full appearance-none overflow-hidden rounded-full bg-sillage [&::-moz-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-sillage [&::-webkit-progress-value]:rounded-full ${
-                  self ? "[&::-moz-progress-bar]:bg-moi [&::-webkit-progress-value]:bg-moi" : "[&::-moz-progress-bar]:bg-embrun [&::-webkit-progress-value]:bg-embrun"
+                className={`h-2 w-full appearance-none overflow-hidden rounded-full bg-sillage forced-colors:appearance-auto [&::-moz-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-sillage [&::-webkit-progress-value]:rounded-full ${
+                  self ? "[&::-moz-progress-bar]:bg-moi [&::-webkit-progress-value]:bg-moi" : "[&::-moz-progress-bar]:bg-brume [&::-webkit-progress-value]:bg-brume"
                 }`}
               />
               <span className="text-sm text-brume">{t.status[entrant.status]}</span>

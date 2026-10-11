@@ -68,7 +68,7 @@ const ROOM_HEADING_ID = "room-heading";
 export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: RoomViewProps) {
   const [snapshot, setSnapshot] = useState(initial);
   // Kept across the socket's reconnections: a reconnected page takes its race input back.
-  const [pageId] = useState(() => crypto.randomUUID());
+  const [pageId] = useState(newPageId);
   // One per page: the socket's (re)connections attach to it, so a tab keeps its typing state.
   const [race] = useState(
     () =>
@@ -258,6 +258,21 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     }
   }
 
+  // When the race ends, the results (or why it stopped) take the focus, so nobody is left on
+  // a removed field (WCAG 2.4.3).
+  const resultsShown = snapshot.phase === "results" && results !== undefined && results.raceId === snapshot.race?.raceId;
+  const interruptedShown = snapshot.phase === "waiting" && snapshot.race?.state === "interrupted";
+  useEffect(() => {
+    if (resultsShown) {
+      document.getElementById("results-heading")?.focus();
+    }
+  }, [resultsShown]);
+  useEffect(() => {
+    if (interruptedShown) {
+      document.getElementById("interrupted-heading")?.focus();
+    }
+  }, [interruptedShown]);
+
   // The results are read from the database by the server: a newly finished race asks for them.
   const finishedRaceId = snapshot.phase === "results" ? snapshot.race?.raceId : undefined;
   useEffect(() => {
@@ -359,7 +374,14 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         <h1 id={ROOM_HEADING_ID} tabIndex={-1} className="sr-only">
           {format(t.roomTitle, { code: snapshot.code })}
         </h1>
-        <RaceView race={race} t={tRaces} locale={locale} roomLabel={format(t.roomTitle, { code: snapshot.code })} onTakeControl={(raceId) => takeControlRef.current(raceId)} />
+        <RaceView
+          race={race}
+          t={tRaces}
+          locale={locale}
+          roomLabel={format(t.roomTitle, { code: snapshot.code })}
+          expectedRaceId={snapshot.race?.raceId}
+          onTakeControl={(raceId) => takeControlRef.current(raceId)}
+        />
       </div>
     );
   }
@@ -401,7 +423,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
 
       {interrupted !== null && (
         <section aria-labelledby="interrupted-heading" className={`${card} flex max-w-xl flex-col gap-2 border-or`}>
-          <h2 id="interrupted-heading" className={`${monoLabel} text-or`}>
+          <h2 id="interrupted-heading" tabIndex={-1} className={`${monoLabel} text-or outline-none`}>
             <span aria-hidden="true">⚠ </span>
             {tRaces.interruptedHeading}
           </h2>
@@ -553,4 +575,19 @@ function CopyIcon() {
       <path d="M4 16V6a2 2 0 0 1 2-2h10" />
     </svg>
   );
+}
+
+/**
+ * This page's id, kept across its socket's reconnections. `randomUUID` exists only in secure
+ * contexts (HTTPS, localhost); elsewhere a v4 UUID is built from `getRandomValues`.
+ */
+function newPageId(): string {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

@@ -28,6 +28,8 @@ export type TypingView = {
   readonly pendingError: boolean;
   /** The entrant's status on the server (finished, timed out…), never predicted. */
   readonly status: EntrantSnapshotPayload["status"];
+  /** Inserts the server counted (D-09), never predicted. */
+  readonly totalInserts: number;
 };
 
 /**
@@ -135,7 +137,14 @@ export class TypingSession {
     const events = [...(this.#inFlight?.events ?? []), ...this.#pending];
     const predicted = events.length === 0 ? undefined : predictTyping(snapshot, events, this.#options.errorMode);
     if (predicted?.ok === true) {
-      return { target: snapshot.target, typed: predicted.typed, marks: predicted.marks, pendingError: predicted.pendingError, status: snapshot.status };
+      return {
+        target: snapshot.target,
+        typed: predicted.typed,
+        marks: predicted.marks,
+        pendingError: predicted.pendingError,
+        status: snapshot.status,
+        totalInserts: snapshot.counters.totalInserts,
+      };
     }
     // Nothing pending, or an event the server would refuse: the snapshot as it is.
     return {
@@ -144,6 +153,7 @@ export class TypingSession {
       marks: typedMarks(snapshot.target, snapshot.typed),
       pendingError: snapshot.pendingError,
       status: snapshot.status,
+      totalInserts: snapshot.counters.totalInserts,
     };
   }
 

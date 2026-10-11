@@ -42,15 +42,16 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId }: 
 
       {self?.result !== undefined ? (
         <div className="flex flex-col gap-6">
-          <p className="red-mist flex items-baseline gap-4 self-start pr-6">
-            <span className="font-display text-[96px] leading-none font-black text-moi sm:text-[120px]">{ordinal(self.result.rank, locale, t.results.ordinal)}</span>
+          {/* The one red mist of the screen, behind the rank (design rule 4). */}
+          <p className="red-mist flex items-baseline gap-4 self-start px-10 py-6 -mx-10 -my-6 [--mist-x:30%] [--mist-y:55%]">
+            <span className="font-display text-[96px] leading-none font-black text-ecume sm:text-[120px]">{ordinal(self.result.rank, locale, t.results.ordinal)}</span>
             <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: ranked.length })}</span>
           </p>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Tile label={t.results.columns.netWpm} value={formatWpm(self.result.netWpm, locale)} unit={t.wpm} />
             <Tile label={t.results.columns.rawWpm} value={formatWpm(self.result.rawWpm, locale)} unit={t.wpm} />
             <Tile label={t.results.columns.accuracy} value={formatAccuracy(self.result.accuracy, locale)} />
-            <Tile label={t.results.columns.time} value={formatElapsed(self.result.elapsedMs)} />
+            <Tile label={t.results.columns.time} value={formatElapsed(self.result.elapsedMs, locale)} />
           </dl>
         </div>
       ) : self === undefined ? (
@@ -59,8 +60,10 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId }: 
 
       {finishers === 0 && <p className="text-embrun">{t.results.noVictory}</p>}
 
-      <div className={`${card} overflow-x-auto p-0`}>
+      {/* Scrolls sideways at 360 px: focusable and named, so the keyboard reaches every column. */}
+      <div role="region" aria-labelledby={headingId ?? "results-heading"} tabIndex={0} className={`${card} overflow-x-auto p-0`}>
         <table className="w-full min-w-[560px] border-collapse text-left">
+          <caption className="sr-only">{t.results.label}</caption>
           <thead>
             <tr className="border-b border-sillage">
               {[t.results.columns.rank, t.results.columns.runner, t.results.columns.status, t.results.columns.time, t.results.columns.netWpm, t.results.columns.accuracy].map(
@@ -85,11 +88,11 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId }: 
                     {entrant.displayName}
                     {entrant.isSelf ? <span className="font-normal text-brume"> ({t.you})</span> : null}
                   </th>
-                  <td className="px-4 py-3 text-embrun">
+                  <td className="px-4 py-3 whitespace-nowrap text-embrun">
                     {result.outcome === "finished" ? "" : <span aria-hidden="true">· </span>}
                     {t.status[OUTCOME_STATUS[result.outcome]]}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono">{formatElapsed(result.elapsedMs)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatElapsed(result.elapsedMs, locale)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatWpm(result.netWpm, locale)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatAccuracy(result.accuracy, locale)}</td>
                 </tr>

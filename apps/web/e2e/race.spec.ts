@@ -121,6 +121,8 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(rows.nth(1)).toContainText("Capitaine");
     await expect(guest.getByRole("table").getByRole("row").nth(2)).toContainText("Matelot");
     await expectNoAccessibilityViolation(host);
+    // The results take the focus when the race ends (WCAG 2.4.3).
+    await expect(host.getByRole("heading", { level: 1 })).toBeFocused();
 
     // The race page, rebuilt from the stored snapshot, after a reload too (HIST-02).
     await guest.getByRole("link", { name: "Voir la fiche de la course" }).click();
@@ -187,5 +189,9 @@ test.describe("the first complete race (F-04.0)", () => {
     const rows = host.getByRole("table").getByRole("row");
     await expect(rows.nth(2)).toContainText("Matelot");
     await expect(rows.nth(2)).toContainText("abandoned");
+    // The results at 360 px: no horizontal page scroll, and the table's region reachable by keyboard.
+    await host.setViewportSize({ width: 360, height: 800 });
+    await expectNoHorizontalScroll(host);
+    await expectNoAccessibilityViolation(host);
   });
 });

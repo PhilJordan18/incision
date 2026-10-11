@@ -174,6 +174,64 @@ describe("RaceService", () => {
     expect(service.takeControl(tab("t-again", "a-host").connection, { raceId: RACE })).toEqual({ ok: true });
   });
 
+  it("lets a page that took the input by request take it back after reconnecting, before its old socket closes", async () => {
+    const { service, advance } = harness();
+    const pageOne = { ...tab("t-1", "a-host").connection, pageId: "page-1" };
+    const pageTwo = { ...tab("t-2", "a-host").connection, pageId: "page-2" };
+    service.follow(LOBBY, pageOne);
+    service.follow(LOBBY, pageTwo);
+    await service.start(pageOne, {});
+    advance(COUNTDOWN_MS);
+    // As the race channel builds it: the request's connection carries no page id.
+    expect(service.takeControl({ ...pageTwo, pageId: undefined }, { raceId: RACE })).toEqual({ ok: true });
+    const pageTwoAgain = { ...tab("t-2b", "a-host").connection, pageId: "page-2" };
+    service.follow(LOBBY, pageTwoAgain);
+    expect(service.keystrokes(pageTwoAgain, batch(1, "T"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(service.keystrokes(pageTwo, batch(2, "e"))).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+  });
+
+  it("keeps the windows of an account that left and came back, and forgets the expired ones", async () => {
+    const { service, advance } = harness();
+    const only = tab("t-only", "a-host");
+    service.follow(LOBBY, only.connection);
+    await service.start(only.connection, {});
+    advance(COUNTDOWN_MS);
+    for (let index = 0; index < MAX_BATCHES_PER_SECOND; index += 1) {
+      service.keystrokes(only.connection, batch(index + 1, "T"));
+    }
+    // Every tab of the account leaves, then one comes back: the window is not reset.
+    service.unfollow("t-only");
+    const back = tab("t-back", "a-host");
+    service.follow(LOBBY, back.connection);
+    expect(service.keystrokes(back.connection, batch(11, "e"))).toEqual({ ok: false, error: "RATE_LIMITED" });
+    advance(1_000);
+    expect(service.keystrokes(back.connection, batch(11, "e")).ok).toBe(true);
+  });
+
+  it("logs a failed lease renewal once per outage", async () => {
+    const logged: string[] = [];
+    const failing = harness();
+    const service = new RaceService({
+      ownerId: "owner-a",
+      store: { ...failing.store, renewRaceLease: vi.fn(async () => Promise.reject(new Error("ECONNREFUSED"))) },
+      now: () => START,
+      monotonic: () => START,
+      schedule: (callback, delayMs) => {
+        const timer = setTimeout(callback, Math.min(delayMs, 5));
+        return () => clearTimeout(timer);
+      },
+      onRoomChanged: () => undefined,
+      log: () => undefined,
+      logError: (message) => logged.push(message),
+      leaseTiming: { leaseMs: 30_000, renewEveryMs: 1, safetyMarginMs: 5_000, retryEveryMs: 1, maxSuspensionMs: 60_000 },
+    });
+    await service.start(tab("t-host", "a-host").connection, {});
+    // Several renewals fail within this time, one every millisecond or so.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    await service.stop({ onEnded: () => undefined, timeoutMs: 100 });
+    expect(logged.filter((line) => line.includes("lease renewal")).length).toBe(1);
+  });
+
   it("limits the starts of one account, whatever its number of sockets", async () => {
     const { service } = harness({ refusal: "NOT_HOST" });
     const answers = [];

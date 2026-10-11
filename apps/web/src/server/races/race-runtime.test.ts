@@ -151,6 +151,7 @@ function setup({ state = created(), store = fakeStore(), earlyMs = 0 }: { state?
     ownership,
     state,
     entrants: [ALICE, BOB],
+    language: "fr",
     store,
     lease,
     now: time.now,
@@ -282,6 +283,72 @@ describe("RaceRuntime", () => {
     await time.advance(1);
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
     expect(runtime.keystrokes(second.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+  });
+
+  it("reserves the input to the page that typed during the grace: another tab that reconnects first observes", async () => {
+    const { runtime, time, followers } = setup();
+    const typing = tab("tab-page-1", ALICE.accountId, "page-1");
+    const other = tab("tab-page-2", ALICE.accountId, "page-2");
+    followers.splice(0, 1, typing.connection);
+    followers.push(other.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    // A blip closes both sockets; the other page reconnects first.
+    followers.splice(followers.indexOf(typing.connection), 1);
+    runtime.unfollow(typing.connection.id);
+    followers.splice(followers.indexOf(other.connection), 1);
+    runtime.unfollow(other.connection.id);
+    const otherBack = tab("tab-page-2-again", ALICE.accountId, "page-2");
+    followers.push(otherBack.connection);
+    runtime.follow(otherBack.connection);
+    expect(otherBack.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
+    const typingBack = tab("tab-page-1-again", ALICE.accountId, "page-1");
+    followers.push(typingBack.connection);
+    runtime.follow(typingBack.connection);
+    expect(typingBack.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+  });
+
+  it("hands over to the most recent open tab after the grace, and never once control was taken meanwhile", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    const older = tab("tab-alice-older", ALICE.accountId);
+    const newer = tab("tab-alice-newer", ALICE.accountId);
+    followers.push(older.connection, newer.connection);
+    runtime.follow(older.connection);
+    runtime.follow(newer.connection);
+    followers.splice(followers.indexOf(alice.connection), 1);
+    runtime.unfollow(alice.connection.id);
+    await time.advance(3_000);
+    expect(newer.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+    expect(older.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
+
+    // The newer tab closes; the older one takes the input on request during the grace.
+    followers.splice(followers.indexOf(newer.connection), 1);
+    runtime.unfollow(newer.connection.id);
+    runtime.takeControl(older.connection);
+    const late = tab("tab-alice-late", ALICE.accountId);
+    followers.push(late.connection);
+    runtime.follow(late.connection);
+    await time.advance(3_000);
+    // The cancelled hand-over gives nothing to the tab opened meanwhile.
+    expect(late.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
+    expect(older.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+  });
+
+  it("hands nothing over once the race has settled during the grace", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    const second = tab("tab-alice-2", ALICE.accountId);
+    followers.push(second.connection);
+    runtime.follow(second.connection);
+    followers.splice(followers.indexOf(alice.connection), 1);
+    runtime.unfollow(alice.connection.id);
+    runtime.roomClosed();
+    const before = second.received.length;
+    await time.advance(5_000);
+    expect(second.received.length).toBe(before);
   });
 
   it("keeps the input with the page that comes back within the grace, even with another tab open", async () => {

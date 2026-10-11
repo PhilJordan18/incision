@@ -29,6 +29,7 @@ let recoverAbandonedRace: (lobbyId: string) => Promise<RoomRecovery>;
 const ownedRaces = new Set<string>();
 const raceFollows: { lobbyId: string; id: string; accountId: string; locale: string; pageId?: string }[] = [];
 const raceUnfollows: string[] = [];
+const raceFollowFails = { next: false };
 const memberships = new Map<string, ActiveMembership>();
 const snapshots = new Map<string, RoomSnapshot>();
 const clients: Socket[] = [];
@@ -96,14 +97,19 @@ beforeEach(async () => {
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
     raceRecovery: { recover: (lobbyId) => recoverAbandonedRace(lobbyId), ownsRace: (lobbyId) => ownedRaces.has(lobbyId) },
     races: {
-      follow: (lobbyId, connection) =>
-        void raceFollows.push({
+      follow: (lobbyId, connection) => {
+        if (raceFollowFails.next) {
+          raceFollowFails.next = false;
+          throw new Error("unexpected");
+        }
+        raceFollows.push({
           lobbyId,
           id: connection.id,
           accountId: connection.accountId,
           locale: connection.locale,
           ...(connection.pageId === undefined ? {} : { pageId: connection.pageId }),
-        }),
+        });
+      },
       unfollow: (id) => void raceUnfollows.push(id),
     },
   });
@@ -524,6 +530,14 @@ describe("the races of the room", () => {
     expect(await alice.timeout(3_000).emitWithAck(ROOM_WATCH_EVENT, { code: "ABCDEF", pageId: "not-a-uuid" })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
     expect(await alice.timeout(3_000).emitWithAck(ROOM_WATCH_EVENT, { code: "ABCDEF", pageId })).toMatchObject({ ok: true });
     expect(raceFollows.at(-1)).toMatchObject({ id: alice.id, pageId });
+  });
+
+  it("answers the watch UNAVAILABLE, and keeps serving, when following the race fails unexpectedly", async () => {
+    raceFollowFails.next = true;
+    const alice = await open("session=alice");
+    expect(await watch(alice)).toEqual({ ok: false, error: "UNAVAILABLE" });
+    const bob = await open("session=bob");
+    expect(await watch(bob)).toMatchObject({ ok: true });
   });
 
   it("takes a tab's language from the browser when no choice was made", async () => {

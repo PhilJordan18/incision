@@ -13,6 +13,8 @@ import { type SentBatch, type TypingBlock, TypingSession, type TypingView } from
 /** What the race view draws. A new object after every change, so React sees it changed. */
 export type RaceClientState = {
   readonly reveal?: RaceRevealPayload["reveal"];
+  /** The language of the race's text. */
+  readonly language?: RaceRevealPayload["language"];
   readonly entrants: RaceRevealPayload["entrants"];
   readonly selfEntrantId: string | null;
   readonly progress?: RaceProgressPayload["broadcast"];
@@ -84,7 +86,7 @@ export class RaceClient {
     if (!parsed.success) {
       return;
     }
-    const { reveal, entrants, selfEntrantId, serverNow } = parsed.data;
+    const { reveal, language, entrants, selfEntrantId, serverNow } = parsed.data;
     this.#offsetMs = serverNow - this.#options.now();
     if (this.#state.reveal?.raceId !== reveal.raceId) {
       this.#session?.close();
@@ -102,7 +104,7 @@ export class RaceClient {
             });
       this.#state = { ...EMPTY };
     }
-    this.#update({ reveal, entrants, selfEntrantId });
+    this.#update({ reveal, language, entrants, selfEntrantId });
   }
 
   progress(payload: unknown): void {

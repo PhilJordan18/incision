@@ -10,12 +10,16 @@ export function ordinal(rank: number, locale: Locale, forms: OrdinalForms): stri
   return format(template, { rank });
 }
 
-/** An elapsed race time, "m:ss.d" (design: durations as `2:28`), truncated to the tenth. */
-export function formatElapsed(ms: number): string {
+/**
+ * An elapsed race time, "m:ss.d" (design: durations as `2:28`), truncated to the tenth, with the
+ * language's decimal separator ("0:20,5" in French, I18N-03).
+ */
+export function formatElapsed(ms: number, locale: Locale): string {
   const tenths = Math.floor(ms / 100);
   const minutes = Math.floor(tenths / 600);
   const seconds = Math.floor((tenths % 600) / 10);
-  return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths % 10}`;
+  const separator = new Intl.NumberFormat(locale).formatToParts(1.5).find((part) => part.type === "decimal")?.value ?? ".";
+  return `${minutes}:${String(seconds).padStart(2, "0")}${separator}${tenths % 10}`;
 }
 
 /** Time left on the clock, "m:ss", rounded up so it reads 0:00 only at the end. */

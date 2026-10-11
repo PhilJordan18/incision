@@ -115,7 +115,7 @@ describe("TypingSession", () => {
     session.type(insert("c"));
     expect(sent.map(({ batch }) => batch)).toEqual([{ raceId: RACE, seq: 1, textVersion: 0, events: [insert("a")] }]);
     // Shown at once on top of the snapshot, with the engine's own marks.
-    expect(session.view()).toEqual({ target: TARGET, typed: ["a", "b", "c"], marks: ["correct", "correct", "correct"], pendingError: false, status: "racing" });
+    expect(session.view()).toEqual({ target: TARGET, typed: ["a", "b", "c"], marks: ["correct", "correct", "correct"], pendingError: false, status: "racing", totalInserts: 0 });
     await answer(0, applied(1, ["a"]));
     await advance(110);
     expect(sent[1]?.batch).toEqual({ raceId: RACE, seq: 2, textVersion: 0, events: [insert("b"), insert("c")] });
@@ -144,7 +144,7 @@ describe("TypingSession", () => {
     // Mandatory correction: the wrong grapheme is never typed; the expected one shows in error.
     expect(session.view()).toMatchObject({ typed: ["a"], pendingError: false });
     await answer(0, { ok: true, result: { outcome: "refused", seq: 1, reason: "IMPLAUSIBLE", snapshot: snapshot() }, self: self() });
-    expect(session.view()).toEqual({ target: TARGET, typed: [], marks: [], pendingError: false, status: "racing" });
+    expect(session.view()).toEqual({ target: TARGET, typed: [], marks: [], pendingError: false, status: "racing", totalInserts: 0 });
     expect(sent).toHaveLength(1);
   });
 
@@ -152,7 +152,7 @@ describe("TypingSession", () => {
     const { session } = harness();
     session.receive(self({ typed: ["a"], ackSeq: 1 }));
     session.type(insert("ab"));
-    expect(session.view()).toEqual({ target: TARGET, typed: ["a"], marks: ["correct"], pendingError: false, status: "racing" });
+    expect(session.view()).toEqual({ target: TARGET, typed: ["a"], marks: ["correct"], pendingError: false, status: "racing", totalInserts: 0 });
   });
 
   it("sends the same batch again after a lost answer, and the server answers duplicate", async () => {

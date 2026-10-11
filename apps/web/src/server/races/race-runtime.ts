@@ -14,6 +14,7 @@ import {
   toRaceBroadcast,
   toRaceReveal,
 } from "@incision/domain";
+import type { Locale } from "../../i18n/locale";
 import type { KeystrokeBatchPayload, RaceBatchAck, RaceProgressPayload, RaceRevealPayload, RaceSelfPayload } from "../../races/protocol";
 import { RACE_CONFIRMING_EVENT, RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, RACE_SELF_EVENT } from "../../races/protocol";
 import type { LeaseState, Schedule } from "./race-lease";
@@ -62,6 +63,8 @@ export type RaceRuntimeOptions = {
   readonly ownership: RaceOwnership;
   readonly state: RaceState;
   readonly entrants: readonly RaceEntrant[];
+  /** The language of the race's text (the host's at the start, D-19), for the pages to mark it. */
+  readonly language: Locale;
   readonly store: RaceStore;
   /** Built by the caller with `onChange` wired to `leaseChanged`. */
   readonly lease: LeaseView;
@@ -122,8 +125,11 @@ export class RaceRuntime implements OwnedRace {
   #results: readonly RaceResultRow[] | undefined;
   /** Entrant id → the tab that types for it, and its page. */
   readonly #control = new Map<string, { readonly connectionId: string; readonly pageId: string | undefined }>();
-  /** Entrant id → the pending hand-over of its input to another open tab, cancellable. */
-  readonly #handovers = new Map<string, () => void>();
+  /**
+   * Entrant id → its input, freed when its typing tab closed: reserved for that tab's page for a
+   * short grace (a network blip), then handed to another open tab. `cancel` stops the hand-over.
+   */
+  readonly #vacated = new Map<string, { readonly pageId: string | undefined; readonly cancel: () => void }>();
   #cancelTick: (() => void) | undefined;
   #cancelProgress: (() => void) | undefined;
   #progressSentAt = Number.NEGATIVE_INFINITY;
@@ -166,7 +172,7 @@ export class RaceRuntime implements OwnedRace {
       return;
     }
     const entrant = this.#entrantOf(connection.accountId);
-    if (entrant !== undefined && (!this.#controllerFollows(entrant.entrantId) || this.#samePage(entrant.entrantId, connection))) {
+    if (entrant !== undefined && (this.#free(entrant.entrantId, connection) || this.#samePage(entrant.entrantId, connection))) {
       // No typing tab, or this page reconnected: its former socket's late batches are discarded.
       this.#control.set(entrant.entrantId, { connectionId: connection.id, pageId: connection.pageId });
       this.#cancelHandover(entrant.entrantId);
@@ -188,9 +194,9 @@ export class RaceRuntime implements OwnedRace {
   }
 
   /**
-   * A tab closed or left the room. If it typed, its input is free: the next tab that follows
-   * takes it (the same page coming back after a network blip, typically). After a short grace,
-   * the entrant's most recent other open tab takes it and learns it (state-machines §2).
+   * A tab closed or left the room. If it typed, its input waits a short grace for that tab's page
+   * to come back (a network blip); then the entrant's most recent other open tab takes it and
+   * learns it (state-machines §2).
    */
   unfollow(connectionId: string): void {
     for (const [entrantId, controller] of this.#control) {
@@ -199,13 +205,11 @@ export class RaceRuntime implements OwnedRace {
       }
       this.#control.delete(entrantId);
       this.#cancelHandover(entrantId);
-      this.#handovers.set(
-        entrantId,
-        this.#options.schedule(() => {
-          this.#handovers.delete(entrantId);
-          this.#handOver(entrantId);
-        }, this.#timing.handoverGraceMs),
-      );
+      const cancel = this.#options.schedule(() => {
+        this.#vacated.delete(entrantId);
+        this.#handOver(entrantId);
+      }, this.#timing.handoverGraceMs);
+      this.#vacated.set(entrantId, { pageId: controller.pageId, cancel });
     }
   }
 
@@ -226,8 +230,20 @@ export class RaceRuntime implements OwnedRace {
   }
 
   #cancelHandover(entrantId: string): void {
-    this.#handovers.get(entrantId)?.();
-    this.#handovers.delete(entrantId);
+    this.#vacated.get(entrantId)?.cancel();
+    this.#vacated.delete(entrantId);
+  }
+
+  /**
+   * Whether this tab may take the entrant's input on following: nobody types, and during the
+   * grace only the page that typed (or anyone, if that page had no id).
+   */
+  #free(entrantId: string, connection: RaceConnection): boolean {
+    if (this.#controllerFollows(entrantId)) {
+      return false;
+    }
+    const vacated = this.#vacated.get(entrantId);
+    return vacated === undefined || vacated.pageId === undefined || vacated.pageId === connection.pageId;
   }
 
   /** The input moves to this tab; the previous one observes, and its late batches are discarded. */
@@ -282,9 +298,11 @@ export class RaceRuntime implements OwnedRace {
     if (output?.keystrokes === undefined || self === undefined) {
       return { ok: false, error: "NO_RACE" };
     }
-    // The other tabs of this entrant follow its typing; the next batch replaces it, unless this one
-    // ended the race, whose last state must arrive.
-    this.#sendSelf(entrant.entrantId, { except: connection.id, volatile: this.#stage === "running" });
+    // The other tabs of this entrant follow its typing when it changed: the next batch replaces
+    // it, unless this one finished the entrant or the race, whose last state must arrive.
+    if (output.keystrokes.outcome === "applied") {
+      this.#sendSelf(entrant.entrantId, { except: connection.id, volatile: this.#stage === "running" && self.snapshot.status === "racing" });
+    }
     return { ok: true, result: output.keystrokes, self };
   }
 
@@ -590,10 +608,10 @@ export class RaceRuntime implements OwnedRace {
     this.#cancelTick = undefined;
     this.#cancelProgress?.();
     this.#cancelProgress = undefined;
-    for (const cancel of this.#handovers.values()) {
+    for (const { cancel } of this.#vacated.values()) {
       cancel();
     }
-    this.#handovers.clear();
+    this.#vacated.clear();
   }
 
   /** Runs `write`, then retries it after each wait while it throws; undefined if every attempt threw. */
@@ -667,6 +685,7 @@ export class RaceRuntime implements OwnedRace {
   #revealFor(selfEntrantId: string | undefined): RaceRevealPayload | undefined {
     return this.#view(() => ({
       reveal: toRaceReveal(this.#state),
+      language: this.#options.language,
       entrants: this.#state.entrants.map(({ entrantId }) => ({ entrantId, displayName: this.#entrants.get(entrantId)?.displayName ?? "" })),
       selfEntrantId: selfEntrantId ?? null,
       serverNow: this.#options.now(),

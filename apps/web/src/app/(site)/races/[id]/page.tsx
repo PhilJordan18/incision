@@ -75,11 +75,28 @@ export default async function RacePageView({ params }: PageProps<"/races/[id]">)
       );
     case "race":
       if (page.race.state === "finished") {
-        return <RaceResults race={page.race} t={t.races} locale={locale} headingId="race-heading" />;
+        return (
+          <div className="flex flex-col gap-6">
+            <RaceResults race={page.race} t={t.races} locale={locale} headingId="race-heading" />
+            <div>{home}</div>
+          </div>
+        );
       }
       return page.race.interruptionReason === null ? (
         // Counting down or running: nothing official yet.
-        <StatePanel tone="neutral" label={t.races.racePage.title} heading={{ bold: t.races.racePage.runningHeading }} actions={home}>
+        <StatePanel
+          tone="neutral"
+          label={t.races.racePage.title}
+          heading={{ bold: t.races.racePage.runningHeading }}
+          actions={
+            <>
+              <Link href={`/races/${id}`} prefetch={false} className={secondaryButton}>
+                {t.races.racePage.reload}
+              </Link>
+              {home}
+            </>
+          }
+        >
           <p>{t.races.racePage.running}</p>
         </StatePanel>
       ) : (

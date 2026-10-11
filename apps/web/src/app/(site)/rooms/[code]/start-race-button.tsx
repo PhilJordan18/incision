@@ -22,6 +22,9 @@ export function StartRaceButton({ start, participants, t }: StartRaceButtonProps
   // A hint only, from the engine's constant: the server applies the engine's start rule itself.
   const enough = participants >= RACE_MIN_PARTICIPANTS;
   async function onClick(): Promise<void> {
+    if (pending) {
+      return;
+    }
     setPending(true);
     setError(undefined);
     try {
@@ -37,7 +40,15 @@ export function StartRaceButton({ start, participants, t }: StartRaceButtonProps
   }
   return (
     <div className="flex max-w-md flex-col gap-2">
-      <button type="button" onClick={() => void onClick()} disabled={pending || !enough} aria-describedby="start-note" className={`${primaryButton} self-start`}>
+      {/* aria-disabled while starting: a disabled button would drop the keyboard focus. */}
+      <button
+        type="button"
+        onClick={() => void onClick()}
+        disabled={!enough}
+        aria-disabled={pending}
+        aria-describedby="start-note"
+        className={`${primaryButton} self-start aria-disabled:cursor-progress`}
+      >
         {pending ? t.starting : t.start}
       </button>
       <p id="start-note" className="text-sm text-brume">

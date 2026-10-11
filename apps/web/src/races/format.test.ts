@@ -20,8 +20,9 @@ describe("race formats", () => {
   });
 
   it("shows times, speeds and accuracy rounded for display only", () => {
-    expect(formatElapsed(12_345)).toBe("0:12.3");
-    expect(formatElapsed(125_000)).toBe("2:05.0");
+    expect(formatElapsed(12_345, "en")).toBe("0:12.3");
+    expect(formatElapsed(125_000, "en")).toBe("2:05.0");
+    expect(formatElapsed(20_512, "fr")).toBe("0:20,5");
     expect(formatClock(120_000)).toBe("2:00");
     expect(formatClock(59_001)).toBe("1:00");
     expect(formatClock(-5)).toBe("0:00");
