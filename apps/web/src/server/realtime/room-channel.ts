@@ -286,8 +286,8 @@ function recoveryOnWatch(
   const maxFailedLooks = dependencies.recoveryTiming?.maxFailedLooks ?? MAX_FAILED_LOOKS;
   const lookAgain = new Map<string, { readonly timer: NodeJS.Timeout; refresh: boolean }>();
   /**
-   * Failed looks per room, kept until a look succeeds, so that watches cannot start the series
-   * again: bounded, then given up. Dropped once nobody follows the room.
+   * Failed looks per room, kept until a look succeeds or a race of the room is lost here, so that
+   * watches cannot start the series again: bounded, then given up.
    */
   const failures = new Map<string, number>();
   const later = (lobbyId: string, delayMs: number, refresh: boolean) => {
@@ -333,8 +333,6 @@ function recoveryOnWatch(
       if (failed < maxFailedLooks) {
         // Jittered, so that the rooms of one outage do not look in lockstep.
         later(lobbyId, retryMs * (0.8 + 0.4 * Math.random()), refresh);
-      } else if (!room.followed(lobbyId)) {
-        failures.delete(lobbyId);
       }
     }
   };

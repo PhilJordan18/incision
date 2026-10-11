@@ -157,12 +157,14 @@ test.describe("the first complete race (F-04.0)", () => {
     await typeText(second.getByLabel("Ta frappe"), text.slice(6, 10));
 
     // A reload: the page comes back with what the server applied, and goes on from there.
+    const reloadedAt = Date.now();
     await second.reload();
     await expect(second.locator(".course-texte .course-juste")).toHaveCount(10);
-    // The reloaded tab keeps its page id and takes its input back at once, well before the
-    // server's 3 s grace would hand it over, and without asking for it.
+    // The reloaded tab keeps its page id and takes its input back at once, before the server's
+    // 3 s grace would hand it over, and without asking for it.
     await expect(second.getByLabel("Ta frappe")).toBeEnabled({ timeout: 1_000 });
     await expect(second.getByRole("button", { name: "Taper dans cet onglet" })).toBeHidden();
+    expect(Date.now() - reloadedAt).toBeLessThan(3_000);
     await typeText(second.getByLabel("Ta frappe"), text.slice(10));
     await typeText(host.getByLabel("Your typing"), text);
     await expect(second.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });

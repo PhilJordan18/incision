@@ -275,8 +275,9 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   // a removed field (WCAG 2.4.3).
   // Only when it happens while the page is open: a page loaded on the results keeps its focus.
   const resultsShown = snapshot.phase === "results" && results !== undefined && results.raceId === snapshot.race?.raceId;
-  const interruptedShown = snapshot.phase === "waiting" && snapshot.race?.state === "interrupted";
-  const shownAtLoad = useRef({ results: resultsShown, interrupted: interruptedShown });
+  // By race: a second interruption in a row takes the focus again.
+  const interruptedRaceId = snapshot.phase === "waiting" && snapshot.race?.state === "interrupted" ? snapshot.race.raceId : undefined;
+  const shownAtLoad = useRef({ results: resultsShown, interrupted: interruptedRaceId });
   useEffect(() => {
     if (resultsShown && !shownAtLoad.current.results) {
       document.getElementById("results-heading")?.focus();
@@ -286,13 +287,14 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     }
   }, [resultsShown]);
   useEffect(() => {
-    if (interruptedShown && !shownAtLoad.current.interrupted) {
+    if (interruptedRaceId === shownAtLoad.current.interrupted) {
+      return;
+    }
+    shownAtLoad.current.interrupted = undefined;
+    if (interruptedRaceId !== undefined) {
       document.getElementById("interrupted-heading")?.focus();
     }
-    if (!interruptedShown) {
-      shownAtLoad.current.interrupted = false;
-    }
-  }, [interruptedShown]);
+  }, [interruptedRaceId]);
 
   // The start button disappears with the waiting room: the focus goes to the room's heading
   // rather than to the page, until the typing field takes it at the start.

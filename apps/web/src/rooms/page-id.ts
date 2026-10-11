@@ -3,10 +3,18 @@
  * input back at once to a page that reconnects, or to a tab that reloads (state-machines §2).
  */
 
-/** sessionStorage, per tab: this tab's page id, and the id its last document released when it went away. */
+/**
+ * sessionStorage, per tab: this tab's page id, and the id its last document released when it
+ * went away, with when (`<id>@<epoch ms>`).
+ */
 const PAGE_ID_KEY = "incision.pageId";
 const RELEASED_KEY = "incision.pageId.released";
 const PAGE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+/**
+ * A release counts for a reload that follows it, not for one long after (the tab went on to
+ * other pages): longer than Socket.IO's ping timeout, so a reload during a network blip keeps it.
+ */
+const RELEASE_MAX_AGE_MS = 60_000;
 
 export type PageIdStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -16,6 +24,7 @@ export type PageIdEnvironment = {
   /** The document's `PerformanceNavigationTiming.type`; may throw where the API does not exist. */
   readonly navigationType: () => string | undefined;
   readonly randomId: () => string;
+  readonly now: () => number;
 };
 
 /**
@@ -32,7 +41,7 @@ export function pageIdFor(environment: PageIdEnvironment): string {
     const released = storage.getItem(RELEASED_KEY);
     // Used once: a later duplicate of this tab finds no release.
     storage.removeItem(RELEASED_KEY);
-    if (environment.navigationType() === "reload" && stored !== null && released === stored && PAGE_ID.test(stored)) {
+    if (environment.navigationType() === "reload" && stored !== null && PAGE_ID.test(stored) && isRecentRelease(released, stored, environment.now())) {
       return stored;
     }
   } catch {
@@ -47,21 +56,29 @@ export function pageIdFor(environment: PageIdEnvironment): string {
   return id;
 }
 
+function isRecentRelease(released: string | null, id: string, now: number): boolean {
+  const [releasedId, at] = released?.split("@") ?? [];
+  const age = now - Number(at);
+  return releasedId === id && age >= 0 && age <= RELEASE_MAX_AGE_MS;
+}
+
 /** The page goes away (reload, navigation, back-forward cache): only the next reload of its tab may reuse its id. */
 export function releasePageId(environment: PageIdEnvironment, id: string): void {
   try {
-    environment.storage().setItem(RELEASED_KEY, id);
+    environment.storage().setItem(RELEASED_KEY, `${id}@${environment.now()}`);
   } catch {
     // The reload gets a fresh id and takes the input after the server's grace.
   }
 }
 
-/** Back from the back-forward cache: the page holds its id again. */
-export function reclaimPageId(environment: PageIdEnvironment): void {
+/** Back from the back-forward cache: the page holds its id again, and is this tab's current page. */
+export function reclaimPageId(environment: PageIdEnvironment, id: string): void {
   try {
-    environment.storage().removeItem(RELEASED_KEY);
+    const storage = environment.storage();
+    storage.removeItem(RELEASED_KEY);
+    storage.setItem(PAGE_ID_KEY, id);
   } catch {
-    // Nothing was released.
+    // The next reload gets a fresh id and takes the input after the server's grace.
   }
 }
 
@@ -84,6 +101,7 @@ const browser: PageIdEnvironment = {
     return entry instanceof PerformanceNavigationTiming ? entry.type : undefined;
   },
   randomId: randomPageId,
+  now: Date.now,
 };
 
 /** One id per tab and document, shared by every mount of the room view in it. */
@@ -101,7 +119,7 @@ export function thisPageId(): string {
     window.addEventListener("pagehide", () => releasePageId(browser, id));
     window.addEventListener("pageshow", (event) => {
       if (event.persisted) {
-        reclaimPageId(browser);
+        reclaimPageId(browser, id);
       }
     });
   }
