@@ -348,7 +348,7 @@ describe("RaceRuntime", () => {
     expect(other.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
   });
 
-  it("cancels the hand-over when the page comes back, so a newer tab opened during the grace still observes", async () => {
+  it("keeps the input with a page that came back during the grace: a newer tab opened meanwhile still observes", async () => {
     const { runtime, time, followers } = setup();
     const typing = tab("tab-page-1", ALICE.accountId, "page-1");
     followers.splice(0, 1, typing.connection);

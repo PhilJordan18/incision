@@ -522,7 +522,52 @@ describe("recovery of an abandoned race when a member watches its room (ADR-0004
     await new Promise((resolve) => setTimeout(resolve, 600));
     // 3 looks at most (the injected bound), then nothing more while the database stays down.
     expect(recoverAbandonedRace).toHaveBeenCalledTimes(3);
+    // Another watch looks once, without starting the series again.
+    const again = await open("session=alice");
+    await watch(again);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(recoverAbandonedRace).toHaveBeenCalledTimes(4);
     logged.mockRestore();
+  });
+
+  it("looks again a bounded number of times after a new loss in a room that had given up", async () => {
+    racing("lobby-1");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      throw new Error("connect ECONNREFUSED");
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(recoverAbandonedRace).toHaveBeenCalledTimes(3);
+    events.emit("raceLost", "lobby-1");
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(recoverAbandonedRace).toHaveBeenCalledTimes(6);
+    logged.mockRestore();
+  });
+
+  it("keeps the refresh of a loss asked while a look was pending, and ignores a loss in a room nobody follows", async () => {
+    racing("lobby-1");
+    let calls = 0;
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      calls += 1;
+      if (calls < 3) {
+        return { recovered: false, retryInMs: 50 };
+      }
+      // The race was saved meanwhile: nothing to recover, but the pages must learn it.
+      snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), phase: "results", revision: 5 });
+      return { recovered: false };
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    const told = nextSnapshot(alice, 3_000);
+    // The watch's look left a pending look without refresh; the loss asks for one.
+    events.emit("raceLost", "lobby-1");
+    expect(await told).toMatchObject({ phase: "results", revision: 5 });
+    expect(calls).toBe(3);
+    events.emit("raceLost", "lobby-2");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(recoverAbandonedRace).not.toHaveBeenCalledWith("lobby-2");
   });
 
   it("after a race stopped here without a confirmed end, sends the members what the database holds", async () => {

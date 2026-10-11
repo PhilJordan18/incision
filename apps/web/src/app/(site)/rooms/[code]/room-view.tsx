@@ -24,6 +24,7 @@ import {
   raceStartAckSchema,
 } from "@/races/protocol";
 import { RaceClient } from "@/races/race-client";
+import { thisPageId } from "@/rooms/page-id";
 import {
   HANDSHAKE_UNAVAILABLE,
   type PublicRoomSnapshot,
@@ -69,7 +70,7 @@ const ROOM_HEADING_ID = "room-heading";
 export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: RoomViewProps) {
   const [snapshot, setSnapshot] = useState(initial);
   // Kept across the socket's reconnections: a reconnected page takes its race input back.
-  const [pageId] = useState(newPageId);
+  const [pageId] = useState(thisPageId);
   // One per page: the socket's (re)connections attach to it, so a tab keeps its typing state.
   const [race] = useState(
     () =>
@@ -460,7 +461,10 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         </section>
       )}
 
-      {self.isHost && <StartRaceButton start={() => startRef.current()} participants={participants} t={tRaces} />}
+      {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
+      {self.isHost && (
+        <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants} t={tRaces} />
+      )}
 
       {connection === "reconnecting" && (
         <section aria-labelledby="reconnect-heading" className={`${card} flex max-w-xl flex-col gap-3 border-or`}>
@@ -604,50 +608,4 @@ function CopyIcon() {
       <path d="M4 16V6a2 2 0 0 1 2-2h10" />
     </svg>
   );
-}
-
-/** One id per tab and document, shared by every mount of the room view in it. */
-let documentPageId: string | undefined;
-const PAGE_ID_KEY = "incision.pageId";
-const PAGE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
-/**
- * This page's id, kept across its socket's reconnections and across a reload of the same tab
- * (sessionStorage, reused only when the document was reloaded): a reloaded page takes its race
- * input back at once. A duplicated tab copies sessionStorage but is not a reload, so it gets
- * its own id and observes.
- */
-function newPageId(): string {
-  if (documentPageId !== undefined) {
-    return documentPageId;
-  }
-  try {
-    const navigation = performance.getEntriesByType("navigation")[0];
-    const stored = sessionStorage.getItem(PAGE_ID_KEY);
-    if (navigation instanceof PerformanceNavigationTiming && navigation.type === "reload" && stored !== null && PAGE_ID.test(stored)) {
-      documentPageId = stored;
-      return stored;
-    }
-  } catch {
-    // Storage blocked: a fresh id, as for a new tab.
-  }
-  documentPageId = randomPageId();
-  try {
-    sessionStorage.setItem(PAGE_ID_KEY, documentPageId);
-  } catch {
-    // Kept for this document only.
-  }
-  return documentPageId;
-}
-
-/** `randomUUID` exists only in secure contexts (HTTPS, localhost); elsewhere a v4 UUID from `getRandomValues`. */
-function randomPageId(): string {
-  if (typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
-  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
-  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
