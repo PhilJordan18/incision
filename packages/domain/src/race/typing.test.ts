@@ -142,34 +142,45 @@ describe("predictTyping equals what applyKeystrokes applies, along the documente
         // The client's confirmed start, kept only from replies, as the README describes.
         let confirmed: TypingStart = { target: state.target, typed: [], pendingError: false };
         let now = 0;
-        for (let step = 0; step < 30 && state.status === "racing"; step += 1) {
+        // A batch whose `applied` reply was lost: the client resends it unchanged, as the only copy.
+        let lost: { readonly seq: number; readonly events: readonly InputEvent[] } | undefined;
+        for (let step = 0; step < 30 && (state.status === "racing" || lost !== undefined); step += 1) {
           now += Math.floor(random() * 600);
-          const events: InputEvent[] = Array.from({ length: 1 + Math.floor(random() * 6) }, () => {
-            if (random() < 0.2) {
-              return deleteBackward;
-            }
-            const expected = state.target[state.typed.length];
-            return insert(errorMode === "mandatory" && expected !== undefined && random() < 0.5 ? expected : (graphemes[Math.floor(random() * graphemes.length)] ?? "a"));
-          });
-          // A retry repeats an applied batch, so there is none before the first one (seq 0 is a shape error).
-          const seq = state.ackSeq > 0 && random() < 0.1 ? state.ackSeq : state.ackSeq + 1;
+          const events: readonly InputEvent[] =
+            lost?.events ??
+            Array.from({ length: 1 + Math.floor(random() * 6) }, () => {
+              if (random() < 0.2) {
+                return deleteBackward;
+              }
+              const expected = state.target[state.typed.length];
+              return insert(errorMode === "mandatory" && expected !== undefined && random() < 0.5 ? expected : (graphemes[Math.floor(random() * graphemes.length)] ?? "a"));
+            });
+          const seq = lost?.seq ?? state.ackSeq + 1;
           const prediction = predictTyping(confirmed, events, errorMode);
           const { entrant: after, result } = applyKeystrokes(state, batch(seq, events), context(errorMode, now));
           reached.add(result.outcome === "refused" ? result.reason : result.outcome);
-          if (result.outcome === "applied") {
-            expect(prediction).toEqual({ ok: true, typed: after.typed, marks: marksOf(after.target, after.typed), pendingError: after.pendingError, finished: after.status === "finished" });
-            if (prediction.ok) {
-              confirmed = { target: confirmed.target, typed: prediction.typed, pendingError: prediction.pendingError };
+          if (result.outcome === "applied" || result.outcome === "duplicate") {
+            if (result.outcome === "applied") {
+              expect(prediction).toEqual({ ok: true, typed: after.typed, marks: marksOf(after.target, after.typed), pendingError: after.pendingError, finished: after.status === "finished" });
+              reached.add(after.status === "finished" ? "finished" : "applied");
             }
-            reached.add(after.status === "finished" ? "finished" : "applied");
+            if (result.outcome === "applied" && random() < 0.1) {
+              // The reply is lost: the start does not move until the resent batch's `duplicate`.
+              lost = { seq, events };
+            } else if (prediction.ok) {
+              confirmed = { target: confirmed.target, typed: prediction.typed, pendingError: prediction.pendingError };
+              lost = undefined;
+            }
           } else if (result.outcome === "refused" && result.reason === "INVALID_INPUT") {
             expect(prediction).toEqual({ ok: false, reason: "INVALID_INPUT" });
           }
           if ((result.outcome === "refused" || result.outcome === "resync") && "snapshot" in result) {
             confirmed = { target: result.snapshot.target, typed: result.snapshot.typed, pendingError: result.snapshot.pendingError };
           }
-          // Whatever the reply, the confirmed start is the server's typing state.
-          expect(confirmed).toEqual({ target: after.target, typed: after.typed, pendingError: after.pendingError });
+          // Whatever the reply, once it is received, the confirmed start is the server's typing state.
+          if (lost === undefined) {
+            expect(confirmed).toEqual({ target: after.target, typed: after.typed, pendingError: after.pendingError });
+          }
           state = after;
         }
       }
