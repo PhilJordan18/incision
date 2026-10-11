@@ -278,10 +278,10 @@ describe("RaceService", () => {
       leaseTiming: { leaseMs: 30_000, renewEveryMs: 1, safetyMarginMs: 5_000, retryEveryMs: 1, maxSuspensionMs: 60_000 },
     });
     await service.start(tab("t-host", "a-host").connection, {});
-    // Several renewals fail within this time, one every millisecond or so.
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    // Renewals fail, succeed once (the 5th), then fail again, a few milliseconds apart. Waited
+    // for by count, not for a fixed time: a busy machine may run only one in a short window.
+    await vi.waitFor(() => expect(calls).toBeGreaterThan(6), { timeout: 5_000, interval: 5 });
     await service.stop({ onEnded: () => undefined, timeoutMs: 100 });
-    expect(calls).toBeGreaterThan(6);
     expect(logged.filter((line) => line.includes("lease renewal")).length).toBe(2);
   });
 
