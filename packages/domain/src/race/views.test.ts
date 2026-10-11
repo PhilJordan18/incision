@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { asEntrantId, type EntrantId } from "../ids";
+import { computeMeasures } from "../measures/compute";
 import { toGraphemes } from "../text/graphemes";
 import { asDuration, asInstant, MAX_INSTANT, type Instant } from "../time";
+import { createRace } from "./create";
 import { EXAMPLE_ENTRANT, EXAMPLE_RACE } from "./keystrokes.examples";
-import type { EntrantState, RaceState } from "./types";
-import { toRaceBroadcast, toRaceReveal } from "./views";
+import { reduceRace } from "./reduce";
+import type { EntrantState, InputEvent, RaceEvent, RaceState } from "./types";
+import { toEntrantMeasures, toRaceBroadcast, toRaceReveal } from "./views";
 
 const ALICE = EXAMPLE_ENTRANT;
 const BOB = asEntrantId("bob");
@@ -116,5 +119,58 @@ describe("toRaceReveal (F-04.1)", () => {
 
   it("reveals no time limit as null (D-17)", () => {
     expect(toRaceReveal(race({ timeLimit: null })).timeLimit).toBeNull();
+  });
+});
+
+describe("toEntrantMeasures (COURSE-04)", () => {
+  it("gives one entrant's exact live measures at the later of now and the clock", () => {
+    // 2 correct of 3 inserts over 12 s: 2 net WPM, 3 raw WPM, 66.6…% accuracy.
+    expect(toEntrantMeasures(race(), ALICE, at(12_000))).toEqual(computeMeasures({ correctInserts: 2, totalInserts: 3 }, asDuration(12_000)));
+    expect(toEntrantMeasures(race(), ALICE, at(6_000))).toEqual(toEntrantMeasures(race(), ALICE, at(10_000)));
+  });
+
+  it("freezes at the entrant's end, gives 0 during the countdown, and nothing for an unknown entrant", () => {
+    const finished = race({ entrants: [runner(ALICE, { typed: toGraphemes("abcde"), status: "finished", endedAt: at(6_000), counters: { correctInserts: 5, totalInserts: 5 } }), runner(BOB)] });
+    expect(toEntrantMeasures(finished, ALICE, at(600_000))).toEqual({ netWpm: 10, rawWpm: 10, accuracy: 100 });
+    expect(toEntrantMeasures(race({ phase: "countdown", clock: at(-2_000) }), ALICE, at(-1_000))).toMatchObject({ netWpm: 0, rawWpm: 0 });
+    expect(toEntrantMeasures(race(), asEntrantId("mallory"), at(12_000))).toBeUndefined();
+  });
+
+  it.each([Number.NaN, -1, 1.5])("refuses now = %s, not a valid instant", (now) => {
+    expect(() => toEntrantMeasures(race(), ALICE, now as Instant)).toThrow(RangeError);
+  });
+
+  it("gives the broadcast's net WPM for every entrant, over seeded races", () => {
+    let value = 977;
+    const random = (): number => {
+      value = (value * 16_807) % 2_147_483_647;
+      return value / 2_147_483_647;
+    };
+    let compared = 0;
+    for (let run = 0; run < 60; run += 1) {
+      const created = createRace({ raceId: EXAMPLE_RACE, text: "abc de", errorMode: random() < 0.5 ? "free" : "mandatory", timeLimit: random() < 0.5 ? null : asDuration(30_000), participants: [{ entrantId: ALICE, kind: "human" }, { entrantId: BOB, kind: "bot" }], now: at(-3_000) });
+      if (!created.ok) {
+        throw new Error(created.reason);
+      }
+      let state = created.race;
+      let now = -3_000;
+      for (let step = 0; step < 25; step += 1) {
+        now += Math.floor(random() * 2_500);
+        const entrant = state.entrants[Math.floor(random() * state.entrants.length)] ?? runner(ALICE);
+        const events: InputEvent[] = Array.from({ length: 1 + Math.floor(random() * 3) }, () => (random() < 0.15 ? { type: "deleteBackward" } : { type: "insert", grapheme: "abcx "[Math.floor(random() * 5)] ?? "a" }));
+        const roll = random();
+        const event: RaceEvent =
+          roll < 0.2 ? { type: "tick", now: at(now) } : roll < 0.25 ? { type: "abandon", entrantId: entrant.entrantId, now: at(now) } : roll < 0.27 ? { type: "interrupt", now: at(now) } : { type: "keystrokes", batch: { raceId: EXAMPLE_RACE, entrantId: entrant.entrantId, seq: entrant.ackSeq + 1, textVersion: 0, events }, now: at(now) };
+        state = reduceRace(state, event).state;
+        for (const probe of [state.clock - 500, state.clock, state.clock + 7_000]) {
+          const broadcast = toRaceBroadcast(state, asInstant(Math.max(probe, 0)));
+          for (const progress of broadcast.entrants) {
+            expect(toEntrantMeasures(state, progress.entrantId, asInstant(Math.max(probe, 0)))?.netWpm).toBe(progress.netWpm);
+            compared += 1;
+          }
+        }
+      }
+    }
+    expect(compared).toBeGreaterThan(5_000);
   });
 });
