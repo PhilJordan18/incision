@@ -1,7 +1,9 @@
+import { describeDatabaseError, type RaceResultView, readRoomRaceForMember, type RoomSnapshot } from "@incision/database";
 import { parseRoomCode } from "@incision/domain";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
+import { RaceResults } from "@/components/races/race-results";
 import { JoinCodeForm } from "@/components/rooms/join-code-form";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { StatePanel } from "@/components/ui/state-panel";
@@ -11,6 +13,7 @@ import { format } from "@/i18n/format";
 import { getRequestDictionary } from "@/i18n/server";
 import { publicSnapshot } from "@/rooms/public-snapshot";
 import { getAccountSession, requireAccountSession } from "@/server/auth/session";
+import { authDatabase } from "@/server/auth/store";
 import { JoinRoomForm } from "./join-room-form";
 import { loadRoomPage } from "./load-room";
 import { RoomView } from "./room-view";
@@ -52,7 +55,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
   }
   const code = parsed.code;
   const { accountId } = await requireAccountSession(`/rooms/${code}`);
-  const [{ t }, state] = await Promise.all([getRequestDictionary(), loadRoomPage(accountId, code)]);
+  const [{ t, locale }, state] = await Promise.all([getRequestDictionary(), loadRoomPage(accountId, code)]);
 
   switch (state.kind) {
     case "unknown":
@@ -99,12 +102,23 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
           <p>{t.home.codeErrors[state.refusal]}</p>
         </StatePanel>
       );
-    case "member":
+    case "member": {
       // Presence comes with the socket; the first render shows nobody online yet. Keyed by
-      // member: a new membership of the same room starts a fresh view.
+      // member: a new membership of the same room starts a fresh view. A finished race's results
+      // are read from the database here, as stored.
+      const race = await finishedRaceOf(state.snapshot, accountId);
       return (
-        <RoomView key={state.memberId} initial={publicSnapshot(state.snapshot, new Set())} selfMemberId={state.memberId} t={t.rooms} />
+        <RoomView
+          key={state.memberId}
+          initial={publicSnapshot(state.snapshot, new Set())}
+          selfMemberId={state.memberId}
+          t={t.rooms}
+          tRaces={t.races}
+          locale={locale}
+          results={race === undefined ? undefined : { raceId: race.raceId, panel: <RaceResults race={race} t={t.races} locale={locale} linkToRace /> }}
+        />
       );
+    }
     case "notAdmitting": {
       const closed = state.phase === "closed";
       return (
@@ -162,6 +176,21 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
       );
     case "join":
       return <JoinRoomForm code={code} t={t} />;
+  }
+}
+
+/** The room's finished race, for a member, when the room shows its results. */
+async function finishedRaceOf(snapshot: RoomSnapshot, accountId: string): Promise<RaceResultView | undefined> {
+  if (snapshot.phase !== "results" || snapshot.race?.state !== "finished") {
+    return undefined;
+  }
+  try {
+    return await readRoomRaceForMember(authDatabase(), snapshot.lobbyId, accountId);
+  } catch (error: unknown) {
+    unstable_rethrow(error);
+    // The page still renders; the results come with the next refresh.
+    console.error("[races] room results failed:", describeDatabaseError(error));
+    return undefined;
   }
 }
 

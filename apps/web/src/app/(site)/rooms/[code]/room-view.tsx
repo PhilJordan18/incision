@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -10,6 +10,19 @@ import { StatePanel } from "@/components/ui/state-panel";
 import { card, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
+import type { Locale } from "@/i18n/locale";
+import {
+  RACE_BATCH_EVENT,
+  RACE_CONFIRMING_EVENT,
+  RACE_CONTROL_EVENT,
+  RACE_PROGRESS_EVENT,
+  RACE_REVEAL_EVENT,
+  RACE_SELF_EVENT,
+  RACE_START_EVENT,
+  type RaceStartAck,
+  raceStartAckSchema,
+} from "@/races/protocol";
+import { RaceClient } from "@/races/race-client";
 import {
   type PublicRoomSnapshot,
   ROOM_SNAPSHOT_EVENT,
@@ -18,7 +31,9 @@ import {
   roomWatchAckSchema,
   WATCH_LIMIT,
 } from "@/rooms/protocol";
+import { RaceView } from "./race-view";
 import { RoomCode } from "./room-code";
+import { StartRaceButton } from "./start-race-button";
 
 type Connection = "connecting" | "live" | "reconnecting";
 /** Why the waiting room is no longer shown, when it is not. */
@@ -29,7 +44,14 @@ type RoomViewProps = {
   readonly initial: PublicRoomSnapshot;
   readonly selfMemberId: string;
   readonly t: Dictionary["rooms"];
+  readonly tRaces: Dictionary["races"];
+  readonly locale: Locale;
+  /** The results of the room's race, rendered by the server from the database, and that race. */
+  readonly results?: { readonly raceId: string; readonly panel: ReactNode };
 };
+
+/** A batch's answer is awaited this long before it is sent again (unchanged). */
+const BATCH_TIMEOUT_MS = 5_000;
 
 /** Delays before asking for the room again after a refused or lost watch. */
 const RETRY_DELAYS_MS = [1_000, 2_000, 5_000, 10_000];
@@ -42,8 +64,21 @@ const ROOM_HEADING_ID = "room-heading";
  * over Socket.IO. The server renders the first snapshot; the socket keeps the newest one
  * (highest revision; presence updates keep the revision).
  */
-export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
+export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: RoomViewProps) {
   const [snapshot, setSnapshot] = useState(initial);
+  // One per page: the socket's (re)connections attach to it, so a tab keeps its typing state.
+  const [race] = useState(
+    () =>
+      new RaceClient({
+        now: Date.now,
+        schedule: (callback, delayMs) => {
+          const timer = setTimeout(callback, delayMs);
+          return () => clearTimeout(timer);
+        },
+      }),
+  );
+  const startRef = useRef<() => Promise<RaceStartAck>>(async () => ({ ok: false, error: "UNAVAILABLE" }));
+  const takeControlRef = useRef<(raceId: string) => void>(() => undefined);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [ending, setEnding] = useState<Ending | undefined>(undefined);
   const [copy, setCopy] = useState<CopyFeedback>(undefined);
@@ -57,6 +92,27 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
 
   useEffect(() => {
     const socket = io({ reconnectionDelayMax: 5_000 });
+    // Listening from the first connection: the race's text can come before the room's new phase.
+    race.attach({
+      sendBatch: (batch) => (socket.connected ? socket.timeout(BATCH_TIMEOUT_MS).emitWithAck(RACE_BATCH_EVENT, batch) : Promise.reject(new Error("offline"))),
+      connected: () => socket.connected,
+    });
+    socket.on(RACE_REVEAL_EVENT, (payload: unknown) => race.reveal(payload));
+    socket.on(RACE_PROGRESS_EVENT, (payload: unknown) => race.progress(payload));
+    socket.on(RACE_SELF_EVENT, (payload: unknown) => race.self(payload));
+    socket.on(RACE_CONFIRMING_EVENT, (payload: unknown) => race.confirming(payload));
+    startRef.current = async () => {
+      if (!socket.connected) {
+        return { ok: false, error: "UNAVAILABLE" };
+      }
+      const answer = raceStartAckSchema.safeParse(await socket.timeout(10_000).emitWithAck(RACE_START_EVENT, {}));
+      return answer.success ? answer.data : { ok: false, error: "UNAVAILABLE" };
+    };
+    takeControlRef.current = (raceId) => {
+      if (socket.connected) {
+        void socket.timeout(5_000).emitWithAck(RACE_CONTROL_EVENT, { raceId }).catch(() => undefined);
+      }
+    };
     let attempt = 0;
     let retry: ReturnType<typeof setTimeout> | undefined;
     // Answers to a watch sent before the last (re)connection are ignored.
@@ -156,6 +212,8 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
       generation += 1;
       inFlight = false;
       clearTimeout(retry);
+      // No queued keystroke survives a lost connection: after it, the snapshot decides (engine contract).
+      socket.sendBuffer = [];
       // The server cuts a socket whose session ended (sign-out, revocation, expiry), and
       // one that flooded it; neither is retried by the client.
       if (reason === "io server disconnect") {
@@ -178,9 +236,27 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
     });
     return () => {
       clearTimeout(retry);
+      race.detach();
       socket.close();
     };
-  }, [initial.code, router]);
+  }, [initial.code, router, race]);
+
+  // A server render newer than what the socket brought (after a refresh) replaces it.
+  const [rendered, setRendered] = useState(initial);
+  if (rendered !== initial) {
+    setRendered(initial);
+    if (initial.revision > snapshot.revision) {
+      setSnapshot(initial);
+    }
+  }
+
+  // The results are read from the database by the server: a newly finished race asks for them.
+  const finishedRaceId = snapshot.phase === "results" ? snapshot.race?.raceId : undefined;
+  useEffect(() => {
+    if (finishedRaceId !== undefined && results?.raceId !== finishedRaceId) {
+      router.refresh();
+    }
+  }, [finishedRaceId, results?.raceId, router]);
 
   const onLeaving = useCallback(() => {
     leavingRef.current = true;
@@ -240,6 +316,65 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
   }
 
   const participants = snapshot.members.filter((member) => member.role === "participant").length;
+  const leave = (
+    <div className="flex max-w-xs flex-col gap-2">
+      <LeaveRoomForm
+        label={t.leave}
+        pendingLabel={t.leaving}
+        errors={t.changeErrors}
+        describedBy={self.isHost ? "host-leave-note" : undefined}
+        onLeaving={onLeaving}
+        onFailed={onLeaveFailed}
+      />
+      {self.isHost && (
+        <p id="host-leave-note" className="text-sm text-brume">
+          {t.hostLeaveNote}
+        </p>
+      )}
+    </div>
+  );
+  const connectionLine = (
+    <p aria-live="polite" className={`${monoLabel} ${connection === "live" ? "text-juste" : "text-or"}`}>
+      <span aria-hidden="true">[.</span>
+      {t.connection[connection]}
+      <span aria-hidden="true">]</span>
+    </p>
+  );
+
+  if (snapshot.phase === "countdown" || snapshot.phase === "racing") {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          {connectionLine}
+          {leave}
+        </div>
+        <h1 id={ROOM_HEADING_ID} tabIndex={-1} className="sr-only">
+          {format(t.roomTitle, { code: snapshot.code })}
+        </h1>
+        <RaceView race={race} t={tRaces} locale={locale} roomLabel={format(t.roomTitle, { code: snapshot.code })} onTakeControl={(raceId) => takeControlRef.current(raceId)} />
+      </div>
+    );
+  }
+
+  if (snapshot.phase === "results") {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          {connectionLine}
+          {leave}
+        </div>
+        {results !== undefined && results.raceId === snapshot.race?.raceId ? (
+          results.panel
+        ) : (
+          <p role="status" className="text-embrun">
+            {tRaces.confirming}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  const interrupted = snapshot.race?.state === "interrupted" ? snapshot.race.interruptionReason : null;
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-6">
@@ -251,28 +386,22 @@ export function RoomView({ initial, selfMemberId, t }: RoomViewProps) {
           </p>
           <PageHeading bold={t.roomHeading} id={ROOM_HEADING_ID} />
         </div>
-        <div className="flex max-w-xs flex-col gap-2">
-          <LeaveRoomForm
-            label={t.leave}
-            pendingLabel={t.leaving}
-            errors={t.changeErrors}
-            describedBy={self.isHost ? "host-leave-note" : undefined}
-            onLeaving={onLeaving}
-            onFailed={onLeaveFailed}
-          />
-          {self.isHost && (
-            <p id="host-leave-note" className="text-sm text-brume">
-              {t.hostLeaveNote}
-            </p>
-          )}
-        </div>
+        {leave}
       </div>
 
-      <p aria-live="polite" className={`${monoLabel} ${connection === "live" ? "text-juste" : "text-or"}`}>
-        <span aria-hidden="true">[.</span>
-        {t.connection[connection]}
-        <span aria-hidden="true">]</span>
-      </p>
+      {connectionLine}
+
+      {interrupted !== null && (
+        <section aria-labelledby="interrupted-heading" className={`${card} flex max-w-xl flex-col gap-2 border-or`}>
+          <h2 id="interrupted-heading" className={`${monoLabel} text-or`}>
+            <span aria-hidden="true">⚠ </span>
+            {tRaces.interruptedHeading}
+          </h2>
+          <p className="text-embrun">{tRaces.interrupted[interrupted]}</p>
+        </section>
+      )}
+
+      {self.isHost && <StartRaceButton start={() => startRef.current()} participants={participants} t={tRaces} />}
 
       {connection === "reconnecting" && (
         <section aria-labelledby="reconnect-heading" className={`${card} flex max-w-xl flex-col gap-3 border-or`}>
