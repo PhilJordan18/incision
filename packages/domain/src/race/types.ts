@@ -43,7 +43,8 @@ export type AbandonReason = "voluntary" | "disconnection" | "inactivity";
 /**
  * What a player's keyboard produced, in order. An `insert` carries exactly one grapheme, after any
  * input-method composition, of at most `MAX_GRAPHEME_LENGTH` code units as received (its NFC form
- * may be longer); a deletion carries nothing. Navigation keys are never sent.
+ * may be longer); a deletion carries nothing. Navigation keys are never sent, and Enter is never an
+ * insert: it activates a bonus (D-16), so an insert holding a line break refuses the whole batch.
  */
 export type InputEvent =
   | { readonly type: "insert"; readonly grapheme: string }
@@ -110,7 +111,10 @@ export type EntrantState = {
 
 export type RaceState = {
   readonly raceId: RaceId;
-  /** Broadcast revision: 0 at creation, +1 for every change other people can see. */
+  /**
+   * Broadcast revision: 0 at creation, then +1 for every output whose public view changed, exactly
+   * 1 however many transitions one event triggered.
+   */
   readonly revision: number;
   readonly phase: RacePhase;
   readonly errorMode: ErrorMode;
@@ -156,6 +160,12 @@ export type CreateRaceResult =
  * Contract of F-04.1 (engine half). Applies `startRefusal`, never a copy of it. An accepted race
  * starts in `countdown`, revision 0, `clock` = `countdownAt` = `now`, `startsAt` = `now` +
  * COUNTDOWN_MS, every entrant racing with `textVersion` 0 and `ackSeq` 0.
+ *
+ * It refuses through `createRaceRefusal`, in this order: the start rule, a duplicate entrant, an
+ * empty text, a text longer than `MAX_TEXT_GRAPHEMES` NFC graphemes, a time limit that is neither
+ * null nor an integer from `TIME_LIMIT_MIN_MS` to `TIME_LIMIT_MAX_MS` inclusive. Values only the
+ * server produces (ids, kinds, error mode, its clock) are programming errors when invalid: they
+ * throw a `RangeError`, as does a `now` whose start or time-limit deadline would pass `MAX_INSTANT`.
  */
 export type CreateRace = (input: CreateRaceInput) => CreateRaceResult;
 
@@ -178,14 +188,15 @@ export type RaceEvent =
   /** Lets due transitions happen when nothing else arrives; the runtime schedules it at `nextDeadline`. */
   | { readonly type: "tick"; readonly now: Instant }
   | { readonly type: "keystrokes"; readonly batch: KeystrokeBatch; readonly now: Instant }
-  /** Confirmed abandon (COURSE-07), allowed during the countdown and the race. */
+  /** Confirmed abandon (COURSE-07), allowed during the countdown and the race; its reason is `voluntary`. */
   | { readonly type: "abandon"; readonly entrantId: EntrantId; readonly now: Instant }
   /**
    * The room closes before the race is finalised: the race produces no official result (D-06), and
    * the performances held in memory are never persisted. A race already `ended` keeps its results:
    * an `interrupt` after the end changes nothing. When closing and finalising compete, the server
    * lets one transaction win under the room lock. After a server restart the race no longer exists
-   * in memory and no event is involved.
+   * in memory and no event is involved. The race becomes `interrupted` at the handled `now`;
+   * entrant statuses stay as they were.
    */
   | { readonly type: "interrupt"; readonly now: Instant };
 
@@ -233,13 +244,17 @@ export type KeystrokeResult =
   | { readonly outcome: "refused"; readonly seq: number; readonly reason: RaceKeystrokeRefusal }
   | { readonly outcome: "refused"; readonly seq: number; readonly reason: EntrantKeystrokeRefusal; readonly snapshot: EntrantSnapshot };
 
-/** Why an `abandon` event changed nothing. */
+/** Why an `abandon` event changed nothing, checked in this order: the entrant, then the race, then the entrant's status. */
 export type AbandonIgnored = "UNKNOWN_ENTRANT" | "ENTRANT_TERMINAL" | "RACE_OVER";
 
 /** What the race reducer returns. */
 export type RaceOutput = {
   readonly state: RaceState;
-  /** True when `revision` moved: the server broadcasts the public progress. */
+  /**
+   * True when `revision` moved, because the public view changed: `toRaceBroadcast` at the handled
+   * instant, revision aside. The server then broadcasts the public progress. The private state and
+   * the clock can move without it, so the server always keeps `state`.
+   */
   readonly changed: boolean;
   /** For a `keystrokes` event: the reply to its sender. */
   readonly keystrokes?: KeystrokeResult;
@@ -254,7 +269,13 @@ export type RaceOutput = {
   readonly nextDeadline?: Instant;
 };
 
-/** Contract of F-04.1 (engine half). Pure: same state and event, same output. */
+/**
+ * Contract of F-04.1 (engine half). Pure: same state and event, same output. An `ended` or
+ * `interrupted` race is returned as is, clock included, whatever the event; a batch still gets its
+ * reply after the usual checks (see `KeystrokeResult`): `duplicate` for a retry, `NOT_RACING` for a
+ * new well-formed batch of a known entrant. An invalid `now` is a programming error and throws a
+ * `RangeError`.
+ */
 export type ReduceRace = (state: RaceState, event: RaceEvent) => RaceOutput;
 
 export type KeystrokeContext = {
@@ -320,6 +341,13 @@ export type RaceBroadcast = {
 export type ToRaceBroadcast = (state: RaceState, now: Instant) => RaceBroadcast;
 
 /**
+ * One entrant's live measures (COURSE-04), for that entrant's own display: the public broadcast
+ * carries net WPM only. Timed as `toRaceBroadcast` times net WPM: the same instant and the same
+ * freeze at the entrant's or the race's end. Undefined for an unknown entrant.
+ */
+export type ToEntrantMeasures = (state: RaceState, entrantId: EntrantId, now: Instant) => Measures | undefined;
+
+/**
  * The private snapshot that rebuilds one player's typing zone, after a resync, a refusal or a
  * reconnection (with the `RaceReveal`). Sent to that player only.
  */
@@ -337,6 +365,42 @@ export type EntrantSnapshot = {
 
 /** Contract of F-04.4 (engine half): undefined for an entrant the race does not know. */
 export type ToEntrantSnapshot = (state: RaceState, entrantId: EntrantId) => EntrantSnapshot | undefined;
+
+/**
+ * Immediate typing feedback (COURSE-04), for the display only. The start is the entrant's last
+ * confirmed typing state: the revealed text with nothing typed; after `applied` or `duplicate`, the
+ * prediction of the confirmed batch from the previous start (it equals the server's state); after a
+ * reply or a reconnection carrying a snapshot, that snapshot.
+ */
+export type TypingStart = Pick<EntrantSnapshot, "target" | "typed" | "pendingError">;
+
+/** How one typed grapheme shows: the engine's position-by-position comparison. */
+export type TypedMark = "correct" | "wrong";
+
+/**
+ * The typing zone predicted from the pending events. Never counters, measures, rank or `seq`: the
+ * server's replies and snapshots stay the authority, and replace any prediction.
+ */
+export type TypingPrediction =
+  | {
+      readonly ok: true;
+      readonly typed: readonly string[];
+      /** One mark per typed grapheme; every mark is "correct" in mandatory correction. */
+      readonly marks: readonly TypedMark[];
+      /** Mandatory correction: the expected grapheme at `typed.length` shows in error. */
+      readonly pendingError: boolean;
+      /** The target is complete; any later event was discarded. */
+      readonly finished: boolean;
+    }
+  /** One event the server would refuse, so it would refuse the whole batch: nothing is predicted. */
+  | { readonly ok: false; readonly reason: "INVALID_INPUT" };
+
+/**
+ * The same fold `applyKeystrokes` applies, without the batch checks only the server can make (seq,
+ * phase, status, text version, size, plausibility). For a batch the server applies, the prediction
+ * from the starting snapshot equals the applied entrant's `typed`, `pendingError` and finish.
+ */
+export type PredictTyping = (start: TypingStart, events: readonly InputEvent[], errorMode: ErrorMode) => TypingPrediction;
 
 /** What the ranking needs of each entrant, once every entrant is terminal. */
 export type RankInput = {

@@ -30,12 +30,26 @@ export function toGraphemes(text: string): readonly string[] {
 }
 
 /**
+ * Every mandatory line break of Unicode (UAX #14): what Enter produces ("\n", "\r", "\r\n"), and the
+ * separators no keyboard types (vertical tab, form feed, NEL, line and paragraph separators).
+ */
+const LINE_BREAKS = ["\n", "\r", "\v", "\f", "\u0085", "\u2028", "\u2029"] as const;
+
+/**
+ * Whether `text` holds a line break. Enter activates a bonus and never appears in a race text (D-16),
+ * so a line break is never typed and never expected.
+ */
+export function containsLineBreak(text: string): boolean {
+  return LINE_BREAKS.some((lineBreak) => text.includes(lineBreak));
+}
+
+/**
  * The NFC form of `input` when `input` is exactly one grapheme of at most `MAX_GRAPHEME_LENGTH`
  * code units as received (what one `insert` event must carry, after any input-method composition),
- * otherwise undefined.
+ * otherwise undefined. A line break is never one (D-16).
  */
 export function singleGrapheme(input: string): string | undefined {
-  if (input.length === 0 || input.length > MAX_GRAPHEME_LENGTH) {
+  if (input.length === 0 || input.length > MAX_GRAPHEME_LENGTH || containsLineBreak(input)) {
     return undefined;
   }
   const graphemes = toGraphemes(input);
