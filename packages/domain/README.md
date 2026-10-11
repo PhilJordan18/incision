@@ -155,25 +155,58 @@ snapshot replaces it.
 ## Deadlines (`RaceEvent`)
 
 Time never runs backwards: an event earlier than the race `clock` is handled at the clock. Before
-and after handling any event, `reduceRace` applies every transition due at that instant, so a late
-timer never decides a result:
+and after handling any event, `reduceRace` applies every transition due at that instant, in this
+order, so a late timer never decides a result:
 
 1. **The start.** The race starts at `startsAt`.
-2. **The time limit** (when there is one). The race ends at `startsAt + timeLimit`, inclusive, and
+2. **Each racing human's own abandon** (D-06, D-17), independent of the others; the earlier
+   deadline wins:
+   - **for inactivity** after the last activity + 120 s: a reaction at exactly 120 s still counts;
+   - **for disconnection** after the loss + 30 s: a resumption at exactly 30 s still counts.
+
+   An abandon is dated at its deadline, so its measures include the wait; when both deadlines are
+   the same instant, the reason is `disconnection`. A deadline at the same instant as the time limit
+   is a tie, which the time limit wins.
+3. **The time limit** (when there is one). The race ends at `startsAt + timeLimit`, inclusive, and
    whoever is still racing times out at that deadline. It wins a tie with any other deadline (D-06).
-3. **Everyone terminal.** A race whose entrants are all terminal ends, never from the countdown.
-   When everyone abandons during the countdown, it ends at `startsAt`:
+4. **Everyone terminal.** A race whose entrants are all terminal ends, never from the countdown.
+   Once it has ended, later deadlines, the time limit included, change nothing: abandons before the
+   time limit never become time-outs. When everyone abandons during the countdown, it ends at
+   `startsAt`:
    - every entrant is an abandon;
    - the elapsed time and the measures are zero, and the countdown never counts as typing time;
    - no victory and no record is awarded.
+5. **The inactive marker** of each human still racing, from the last activity + 60 s, inclusive. It
+   is public while the entrant races and false once the entrant is terminal.
+
+**Reconnection and inactivity** (COURSE-08, D-06, D-17):
+
+- **The grace starts when the server detects the loss of the entrant's last connection.** The
+  server sends `connectionLost`, with `now` the instant of that detection. Closing one tab among
+  several is not a loss.
+  - A clean close (a tab closed, a reload) is detected at once.
+  - A silent network failure is only detected through the transport's heartbeat, so the engine
+    makes no promise about the time since the physical failure.
+- **`connectionResumed`** ends the grace, up to and including its deadline. The server sends it
+  before any batch from the returning connection, and batches from former controlling connections
+  are discarded before the engine. A batch alone never ends a grace.
+- **Activity** is a newly applied batch, even a wrong insert in mandatory correction, or a valid
+  « Je suis là » (`present`). A duplicate, a refused batch or a resync is not activity, and neither
+  is a resumption. The inactive marker is public (`PublicEntrantProgress.inactive`), and the
+  entrant's own client shows « Tu es toujours là ? » from it. A disconnection has no public marker.
+- **Bots** are never inactive and never disconnected; presence events for a bot are ignored.
+- **Ignored presence events** are checked in this order: unknown entrant, race over, entrant
+  terminal, bot, then a second loss (`ALREADY_DISCONNECTED`) or a resumption without a loss
+  (`NOT_DISCONNECTED`).
 
 A confirmed abandon (COURSE-07) is `voluntary`, during the countdown or the race. An abandon that
 changes nothing is ignored for an unknown entrant, then for a race already over, then for an entrant
 already terminal.
 
-With no time limit there is no hidden cap (CONF-01, D-17). A configured limit is announced before
-the start and shown during the race. The runtime schedules one `tick` at the `nextDeadline` that the
-reducer returns.
+With no time limit there is no hidden cap (CONF-01, D-17): runners who keep typing keep racing. A
+configured limit is announced before the start and shown during the race. The runtime schedules one
+`tick` at the `nextDeadline` that the reducer returns: the start, the time limit, and each racing
+human's marker, abandon and grace expiry.
 
 **Interruption** (D-06):
 

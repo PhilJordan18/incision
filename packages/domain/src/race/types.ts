@@ -107,6 +107,18 @@ export type EntrantState = {
   /** When the entrant finished, timed out or abandoned; a time-out ends at the deadline, not later. */
   readonly endedAt?: Instant;
   readonly abandonReason?: AbandonReason;
+  /**
+   * D-17: the entrant's last activity, a newly applied batch or a « Je suis là » (`present`).
+   * `startsAt` at creation: nobody can type during the countdown.
+   */
+  readonly lastActivityAt: Instant;
+  /** D-17: shown inactive, from `lastActivityAt` + INACTIVITY_WARNING_MS until the next activity. */
+  readonly inactive: boolean;
+  /**
+   * D-06: when the server detected the loss of the entrant's last connection; absent while the
+   * entrant has one. The grace runs from this detection, not from an earlier network failure.
+   */
+  readonly disconnectedAt?: Instant;
 };
 
 export type RaceState = {
@@ -170,19 +182,32 @@ export type CreateRaceResult =
 export type CreateRace = (input: CreateRaceInput) => CreateRaceResult;
 
 /**
- * First-path events. Later cards add the grace period, inactivity, bonuses and bots.
+ * Race events. Later cards add bonuses and bots.
  *
- * Before and after handling any event, the reducer applies every transition due at its `now`, so a
- * late timer never decides a result (docs/architecture/state-machines.md §3):
+ * Before and after handling any event, the reducer applies every transition due at its `now`, in
+ * this order, so a late timer never decides a result (docs/architecture/
+ * state-machines.md §3):
  * 1. `countdown` → `racing` once `now >= startsAt`;
- * 2. with a time limit, `racing` → `ended` once `now >= startsAt + timeLimit`: entrants still racing
- *    time out with `endedAt` = that deadline. The time limit wins a tie with any other deadline (D-06);
- * 3. a race whose entrants are all terminal ends, at the latest of `startsAt` and the last `endedAt`,
+ * 2. each racing human's own abandon (D-06, D-17), independent of the others, the earlier deadline
+ *    winning:
+ *    - for `inactivity` once `now > lastActivityAt + INACTIVITY_ABANDON_MS`, so a reaction at that
+ *      exact instant still counts;
+ *    - for `disconnection` once `now > disconnectedAt + RESUME_GRACE_MS`, so a resumption at that
+ *      exact instant still counts;
+ *    an abandon is dated at its deadline, and when both deadlines are the same instant the reason is
+ *    `disconnection`. Only deadlines before the time limit apply: a deadline at the same instant as
+ *    the time limit is a tie, which the time limit wins (D-06);
+ * 3. with a time limit, `racing` → `ended` once `now >= startsAt + timeLimit`: entrants still racing
+ *    time out with `endedAt` = that deadline;
+ * 4. a race whose entrants are all terminal ends, at the latest of `startsAt` and the last `endedAt`,
  *    never from `countdown`: when everyone abandons during the countdown, it ends at `startsAt`, with
  *    every entrant an abandon, zero elapsed time and zero measures; the countdown never counts as
- *    typing time.
+ *    typing time. Once it has ended, a later deadline (the time limit included) changes nothing;
+ * 5. the `inactive` marker of each human still racing, once `now >= lastActivityAt +
+ *    INACTIVITY_WARNING_MS`.
  *
- * An `ended` or `interrupted` race is final: no later event, a late timer included, changes it.
+ * Bots are never inactive and never disconnected (D-17). An `ended` or `interrupted` race is final:
+ * no later event, a late timer included, changes it.
  */
 export type RaceEvent =
   /** Lets due transitions happen when nothing else arrives; the runtime schedules it at `nextDeadline`. */
@@ -190,6 +215,18 @@ export type RaceEvent =
   | { readonly type: "keystrokes"; readonly batch: KeystrokeBatch; readonly now: Instant }
   /** Confirmed abandon (COURSE-07), allowed during the countdown and the race; its reason is `voluntary`. */
   | { readonly type: "abandon"; readonly entrantId: EntrantId; readonly now: Instant }
+  /**
+   * D-06: the server detected that the entrant's last connection to the room is gone (not one tab
+   * among several). The grace of RESUME_GRACE_MS starts at this `now`.
+   */
+  | { readonly type: "connectionLost"; readonly entrantId: EntrantId; readonly now: Instant }
+  /**
+   * D-06: a connection of the entrant is back, up to and including the grace's deadline. It is not
+   * activity (D-17). The server sends it before any batch from that connection.
+   */
+  | { readonly type: "connectionResumed"; readonly entrantId: EntrantId; readonly now: Instant }
+  /** D-17: « Je suis là ». Activity, as a newly applied batch is; it never ends a grace. */
+  | { readonly type: "present"; readonly entrantId: EntrantId; readonly now: Instant }
   /**
    * The room closes before the race is finalised: the race produces no official result (D-06), and
    * the performances held in memory are never persisted. A race already `ended` keeps its results:
@@ -247,6 +284,13 @@ export type KeystrokeResult =
 /** Why an `abandon` event changed nothing, checked in this order: the entrant, then the race, then the entrant's status. */
 export type AbandonIgnored = "UNKNOWN_ENTRANT" | "ENTRANT_TERMINAL" | "RACE_OVER";
 
+/**
+ * Why a `connectionLost`, `connectionResumed` or `present` event changed nothing, checked in this
+ * order: the entrant, the race, the entrant's status, a bot, then the connection state
+ * (`ALREADY_DISCONNECTED` for a second loss, `NOT_DISCONNECTED` for a resumption without a loss).
+ */
+export type PresenceIgnored = AbandonIgnored | "BOT_ENTRANT" | "ALREADY_DISCONNECTED" | "NOT_DISCONNECTED";
+
 /** What the race reducer returns. */
 export type RaceOutput = {
   readonly state: RaceState;
@@ -258,14 +302,17 @@ export type RaceOutput = {
   readonly changed: boolean;
   /** For a `keystrokes` event: the reply to its sender. */
   readonly keystrokes?: KeystrokeResult;
-  /** For an `abandon` event that changed nothing. */
-  readonly ignored?: AbandonIgnored;
+  /** For an `abandon`, `connectionLost`, `connectionResumed` or `present` event that changed nothing. */
+  readonly ignored?: PresenceIgnored;
   /**
    * Exactly once, on the transition to `ended`. The server writes it in one transaction with the
    * room's move to results, and broadcasts only after the commit.
    */
   readonly ended?: RaceEnd;
-  /** The next instant at which a `tick` would change something (start, time limit), if any. */
+  /**
+   * The next instant at which a `tick` would change something, if any: the start, the time limit,
+   * and each racing human's inactive marker, inactivity abandon and grace expiry.
+   */
   readonly nextDeadline?: Instant;
 };
 
@@ -324,6 +371,12 @@ export type PublicEntrantProgress = {
    */
   readonly netWpm: number;
   readonly endedAt?: Instant;
+  /**
+   * D-17: the inactive marker on the track, for a racing entrant only (false once terminal). The
+   * entrant's own client also shows « Tu es toujours là ? » from it. A disconnection has no public
+   * marker.
+   */
+  readonly inactive: boolean;
 };
 
 /** The race's public state, broadcast after each change; clients keep the highest revision of the current race. */
