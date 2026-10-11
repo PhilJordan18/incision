@@ -26,6 +26,7 @@ import { authenticateHandshake } from "./src/server/realtime/socket-session";
 import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
 import { processOwnerId } from "./src/server/races/process-owner";
 import { RaceService, serverClock } from "./src/server/races/race-service";
+import { FIXTURE_RACE_TEXTS } from "./src/server/races/race-texts";
 import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
@@ -79,9 +80,18 @@ async function main(): Promise<void> {
     },
     onRoomChanged: notifyRoomChanged,
     onRaceLost: (lobbyId) => roomEvents().emit("raceLost", lobbyId),
+    // Only test fixtures exist so far: a production build runs them only when told to.
+    texts: env.fixtureRaceTexts ? FIXTURE_RACE_TEXTS : undefined,
     log: (message) => console.log(message),
     logError: (message) => console.error(message),
   });
+  if (env.isProduction) {
+    console.log(
+      env.fixtureRaceTexts
+        ? "[races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not validated texts"
+        : "[races] no validated race texts yet: race starts are refused",
+    );
+  }
   // A departure committed by a server action ends the leaver's race, or the race if the room closed.
   // It runs inside that action: a failure here must not turn the committed departure into an error.
   roomEvents().on("left", (lobbyId, accountId, closed) => {

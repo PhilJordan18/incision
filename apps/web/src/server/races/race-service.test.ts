@@ -13,7 +13,9 @@ const PARTICIPANTS = [
   { entrantId: "e-bea", accountId: "a-bea", memberId: "m-bea", ordinal: 2, displayName: "Bea" },
 ];
 
-function harness(options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; participants?: typeof PARTICIPANTS; renewed?: boolean } = {}) {
+function harness(
+  options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; participants?: typeof PARTICIPANTS; renewed?: boolean; noTexts?: boolean } = {},
+) {
   let now = START;
   const timers: { at: number; callback: () => void }[] = [];
   const created: RaceState[] = [];
@@ -56,6 +58,7 @@ function harness(options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; pa
     },
     onRoomChanged: (lobbyId) => changed.push(lobbyId),
     onRaceLost: (lobbyId) => lost.push(lobbyId),
+    texts: options.noTexts === true ? undefined : FIXTURE_RACE_TEXTS,
     log: () => undefined,
   });
   const advance = (ms: number) => {
@@ -111,6 +114,15 @@ describe("RaceService", () => {
     await service.start(host.connection, {});
     expect(bea.reveal()?.language).toBe("en");
     expect(host.reveal()?.language).toBe("en");
+  });
+
+  it("refuses every start, before the database, when no race text may run on this server", async () => {
+    const { service, store } = harness({ noTexts: true });
+    const host = tab("t-host", "a-host");
+    service.follow(LOBBY, host.connection);
+    expect(await service.start(host.connection, {})).toEqual({ ok: false, error: "RACES_UNAVAILABLE" });
+    expect(store.startRace).not.toHaveBeenCalled();
+    expect(service.ownsRace(LOBBY)).toBe(false);
   });
 
   it("passes the database's and the engine's refusals on, and runs nothing", async () => {
@@ -243,6 +255,7 @@ describe("RaceService", () => {
         return () => clearTimeout(timer);
       },
       onRoomChanged: () => undefined,
+      texts: FIXTURE_RACE_TEXTS,
       log: () => undefined,
       logError: (message) => logged.push(message),
       leaseTiming: { leaseMs: 30_000, renewEveryMs: 1, safetyMarginMs: 5_000, retryEveryMs: 1, maxSuspensionMs: 60_000 },

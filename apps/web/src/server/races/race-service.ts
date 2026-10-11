@@ -15,7 +15,6 @@ import { parseKeystrokeBatch, type RaceBatchAck, type RaceControlAck, raceContro
 import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
-import { FIXTURE_RACE_TEXTS } from "./race-texts";
 
 /** A tab admitted into a room by the room channel, with the language its pages use. */
 export type RoomConnection = RaceConnection & { readonly locale: Locale };
@@ -44,6 +43,11 @@ export type RaceServiceOptions = {
   readonly schedule: Schedule;
   /** A room's race changed in the database (started, saved, interrupted): its members get a fresh snapshot. */
   readonly onRoomChanged: (lobbyId: string) => void;
+  /**
+   * The texts races run, per interface language; undefined when none may run on this server
+   * (test fixtures in a production without RACE_FIXTURE_TEXTS=allowed): starts are refused.
+   */
+  readonly texts: Readonly<Record<Locale, string>> | undefined;
   /** A race of the room stopped here without a confirmed end (lost lease, unreachable database). */
   readonly onRaceLost?: (lobbyId: string) => void;
   readonly log: (message: string) => void;
@@ -130,6 +134,9 @@ export class RaceService {
     if (this.#registry.stopping) {
       return { ok: false, error: "UNAVAILABLE" };
     }
+    if (this.#options.texts === undefined) {
+      return { ok: false, error: "RACES_UNAVAILABLE" };
+    }
     this.#prune(this.#startTimes, START_WINDOW.windowMs);
     if (!this.#withinWindow(this.#startTimes, connection.accountId, START_WINDOW.maxStarts, START_WINDOW.windowMs)) {
       return { ok: false, error: "RATE_LIMITED" };
@@ -140,15 +147,14 @@ export class RaceService {
     }
     this.#starting.add(connection.accountId);
     try {
-      return await this.#start(connection);
+      return await this.#start(connection, this.#options.texts[connection.locale]);
     } finally {
       this.#starting.delete(connection.accountId);
     }
   }
 
-  async #start(connection: RoomConnection): Promise<RaceStartAck> {
+  async #start(connection: RoomConnection, text: string): Promise<RaceStartAck> {
     const { store, ownerId } = this.#options;
-    const text = FIXTURE_RACE_TEXTS[connection.locale];
     const timeLimit = asDuration(FIRST_RACE_SETTINGS.timeLimitMs);
     const acquiredAt = this.#options.monotonic();
     let started: StartRaceResult<CreateRaceRefusal, RaceState>;

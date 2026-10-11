@@ -41,6 +41,8 @@ export default defineConfig({
       // other spec shares the loopback address and its 10 failed room codes per minute: a spec
       // that needs more unknown codes goes through its own forwarding proxy.
       TRUSTED_PROXY_HOPS: "1",
+      // A local production build: the race text test fixtures may run.
+      RACE_FIXTURE_TEXTS: "allowed",
       // Placeholders, not credentials: the tests never complete an OAuth round trip.
       AUTH_GITHUB_ID: "e2e-github-client-id",
       AUTH_GITHUB_SECRET: "e2e-placeholder-not-a-secret",

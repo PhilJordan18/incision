@@ -182,6 +182,7 @@ export const fr = {
       NO_HUMAN_PARTICIPANT: "Il faut au moins une personne parmi les participants.",
       RATE_LIMITED: "Patiente un instant avant de relancer.",
       UNAVAILABLE: "La course n’a pas pu démarrer, le serveur ne répond pas. Réessaie.",
+      RACES_UNAVAILABLE: "Les courses ne sont pas encore ouvertes sur ce site.",
     },
     preparing: "Préparation de la course…",
     countdownLabel: "Départ dans",

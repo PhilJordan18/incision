@@ -178,6 +178,7 @@ export const en: Dictionary = {
       NO_HUMAN_PARTICIPANT: "At least one participant must be a person.",
       RATE_LIMITED: "Wait a moment before starting again.",
       UNAVAILABLE: "The race could not start, the server is not answering. Try again.",
+      RACES_UNAVAILABLE: "Races are not open on this site yet.",
     },
     preparing: "Preparing the race…",
     countdownLabel: "Starting in",

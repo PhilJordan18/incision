@@ -40,8 +40,8 @@ afterAll(async () => {
     server.child.kill("SIGCONT");
     server.child.kill("SIGKILL");
   }
-  for (const server of servers) {
-    await writeFile(path.join(logs, `integration-server-${new URL(server.origin).port}.log`), server.output());
+  for (const [index, server] of servers.entries()) {
+    await writeFile(path.join(logs, `integration-server-${index + 1}-${new URL(server.origin).port}.log`), server.output());
   }
   await pool.current?.end();
 });
@@ -295,5 +295,21 @@ describe("an integrated race (F-04.0)", () => {
     expect(b.output()).toContain("1 interrupted");
     const [lobby] = await query<{ phase: string }>("select l.phase from lobbies l join races r on r.id = l.current_race_id where r.id = $1", [reveal.reveal.raceId]);
     expect(lobby?.phase).toBe("waiting");
+  }, 60_000);
+
+  it("refuses every start in production without validated race texts, and says so at boot", async () => {
+    // The process of the previous test has exited: its port is free again.
+    const c = await startServer(PORTS[1] ?? 3302, { RACE_FIXTURE_TEXTS: "" });
+    servers.push(c);
+    expect(c.output()).toContain("[races] no validated race texts yet: race starts are refused");
+    const host = await account("int-host-5", "Hôte cinq");
+    const guest = await account("int-guest-5", "Invité cinq");
+    const code = await room(host, [guest]);
+    const h = await tab(c.origin, host.cookie);
+    expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "RACES_UNAVAILABLE" });
+    expect(await query<{ races: number }>("select count(r.id)::int as races from lobbies l left join races r on r.lobby_id = l.id where l.code = $1", [code])).toEqual([
+      { races: 0 },
+    ]);
   }, 60_000);
 });

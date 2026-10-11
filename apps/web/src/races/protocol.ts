@@ -62,6 +62,8 @@ export const RACE_START_ERRORS = [
   "NO_HUMAN_PARTICIPANT",
   "RATE_LIMITED",
   "UNAVAILABLE",
+  /** No race text may run on this server (test fixtures refused in production). */
+  "RACES_UNAVAILABLE",
 ] as const;
 export type RaceStartError = (typeof RACE_START_ERRORS)[number];
 export const raceStartAckSchema = z.union([z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), error: z.enum(RACE_START_ERRORS) })]);

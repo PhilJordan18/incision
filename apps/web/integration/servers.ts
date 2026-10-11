@@ -47,7 +47,8 @@ export type ServerProcess = {
   readonly exited: Promise<number | null>;
 };
 
-export async function startServer(port: number): Promise<ServerProcess> {
+/** `environment` overrides the defaults below (an empty value is unset for the server). */
+export async function startServer(port: number, environment: Readonly<Record<string, string>> = {}): Promise<ServerProcess> {
   const origin = `http://localhost:${port}`;
   let output = "";
   const child = spawn(process.execPath, ["--import", "tsx", "server.ts"], {
@@ -61,10 +62,12 @@ export async function startServer(port: number): Promise<ServerProcess> {
       AUTH_SECRET: SECRET,
       DATABASE_URL,
       TRUSTED_PROXY_HOPS: "0",
+      RACE_FIXTURE_TEXTS: "allowed",
       AUTH_GITHUB_ID: "integration-github-client-id",
       AUTH_GITHUB_SECRET: "integration-placeholder-not-a-secret",
       AUTH_DISCORD_ID: "integration-discord-client-id",
       AUTH_DISCORD_SECRET: "integration-placeholder-not-a-secret",
+      ...environment,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
