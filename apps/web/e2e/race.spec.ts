@@ -156,7 +156,10 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByText("Tu tapes dans un autre onglet ; celui-ci regarde.")).toBeVisible();
     await typeText(second.getByLabel("Ta frappe"), text.slice(6, 10));
 
-    // A reload: the page comes back with what the server applied, and goes on from there.
+    // A reload: the page comes back with what the server applied, and goes on from there. A
+    // keystroke not yet sent when the page goes away is lost by design (one batch in flight):
+    // the reload waits until the server has applied all ten, as the host's track shows.
+    await expect(host.getByRole("progressbar", { name: "Matelot" })).toHaveAttribute("value", "10");
     const reloadedAt = Date.now();
     await second.reload();
     await expect(second.locator(".course-texte .course-juste")).toHaveCount(10);
