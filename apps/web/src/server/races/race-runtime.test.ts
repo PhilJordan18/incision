@@ -336,6 +336,55 @@ describe("RaceRuntime", () => {
     expect(older.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
   });
 
+  it("lets any tab take the input during the grace when the closed tab had no page id", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    followers.splice(followers.indexOf(alice.connection), 1);
+    runtime.unfollow(alice.connection.id);
+    const other = tab("tab-other-page", ALICE.accountId, "page-9");
+    followers.push(other.connection);
+    runtime.follow(other.connection);
+    expect(other.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+  });
+
+  it("cancels the hand-over when the page comes back, so a newer tab opened during the grace still observes", async () => {
+    const { runtime, time, followers } = setup();
+    const typing = tab("tab-page-1", ALICE.accountId, "page-1");
+    followers.splice(0, 1, typing.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    followers.splice(followers.indexOf(typing.connection), 1);
+    runtime.unfollow(typing.connection.id);
+    const back = tab("tab-page-1-again", ALICE.accountId, "page-1");
+    followers.push(back.connection);
+    runtime.follow(back.connection);
+    const newer = tab("tab-page-2", ALICE.accountId, "page-2");
+    followers.push(newer.connection);
+    runtime.follow(newer.connection);
+    await time.advance(5_000);
+    expect(newer.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
+    expect(back.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+  });
+
+  it("sends the other tabs nothing for a batch that changed nothing, and reliably the state of an entrant who finished", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 1_000);
+    const second = tab("tab-alice-2", ALICE.accountId);
+    followers.push(second.connection);
+    runtime.follow(second.connection);
+    runtime.keystrokes(alice.connection, batch(1, "a"));
+    const count = second.received.length;
+    // A retry of an applied batch: duplicate, nothing changed, nothing sent to the other tab.
+    runtime.keystrokes(alice.connection, batch(1, "a"));
+    expect(second.received.length).toBe(count);
+    // Alice finishes while Bob still races: her other tab gets her last state reliably.
+    runtime.keystrokes(alice.connection, batch(2, "b"));
+    expect(runtime.state.phase).toBe("racing");
+    expect(second.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1)).toMatchObject({ volatile: false, payload: { snapshot: { status: "finished" } } });
+  });
+
   it("hands nothing over once the race has settled during the grace", async () => {
     const { runtime, time, alice, followers } = setup();
     runtime.start();

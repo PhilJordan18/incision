@@ -102,6 +102,17 @@ describe("RaceService", () => {
     expect(bea.reveal()?.selfEntrantId).toBe("e-bea");
   });
 
+  it("marks the race text with the host's language for every reader", async () => {
+    const { service } = harness();
+    const host = tab("t-host", "a-host", "en");
+    const bea = tab("t-bea", "a-bea", "fr");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    await service.start(host.connection, {});
+    expect(bea.reveal()?.language).toBe("en");
+    expect(host.reveal()?.language).toBe("en");
+  });
+
   it("passes the database's and the engine's refusals on, and runs nothing", async () => {
     const notHost = harness({ refusal: "NOT_HOST" });
     expect(await notHost.service.start(tab("t", "a-bea").connection, {})).toEqual({ ok: false, error: "NOT_HOST" });
@@ -192,7 +203,7 @@ describe("RaceService", () => {
     expect(service.keystrokes(pageTwo, batch(2, "e"))).toEqual({ ok: false, error: "NOT_CONTROLLING" });
   });
 
-  it("keeps the windows of an account that left and came back, and forgets the expired ones", async () => {
+  it("keeps the batch window of an account whose every tab left and came back", async () => {
     const { service, advance } = harness();
     const only = tab("t-only", "a-host");
     service.follow(LOBBY, only.connection);
@@ -210,12 +221,21 @@ describe("RaceService", () => {
     expect(service.keystrokes(back.connection, batch(11, "e")).ok).toBe(true);
   });
 
-  it("logs a failed lease renewal once per outage", async () => {
+  it("logs a failed lease renewal once per outage, and again for the next outage", async () => {
     const logged: string[] = [];
     const failing = harness();
+    // Down, then up once, then down again.
+    let calls = 0;
+    const renew = vi.fn(async () => {
+      calls += 1;
+      if (calls === 5) {
+        return { renewed: true };
+      }
+      throw new Error("ECONNREFUSED");
+    });
     const service = new RaceService({
       ownerId: "owner-a",
-      store: { ...failing.store, renewRaceLease: vi.fn(async () => Promise.reject(new Error("ECONNREFUSED"))) },
+      store: { ...failing.store, renewRaceLease: renew },
       now: () => START,
       monotonic: () => START,
       schedule: (callback, delayMs) => {
@@ -231,7 +251,8 @@ describe("RaceService", () => {
     // Several renewals fail within this time, one every millisecond or so.
     await new Promise((resolve) => setTimeout(resolve, 60));
     await service.stop({ onEnded: () => undefined, timeoutMs: 100 });
-    expect(logged.filter((line) => line.includes("lease renewal")).length).toBe(1);
+    expect(calls).toBeGreaterThan(6);
+    expect(logged.filter((line) => line.includes("lease renewal")).length).toBe(2);
   });
 
   it("limits the starts of one account, whatever its number of sockets", async () => {

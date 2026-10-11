@@ -212,6 +212,7 @@ export const en: Dictionary = {
     },
     results: {
       label: "Results",
+      tableLabel: "Ranking of the round",
       headingBold: "End of the",
       headingSerif: "crossing",
       rankOf: "of {count}",

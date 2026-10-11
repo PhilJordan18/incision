@@ -10,6 +10,8 @@ export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_los
  * payload is validated with these schemas at the boundary (TECH-07).
  */
 export const ROOM_WATCH_EVENT = "room:watch";
+/** A handshake refused because the session could not be checked now (the database did not answer): the page tries again. */
+export const HANDSHAKE_UNAVAILABLE = "UNAVAILABLE";
 export const ROOM_SNAPSHOT_EVENT = "room:snapshot";
 
 /**

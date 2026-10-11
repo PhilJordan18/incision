@@ -96,6 +96,7 @@ beforeEach(async () => {
     findActiveMembership: (accountId) => findActiveMembership(accountId),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
     raceRecovery: { recover: (lobbyId) => recoverAbandonedRace(lobbyId), ownsRace: (lobbyId) => ownedRaces.has(lobbyId) },
+    recoveryTiming: { failedLookRetryMs: 50, maxFailedLooks: 3 },
     races: {
       follow: (lobbyId, connection) => {
         if (raceFollowFails.next) {
@@ -506,9 +507,23 @@ describe("recovery of an abandoned race when a member watches its room (ADR-0004
     });
     const alice = await open("session=alice");
     await watch(alice);
-    expect(await nextSnapshot(alice, 8_000)).toMatchObject({ phase: "waiting", revision: 3 });
+    expect(await nextSnapshot(alice, 2_000)).toMatchObject({ phase: "waiting", revision: 3 });
     logged.mockRestore();
-  }, 12_000);
+  });
+
+  it("gives up looking after the bounded number of failures", async () => {
+    racing("lobby-1");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      throw new Error("connect ECONNREFUSED");
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    // 3 looks at most (the injected bound), then nothing more while the database stays down.
+    expect(recoverAbandonedRace).toHaveBeenCalledTimes(3);
+    logged.mockRestore();
+  });
 
   it("after a race stopped here without a confirmed end, sends the members what the database holds", async () => {
     const alice = await open("session=alice");

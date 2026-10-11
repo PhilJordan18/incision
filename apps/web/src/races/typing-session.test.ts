@@ -313,6 +313,15 @@ describe("TypingSession", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("shows the inserts the server counted, never predicted ones", async () => {
+    const { session, answer } = harness();
+    session.receive(self());
+    session.type(insert("x"));
+    expect(session.view()?.totalInserts).toBe(0);
+    await answer(0, { ok: true, result: { outcome: "applied", seq: 1, ackSeq: 1, textVersion: 0 }, self: self({ ackSeq: 1, pendingError: true, counters: { correctInserts: 0, totalInserts: 1 } }) });
+    expect(session.view()?.totalInserts).toBe(1);
+  });
+
   it("is over once the entrant finished", () => {
     const { session } = harness();
     session.receive(self({ typed: TARGET, status: "finished", ackSeq: 1 }));

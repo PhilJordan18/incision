@@ -28,6 +28,8 @@ export type RoomChannelDependencies = {
   };
   /** The races this process runs: told which tabs follow which room, once the membership is checked. */
   readonly races?: Pick<RaceService, "follow" | "unfollow">;
+  /** Looks at a room whose race lost its end while the database fails: how often, how many times. */
+  readonly recoveryTiming?: { readonly failedLookRetryMs: number; readonly maxFailedLooks: number };
   readonly now?: () => number;
 };
 
@@ -280,6 +282,8 @@ function recoveryOnWatch(
   dependencies: RoomChannelDependencies,
   room: { readonly scheduleBroadcast: (lobbyId: string) => void; readonly followed: (lobbyId: string) => boolean },
 ) {
+  const retryMs = dependencies.recoveryTiming?.failedLookRetryMs ?? FAILED_LOOK_RETRY_MS;
+  const maxFailedLooks = dependencies.recoveryTiming?.maxFailedLooks ?? MAX_FAILED_LOOKS;
   const lookAgain = new Map<string, { readonly timer: NodeJS.Timeout; refresh: boolean }>();
   /** Failed looks per room, kept until a look succeeds: bounded, then given up. */
   const failures = new Map<string, number>();
@@ -323,9 +327,9 @@ function recoveryOnWatch(
       console.error("[races] recovery on watch failed:", describeDatabaseError(error));
       const failed = (failures.get(lobbyId) ?? 0) + 1;
       failures.set(lobbyId, failed);
-      if (failed < MAX_FAILED_LOOKS) {
+      if (failed < maxFailedLooks) {
         // Jittered, so that the rooms of one outage do not look in lockstep.
-        later(lobbyId, FAILED_LOOK_RETRY_MS * (0.8 + 0.4 * Math.random()), refresh);
+        later(lobbyId, retryMs * (0.8 + 0.4 * Math.random()), refresh);
       }
     }
   };

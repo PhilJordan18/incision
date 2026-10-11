@@ -25,6 +25,7 @@ import {
 } from "@/races/protocol";
 import { RaceClient } from "@/races/race-client";
 import {
+  HANDSHAKE_UNAVAILABLE,
   type PublicRoomSnapshot,
   ROOM_SNAPSHOT_EVENT,
   ROOM_WATCH_EVENT,
@@ -236,7 +237,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       if (socket.active) {
         return;
       }
-      if (error.message === "UNAVAILABLE") {
+      if (error.message === HANDSHAKE_UNAVAILABLE) {
         setConnection("reconnecting");
         clearTimeout(retry);
         // Jittered (±50 %), so that the pages of a whole class do not retry in lockstep.
@@ -271,16 +272,24 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
 
   // When the race ends, the results (or why it stopped) take the focus, so nobody is left on
   // a removed field (WCAG 2.4.3).
+  // Only when it happens while the page is open: a page loaded on the results keeps its focus.
   const resultsShown = snapshot.phase === "results" && results !== undefined && results.raceId === snapshot.race?.raceId;
   const interruptedShown = snapshot.phase === "waiting" && snapshot.race?.state === "interrupted";
+  const shownAtLoad = useRef({ results: resultsShown, interrupted: interruptedShown });
   useEffect(() => {
-    if (resultsShown) {
+    if (resultsShown && !shownAtLoad.current.results) {
       document.getElementById("results-heading")?.focus();
+    }
+    if (!resultsShown) {
+      shownAtLoad.current.results = false;
     }
   }, [resultsShown]);
   useEffect(() => {
-    if (interruptedShown) {
+    if (interruptedShown && !shownAtLoad.current.interrupted) {
       document.getElementById("interrupted-heading")?.focus();
+    }
+    if (!interruptedShown) {
+      shownAtLoad.current.interrupted = false;
     }
   }, [interruptedShown]);
 
@@ -588,11 +597,42 @@ function CopyIcon() {
   );
 }
 
+/** One id per tab and document, shared by every mount of the room view in it. */
+let documentPageId: string | undefined;
+const PAGE_ID_KEY = "incision.pageId";
+const PAGE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 /**
- * This page's id, kept across its socket's reconnections. `randomUUID` exists only in secure
- * contexts (HTTPS, localhost); elsewhere a v4 UUID is built from `getRandomValues`.
+ * This page's id, kept across its socket's reconnections and across a reload of the same tab
+ * (sessionStorage, reused only when the document was reloaded): a reloaded page takes its race
+ * input back at once. A duplicated tab copies sessionStorage but is not a reload, so it gets
+ * its own id and observes.
  */
 function newPageId(): string {
+  if (documentPageId !== undefined) {
+    return documentPageId;
+  }
+  try {
+    const navigation = performance.getEntriesByType("navigation")[0];
+    const stored = sessionStorage.getItem(PAGE_ID_KEY);
+    if (navigation instanceof PerformanceNavigationTiming && navigation.type === "reload" && stored !== null && PAGE_ID.test(stored)) {
+      documentPageId = stored;
+      return stored;
+    }
+  } catch {
+    // Storage blocked: a fresh id, as for a new tab.
+  }
+  documentPageId = randomPageId();
+  try {
+    sessionStorage.setItem(PAGE_ID_KEY, documentPageId);
+  } catch {
+    // Kept for this document only.
+  }
+  return documentPageId;
+}
+
+/** `randomUUID` exists only in secure contexts (HTTPS, localhost); elsewhere a v4 UUID from `getRandomValues`. */
+function randomPageId(): string {
   if (typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }

@@ -61,9 +61,9 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId }: 
       {finishers === 0 && <p className="text-embrun">{t.results.noVictory}</p>}
 
       {/* Scrolls sideways at 360 px: focusable and named, so the keyboard reaches every column. */}
-      <div role="region" aria-labelledby={headingId ?? "results-heading"} tabIndex={0} className={`${card} overflow-x-auto p-0`}>
+      <div role="region" aria-label={t.results.tableLabel} tabIndex={0} className={`${card} overflow-x-auto p-0`}>
         <table className="w-full min-w-[560px] border-collapse text-left">
-          <caption className="sr-only">{t.results.label}</caption>
+          <caption className="sr-only">{t.results.tableLabel}</caption>
           <thead>
             <tr className="border-b border-sillage">
               {[t.results.columns.rank, t.results.columns.runner, t.results.columns.status, t.results.columns.time, t.results.columns.netWpm, t.results.columns.accuracy].map(

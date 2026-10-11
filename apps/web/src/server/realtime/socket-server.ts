@@ -1,5 +1,6 @@
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { type DefaultEventsMap, Server, type Socket } from "socket.io";
+import { HANDSHAKE_UNAVAILABLE } from "../../rooms/protocol";
 import { isAllowedHandshake } from "./origin";
 import { answerPing, PING_EVENT } from "./ping";
 import type { SessionRegistry } from "./session-registry";
@@ -21,9 +22,6 @@ type RealtimeOptions = {
 };
 
 type SocketData = { session?: SocketSession };
-
-/** A handshake refused because the session could not be checked now: the page tries again. */
-export const HANDSHAKE_UNAVAILABLE = "UNAVAILABLE";
 
 /** Bound on one incoming message: a socket that sends more is cut by Socket.IO. */
 export const MAX_MESSAGE_BYTES = 32 * 1024;
@@ -57,7 +55,11 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
         }
         next();
       })
-      .catch(() => next(new Error(HANDSHAKE_UNAVAILABLE)));
+      .catch((error: unknown) => {
+        // A bug rather than a database blip: logged, and refused as unavailable (fail closed).
+        console.error("[auth] socket handshake check failed:", error instanceof Error ? error.name : "unknown error");
+        next(new Error(HANDSHAKE_UNAVAILABLE));
+      });
   });
 
   io.on("connection", (socket) => {

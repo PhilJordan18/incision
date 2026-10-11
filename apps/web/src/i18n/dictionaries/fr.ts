@@ -216,6 +216,7 @@ export const fr = {
     },
     results: {
       label: "Résultats",
+      tableLabel: "Classement de la manche",
       headingBold: "Fin de la",
       headingSerif: "traversée",
       rankOf: "sur {count}",
