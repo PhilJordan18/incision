@@ -6,6 +6,7 @@ export * from "./measures/compute";
 export * from "./measures/types";
 export * from "./race/elapsed";
 export * from "./race/limits";
+export * from "./race/ranking";
 export * from "./race/start";
 export * from "./race/types";
 export * from "./rooms/room-admission";
