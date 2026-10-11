@@ -1,6 +1,6 @@
 # ADR-0004 — A fenced lease for the process that runs a race
 
-- Status: **accepted**, October 8, 2026, for F-04.0 (first complete race). Implemented in its data foundations; the runtime that uses it comes with the integration.
+- Status: **accepted**, October 8, 2026, for F-04.0 (first complete race). Implemented in its data foundations (#101) and in the runtime of the integrated race (October 11: `apps/web/src/server/races/`).
 - Requirements: COURSE-01, COURSE-06, COURSE-09, RES-05; decisions D-06 (no result for an interrupted race) and D-17 (inactivity: a runner silent for 120 s abandons, so a race with no time limit still ends once its last runner stops typing).
 - Related: [ADR-0001](0001-realtime.md) (one process, race state in memory), [ADR-0002](0002-hosting.md) (one App Service instance, Neon free plan).
 
@@ -24,7 +24,7 @@ Each race records the process that runs it, the generation of that ownership, an
 
 **Acquisition.** The process that starts the race becomes its owner in the start transaction, under the room lock. There is no separate step.
 
-**Renewal.** Every 10 s while the race counts down or runs, the owner updates the race row, on condition of its own owner id, its generation and an active state. If no row changes, the race ended, was interrupted or was taken over, and the owner stops for good. The renewal touches only the race row, never the room, so it cannot deadlock with a transition, which locks the room first, then the race.
+**Renewal.** Every 10 s while the race counts down or runs, the owner updates the race row, on condition of its own owner id, its generation and an active state. If no row changes, the race ended, was interrupted or was taken over, and the owner stops for good. The renewal touches only the race row, never the room, so it cannot deadlock with a transition, which locks the room first, then the race. It is bounded on the server like every race transaction (`boundedTransaction`): a renewal stuck behind a lock ends with an error from PostgreSQL within 2 s, which the owner treats like an unreachable database. The owner's local view below stays conservative, and a late answer still proves nothing beyond what it shows.
 
 **Every owner write is fenced.** Moving the race from COUNTDOWN to RACING, finalising it with its results, and interrupting it (the process stops, or the results cannot be saved) all carry the same condition (owner id, generation, active state) in the compare-and-set that moves the room. A late write from a former owner changes nothing, its transaction rolls back, and nothing is broadcast. Results are published only after a write that won has committed. Today a takeover always ends the race, so the active state alone would refuse such a write; the generation also covers a later takeover that would let a race continue, and tells a retry of the same owner apart from a write that lost. A retry whose earlier attempt committed (its answer lost to a client timeout) is told so (`alreadyDone`); an interruption that lost to this owner's own finalisation is told that the results are saved. If a release without races closed the room during a deployment overlap, the owner's next write interrupts the race (`room_closed`) instead.
 
@@ -41,7 +41,9 @@ Each race records the process that runs it, the generation of that ownership, an
 - keeps at most one renewal in flight, spaced 10 s apart, or 2 s apart while suspended, with a watchdog so that a renewal that never answers cannot freeze the lease;
 - wakes up at its local deadline and at its give-up time, so the runtime learns of a suspension when it happens, not at the next renewal.
 
-**Process stop** (with the runtime). On SIGTERM, a process refuses new starts and interrupts its own races (reason `server_stopped`) through the fenced write. A crash leaves the lease to expire.
+**Process stop.** On SIGTERM, a process refuses new starts and ends each of its races within 5 s, every wait budgeted against that deadline. A race whose results are frozen gets one attempt to save them while its ownership holds (the same idempotent finalisation, so an earlier commit is recognised); otherwise the race is interrupted (reason `server_stopped`) through the fenced write. A race whose results committed is never interrupted. Past the deadline, or when the database does not answer, the race is left to its lease. A crash leaves the lease to expire.
+
+**Engine failure.** An unexpected exception of the engine (`reduceRace` or one of its views) ends the affected race only: the runtime interrupts the last good state in memory (the reducer is pure, so that state is intact) and in the database with the reason `engine_error` (additive migration `0003`), with bounded retries, then the room waits again and its members read why. The server and the other races carry on. Decision of October 11: no existing reason described a fault of the engine, and session B confirmed that the engine contract needs no change for it.
 
 **Results that cannot be saved** (with the runtime):
 
@@ -96,4 +98,5 @@ Each race records the process that runs it, the generation of that ownership, an
   - the A/B scenario, ignored late answers, the bound from a slow renewal (counted from its sending);
   - a suspension reported at the deadline, a refusal while held, a second suspension after resuming, giving up exactly a minute after the suspension.
 - `apps/web/src/server/races/boot-recovery.test.ts`: the boot recovery, its retries and the stop.
-- Still to do with the runtime: the integration test with two processes on one database, including a process stopped during a race.
+- `apps/web/src/server/races/race-runtime.test.ts`, with a fake clock and the real engine: transitions from `nextDeadline`, the controlling tab, nothing accepted or broadcast while the lease is unconfirmed, frozen results retried unchanged, `save_failed` only as the explicit give-up, nothing published while the database never answers, a lost lease never coming back, `engine_error`, the shutdown budget.
+- `apps/web/integration/race.integration.test.ts`: two processes of the production build on one database. Process A freezes (SIGSTOP) during a race; process B leaves the race alone while the lease runs, then recovers it (`owner_lost`) once it has expired; A wakes up, its renewal is refused, nothing it does is applied, and no result exists. A process stopped (SIGTERM) during a race interrupts it (`server_stopped`) and exits.
