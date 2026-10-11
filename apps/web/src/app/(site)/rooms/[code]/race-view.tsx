@@ -340,6 +340,7 @@ const RaceText = memo(function RaceText({
           );
         })}
       </p>
+      {overlay}
     </div>
   );
 });

@@ -63,6 +63,9 @@ function harness() {
     disconnect: () => {
       connected = false;
     },
+    reconnect: () => {
+      connected = true;
+    },
     async advance(ms: number) {
       const target = now + ms;
       for (;;) {
@@ -183,7 +186,10 @@ describe("TypingSession", () => {
     // Offline: nothing is resent on a timer; the reconnection's snapshot decides.
     await lost.advance(10_000);
     expect(lost.sent).toHaveLength(1);
+    // The new socket connects; its first snapshot says the batch was not applied.
+    lost.reconnect();
     lost.session.receive(self());
+    await lost.advance(0);
     // Resent unchanged, as the only copy, and still shown on top of the snapshot.
     expect(lost.sent[1]?.batch).toBe(lost.sent[0]?.batch);
     expect(lost.session.view()?.typed).toEqual(["a"]);
@@ -217,6 +223,10 @@ describe("TypingSession", () => {
     // The watch completes: the server's state ends the wait; the batch was not applied, so it goes again.
     session.receive(self());
     expect(session.block).toBeUndefined();
+    // Resent at the usual spacing after the last send.
+    await advance(109);
+    expect(sent).toHaveLength(2);
+    await advance(1);
     expect(sent[2]?.batch).toBe(sent[0]?.batch);
     expect(session.view()?.typed).toEqual(["a"]);
   });

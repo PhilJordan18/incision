@@ -112,8 +112,9 @@ export class TypingSession {
     } else if (this.#inFlight !== undefined && self.snapshot.ackSeq >= this.#inFlight.seq) {
       this.#inFlight = undefined;
     } else if (this.#inFlight !== undefined) {
-      // Not applied: the only copy goes again, unchanged (the transport kept none).
-      this.#send(this.#inFlight);
+      // Not applied: the only copy goes again, unchanged (the transport kept none), at the usual
+      // spacing so the server's per-player window is respected.
+      this.#resendLater(this.#inFlight, Math.max(0, this.#lastSentAt + SEND_EVERY_MS - this.#options.now()));
     }
     this.#options.onChange();
     this.#flush();

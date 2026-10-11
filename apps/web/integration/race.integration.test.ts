@@ -217,6 +217,9 @@ describe("an integrated race (F-04.0)", () => {
       ok: true,
       result: { outcome: "duplicate" },
     });
+    // A player's 10 batches a second count across all its tabs and survive a reconnection:
+    // the tabs above and the resend used most of this second.
+    await sleep(1_000);
     await typeAll(back, raceId, reveal.reveal.text.slice(6), seq);
     await typeAll(h, raceId, reveal.reveal.text);
     await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "results" && snapshot.race?.raceId === raceId, 15_000);
