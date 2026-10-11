@@ -58,8 +58,8 @@ function fakeTime() {
 }
 
 function tab(id: string, accountId: string) {
-  const received: { event: string; payload: unknown }[] = [];
-  const connection: RaceConnection = { id, accountId, emit: (event, payload) => void received.push({ event, payload }) };
+  const received: { event: string; payload: unknown; volatile: boolean }[] = [];
+  const connection: RaceConnection = { id, accountId, emit: (event, payload, options) => void received.push({ event, payload, volatile: options?.volatile === true }) };
   return {
     connection,
     received,
@@ -191,6 +191,10 @@ describe("RaceRuntime", () => {
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.snapshot.typed).toEqual(["a"]);
     expect(runtime.takeControl(second.connection)).toBe("ok");
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+    // Asking again changes nothing and sends nothing to anyone.
+    const sent = alice.received.length + second.received.length;
+    expect(runtime.takeControl(second.connection)).toBe("ok");
+    expect(alice.received.length + second.received.length).toBe(sent);
     expect(alice.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
     // A late batch of the former tab is discarded before the engine.
     expect(runtime.keystrokes(alice.connection, batch(2, "b"))).toEqual({ ok: false, error: "NOT_CONTROLLING" });
@@ -247,6 +251,28 @@ describe("RaceRuntime", () => {
     expect(sent).toBeGreaterThanOrEqual(1);
     expect(sent).toBeLessThanOrEqual(2);
     expect(bob.last<RaceProgressPayload>(RACE_PROGRESS_EVENT)?.broadcast.entrants[0]?.position).toBe(5);
+  });
+
+  it("sends progress and another tab's typing as replaceable messages, never the reveal", async () => {
+    const { runtime, time, alice, bob } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 1_000);
+    runtime.keystrokes(alice.connection, batch(1, "a"));
+    await time.advance(300);
+    expect(bob.received.filter((message) => message.event === RACE_PROGRESS_EVENT).at(-1)?.volatile).toBe(true);
+    expect(bob.received.find((message) => message.event === RACE_REVEAL_EVENT)?.volatile).toBe(false);
+  });
+
+  it("stops for good when a newer race of the room replaces it here", async () => {
+    const { runtime, time, lease, settled, store } = setup();
+    runtime.start();
+    runtime.retire();
+    expect(runtime.stage).toBe("lost");
+    expect(lease.stop).toHaveBeenCalled();
+    expect(settled).toHaveBeenCalledOnce();
+    await time.advance(200_000);
+    expect(time.pending()).toBe(0);
+    expect(store.beginRacing).not.toHaveBeenCalled();
   });
 
   it("freezes the engine's results at the end, says they are being confirmed, and saves them once", async () => {
@@ -369,7 +395,21 @@ describe("RaceRuntime", () => {
     expect(time.pending()).toBe(0);
   });
 
-  it("stops for good when its ownership is lost, and ignores the answers that come later", async () => {
+  it("stops for good when its ownership is lost during the race, and ignores what comes later", async () => {
+    const { runtime, time, alice, settled, store } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 1_000);
+    runtime.leaseChanged("lost");
+    expect(runtime.stage).toBe("lost");
+    expect(runtime.keystrokes(alice.connection, batch(1, "a"))).toEqual({ ok: false, error: "NO_RACE" });
+    runtime.leaseChanged("held");
+    await time.advance(200_000);
+    expect(runtime.stage).toBe("lost");
+    expect(settled).toHaveBeenCalledOnce();
+    expect(store.finalizeRace).not.toHaveBeenCalled();
+  });
+
+  it("lets the save in flight decide when the ownership is lost while the results are saved", async () => {
     let finish: (answer: Transition) => void = () => undefined;
     const store = fakeStore({ finalizeRace: vi.fn(() => new Promise<Transition>((resolve) => (finish = resolve))) });
     const { runtime, time, alice, bob, settled } = setup({ store });
@@ -378,11 +418,26 @@ describe("RaceRuntime", () => {
     runtime.keystrokes(alice.connection, batch(1, "ab"));
     runtime.keystrokes(bob.connection, batch(1, "ab"));
     runtime.leaseChanged("lost");
-    expect(runtime.stage).toBe("lost");
+    expect(runtime.stage).toBe("saving");
+    // An earlier attempt of ours had committed: the results are saved, never reported lost.
+    finish({ won: true, alreadyDone: true });
+    await runtime.whenSaved();
+    expect(runtime.stage).toBe("saved");
+    expect(settled).toHaveBeenCalledOnce();
+  });
+
+  it("answers a retried finishing batch while the results are saved, without changing them", async () => {
+    let finish: (answer: Transition) => void = () => undefined;
+    const store = fakeStore({ finalizeRace: vi.fn(() => new Promise<Transition>((resolve) => (finish = resolve))) });
+    const { runtime, time, alice, bob } = setup({ store });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 1_000);
+    runtime.keystrokes(alice.connection, batch(1, "ab"));
+    runtime.keystrokes(bob.connection, batch(1, "ab"));
+    expect(runtime.stage).toBe("saving");
+    expect(runtime.keystrokes(bob.connection, batch(1, "ab"))).toMatchObject({ ok: true, result: { outcome: "duplicate", ackSeq: 1 } });
     finish(WON);
     await runtime.whenSaved();
-    expect(runtime.stage).toBe("lost");
-    expect(settled).toHaveBeenCalledOnce();
   });
 
   it("stops racing when the start transition loses: the race was ended elsewhere", async () => {
@@ -431,6 +486,19 @@ describe("RaceRuntime", () => {
       // The first attempt failed; the shutdown comes before its retry.
       await time.advance(10);
       expect(await runtime.shutdown(time.now() + 5_000)).toBe("finalised");
+      expect(store.interruptOwnRace).not.toHaveBeenCalled();
+    });
+
+    it("never interrupts a race another process ended while its results were frozen", async () => {
+      let calls = 0;
+      // The save in flight hangs; the shutdown's own attempt learns the race ended elsewhere.
+      const store = fakeStore({ finalizeRace: vi.fn(() => (calls++ === 0 ? new Promise<Transition>(() => undefined) : Promise.resolve<Transition>({ won: false }))) });
+      const { runtime, time, alice, bob } = setup({ store });
+      runtime.start();
+      await time.advance(COUNTDOWN_MS + 1_000);
+      runtime.keystrokes(alice.connection, batch(1, "ab"));
+      runtime.keystrokes(bob.connection, batch(1, "ab"));
+      expect(await runtime.shutdown(time.now() + 5_000)).toBe("left");
       expect(store.interruptOwnRace).not.toHaveBeenCalled();
     });
 

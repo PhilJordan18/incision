@@ -1,5 +1,6 @@
 "use client";
 
+import { RACE_MIN_PARTICIPANTS } from "@incision/domain";
 import { useState } from "react";
 import { primaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
@@ -18,7 +19,8 @@ type StartRaceButtonProps = {
 export function StartRaceButton({ start, participants, t }: StartRaceButtonProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<RaceStartError | undefined>(undefined);
-  const enough = participants >= 2;
+  // A hint only, from the engine's constant: the server applies the engine's start rule itself.
+  const enough = participants >= RACE_MIN_PARTICIPANTS;
   async function onClick(): Promise<void> {
     setPending(true);
     setError(undefined);

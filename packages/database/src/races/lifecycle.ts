@@ -69,7 +69,9 @@ export type StartRaceInput<Refusal extends string, Created> = {
    * The engine's start (`createRace`, which applies `createRaceRefusal`: the start rule, then
    * the text and the settings), on the participants read under the room lock, with the race
    * and entrant ids the rows keep; never a copy of its rules here. A refusal changes nothing;
-   * an exception (a programming error, `RangeError`) rolls the start back.
+   * an exception (a programming error, `RangeError`) rolls the start back. It runs under the
+   * room lock, inside the transaction and its 4 s idle limit: it must stay synchronous and pure
+   * (no I/O, nothing heavy), which its type enforces for promises.
    */
   readonly create: (race: RaceToCreate) => { readonly ok: false; readonly reason: Refusal } | { readonly ok: true; readonly race: Created };
 };
@@ -391,8 +393,8 @@ export type LeaseRenewal = { readonly renewed: true; readonly expiresAt: Date } 
  * only, never the room, so it cannot deadlock with a transition. Bounded on the server like
  * every race transaction: a renewal stuck behind a lock ends with an error from PostgreSQL,
  * which the owner treats like an unreachable database (it retries, and its local view of the
- * lease never trusts an answer beyond what it proves). So is a serialisation failure under a
- * REPEATABLE READ server default.
+ * lease never trusts an answer beyond what it proves). It sets READ COMMITTED itself, whatever
+ * the server's default.
  */
 export async function renewRaceLease(db: Database, ownership: RaceOwnership): Promise<LeaseRenewal> {
   return boundedTransaction(db, async (tx): Promise<LeaseRenewal> => {

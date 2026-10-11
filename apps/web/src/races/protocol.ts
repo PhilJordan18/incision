@@ -53,6 +53,7 @@ export const RACE_START_EVENT = "race:start";
 export const raceStartPayloadSchema = z.object({}).strict();
 export const RACE_START_ERRORS = [
   "UNAUTHORIZED",
+  "INVALID_PAYLOAD",
   "NOT_IN_A_ROOM",
   "NOT_HOST",
   "ROOM_NOT_WAITING",
@@ -71,7 +72,7 @@ export type RaceStartAck = z.infer<typeof raceStartAckSchema>;
  */
 export const RACE_CONTROL_EVENT = "race:control";
 export const raceControlPayloadSchema = z.object({ raceId: z.uuid() }).strict();
-export const RACE_CONTROL_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NO_RACE"] as const;
+export const RACE_CONTROL_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NO_RACE", "RATE_LIMITED"] as const;
 export const raceControlAckSchema = z.union([z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), error: z.enum(RACE_CONTROL_ERRORS) })]);
 export type RaceControlAck = z.infer<typeof raceControlAckSchema>;
 

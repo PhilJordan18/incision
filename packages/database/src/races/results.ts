@@ -48,20 +48,21 @@ export async function readRaceForEntrant(db: Database, raceId: string, accountId
   return readRaceView(
     db,
     accountId,
-    and(
-      eq(races.id, raceId),
-      sql`exists (select 1 from ${raceEntrants} where ${raceEntrants.raceId} = ${races.id} and ${raceEntrants.accountId} = ${accountId})`,
-    ),
+    sql`${races.id} = ${raceId} and exists (select 1 from ${raceEntrants} where ${raceEntrants.raceId} = ${races.id} and ${raceEntrants.accountId} = ${accountId})`,
   );
 }
 
 /**
- * The current (or latest) race of the room `accountId` occupies, for any of its members,
- * spectators included: what the room shows once its race ended. Undefined when the account is
- * not an active member of that room, or when the room never raced.
+ * The race `raceId` of the room `lobbyId`, for any active member of that room, spectators
+ * included: what the room shows once its race ended. Undefined when the account is not an
+ * active member of that room, or when that race is no longer the room's current one (a new
+ * round started between the caller's read and this one).
  */
-export async function readRoomRaceForMember(db: Database, lobbyId: string, accountId: string): Promise<RaceResultView | undefined> {
-  if (!UUID.test(lobbyId)) {
+export async function readRoomRaceForMember(
+  db: Database,
+  { lobbyId, raceId, accountId }: { readonly lobbyId: string; readonly raceId: string; readonly accountId: string },
+): Promise<RaceResultView | undefined> {
+  if (!UUID.test(lobbyId) || !UUID.test(raceId)) {
     return undefined;
   }
   const member = db
@@ -72,14 +73,15 @@ export async function readRoomRaceForMember(db: Database, lobbyId: string, accou
     .select({ id: lobbies.id })
     .from(lobbies)
     .where(and(eq(lobbies.id, lobbyId), eq(lobbies.currentRaceId, races.id), sql`exists (${member})`));
-  return readRaceView(db, accountId, sql`exists (${roomRace})`);
+  return readRaceView(db, accountId, sql`${races.id} = ${raceId} and exists (${roomRace})`);
 }
 
 /**
  * Results are written once, with the move to RESULTS, and shown only for a finished race: a
  * finalisation committing between the two reads cannot pair a race in progress with results.
  */
-async function readRaceView(db: Database, accountId: string, condition: SQL | undefined): Promise<RaceResultView | undefined> {
+/** `condition` is the access check: always a condition, never none (which would read any race). */
+async function readRaceView(db: Database, accountId: string, condition: SQL): Promise<RaceResultView | undefined> {
   const [race] = await db
     .select({
       raceId: races.id,

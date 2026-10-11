@@ -100,7 +100,7 @@ test.describe("the first complete race (F-04.0)", () => {
 
     await typeText(hostField, text.slice(0, 20));
     // The guest sees the host's progress live (COURSE-05), from the server.
-    await expect(guest.getByRole("progressbar", { name: "Capitaine" })).not.toHaveAttribute("aria-valuenow", "0");
+    await expect(guest.getByRole("progressbar", { name: "Capitaine" })).not.toHaveAttribute("value", "0");
     await Promise.all([typeText(hostField, text.slice(20)), typeText(guestField, text)]);
 
     // Results, read from the database once saved: arrival order (COURSE-10), measures from the engine.

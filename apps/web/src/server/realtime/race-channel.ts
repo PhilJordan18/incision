@@ -17,6 +17,8 @@ export type RaceChannelDependencies = {
 
 /** `race:start` messages a socket may send per window; a page sends one per click. */
 export const START_LIMIT = { maxStarts: 5, windowMs: 10_000 } as const;
+/** `race:control` messages a socket may send per window; a page sends one per click. */
+export const CONTROL_LIMIT = { maxRequests: 3, windowMs: 10_000 } as const;
 
 /**
  * Race messages over Socket.IO (F-04.0). Every message passes the session guard (SEC-01); the
@@ -28,6 +30,7 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
   const { now = Date.now } = dependencies;
   io.on("connection", (socket: Socket) => {
     const starts = { windowStart: now(), used: 0 };
+    const controls = { windowStart: now(), used: 0 };
 
     socket.on(RACE_START_EVENT, (payload: unknown, acknowledge: unknown) => {
       if (typeof acknowledge !== "function") {
@@ -78,6 +81,15 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
         acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies RaceControlAck);
         return;
       }
+      if (now() - controls.windowStart >= CONTROL_LIMIT.windowMs) {
+        controls.windowStart = now();
+        controls.used = 0;
+      }
+      controls.used += 1;
+      if (controls.used > CONTROL_LIMIT.maxRequests) {
+        acknowledge({ ok: false, error: "RATE_LIMITED" } satisfies RaceControlAck);
+        return;
+      }
       if (dependencies.followedRoom(socket) === undefined) {
         acknowledge({ ok: false, error: "NO_RACE" } satisfies RaceControlAck);
         return;
@@ -88,12 +100,12 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
 }
 
 /** The tab as the races see it: its id, its session's account and the language of its pages. */
-export function connectionOf(socket: Pick<Socket, "id" | "emit" | "handshake">, accountId: string): RoomConnection {
+export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile" | "handshake">, accountId: string): RoomConnection {
   return {
     id: socket.id,
     accountId,
     locale: handshakeLocale(socket.handshake.headers),
-    emit: (event, payload) => void socket.emit(event, payload),
+    emit: (event, payload, options) => void (options?.volatile === true ? socket.volatile.emit(event, payload) : socket.emit(event, payload)),
   };
 }
 

@@ -1,4 +1,5 @@
 import { MAX_BATCH_EVENTS } from "@incision/domain";
+import { MAX_MESSAGE_BYTES } from "../server/realtime/socket-server";
 import { describe, expect, it } from "vitest";
 import { keystrokeBatchPayloadSchema, parseKeystrokeBatch } from "./protocol";
 
@@ -56,5 +57,17 @@ describe("keystroke batch payloads", () => {
 
   it("match the full schema whenever the size step passes", () => {
     expect(keystrokeBatchPayloadSchema.safeParse(batch()).success).toBe(parseKeystrokeBatch(batch()).success);
+  });
+});
+
+describe("the incoming message bound", () => {
+  it("lets through the largest batch the wire accepts, with three-byte graphemes, under MAX_MESSAGE_BYTES", () => {
+    // 2 × MAX_BATCH_EVENTS events of the longest insert the wire takes, each code unit 3 bytes in UTF-8.
+    const events = Array.from({ length: 2 * MAX_BATCH_EVENTS }, () => ({ type: "insert", grapheme: "€".repeat(64) }));
+    const payload = batch({ events });
+    expect(parseKeystrokeBatch(payload).success).toBe(true);
+    // Socket.IO frames it as `42<ack>["race:batch",{…}]`: a few dozen bytes more.
+    const frame = `421234567890${JSON.stringify(["race:batch", payload])}`;
+    expect(Buffer.byteLength(frame, "utf8")).toBeLessThan(MAX_MESSAGE_BYTES);
   });
 });

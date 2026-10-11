@@ -880,24 +880,26 @@ describe("the room's race, read by its members", () => {
     const { lobbyId, hostId, memberIds } = await room("ABCDEF", ["Bea"]);
     const spectator = await account("Spectatrice");
     await joinRoomByCode(db, { accountId: spectator, code: code("ABCDEF"), role: "spectator" });
-    expect(await readRoomRaceForMember(db, lobbyId, hostId)).toBeUndefined();
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: "00000000-0000-4000-8000-000000000999", accountId: hostId })).toBeUndefined();
     const { race, entrants } = await started(hostId);
     await beginRacing(db, race);
     await finalizeRace(db, race, resultsFor(entrants));
-    const seen = await readRoomRaceForMember(db, lobbyId, spectator);
+    const seen = await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: spectator });
     expect(seen).toMatchObject({ raceId: race.raceId, state: "finished" });
     expect(seen?.entrants.map((entrant) => [entrant.displayName, entrant.isSelf, entrant.result?.rank])).toEqual([
       ["Hôte", false, 1],
       ["Bea", false, 2],
     ]);
-    expect((await readRoomRaceForMember(db, lobbyId, hostId))?.entrants[0]?.isSelf).toBe(true);
+    expect((await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: hostId }))?.entrants[0]?.isSelf).toBe(true);
     // Neither a stranger nor a member who left reads it here; an entrant still has its history page.
-    expect(await readRoomRaceForMember(db, lobbyId, await account("Inconnu"))).toBeUndefined();
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: await account("Inconnu") })).toBeUndefined();
     const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where id = $1", [memberIds[0]])).rows[0]?.account_id ?? "";
     await leaveCurrentRoom(db, bea);
-    expect(await readRoomRaceForMember(db, lobbyId, bea)).toBeUndefined();
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: bea })).toBeUndefined();
     expect(await readRaceForEntrant(db, race.raceId, bea)).toBeDefined();
-    expect(await readRoomRaceForMember(db, "not-a-room", hostId)).toBeUndefined();
+    expect(await readRoomRaceForMember(db, { lobbyId: "not-a-room", raceId: race.raceId, accountId: hostId })).toBeUndefined();
+    // Another race than the room's current one (a new round started meanwhile) is not shown here.
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: "00000000-0000-4000-8000-000000000999", accountId: hostId })).toBeUndefined();
   });
 
   it("keeps the room's latest race in its snapshot, so members learn how it ended", async () => {

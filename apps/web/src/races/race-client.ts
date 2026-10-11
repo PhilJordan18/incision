@@ -123,8 +123,11 @@ export class RaceClient {
     if (!parsed.success || parsed.data.snapshot.raceId !== this.#state.reveal?.raceId) {
       return;
     }
-    this.#session?.receive(parsed.data);
-    this.#update({});
+    if (this.#session === undefined) {
+      return;
+    }
+    // The session notifies through `onChange`, which updates the state once.
+    this.#session.receive(parsed.data);
   }
 
   confirming(payload: unknown): void {

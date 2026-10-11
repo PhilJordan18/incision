@@ -5,8 +5,17 @@ import { type OwnedRace, RaceRegistry, type ShutdownOutcome } from "./race-regis
 function owned(lobbyId: string, shutdown: () => Promise<ShutdownOutcome> = async () => "interrupted", raceId = `race-${lobbyId}`) {
   let stopped = false;
   const ownership: RaceOwnership = { raceId, lobbyId, ownerId: "owner", ownerEpoch: 1 };
-  const race: OwnedRace = { ownership, lease: { stop: () => (stopped = true) }, shutdown };
-  return { race, stopped: () => stopped };
+  let retired = false;
+  const race: OwnedRace = {
+    ownership,
+    lease: { stop: () => (stopped = true) },
+    retire: () => {
+      retired = true;
+      stopped = true;
+    },
+    shutdown,
+  };
+  return { race, stopped: () => stopped, retired: () => retired };
 }
 
 describe("RaceRegistry", () => {
@@ -24,13 +33,13 @@ describe("RaceRegistry", () => {
     expect(one.stopped()).toBe(true);
   });
 
-  it("replaces a stale race of the room with the new one, and stops the stale lease", () => {
+  it("replaces a stale race of the room with the new one, and retires the stale one", () => {
     const registry = new RaceRegistry();
     const stale = owned("lobby-1");
     registry.add(stale.race);
     const fresh = owned("lobby-1", undefined, "race-new");
     expect(registry.add(fresh.race)).toBe(true);
-    expect(stale.stopped()).toBe(true);
+    expect(stale.retired()).toBe(true);
     expect(fresh.stopped()).toBe(false);
     registry.remove(stale.race.ownership);
     expect(registry.ownsRace("lobby-1")).toBe(true);

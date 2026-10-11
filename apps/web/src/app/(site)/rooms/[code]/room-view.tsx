@@ -19,6 +19,7 @@ import {
   RACE_REVEAL_EVENT,
   RACE_SELF_EVENT,
   RACE_START_EVENT,
+  raceControlAckSchema,
   type RaceStartAck,
   raceStartAckSchema,
 } from "@/races/protocol";
@@ -110,7 +111,12 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     };
     takeControlRef.current = (raceId) => {
       if (socket.connected) {
-        void socket.timeout(5_000).emitWithAck(RACE_CONTROL_EVENT, { raceId }).catch(() => undefined);
+        // Granted, the server says so with this tab's state (race:self); a refusal changes nothing here.
+        void socket
+          .timeout(5_000)
+          .emitWithAck(RACE_CONTROL_EVENT, { raceId })
+          .then((answer: unknown) => raceControlAckSchema.safeParse(answer))
+          .catch(() => undefined);
       }
     };
     let attempt = 0;

@@ -26,12 +26,19 @@ export type TypingView = {
   readonly typed: readonly string[];
   readonly marks: readonly TypedMark[];
   readonly pendingError: boolean;
+  /** The entrant's status on the server (finished, timed out…), never predicted. */
+  readonly status: EntrantSnapshotPayload["status"];
 };
 
-/** Spacing of batches, so a page never exceeds MAX_BATCHES_PER_SECOND. */
-const SEND_EVERY_MS = Math.ceil(1_000 / MAX_BATCHES_PER_SECOND);
-/** A batch whose answer did not come (or a refusal before the engine) is sent again after this, unchanged. */
+/**
+ * Spacing of batches, with a margin so that network jitter never brings eleven of them into
+ * one second on the server, which counts MAX_BATCHES_PER_SECOND in a sliding window.
+ */
+const SEND_EVERY_MS = Math.ceil(1_000 / MAX_BATCHES_PER_SECOND) + 10;
+/** A batch whose answer did not come is sent again after this, unchanged. */
 const RESEND_AFTER_MS = 1_000;
+/** After a refusal of the server's rate limit, the same batch goes again sooner. */
+const RESEND_AFTER_LIMIT_MS = 300;
 
 /**
  * The browser side of keystroke batches (F-04.4, engine contract `KeystrokeResult`). One batch
@@ -87,12 +94,15 @@ export class TypingSession {
     if (self.snapshot.raceId !== this.#options.raceId) {
       return;
     }
+    if (this.#block === "over") {
+      // Closed by the page: nothing more is taken or sent.
+      return;
+    }
     this.#snapshot = self.snapshot;
     this.#measures = self.measures;
     this.#control = self.control;
-    if (this.#block === "suspended") {
-      this.#block = undefined;
-    }
+    // A fresh state from the server ends a wait for it (suspended, or a tab not followed yet).
+    this.#block = undefined;
     if (this.#control === "observing") {
       // Another tab types: what this one gathered is not sent.
       this.#inFlight = undefined;
@@ -125,16 +135,24 @@ export class TypingSession {
     const events = [...(this.#inFlight?.events ?? []), ...this.#pending];
     const predicted = events.length === 0 ? undefined : predictTyping(snapshot, events, this.#options.errorMode);
     if (predicted?.ok === true) {
-      return { target: snapshot.target, typed: predicted.typed, marks: predicted.marks, pendingError: predicted.pendingError };
+      return { target: snapshot.target, typed: predicted.typed, marks: predicted.marks, pendingError: predicted.pendingError, status: snapshot.status };
     }
     // Nothing pending, or an event the server would refuse: the snapshot as it is.
-    return { target: snapshot.target, typed: snapshot.typed, marks: typedMarks(snapshot.target, snapshot.typed), pendingError: snapshot.pendingError };
+    return {
+      target: snapshot.target,
+      typed: snapshot.typed,
+      marks: typedMarks(snapshot.target, snapshot.typed),
+      pendingError: snapshot.pendingError,
+      status: snapshot.status,
+    };
   }
 
-  /** The page is leaving the race. */
+  /** The page is leaving the race: nothing more is sent, and late answers are ignored. */
   close(): void {
     this.#cancelSend?.();
     this.#cancelSend = undefined;
+    this.#inFlight = undefined;
+    this.#pending = [];
     this.#block = "over";
   }
 
@@ -169,7 +187,7 @@ export class TypingSession {
   }
 
   /** The same batch again, if it is still the one in flight and nothing settled it meanwhile. */
-  #resendLater(batch: SentBatch): void {
+  #resendLater(batch: SentBatch, delayMs = RESEND_AFTER_MS): void {
     if (!this.#options.connected()) {
       return;
     }
@@ -178,12 +196,13 @@ export class TypingSession {
       if (this.#inFlight === batch && (this.#block === undefined || this.#block === "suspended")) {
         this.#send(batch);
       }
-    }, RESEND_AFTER_MS);
+    }, delayMs);
   }
 
   #answered(batch: SentBatch, answer: unknown): void {
-    // An answer to a batch no longer in flight (settled by a snapshot, or replaced) is ignored.
-    if (this.#inFlight !== batch) {
+    // An answer to a batch no longer in flight (settled by a snapshot, replaced, or the page
+    // closed) is ignored.
+    if (this.#inFlight !== batch || this.#block === "over") {
       return;
     }
     const ack = raceBatchAckSchema.safeParse(answer);
@@ -199,17 +218,19 @@ export class TypingSession {
           this.#resendLater(batch);
           return;
         case "RATE_LIMITED":
-          this.#resendLater(batch);
+          this.#resendLater(batch, RESEND_AFTER_LIMIT_MS);
           return;
         case "NOT_CONTROLLING":
           this.#control = "observing";
+          this.#inFlight = undefined;
+          this.#pending = [];
           break;
         default:
-          // No race here for this tab: the page reloads the race state.
+          // This tab is not following its room's race (yet): a reconnection still being admitted,
+          // or the race ended. Its keystrokes wait for the server's next state, which settles the
+          // batch in flight as after any reconnection.
           this.#block = "reload";
       }
-      this.#inFlight = undefined;
-      this.#pending = [];
       this.#options.onChange();
       return;
     }

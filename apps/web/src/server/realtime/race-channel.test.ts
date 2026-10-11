@@ -4,7 +4,7 @@ import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RACE_BATCH_EVENT, RACE_CONTROL_EVENT, RACE_START_EVENT } from "../../races/protocol";
 import type { RaceService } from "../races/race-service";
-import { handshakeLocale, registerRaceChannel, START_LIMIT } from "./race-channel";
+import { CONTROL_LIMIT, handshakeLocale, registerRaceChannel, START_LIMIT } from "./race-channel";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
 import type { HandshakeAuthentication } from "./socket-session";
@@ -100,6 +100,17 @@ describe("race channel", () => {
     }
     expect(answers.at(-1)).toEqual({ ok: false, error: "RATE_LIMITED" });
     expect(races.start).toHaveBeenCalledTimes(START_LIMIT.maxStarts);
+  });
+
+  it("answers a burst of control requests from one socket with RATE_LIMITED beyond its window", async () => {
+    const alice = await open("session=alice");
+    following.add(alice.id ?? "");
+    const answers = [];
+    for (let attempt = 0; attempt <= CONTROL_LIMIT.maxRequests; attempt += 1) {
+      answers.push(await ask(alice, RACE_CONTROL_EVENT, { raceId: RACE }));
+    }
+    expect(answers.at(-1)).toEqual({ ok: false, error: "RATE_LIMITED" });
+    expect(races.takeControl).toHaveBeenCalledTimes(CONTROL_LIMIT.maxRequests);
   });
 
   it("reads the tab's language from its explicit choice, then from its browser", () => {

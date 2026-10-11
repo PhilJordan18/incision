@@ -1,4 +1,4 @@
-import type { Interruption, RaceOwnership, RaceResultRow, Transition } from "@incision/database";
+import { describeDatabaseError, type Interruption, type RaceOwnership, type RaceResultRow, type Transition } from "@incision/database";
 import {
   asEntrantId,
   asInstant,
@@ -24,7 +24,12 @@ import type { OwnedRace, ShutdownOutcome } from "./race-registry";
 export type RaceConnection = {
   readonly id: string;
   readonly accountId: string;
-  readonly emit: (event: string, payload: unknown) => void;
+  /**
+   * `volatile`: may be dropped when the tab is not ready to receive (Socket.IO's volatile), for
+   * messages the next one replaces anyway (progress, another tab's typing), so a tab that does
+   * not read cannot pile them up on the server.
+   */
+  readonly emit: (event: string, payload: unknown, options?: { readonly volatile?: boolean }) => void;
 };
 
 export type RaceEntrant = {
@@ -63,6 +68,8 @@ export type RaceRuntimeOptions = {
   /** The race ended here (saved, interrupted, or its ownership lost): the room's members get a fresh snapshot. */
   readonly onSettled: (ownership: RaceOwnership) => void;
   readonly log: (message: string) => void;
+  /** Failures (writes that failed, an engine fault); `log` when not given. */
+  readonly logError?: (message: string) => void;
   readonly timing?: Partial<RuntimeTiming>;
 };
 
@@ -186,6 +193,10 @@ export class RaceRuntime implements OwnedRace {
     if (entrant === undefined) {
       return "NOT_AN_ENTRANT";
     }
+    if (this.#control.get(entrant.entrantId) === connection.id) {
+      // Already this tab's: nothing changes, nothing is sent.
+      return "ok";
+    }
     this.#control.set(entrant.entrantId, connection.id);
     this.#sendSelf(entrant.entrantId);
     return this.#stage === "running" ? "ok" : "NO_RACE";
@@ -243,9 +254,20 @@ export class RaceRuntime implements OwnedRace {
     }
   }
 
+  /**
+   * A newer race of the room started here: this one is no longer the room's current race (the
+   * committed start proves it). It stops for good, its timers and renewals included.
+   */
+  retire(): void {
+    this.#settle("lost");
+  }
+
   /** The lease's view changed (ADR-0004). A lost lease never comes back: the race ended elsewhere. */
   leaseChanged(state: LeaseState): void {
-    if (state === "lost" && (this.#stage === "running" || this.#stage === "saving")) {
+    if (state === "lost" && this.#stage === "saving") {
+      // The save in flight decides: it commits (or an earlier one did, `alreadyDone`) or it loses.
+      this.#options.log(`[races] ownership of ${this.ownership.raceId} lost while its results are being saved`);
+    } else if (state === "lost" && this.#stage === "running") {
       this.#options.log(`[races] ownership of ${this.ownership.raceId} lost: the race stops here`);
       this.#settle("lost");
     } else if (state === "held" && this.#stage === "running") {
@@ -277,7 +299,7 @@ export class RaceRuntime implements OwnedRace {
     this.#clearTimers();
     const ownership = this.ownership;
     if (results !== undefined && this.#options.lease.state !== "lost") {
-      const saved = await this.#withinDeadline(this.#options.store.finalizeRace(ownership, results), deadline);
+      const saved = await this.#withinDeadline(() => this.#options.store.finalizeRace(ownership, results), deadline);
       if (saved?.won === true) {
         return "finalised";
       }
@@ -286,7 +308,7 @@ export class RaceRuntime implements OwnedRace {
         return "left";
       }
     }
-    const stopped = await this.#withinDeadline(this.#options.store.interruptOwnRace(ownership, "server_stopped"), deadline);
+    const stopped = await this.#withinDeadline(() => this.#options.store.interruptOwnRace(ownership, "server_stopped"), deadline);
     if (stopped === undefined) {
       return "left";
     }
@@ -380,12 +402,14 @@ export class RaceRuntime implements OwnedRace {
       return;
     }
     this.#beginWritten = true;
-    void this.#withRetries(() => this.#options.store.beginRacing(this.ownership), this.#timing.saveRetriesMs).then((begun) => {
-      if (begun?.won === false && this.#stage === "running") {
-        // The race was interrupted or taken over meanwhile: it no longer runs here.
-        this.#settle("lost");
-      }
-    });
+    void this.#withRetries(() => this.#options.store.beginRacing(this.ownership), this.#timing.saveRetriesMs)
+      .then((begun) => {
+        if (begun?.won === false && this.#stage === "running") {
+          // The race was interrupted or taken over meanwhile: it no longer runs here.
+          this.#settle("lost");
+        }
+      })
+      .catch((error: unknown) => this.#unexpected(error));
   }
 
   /** At most `progressEveryMs` apart, and only while this process can prove it owns the race. */
@@ -409,7 +433,7 @@ export class RaceRuntime implements OwnedRace {
         return;
       }
       for (const connection of this.#options.followers()) {
-        connection.emit(RACE_PROGRESS_EVENT, progress);
+        connection.emit(RACE_PROGRESS_EVENT, progress, { volatile: true });
       }
     }, wait);
   }
@@ -422,7 +446,7 @@ export class RaceRuntime implements OwnedRace {
     for (const connection of this.#options.followers()) {
       connection.emit(RACE_CONFIRMING_EVENT, { raceId: this.ownership.raceId });
     }
-    this.#saving = this.#save(this.#results);
+    this.#saving = this.#save(this.#results).catch((error: unknown) => this.#unexpected(error));
   }
 
   /**
@@ -450,7 +474,7 @@ export class RaceRuntime implements OwnedRace {
       return;
     }
     if (given === undefined) {
-      this.#options.log(`[races] neither the results nor the interruption of ${this.ownership.raceId} could be confirmed`);
+      this.#logError(`[races] neither the results nor the interruption of ${this.ownership.raceId} could be confirmed`);
       this.#settle("lost");
     } else if (given.won) {
       this.#settle("interrupted");
@@ -463,7 +487,7 @@ export class RaceRuntime implements OwnedRace {
     if (this.#stage !== "running" && this.#stage !== "saving") {
       return;
     }
-    this.#options.log(`[races] the engine failed on ${this.ownership.raceId}: ${error instanceof Error ? error.name : "unknown error"}`);
+    this.#logError(`[races] the engine failed on ${this.ownership.raceId}: ${error instanceof Error ? error.name : "unknown error"}`);
     try {
       // The reducer is pure: the last good state is intact, and interrupting it only reads it.
       this.#state = reduceRace(this.#state, { type: "interrupt", now: this.#now() }).state;
@@ -472,16 +496,16 @@ export class RaceRuntime implements OwnedRace {
     }
     this.#stage = "failing";
     this.#clearTimers();
-    void this.#withRetries(() => this.#options.store.interruptOwnRace(this.ownership, "engine_error"), this.#timing.interruptRetriesMs).then(
-      (interrupted) => {
+    void this.#withRetries(() => this.#options.store.interruptOwnRace(this.ownership, "engine_error"), this.#timing.interruptRetriesMs)
+      .then((interrupted) => {
         if (interrupted?.won === true) {
           this.#settle("interrupted");
         } else {
           // Saved by an earlier finalisation of ours, ended elsewhere, or no answer (the lease covers it).
           this.#settle(interrupted?.resultsSaved === true ? "saved" : "lost");
         }
-      },
-    );
+      })
+      .catch((error: unknown) => this.#unexpected(error));
   }
 
   /** Terminal: no timer, no renewal, no keystroke; the room's members get a fresh snapshot. */
@@ -510,20 +534,39 @@ export class RaceRuntime implements OwnedRace {
         return await write();
       } catch (error: unknown) {
         const wait = waits[attempt];
-        this.#options.log(`[races] write for ${this.ownership.raceId} failed (attempt ${attempt + 1}): ${error instanceof Error ? error.name : "unknown error"}`);
-        if (wait === undefined || this.#stage === "lost" || this.#stage === "stopping" || this.#stage === "saved" || this.#stage === "interrupted") {
+        this.#logError(`[races] write for ${this.ownership.raceId} failed (attempt ${attempt + 1}): ${describeDatabaseError(error)}`);
+        if (wait === undefined || this.#over()) {
           return undefined;
         }
         await new Promise<void>((resolve) => this.#options.schedule(resolve, wait));
+        // The race may have ended meanwhile (lost, stopped): no write after that.
+        if (this.#over()) {
+          return undefined;
+        }
       }
     }
   }
 
-  /** The answer of `write` if it comes before `deadline`; undefined if it fails or comes too late. */
-  async #withinDeadline<Result>(write: Promise<Result>, deadline: number): Promise<Result | undefined> {
+  #over(): boolean {
+    return this.#stage === "lost" || this.#stage === "stopping" || this.#stage === "saved" || this.#stage === "interrupted";
+  }
+
+  #logError(message: string): void {
+    (this.#options.logError ?? this.#options.log)(message);
+  }
+
+  /** A bug in this runtime, never the engine's: logged, and the race left to its lease. */
+  #unexpected(error: unknown): void {
+    this.#logError(`[races] runtime failure on ${this.ownership.raceId}: ${error instanceof Error ? error.name : "unknown error"}`);
+  }
+
+  /**
+   * The answer of `write` if it comes before `deadline`; undefined if it fails or comes too late.
+   * Past the deadline, the write is not even sent: the lease covers the race.
+   */
+  async #withinDeadline<Result>(write: () => Promise<Result>, deadline: number): Promise<Result | undefined> {
     const left = deadline - this.#options.now();
     if (left <= 0) {
-      write.catch(() => undefined);
       return undefined;
     }
     let cancel: (() => void) | undefined;
@@ -531,7 +574,7 @@ export class RaceRuntime implements OwnedRace {
       cancel = Number.isFinite(left) ? this.#options.schedule(() => resolve(undefined), left) : undefined;
     });
     try {
-      return await Promise.race([write, late]);
+      return await Promise.race([write(), late]);
     } catch {
       return undefined;
     } finally {
@@ -593,7 +636,7 @@ export class RaceRuntime implements OwnedRace {
       if (self === undefined) {
         return;
       }
-      connection.emit(RACE_SELF_EVENT, self);
+      connection.emit(RACE_SELF_EVENT, self, { volatile: true });
     }
   }
 

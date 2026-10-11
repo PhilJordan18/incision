@@ -1,7 +1,7 @@
 "use client";
 
 import { containsLineBreak, toGraphemes } from "@incision/domain";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { card, monoLabel, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
@@ -150,7 +150,7 @@ function TypingZone({
   const input = useRef<HTMLInputElement>(null);
   const { typing, block, reveal } = state;
   const enabled = canType && block === undefined;
-  const finished = block === "over" && typing !== undefined && typing.typed.length === typing.target.length;
+  const finished = typing?.status === "finished";
 
   // The field takes the focus when typing opens: at "Go", or when this tab takes the input.
   useEffect(() => {
@@ -264,9 +264,18 @@ function TypingZone({
 /**
  * The text with what is typed (design `.course-*`): correct graphemes underlined, wrong ones on
  * a tinted background with a wavy underline, a blocked one boxed, the cursor as a bar. Never
- * colour alone (design rule 8). No animation near the text (rule 7).
+ * colour alone (design rule 8). No animation near the text (rule 7). Memoised: the clock
+ * re-renders the view ten times a second, the text only when typing changes.
  */
-function RaceText({ target, typing, label }: { readonly target: readonly string[]; readonly typing: RaceClientState["typing"]; readonly label: string }) {
+const RaceText = memo(function RaceText({
+  target,
+  typing,
+  label,
+}: {
+  readonly target: readonly string[];
+  readonly typing: RaceClientState["typing"];
+  readonly label: string;
+}) {
   const typed = typing?.typed.length ?? 0;
   return (
     <div className={`${card} p-5`}>
@@ -287,7 +296,7 @@ function RaceText({ target, typing, label }: { readonly target: readonly string[
       </p>
     </div>
   );
-}
+});
 
 function Track({ state, t, locale }: { readonly state: RaceClientState; readonly t: Dictionary["races"]; readonly locale: Locale }) {
   const names = new Map(state.entrants.map((entrant) => [entrant.entrantId, entrant.displayName]));
@@ -310,16 +319,14 @@ function Track({ state, t, locale }: { readonly state: RaceClientState; readonly
                   {formatProgress(entrant.position, entrant.length, locale)} · {formatWpm(entrant.netWpm, locale)} {t.wpm}
                 </span>
               </div>
-              <div
-                role="progressbar"
+              <progress
                 aria-label={names.get(entrant.entrantId)}
-                aria-valuemin={0}
-                aria-valuemax={entrant.length}
-                aria-valuenow={entrant.position}
-                className="h-2 overflow-hidden rounded-full bg-sillage"
-              >
-                <div className={`h-full ${self ? "bg-moi" : "bg-embrun"}`} style={{ width: `${(entrant.position / entrant.length) * 100}%` }} />
-              </div>
+                value={entrant.position}
+                max={entrant.length}
+                className={`h-2 w-full appearance-none overflow-hidden rounded-full bg-sillage [&::-moz-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-sillage [&::-webkit-progress-value]:rounded-full ${
+                  self ? "[&::-moz-progress-bar]:bg-moi [&::-webkit-progress-value]:bg-moi" : "[&::-moz-progress-bar]:bg-embrun [&::-webkit-progress-value]:bg-embrun"
+                }`}
+              />
               <span className="text-sm text-brume">{t.status[entrant.status]}</span>
             </li>
           );

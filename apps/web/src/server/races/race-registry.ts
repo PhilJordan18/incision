@@ -14,6 +14,8 @@ export type OwnedRace = {
   readonly ownership: RaceOwnership;
   /** Stopping it ends the renewals for good (`RaceLease.stop`). */
   readonly lease: { readonly stop: () => void };
+  /** A newer race of the room replaced it here: it stops for good, timers and renewals included. */
+  readonly retire: () => void;
   /**
    * Ends the race for a stopping process, before `deadline` (the server's clock). The runtime
    * decides how: a race whose results are frozen gets one attempt to save them before it is
@@ -51,7 +53,7 @@ export class RaceRegistry<Race extends OwnedRace = OwnedRace> {
   /**
    * False once the process is stopping. A room runs one race at a time: a race still
    * registered for the room is stale (the committed start proves it is no longer the room's
-   * current one), so its lease stops and the new race replaces it.
+   * current one), so it retires and the new race replaces it.
    */
   add(race: Race): boolean {
     if (this.#stopping) {
@@ -59,7 +61,7 @@ export class RaceRegistry<Race extends OwnedRace = OwnedRace> {
     }
     const current = this.#races.get(race.ownership.lobbyId);
     if (current !== undefined && current.ownership.raceId !== race.ownership.raceId) {
-      current.lease.stop();
+      current.retire();
     }
     this.#races.set(race.ownership.lobbyId, race);
     return true;

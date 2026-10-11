@@ -79,9 +79,17 @@ async function main(): Promise<void> {
     },
     onRoomChanged: notifyRoomChanged,
     log: (message) => console.log(message),
+    logError: (message) => console.error(message),
   });
   // A departure committed by a server action ends the leaver's race, or the race if the room closed.
-  roomEvents().on("left", (lobbyId, accountId, closed) => races.memberLeft(lobbyId, accountId, closed));
+  // It runs inside that action: a failure here must not turn the committed departure into an error.
+  roomEvents().on("left", (lobbyId, accountId, closed) => {
+    try {
+      races.memberLeft(lobbyId, accountId, { roomClosed: closed });
+    } catch (error: unknown) {
+      console.error("[races] departure not applied to the race:", error instanceof Error ? error.name : "unknown error");
+    }
+  });
   // Room presence (CP-06): membership from the database, changes from the server actions.
   const roomChannel = registerRoomChannel(io, {
     allowedOrigin: env.appOrigin,

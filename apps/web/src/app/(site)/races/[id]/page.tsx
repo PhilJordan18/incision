@@ -74,11 +74,17 @@ export default async function RacePageView({ params }: PageProps<"/races/[id]">)
         </StatePanel>
       );
     case "race":
-      return page.race.state === "finished" ? (
-        <RaceResults race={page.race} t={t.races} locale={locale} headingId="race-heading" />
+      if (page.race.state === "finished") {
+        return <RaceResults race={page.race} t={t.races} locale={locale} headingId="race-heading" />;
+      }
+      return page.race.interruptionReason === null ? (
+        // Counting down or running: nothing official yet.
+        <StatePanel tone="neutral" label={t.races.racePage.title} heading={{ bold: t.races.racePage.runningHeading }} actions={home}>
+          <p>{t.races.racePage.running}</p>
+        </StatePanel>
       ) : (
         <StatePanel tone="warning" label={t.races.racePage.title} heading={{ bold: t.races.interruptedHeading }} actions={home}>
-          <p>{page.race.interruptionReason === null ? t.races.confirming : t.races.interrupted[page.race.interruptionReason]}</p>
+          <p>{t.races.interrupted[page.race.interruptionReason]}</p>
         </StatePanel>
       );
   }

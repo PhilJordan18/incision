@@ -2,7 +2,7 @@ import type { Interruption, RaceToCreate, StartRaceInput, StartRaceResult, Trans
 import { COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_REVEAL_EVENT, type RaceRevealPayload } from "../../races/protocol";
-import { FIRST_RACE_SETTINGS, RaceService, type RoomConnection } from "./race-service";
+import { FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
 import { FIXTURE_RACE_TEXTS } from "./race-texts";
 
 const START = 1_800_000_000_000;
@@ -107,7 +107,7 @@ describe("RaceService", () => {
     const alone = harness({ participants: PARTICIPANTS.slice(0, 1) });
     expect(await alone.service.start(tab("t", "a-host").connection, {})).toEqual({ ok: false, error: "NOT_ENOUGH_PARTICIPANTS" });
     expect(alone.service.ownsRace(LOBBY)).toBe(false);
-    expect(await alone.service.start(tab("t", "a-host").connection, { text: "mine" })).toEqual({ ok: false, error: "UNAVAILABLE" });
+    expect(await alone.service.start(tab("t", "a-host").connection, { text: "mine" })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
   });
 
   it("refuses a second start from the same account while one is in flight", async () => {
@@ -133,6 +133,38 @@ describe("RaceService", () => {
     expect(service.keystrokes(elsewhere.connection, batch(1, "T"))).toEqual({ ok: false, error: "NO_RACE" });
   });
 
+  it("counts the batch limit per player, so tabs taking the input in turn do not multiply it", async () => {
+    const { service, advance } = harness();
+    const first = tab("t-1", "a-host");
+    const second = tab("t-2", "a-host");
+    service.follow(LOBBY, first.connection);
+    service.follow(LOBBY, second.connection);
+    await service.start(first.connection, {});
+    advance(COUNTDOWN_MS);
+    let seq = 1;
+    for (let index = 0; index < MAX_BATCHES_PER_SECOND / 2; index += 1) {
+      expect(service.keystrokes(first.connection, batch(seq, "T")).ok).toBe(true);
+      seq += 1;
+    }
+    service.takeControl(second.connection, { raceId: RACE });
+    for (let index = 0; index < MAX_BATCHES_PER_SECOND / 2; index += 1) {
+      expect(service.keystrokes(second.connection, batch(seq, "T")).ok).toBe(true);
+      seq += 1;
+    }
+    service.takeControl(first.connection, { raceId: RACE });
+    expect(service.keystrokes(first.connection, batch(seq, "T"))).toEqual({ ok: false, error: "RATE_LIMITED" });
+  });
+
+  it("limits the starts of one account, whatever its number of sockets", async () => {
+    const { service } = harness({ refusal: "NOT_HOST" });
+    const answers = [];
+    for (let index = 0; index <= START_WINDOW.maxStarts; index += 1) {
+      answers.push(await service.start(tab(`t-${index}`, "a-bea").connection, {}));
+    }
+    expect(answers.slice(0, START_WINDOW.maxStarts).every((answer) => !answer.ok && answer.error === "NOT_HOST")).toBe(true);
+    expect(answers.at(-1)).toEqual({ ok: false, error: "RATE_LIMITED" });
+  });
+
   it("moves the input between the tabs of one entrant on request, and forgets a closed tab", async () => {
     const { service, advance } = harness();
     const first = tab("t-1", "a-host");
@@ -155,12 +187,12 @@ describe("RaceService", () => {
     left.service.follow(LOBBY, host.connection);
     await left.service.start(host.connection, {});
     left.advance(COUNTDOWN_MS);
-    left.service.memberLeft(LOBBY, "a-bea", false);
+    left.service.memberLeft(LOBBY, "a-bea", { roomClosed: false });
     expect(left.service.ownsRace(LOBBY)).toBe(true);
 
     const closed = harness();
     await closed.service.start(tab("t-host", "a-host").connection, {});
-    closed.service.memberLeft(LOBBY, "a-host", true);
+    closed.service.memberLeft(LOBBY, "a-host", { roomClosed: true });
     expect(closed.service.ownsRace(LOBBY)).toBe(false);
     expect(closed.store.interruptOwnRace).not.toHaveBeenCalled();
   });

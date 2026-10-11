@@ -185,7 +185,7 @@ async function finishedRaceOf(snapshot: RoomSnapshot, accountId: string): Promis
     return undefined;
   }
   try {
-    return await readRoomRaceForMember(authDatabase(), snapshot.lobbyId, accountId);
+    return await readRoomRaceForMember(authDatabase(), { lobbyId: snapshot.lobbyId, raceId: snapshot.race.raceId, accountId });
   } catch (error: unknown) {
     unstable_rethrow(error);
     // The page still renders; the results come with the next refresh.

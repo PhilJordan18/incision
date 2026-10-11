@@ -115,9 +115,9 @@ describe("TypingSession", () => {
     session.type(insert("c"));
     expect(sent.map(({ batch }) => batch)).toEqual([{ raceId: RACE, seq: 1, textVersion: 0, events: [insert("a")] }]);
     // Shown at once on top of the snapshot, with the engine's own marks.
-    expect(session.view()).toEqual({ target: TARGET, typed: ["a", "b", "c"], marks: ["correct", "correct", "correct"], pendingError: false });
+    expect(session.view()).toEqual({ target: TARGET, typed: ["a", "b", "c"], marks: ["correct", "correct", "correct"], pendingError: false, status: "racing" });
     await answer(0, applied(1, ["a"]));
-    await advance(100);
+    await advance(110);
     expect(sent[1]?.batch).toEqual({ raceId: RACE, seq: 2, textVersion: 0, events: [insert("b"), insert("c")] });
   });
 
@@ -129,7 +129,8 @@ describe("TypingSession", () => {
     }
     await answer(0, applied(1, ["a"], { target: Array.from({ length: 200 }, () => "a") }));
     expect(sent).toHaveLength(1);
-    await advance(99);
+    // 110 ms apart: a margin under the server's ten-per-second window.
+    await advance(109);
     expect(sent).toHaveLength(1);
     await advance(1);
     expect(sent[1]?.batch.events).toHaveLength(MAX_BATCH_EVENTS);
@@ -143,7 +144,7 @@ describe("TypingSession", () => {
     // Mandatory correction: the wrong grapheme is never typed; the expected one shows in error.
     expect(session.view()).toMatchObject({ typed: ["a"], pendingError: false });
     await answer(0, { ok: true, result: { outcome: "refused", seq: 1, reason: "IMPLAUSIBLE", snapshot: snapshot() }, self: self() });
-    expect(session.view()).toEqual({ target: TARGET, typed: [], marks: [], pendingError: false });
+    expect(session.view()).toEqual({ target: TARGET, typed: [], marks: [], pendingError: false, status: "racing" });
     expect(sent).toHaveLength(1);
   });
 
@@ -151,7 +152,7 @@ describe("TypingSession", () => {
     const { session } = harness();
     session.receive(self({ typed: ["a"], ackSeq: 1 }));
     session.type(insert("ab"));
-    expect(session.view()).toEqual({ target: TARGET, typed: ["a"], marks: ["correct"], pendingError: false });
+    expect(session.view()).toEqual({ target: TARGET, typed: ["a"], marks: ["correct"], pendingError: false, status: "racing" });
   });
 
   it("sends the same batch again after a lost answer, and the server answers duplicate", async () => {
@@ -171,7 +172,7 @@ describe("TypingSession", () => {
     applied.session.type(insert("a"));
     applied.session.receive(self({ typed: ["a"], ackSeq: 1 }));
     applied.session.type(insert("b"));
-    await applied.advance(100);
+    await applied.advance(110);
     expect(applied.sent.map(({ batch }) => batch.seq)).toEqual([1, 2]);
 
     const lost = harness();
@@ -201,6 +202,47 @@ describe("TypingSession", () => {
     gone.session.type(insert("a"));
     await gone.answer(0, { ok: false, error: "NO_RACE" });
     expect(gone.session.block).toBe("reload");
+  });
+
+  it("recovers from a wait for the server once its next state arrives, and settles the batch in flight", async () => {
+    const { session, sent, answer, advance } = harness();
+    session.receive(self());
+    session.type(insert("a"));
+    await answer(0, { ok: false, error: "SUSPENDED" });
+    // The resend reaches a server that does not follow this tab yet (a reconnection being admitted).
+    await advance(1_000);
+    await answer(1, { ok: false, error: "NO_RACE" });
+    expect(session.block).toBe("reload");
+    session.type(insert("b"));
+    // The watch completes: the server's state ends the wait; the batch was not applied, so it goes again.
+    session.receive(self());
+    expect(session.block).toBeUndefined();
+    expect(sent[2]?.batch).toBe(sent[0]?.batch);
+    expect(session.view()?.typed).toEqual(["a"]);
+  });
+
+  it("drops what an observing tab gathered, so nothing stale leaves once it types again", async () => {
+    const { session, sent, advance } = harness();
+    session.receive(self());
+    session.type(insert("a"));
+    session.type(insert("b"));
+    session.receive(self({}, "observing"));
+    session.receive(self({}, "controlling"));
+    await advance(1_000);
+    // Only the first batch ever left; "b", typed before control moved, is gone.
+    expect(sent.map(({ batch }) => batch.events)).toEqual([[insert("a")]]);
+  });
+
+  it("sends nothing and ignores late answers once the page closed it", async () => {
+    const { session, sent, answer, advance } = harness();
+    session.receive(self());
+    session.type(insert("a"));
+    session.type(insert("b"));
+    session.close();
+    await answer(0, applied(1, ["a"]));
+    await advance(1_000);
+    expect(sent).toHaveLength(1);
+    expect(session.block).toBe("over");
   });
 
   it("waits while the server cannot confirm its ownership, then sends the same batch again", async () => {

@@ -1,4 +1,4 @@
-import type { RaceOwnership, StartRaceInput, StartRaceResult } from "@incision/database";
+import { describeDatabaseError, type RaceOwnership, type StartRaceInput, type StartRaceResult } from "@incision/database";
 import {
   asDuration,
   asEntrantId,
@@ -24,6 +24,8 @@ export type RoomConnection = RaceConnection & { readonly locale: Locale };
 export const FIRST_RACE_SETTINGS = { errorMode: "mandatory" satisfies ErrorMode, timeLimitMs: 120_000 } as const;
 /** Version of the rules a race was run under, kept with it. */
 const RULES_VERSION = 1;
+/** Starts one account may ask for, whatever its number of sockets (each takes the room lock). */
+export const START_WINDOW = { maxStarts: 5, windowMs: 10_000 } as const;
 
 export type RaceServiceOptions = {
   readonly ownerId: string;
@@ -39,6 +41,8 @@ export type RaceServiceOptions = {
   /** A room's race changed in the database (started, saved, interrupted): its members get a fresh snapshot. */
   readonly onRoomChanged: (lobbyId: string) => void;
   readonly log: (message: string) => void;
+  /** Failures; `log` when not given. */
+  readonly logError?: (message: string) => void;
   readonly leaseTiming?: typeof LEASE_TIMING;
   readonly runtimeTiming?: Partial<RuntimeTiming>;
 };
@@ -55,8 +59,13 @@ export class RaceService {
   readonly #followers = new Map<string, Map<string, RoomConnection>>();
   /** Tab → its room. */
   readonly #rooms = new Map<string, string>();
-  /** Tab → when its last batches arrived, for MAX_BATCHES_PER_SECOND. */
+  /**
+   * Player (account) → when its last batches arrived, for MAX_BATCHES_PER_SECOND: per player,
+   * so that tabs taking the input in turn do not multiply it.
+   */
   readonly #batchTimes = new Map<string, number[]>();
+  /** Account → its recent starts, whatever its number of sockets. */
+  readonly #startTimes = new Map<string, number[]>();
   readonly #starting = new Set<string>();
 
   constructor(options: RaceServiceOptions) {
@@ -87,12 +96,15 @@ export class RaceService {
   unfollow(connectionId: string): void {
     const lobbyId = this.#rooms.get(connectionId);
     this.#rooms.delete(connectionId);
-    this.#batchTimes.delete(connectionId);
     if (lobbyId === undefined) {
       return;
     }
     const tabs = this.#followers.get(lobbyId);
+    const accountId = tabs?.get(connectionId)?.accountId;
     tabs?.delete(connectionId);
+    if (accountId !== undefined && !this.#follows(accountId)) {
+      this.#batchTimes.delete(accountId);
+    }
     if (tabs?.size === 0) {
       this.#followers.delete(lobbyId);
     }
@@ -106,10 +118,13 @@ export class RaceService {
    */
   async start(connection: RoomConnection, payload: unknown): Promise<RaceStartAck> {
     if (!raceStartPayloadSchema.safeParse(payload).success) {
-      return { ok: false, error: "UNAVAILABLE" };
+      return { ok: false, error: "INVALID_PAYLOAD" };
     }
     if (this.#registry.stopping) {
       return { ok: false, error: "UNAVAILABLE" };
+    }
+    if (!this.#withinWindow(this.#startTimes, connection.accountId, START_WINDOW.maxStarts, START_WINDOW.windowMs)) {
+      return { ok: false, error: "RATE_LIMITED" };
     }
     // One start in flight per account; the database refuses a second start of the room anyway.
     if (this.#starting.has(connection.accountId)) {
@@ -124,7 +139,7 @@ export class RaceService {
   }
 
   async #start(connection: RoomConnection): Promise<RaceStartAck> {
-    const { store, ownerId, log } = this.#options;
+    const { store, ownerId } = this.#options;
     const text = FIXTURE_RACE_TEXTS[connection.locale];
     const timeLimit = asDuration(FIRST_RACE_SETTINGS.timeLimitMs);
     const acquiredAt = this.#options.monotonic();
@@ -148,7 +163,7 @@ export class RaceService {
           }),
       });
     } catch (error: unknown) {
-      log(`[races] start failed: ${error instanceof Error ? error.name : "unknown error"}`);
+      this.#logError(`[races] start failed: ${describeDatabaseError(error)}`);
       return { ok: false, error: "UNAVAILABLE" };
     }
     if (!started.ok) {
@@ -157,7 +172,7 @@ export class RaceService {
         return { ok: false, error };
       }
       // The text and the settings are the server's: any other refusal is a bug here.
-      log(`[races] start refused by the engine: ${error}`);
+      this.#logError(`[races] start refused by the engine: ${error}`);
       return { ok: false, error: "UNAVAILABLE" };
     }
     const ownership: RaceOwnership = started.race;
@@ -197,6 +212,7 @@ export class RaceService {
         this.#options.onRoomChanged(settled.lobbyId);
       },
       log,
+      logError: (message) => this.#logError(message),
       ...(this.#options.runtimeTiming === undefined ? {} : { timing: this.#options.runtimeTiming }),
     });
     return runtime;
@@ -207,21 +223,16 @@ export class RaceService {
       await this.#options.store.interruptOwnRace(ownership, reason);
     } catch (error: unknown) {
       // The lease expires and the race is recovered as owner_lost.
-      this.#options.log(`[races] interruption of ${ownership.raceId} failed: ${error instanceof Error ? error.name : "unknown error"}`);
+      this.#logError(`[races] interruption of ${ownership.raceId} failed: ${describeDatabaseError(error)}`);
     }
     this.#options.onRoomChanged(ownership.lobbyId);
   }
 
   /** One keystroke batch from a tab (F-04.4): bounded per tab, structure checked, then the engine. */
   keystrokes(connection: RoomConnection, payload: unknown): RaceBatchAck {
-    const now = this.#options.monotonic();
-    const recent = (this.#batchTimes.get(connection.id) ?? []).filter((time) => now - time < 1_000);
-    if (recent.length >= MAX_BATCHES_PER_SECOND) {
-      this.#batchTimes.set(connection.id, recent);
+    if (!this.#withinWindow(this.#batchTimes, connection.accountId, MAX_BATCHES_PER_SECOND, 1_000)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
-    recent.push(now);
-    this.#batchTimes.set(connection.id, recent);
     const parsed = parseKeystrokeBatch(payload);
     if (!parsed.success) {
       return { ok: false, error: "INVALID_PAYLOAD" };
@@ -245,7 +256,7 @@ export class RaceService {
   }
 
   /** A member left the room (committed): an abandon, or the end of the race if the room closed. */
-  memberLeft(lobbyId: string, accountId: string, roomClosed: boolean): void {
+  memberLeft(lobbyId: string, accountId: string, { roomClosed }: { readonly roomClosed: boolean }): void {
     const runtime = this.#registry.get(lobbyId);
     if (runtime === undefined) {
       return;
@@ -260,6 +271,34 @@ export class RaceService {
   /** SIGTERM: no new start, then each race ends through its own shutdown (ADR-0004). */
   stop(options: { readonly onEnded: (lobbyId: string) => void; readonly timeoutMs: number }): Promise<StopReport> {
     return this.#registry.stop({ ...options, now: this.#options.now });
+  }
+
+  /** Counts one more event for `key` in its sliding window; false when the window is full. */
+  #withinWindow(windows: Map<string, number[]>, key: string, max: number, windowMs: number): boolean {
+    const now = this.#options.monotonic();
+    const recent = (windows.get(key) ?? []).filter((time) => now - time < windowMs);
+    if (recent.length >= max) {
+      windows.set(key, recent);
+      return false;
+    }
+    recent.push(now);
+    windows.set(key, recent);
+    return true;
+  }
+
+  #follows(accountId: string): boolean {
+    for (const tabs of this.#followers.values()) {
+      for (const tab of tabs.values()) {
+        if (tab.accountId === accountId) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  #logError(message: string): void {
+    (this.#options.logError ?? this.#options.log)(message);
   }
 
   #runtimeOf(connectionId: string): RaceRuntime | undefined {
