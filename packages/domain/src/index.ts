@@ -5,6 +5,7 @@ export * from "./ids";
 export * from "./measures/compute";
 export * from "./measures/types";
 export * from "./race/elapsed";
+export * from "./race/keystrokes";
 export * from "./race/limits";
 export * from "./race/ranking";
 export * from "./race/start";
