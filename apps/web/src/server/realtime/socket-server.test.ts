@@ -29,6 +29,15 @@ async function authenticate(cookieHeader: string | undefined): Promise<Handshake
   if (cookieHeader === "session=unchecked") {
     return { kind: "refused", reason: "CHECK_FAILED" };
   }
+  if (cookieHeader === "session=revoked") {
+    return { kind: "refused", reason: "REVOKED" };
+  }
+  if (cookieHeader === "session=expired") {
+    return { kind: "refused", reason: "EXPIRED" };
+  }
+  if (cookieHeader === "session=throws") {
+    throw new Error("unexpected");
+  }
   return { kind: "refused", reason: "INVALID_TOKEN" };
 }
 
@@ -106,6 +115,12 @@ describe("attachRealtimeServer", () => {
 
   it("refuses a session that could not be checked as unavailable, which the page retries, not as ended", async () => {
     await expect(open({ extraHeaders: { cookie: "session=unchecked" } })).rejects.toThrow("UNAVAILABLE");
+    await expect(open({ extraHeaders: { cookie: "session=throws" } })).rejects.toThrow("UNAVAILABLE");
+  });
+
+  it("refuses a revoked or expired session as ended (UNAUTHORIZED), whatever the database's state", async () => {
+    await expect(open({ extraHeaders: { cookie: "session=revoked" } })).rejects.toThrow("UNAUTHORIZED");
+    await expect(open({ extraHeaders: { cookie: "session=expired" } })).rejects.toThrow("UNAUTHORIZED");
   });
 
   it("refuses the handshake of an invalid session cookie", async () => {

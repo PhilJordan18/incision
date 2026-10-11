@@ -239,7 +239,9 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       if (error.message === "UNAVAILABLE") {
         setConnection("reconnecting");
         clearTimeout(retry);
-        retry = setTimeout(() => socket.connect(), RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]);
+        // Jittered (±50 %), so that the pages of a whole class do not retry in lockstep.
+        const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)] ?? 10_000;
+        retry = setTimeout(() => socket.connect(), delay * (0.5 + Math.random()));
         attempt += 1;
       } else {
         setEnding("signedOut");

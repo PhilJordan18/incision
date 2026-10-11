@@ -268,7 +268,8 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
 
 /**
  * Recovery of a race nobody runs any more, when a member watches its room, or when this process
- * stopped running it without a confirmed end (ADR-0004). Inside
+ * stopped running it without a confirmed end (ADR-0004); while the database does not answer, the
+ * room is looked at again about every 5 s, 24 times at most until a look succeeds. Inside
  * the watch, so within its budget; only in an active phase and for a race this process does
  * not run. A recovered room is broadcast: every member learns that the race was interrupted.
  * While the lease still runs (its owner may be gone, or alive elsewhere), the room is looked at
@@ -279,21 +280,27 @@ function recoveryOnWatch(
   dependencies: RoomChannelDependencies,
   room: { readonly scheduleBroadcast: (lobbyId: string) => void; readonly followed: (lobbyId: string) => boolean },
 ) {
-  const lookAgain = new Map<string, NodeJS.Timeout>();
-  /** Failed looks per room, while the database does not answer: bounded, then given up. */
+  const lookAgain = new Map<string, { readonly timer: NodeJS.Timeout; refresh: boolean }>();
+  /** Failed looks per room, kept until a look succeeds: bounded, then given up. */
   const failures = new Map<string, number>();
   const later = (lobbyId: string, delayMs: number, refresh: boolean) => {
-    if (lookAgain.has(lobbyId)) {
+    const pending = lookAgain.get(lobbyId);
+    if (pending !== undefined) {
+      // One pending look per room; a refresh asked meanwhile is kept.
+      pending.refresh ||= refresh;
       return;
     }
     const timer = setTimeout(() => {
+      const next = lookAgain.get(lobbyId);
       lookAgain.delete(lobbyId);
       if (room.followed(lobbyId)) {
-        void recover(lobbyId, refresh);
+        void recover(lobbyId, next?.refresh ?? refresh);
+      } else {
+        failures.delete(lobbyId);
       }
     }, delayMs);
     timer.unref();
-    lookAgain.set(lobbyId, timer);
+    lookAgain.set(lobbyId, { timer, refresh });
   };
   /** `refresh`: the members' pages may show an end the database never confirmed; send them what it holds. */
   const recover = async (lobbyId: string, refresh: boolean): Promise<void> => {
@@ -315,11 +322,10 @@ function recoveryOnWatch(
     } catch (error: unknown) {
       console.error("[races] recovery on watch failed:", describeDatabaseError(error));
       const failed = (failures.get(lobbyId) ?? 0) + 1;
+      failures.set(lobbyId, failed);
       if (failed < MAX_FAILED_LOOKS) {
-        failures.set(lobbyId, failed);
-        later(lobbyId, FAILED_LOOK_RETRY_MS, refresh);
-      } else {
-        failures.delete(lobbyId);
+        // Jittered, so that the rooms of one outage do not look in lockstep.
+        later(lobbyId, FAILED_LOOK_RETRY_MS * (0.8 + 0.4 * Math.random()), refresh);
       }
     }
   };
@@ -331,7 +337,9 @@ function recoveryOnWatch(
     },
     /** A race stopped here without a confirmed end: its room is looked at until the database holds one. */
     afterLoss: (lobbyId: string): void => {
-      void recover(lobbyId, true);
+      if (room.followed(lobbyId)) {
+        void recover(lobbyId, true);
+      }
     },
   };
 }
