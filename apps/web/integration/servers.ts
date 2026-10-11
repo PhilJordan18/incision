@@ -13,8 +13,8 @@ import { io, type Socket } from "socket.io-client";
  * Nothing here bypasses a check: sessions are cookies encrypted with the processes' secret,
  * memberships are rows written by the same database functions as the server actions.
  */
-export const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL ?? "postgresql://incision_test:incision_test_only@localhost:5433/incision_e2e_a7";
-export const PORTS = (process.env.INTEGRATION_PORTS ?? "3856,3857").split(",").map(Number);
+export const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL ?? "postgresql://incision_test:incision_test_only@localhost:5433/incision_e2e_integration";
+export const PORTS = (process.env.INTEGRATION_PORTS ?? "3301,3302").split(",").map(Number);
 export const SECRET = randomBytes(32).toString("base64url");
 const SESSION_COOKIE = "authjs.session-token";
 const APP_DIR = path.resolve(import.meta.dirname, "..");

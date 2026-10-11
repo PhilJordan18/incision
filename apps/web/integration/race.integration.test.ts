@@ -4,7 +4,9 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RaceBatchAck, RaceProgressPayload, RaceRevealPayload, RaceSelfPayload } from "../src/races/protocol";
 import type { PublicRoomSnapshot } from "../src/rooms/protocol";
-import { account, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, type Tab } from "./servers";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { account, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, type Tab } from "./servers";
 
 /**
  * F-04.0 integration evidence, without a browser: real server processes (production build),
@@ -23,16 +25,20 @@ function db() {
 
 beforeAll(async () => {
   await prepareDatabase();
-  pool.current = new pg.Pool({ connectionString: process.env.INTEGRATION_DATABASE_URL ?? "postgresql://incision_test:incision_test_only@localhost:5433/incision_e2e_a7" });
+  pool.current = new pg.Pool({ connectionString: DATABASE_URL });
 }, 60_000);
 
 afterAll(async () => {
   for (const tab of tabs) {
     tab.socket.close();
   }
+  // Each process's output is kept with the test results (uploaded by CI on a failure).
+  const logs = path.resolve(import.meta.dirname, "..", "test-results");
+  await mkdir(logs, { recursive: true });
   for (const server of servers) {
     server.child.kill("SIGCONT");
     server.child.kill("SIGKILL");
+    await writeFile(path.join(logs, `integration-server-${new URL(server.origin).port}.log`), server.output());
   }
   await pool.current?.end();
 });

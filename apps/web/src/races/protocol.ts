@@ -144,7 +144,7 @@ export const entrantSnapshotSchema = z.object({
 });
 export type EntrantSnapshotPayload = z.infer<typeof entrantSnapshotSchema>;
 
-/** Appendix A measures, as the engine computed them on the server (`computeMeasures`). */
+/** Appendix A measures, as the engine computed them on the server (`toEntrantMeasures`). */
 const measuresSchema = z.object({ netWpm: z.number().nonnegative(), accuracy: z.number().min(0).max(100) });
 
 export const raceSelfPayloadSchema = z.object({

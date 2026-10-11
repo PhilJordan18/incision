@@ -2,7 +2,7 @@ import type { RaceOwnership } from "@incision/database";
 import { describe, expect, it } from "vitest";
 import { type OwnedRace, RaceRegistry, type ShutdownOutcome } from "./race-registry";
 
-function owned(lobbyId: string, shutdown: () => Promise<ShutdownOutcome> = async () => "interrupted", raceId = `race-${lobbyId}`) {
+function owned(lobbyId: string, shutdown: (deadline: number) => Promise<ShutdownOutcome> = async () => "interrupted", raceId = `race-${lobbyId}`) {
   let stopped = false;
   const ownership: RaceOwnership = { raceId, lobbyId, ownerId: "owner", ownerEpoch: 1 };
   let retired = false;
@@ -60,6 +60,19 @@ describe("RaceRegistry", () => {
     ]);
     expect(races.every(({ stopped }) => stopped())).toBe(true);
     expect(registry.add(owned("lobby-4").race)).toBe(false);
+  });
+
+  it("gives each shutdown the stop's deadline on the server's clock", async () => {
+    const registry = new RaceRegistry();
+    let received = 0;
+    registry.add(
+      owned("lobby-1", async (deadline) => {
+        received = deadline;
+        return "interrupted";
+      }).race,
+    );
+    await registry.stop({ onEnded: () => undefined, timeoutMs: 5_000, now: () => 1_000_000 });
+    expect(received).toBe(1_005_000);
   });
 
   it("keeps a race registered until its shutdown settles, so it is never recovered here meanwhile", async () => {

@@ -3,14 +3,13 @@ import {
   asEntrantId,
   asInstant,
   asRaceId,
-  computeMeasures,
   type EntrantResult,
-  measuredElapsed,
   type RaceEnd,
   type RaceEvent,
   type RaceOutput,
   type RaceState,
   reduceRace,
+  toEntrantMeasures,
   toEntrantSnapshot,
   toRaceBroadcast,
   toRaceReveal,
@@ -611,14 +610,18 @@ export class RaceRuntime implements OwnedRace {
 
   #selfFor(entrantId: string, connectionId: string): RaceSelfPayload | undefined {
     return this.#view(() => {
-      const snapshot = toEntrantSnapshot(this.#state, asEntrantId(entrantId));
-      const entrant = this.#state.entrants.find((candidate) => candidate.entrantId === entrantId);
-      if (snapshot === undefined || entrant === undefined) {
+      const id = asEntrantId(entrantId);
+      const snapshot = toEntrantSnapshot(this.#state, id);
+      // The engine's own live measures, timed exactly as its broadcast times them.
+      const measures = toEntrantMeasures(this.#state, id, this.#now());
+      if (snapshot === undefined || measures === undefined) {
         throw new Error("An entrant of the race has no snapshot");
       }
-      const elapsed = measuredElapsed(this.#state.startsAt, this.#now(), entrant.endedAt ?? this.#state.endedAt);
-      const { netWpm, accuracy } = computeMeasures(snapshot.counters, elapsed);
-      return { snapshot, measures: { netWpm, accuracy }, control: this.#control.get(entrantId) === connectionId ? "controlling" : "observing" };
+      return {
+        snapshot,
+        measures: { netWpm: measures.netWpm, accuracy: measures.accuracy },
+        control: this.#control.get(entrantId) === connectionId ? "controlling" : "observing",
+      };
     });
   }
 

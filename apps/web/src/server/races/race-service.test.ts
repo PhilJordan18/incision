@@ -179,6 +179,10 @@ describe("RaceService", () => {
     expect(service.keystrokes(second.connection, batch(1, "T"))).toMatchObject({ ok: true });
     service.unfollow(second.connection.id);
     expect(service.keystrokes(second.connection, batch(2, "e"))).toEqual({ ok: false, error: "NO_RACE" });
+    // The typing tab is gone: the next tab of the entrant that follows takes the input.
+    const third = tab("t-3", "a-host");
+    service.follow(LOBBY, third.connection);
+    expect(service.keystrokes(third.connection, batch(2, "e"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
   });
 
   it("abandons a member who left the room, and ends the race when the room closed", async () => {
@@ -189,6 +193,18 @@ describe("RaceService", () => {
     left.advance(COUNTDOWN_MS);
     left.service.memberLeft(LOBBY, "a-bea", { roomClosed: false });
     expect(left.service.ownsRace(LOBBY)).toBe(true);
+    // The host finishes the fixture text: the leaver is ranked as an abandon (state-machines §3).
+    const text = [...FIXTURE_RACE_TEXTS.fr];
+    for (const [index, grapheme] of text.entries()) {
+      left.advance(200);
+      expect(left.service.keystrokes(host.connection, batch(index + 1, grapheme))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    }
+    await vi.waitFor(() => expect(left.store.finalizeRace).toHaveBeenCalledOnce());
+    const [, rows] = left.store.finalizeRace.mock.calls[0] as unknown as [unknown, readonly { entrantId: string; outcome: string; abandonmentReason?: string }[]];
+    expect(rows.map((row) => [row.entrantId, row.outcome, row.abandonmentReason])).toEqual([
+      ["e-host", "finished", undefined],
+      ["e-bea", "abandoned", "voluntary"],
+    ]);
 
     const closed = harness();
     await closed.service.start(tab("t-host", "a-host").connection, {});

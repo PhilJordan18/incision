@@ -1,6 +1,22 @@
 import type { Interruption, RaceOwnership, RaceResultRow, Transition } from "@incision/database";
 import { asDuration, asEntrantId, asInstant, asRaceId, COUNTDOWN_MS, createRace, type RaceState } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
+
+// The real engine everywhere; one test makes its reducer throw, as an engine fault would.
+const engine = vi.hoisted(() => ({ failNext: false }));
+vi.mock("@incision/domain", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@incision/domain")>();
+  return {
+    ...actual,
+    reduceRace: (...args: Parameters<typeof actual.reduceRace>) => {
+      if (engine.failNext) {
+        engine.failNext = false;
+        throw new RangeError("engine fault");
+      }
+      return actual.reduceRace(...args);
+    },
+  };
+});
 import {
   RACE_CONFIRMING_EVENT,
   RACE_PROGRESS_EVENT,
@@ -449,7 +465,24 @@ describe("RaceRuntime", () => {
     expect(settled).toHaveBeenCalledOnce();
   });
 
-  it("interrupts only the race the engine failed on (engine_error), keeping the server up", async () => {
+  it("interrupts the race whose reducer throws (engine_error), and answers the batch without crashing", async () => {
+    const { runtime, time, store, alice, bob, settled } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 1_000);
+    runtime.keystrokes(alice.connection, batch(1, "a"));
+    engine.failNext = true;
+    expect(runtime.keystrokes(bob.connection, batch(1, "a"))).toEqual({ ok: false, error: "NO_RACE" });
+    await time.advance(10);
+    expect(store.interruptOwnRace).toHaveBeenCalledExactlyOnceWith(ownership, "engine_error");
+    expect(runtime.stage).toBe("interrupted");
+    // The last good state is interrupted in memory: Alice's keystroke is still there, nothing more.
+    expect(runtime.state.phase).toBe("interrupted");
+    expect(runtime.state.entrants[0]?.typed).toEqual(["a"]);
+    expect(settled).toHaveBeenCalledOnce();
+    expect(store.finalizeRace).not.toHaveBeenCalled();
+  });
+
+  it("interrupts only the race whose views fail (engine_error), keeping the server up", async () => {
     // Counters the engine never produces make its own measures throw.
     const good = created();
     const broken: RaceState = { ...good, entrants: good.entrants.map((entrant, index) => (index === 0 ? { ...entrant, counters: { correctInserts: 3, totalInserts: 1 } } : entrant)) };
