@@ -15,7 +15,8 @@ import { ERROR_MODES, type CreateRace, type CreateRaceInput, type CreateRaceRefu
  * before the start. Passing it guarantees valid parameters, not that the host may start or that
  * the room is still available: under the room lock the start rechecks the host, the phase and the
  * participants, and gives `createRace` the text, configuration and entrants frozen for that
- * transaction.
+ * transaction. It does not check what only the server produces (the ids, the kinds, a line break
+ * in the text): `createRace` throws for those.
  */
 export function createRaceRefusal(input: Pick<CreateRaceInput, "participants" | "text" | "timeLimit">): CreateRaceRefusal | undefined {
   const start = startRefusal(input.participants);

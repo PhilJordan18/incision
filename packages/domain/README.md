@@ -38,9 +38,11 @@ re-implement one. A missing rule is added here, not copied there.
   An insert carries one grapheme of at most `MAX_GRAPHEME_LENGTH` code units as received
   (`singleGrapheme`); its NFC form may be longer.
 - **Enter** (D-16) activates a bonus and never appears in a race text. An insert holding a line
-  break ("\n", "\r" or "\r\n") refuses the whole batch (`INVALID_INPUT`), so it never counts as a
-  keystroke, and `createRace` throws for a text holding one. `containsLineBreak` is the shared
-  test, so the interface filters Enter with the same rule.
+  break refuses the whole batch (`INVALID_INPUT`), so it never counts as a keystroke, and
+  `createRace` throws for a text holding one. A line break is what Enter produces ("\n", "\r",
+  "\r\n") or any other mandatory break of Unicode. `containsLineBreak` is exported so the
+  interface can filter Enter with the same rule, and the text pipeline can turn line breaks into
+  spaces before a race.
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
 ## Keystroke protocol (`src/race/types.ts`)
