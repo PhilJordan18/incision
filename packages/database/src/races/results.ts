@@ -79,8 +79,8 @@ export async function readRoomRaceForMember(
 /**
  * Results are written once, with the move to RESULTS, and shown only for a finished race: a
  * finalisation committing between the two reads cannot pair a race in progress with results.
+ * `condition` is the access check: always a condition, never none (which would read any race).
  */
-/** `condition` is the access check: always a condition, never none (which would read any race). */
 async function readRaceView(db: Database, accountId: string, condition: SQL): Promise<RaceResultView | undefined> {
   const [race] = await db
     .select({

@@ -233,6 +233,39 @@ describe("TypingSession", () => {
     expect(sent.map(({ batch }) => batch.events)).toEqual([[insert("a")]]);
   });
 
+  it("resends sooner after the server's rate limit than after a lost answer", async () => {
+    const { session, sent, answer, advance } = harness();
+    session.receive(self());
+    session.type(insert("a"));
+    await answer(0, { ok: false, error: "RATE_LIMITED" });
+    await advance(299);
+    expect(sent).toHaveLength(1);
+    await advance(1);
+    expect(sent[1]?.batch).toBe(sent[0]?.batch);
+  });
+
+  it("drops what it gathered when the server says another tab types, and sends nothing stale later", async () => {
+    const { session, sent, answer, advance } = harness();
+    session.receive(self());
+    session.type(insert("a"));
+    session.type(insert("b"));
+    await answer(0, { ok: false, error: "NOT_CONTROLLING" });
+    session.receive(self({}, "controlling"));
+    await advance(1_000);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("takes no state from the server once the page closed it", () => {
+    const { session, sent } = harness();
+    session.receive(self());
+    session.close();
+    session.receive(self({ typed: ["a"], ackSeq: 1 }));
+    session.type(insert("b"));
+    expect(session.block).toBe("over");
+    expect(session.view()?.typed).toEqual([]);
+    expect(sent).toHaveLength(0);
+  });
+
   it("sends nothing and ignores late answers once the page closed it", async () => {
     const { session, sent, answer, advance } = harness();
     session.receive(self());

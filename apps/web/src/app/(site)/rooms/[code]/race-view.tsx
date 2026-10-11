@@ -282,8 +282,9 @@ function TypingZone({
 /**
  * The text with what is typed (design `.course-*`): correct graphemes underlined, wrong ones on
  * a tinted background with a wavy underline, a blocked one boxed, the cursor as a bar. Never
- * colour alone (design rule 8). No animation near the text (rule 7). Memoised: the clock
- * re-renders the view ten times a second, the text only when typing changes.
+ * colour alone (design rule 8). No animation near the text (rule 7). Memoised so that the
+ * clock's ten renders a second skip it; a new typing state (a key, an answer, a broadcast)
+ * renders it again.
  */
 const RaceText = memo(function RaceText({
   target,

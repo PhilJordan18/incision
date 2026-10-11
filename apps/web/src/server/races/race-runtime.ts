@@ -214,11 +214,16 @@ export class RaceRuntime implements OwnedRace {
       return "NOT_AN_ENTRANT";
     }
     if (this.#control.get(entrant.entrantId)?.connectionId === connection.id) {
-      // Already this tab's: nothing changes, nothing is sent.
+      // Already this tab's: it gets its state again (it may have missed it), the others nothing.
+      const self = this.#selfFor(entrant.entrantId, connection.id);
+      if (self !== undefined) {
+        connection.emit(RACE_SELF_EVENT, self);
+      }
       return "ok";
     }
     this.#control.set(entrant.entrantId, { connectionId: connection.id, pageId: connection.pageId });
-    this.#sendSelf(entrant.entrantId);
+    // A change of control must arrive: never volatile.
+    this.#sendSelf(entrant.entrantId, { volatile: false });
     return this.#stage === "running" ? "ok" : "NO_RACE";
   }
 
@@ -250,8 +255,9 @@ export class RaceRuntime implements OwnedRace {
     if (output?.keystrokes === undefined || self === undefined) {
       return { ok: false, error: "NO_RACE" };
     }
-    // The other tabs of this entrant follow its typing.
-    this.#sendSelf(entrant.entrantId, connection.id);
+    // The other tabs of this entrant follow its typing; the next batch replaces it, unless this one
+    // ended the race, whose last state must arrive.
+    this.#sendSelf(entrant.entrantId, { except: connection.id, volatile: this.#stage === "running" });
     return { ok: true, result: output.keystrokes, self };
   }
 
@@ -658,7 +664,7 @@ export class RaceRuntime implements OwnedRace {
   }
 
   /** The entrant's tabs (but `except`) get its typing state and which of them types. */
-  #sendSelf(entrantId: string, except?: string): void {
+  #sendSelf(entrantId: string, { except, volatile }: { readonly except?: string; readonly volatile: boolean }): void {
     const entrant = this.#entrants.get(entrantId);
     if (entrant === undefined) {
       return;
@@ -671,7 +677,7 @@ export class RaceRuntime implements OwnedRace {
       if (self === undefined) {
         return;
       }
-      connection.emit(RACE_SELF_EVENT, self, { volatile: true });
+      connection.emit(RACE_SELF_EVENT, self, { volatile });
     }
   }
 

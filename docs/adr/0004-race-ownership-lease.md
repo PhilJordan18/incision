@@ -35,7 +35,7 @@ Each race records the process that runs it, the generation of that ownership, an
 **The owner's local view** (`apps/web/src/server/races/race-lease.ts`). The SQL generation protects the database writes, not the keystrokes and broadcasts held in memory. So the runtime:
 
 - counts its ownership from the moment it *sent* the last renewal the database confirmed, plus 30 s, minus a 5 s safety margin, on a monotonic clock;
-- past that deadline, suspends: it accepts no keystroke and broadcasts no progress (a tab that opens meanwhile still gets the race as this process last held it, which cannot change while suspended);
+- past that deadline, suspends: it accepts no keystroke and broadcasts no progress; time transitions (the start, the time limit) and departures still apply, and their writes stay fenced;
 - resumes only when a renewal is confirmed (same owner, same generation, race still active), and only up to what that renewal proves; an old answer that arrives late proves little;
 - once refused, or after a minute of suspension without any confirmation (about 85 s after the last confirmed renewal was sent), stops for good, and no later answer reactivates it;
 - keeps at most one renewal in flight, spaced 10 s apart, or 2 s apart while suspended, with a watchdog so that a renewal that never answers cannot freeze the lease;

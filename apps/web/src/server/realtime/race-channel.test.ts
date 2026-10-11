@@ -4,7 +4,7 @@ import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RACE_BATCH_EVENT, RACE_CONTROL_EVENT, RACE_START_EVENT } from "../../races/protocol";
 import type { RaceService } from "../races/race-service";
-import { CONTROL_LIMIT, handshakeLocale, registerRaceChannel, START_LIMIT } from "./race-channel";
+import { CONTROL_LIMIT, connectionOf, handshakeLocale, registerRaceChannel, START_LIMIT } from "./race-channel";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
 import type { HandshakeAuthentication } from "./socket-session";
@@ -111,6 +111,21 @@ describe("race channel", () => {
     }
     expect(answers.at(-1)).toEqual({ ok: false, error: "RATE_LIMITED" });
     expect(races.takeControl).toHaveBeenCalledTimes(CONTROL_LIMIT.maxRequests);
+  });
+
+  it("routes the replaceable messages through Socket.IO's volatile emit, and the others through emit", () => {
+    const sent: string[] = [];
+    const socket = {
+      id: "s-1",
+      handshake: { headers: {} },
+      emit: (event: string) => sent.push(`emit ${event}`),
+      volatile: { emit: (event: string) => sent.push(`volatile ${event}`) },
+    } as unknown as Parameters<typeof connectionOf>[0];
+    const connection = connectionOf(socket, ALICE, "4b7f2c1e-3d5a-4e6f-8a9b-0c1d2e3f4a5b");
+    connection.emit("race:progress", {}, { volatile: true });
+    connection.emit("race:reveal", {});
+    expect(sent).toEqual(["volatile race:progress", "emit race:reveal"]);
+    expect(connection).toMatchObject({ id: "s-1", accountId: ALICE, pageId: "4b7f2c1e-3d5a-4e6f-8a9b-0c1d2e3f4a5b", locale: "fr" });
   });
 
   it("reads the tab's language from its explicit choice, then from its browser", () => {

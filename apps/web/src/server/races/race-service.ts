@@ -26,6 +26,8 @@ export const FIRST_RACE_SETTINGS = { errorMode: "mandatory" satisfies ErrorMode,
 const RULES_VERSION = 1;
 /** Starts one account may ask for, whatever its number of sockets (each takes the room lock). */
 export const START_WINDOW = { maxStarts: 5, windowMs: 10_000 } as const;
+/** Control requests one account may make, whatever its number of sockets. */
+export const CONTROL_WINDOW = { maxRequests: 5, windowMs: 10_000 } as const;
 
 export type RaceServiceOptions = {
   readonly ownerId: string;
@@ -66,6 +68,10 @@ export class RaceService {
   readonly #batchTimes = new Map<string, number[]>();
   /** Account → its recent starts, whatever its number of sockets. */
   readonly #startTimes = new Map<string, number[]>();
+  /** Account → its recent control requests: a change of control reaches all its tabs. */
+  readonly #controlTimes = new Map<string, number[]>();
+  /** Account → how many of its tabs follow a room, for cleaning its windows. */
+  readonly #tabsPerAccount = new Map<string, number>();
   readonly #starting = new Set<string>();
 
   constructor(options: RaceServiceOptions) {
@@ -87,6 +93,9 @@ export class RaceService {
       tabs = new Map();
       this.#followers.set(lobbyId, tabs);
     }
+    if (!tabs.has(connection.id)) {
+      this.#tabsPerAccount.set(connection.accountId, (this.#tabsPerAccount.get(connection.accountId) ?? 0) + 1);
+    }
     tabs.set(connection.id, connection);
     this.#rooms.set(connection.id, lobbyId);
     this.#registry.get(lobbyId)?.follow(connection);
@@ -102,9 +111,17 @@ export class RaceService {
     const tabs = this.#followers.get(lobbyId);
     const accountId = tabs?.get(connectionId)?.accountId;
     tabs?.delete(connectionId);
-    if (accountId !== undefined && !this.#follows(accountId)) {
-      this.#batchTimes.delete(accountId);
+    if (accountId !== undefined) {
+      const left = (this.#tabsPerAccount.get(accountId) ?? 1) - 1;
+      if (left > 0) {
+        this.#tabsPerAccount.set(accountId, left);
+      } else {
+        this.#tabsPerAccount.delete(accountId);
+      }
     }
+    // Windows expire rather than being deleted with the last tab: a reconnection never resets one.
+    this.#prune(this.#batchTimes, 1_000);
+    this.#prune(this.#controlTimes, CONTROL_WINDOW.windowMs);
     if (tabs?.size === 0) {
       this.#followers.delete(lobbyId);
     }
@@ -262,6 +279,11 @@ export class RaceService {
     if (!parsed.success) {
       return { ok: false, error: "INVALID_PAYLOAD" };
     }
+    // Per account as well as per socket: many tabs taking the input in turn would multiply the
+    // state sent to every one of them.
+    if (!this.#withinWindow(this.#controlTimes, connection.accountId, CONTROL_WINDOW.maxRequests, CONTROL_WINDOW.windowMs)) {
+      return { ok: false, error: "RATE_LIMITED" };
+    }
     const runtime = this.#runtimeOf(connection.id);
     if (runtime === undefined || runtime.ownership.raceId !== parsed.data.raceId) {
       return { ok: false, error: "NO_RACE" };
@@ -309,17 +331,6 @@ export class RaceService {
         windows.delete(key);
       }
     }
-  }
-
-  #follows(accountId: string): boolean {
-    for (const tabs of this.#followers.values()) {
-      for (const tab of tabs.values()) {
-        if (tab.accountId === accountId) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   #logError(message: string): void {

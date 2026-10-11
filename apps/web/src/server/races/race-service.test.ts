@@ -2,7 +2,7 @@ import type { Interruption, RaceToCreate, StartRaceInput, StartRaceResult, Trans
 import { COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_REVEAL_EVENT, type RaceRevealPayload } from "../../races/protocol";
-import { FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
+import { CONTROL_WINDOW, FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
 import { FIXTURE_RACE_TEXTS } from "./race-texts";
 
 const START = 1_800_000_000_000;
@@ -153,6 +153,25 @@ describe("RaceService", () => {
     }
     service.takeControl(first.connection, { raceId: RACE });
     expect(service.keystrokes(first.connection, batch(seq, "T"))).toEqual({ ok: false, error: "RATE_LIMITED" });
+  });
+
+  it("limits the control requests of one account, whatever its number of sockets", async () => {
+    const { service, advance } = harness();
+    const tabs = Array.from({ length: CONTROL_WINDOW.maxRequests + 2 }, (_, index) => tab(`t-${index}`, "a-host"));
+    for (const each of tabs) {
+      service.follow(LOBBY, each.connection);
+    }
+    await service.start(tabs[0]?.connection ?? tab("t", "a-host").connection, {});
+    advance(COUNTDOWN_MS);
+    const answers = tabs.slice(1).map((each) => service.takeControl(each.connection, { raceId: RACE }));
+    expect(answers.slice(0, CONTROL_WINDOW.maxRequests).every((answer) => answer.ok)).toBe(true);
+    expect(answers.at(-1)).toEqual({ ok: false, error: "RATE_LIMITED" });
+    // A reconnection does not reset the window: it expires with time only.
+    service.unfollow("t-1");
+    service.follow(LOBBY, tab("t-again", "a-host").connection);
+    expect(service.takeControl(tab("t-again", "a-host").connection, { raceId: RACE })).toEqual({ ok: false, error: "RATE_LIMITED" });
+    advance(CONTROL_WINDOW.windowMs);
+    expect(service.takeControl(tab("t-again", "a-host").connection, { raceId: RACE })).toEqual({ ok: true });
   });
 
   it("limits the starts of one account, whatever its number of sockets", async () => {

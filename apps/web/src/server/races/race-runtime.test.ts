@@ -216,10 +216,12 @@ describe("RaceRuntime", () => {
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.snapshot.typed).toEqual(["a"]);
     expect(runtime.takeControl(second.connection)).toBe("ok");
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
-    // Asking again changes nothing and sends nothing to anyone.
-    const sent = alice.received.length + second.received.length;
+    // Asking again changes nothing: the asking tab gets its state again, the other tab nothing.
+    const aliceBefore = alice.received.length;
+    const secondBefore = second.received.length;
     expect(runtime.takeControl(second.connection)).toBe("ok");
-    expect(alice.received.length + second.received.length).toBe(sent);
+    expect(alice.received.length).toBe(aliceBefore);
+    expect(second.received.length).toBe(secondBefore + 1);
     expect(alice.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
     // A late batch of the former tab is discarded before the engine.
     expect(runtime.keystrokes(alice.connection, batch(2, "b"))).toEqual({ ok: false, error: "NOT_CONTROLLING" });
@@ -311,6 +313,53 @@ describe("RaceRuntime", () => {
     expect(sent).toBeGreaterThanOrEqual(1);
     expect(sent).toBeLessThanOrEqual(2);
     expect(bob.last<RaceProgressPayload>(RACE_PROGRESS_EVENT)?.broadcast.entrants[0]?.position).toBe(5);
+  });
+
+  it("sends another tab's typing as replaceable, but a change of control and the finishing state reliably", async () => {
+    const { runtime, time, alice, bob, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 1_000);
+    const second = tab("tab-alice-2", ALICE.accountId);
+    followers.push(second.connection);
+    runtime.follow(second.connection);
+    runtime.keystrokes(alice.connection, batch(1, "a"));
+    expect(second.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1)?.volatile).toBe(true);
+    runtime.takeControl(second.connection);
+    expect(second.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1)).toMatchObject({ volatile: false, payload: { control: "controlling" } });
+    expect(alice.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1)).toMatchObject({ volatile: false, payload: { control: "observing" } });
+    // Asking again resends this tab its state, reliably, and nothing to the others.
+    const aliceCount = alice.received.length;
+    runtime.takeControl(second.connection);
+    expect(second.received.at(-1)).toMatchObject({ event: RACE_SELF_EVENT, volatile: false });
+    expect(alice.received.length).toBe(aliceCount);
+    // The batch that finishes the race: the other tab gets its last state reliably.
+    runtime.keystrokes(bob.connection, batch(1, "ab"));
+    runtime.keystrokes(second.connection, batch(2, "b"));
+    expect(alice.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1)).toMatchObject({ volatile: false, payload: { snapshot: { status: "finished" } } });
+  });
+
+  it("gives each entrant the engine's own live measures, equal to the broadcast's at the same instant", async () => {
+    const { runtime, time, alice, bob } = setup({ state: created("abcdefgh") });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 3_000);
+    const ack = runtime.keystrokes(alice.connection, batch(1, "abcd"));
+    await time.advance(0);
+    runtime.follow(bob.connection);
+    const progress = bob.last<RaceProgressPayload>(RACE_PROGRESS_EVENT);
+    expect(ack.ok && ack.self.measures.netWpm).toBe(progress?.broadcast.entrants[0]?.netWpm);
+    expect(ack.ok && ack.self.measures.netWpm).toBeGreaterThan(0);
+  });
+
+  it("writes nothing more once the race ended during a retry's wait", async () => {
+    const store = fakeStore({ beginRacing: vi.fn(() => Promise.reject(new Error("timeout"))) });
+    const { runtime, time } = setup({ store });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    expect(store.beginRacing).toHaveBeenCalledOnce();
+    // The ownership is lost while the first retry waits: no retry follows.
+    runtime.leaseChanged("lost");
+    await time.advance(20_000);
+    expect(store.beginRacing).toHaveBeenCalledOnce();
   });
 
   it("sends progress and another tab's typing as replaceable messages, never the reveal", async () => {
@@ -597,6 +646,30 @@ describe("RaceRuntime", () => {
       runtime.keystrokes(bob.connection, batch(1, "ab"));
       expect(await runtime.shutdown(time.now() + 5_000)).toBe("left");
       expect(store.interruptOwnRace).not.toHaveBeenCalled();
+    });
+
+    it("sends nothing at all once the deadline has passed", async () => {
+      const { runtime, time, store } = setup();
+      runtime.start();
+      await time.advance(COUNTDOWN_MS + 1_000);
+      expect(await runtime.shutdown(time.now() - 1)).toBe("left");
+      expect(store.interruptOwnRace).not.toHaveBeenCalled();
+      expect(store.finalizeRace).not.toHaveBeenCalled();
+    });
+
+    it("stops the save's retries when it takes over, and writes once itself", async () => {
+      let calls = 0;
+      const store = fakeStore({ finalizeRace: vi.fn(() => (calls++ === 0 ? Promise.reject(new Error("timeout")) : Promise.resolve<Transition>(WON))) });
+      const { runtime, time, alice, bob } = setup({ store });
+      runtime.start();
+      await time.advance(COUNTDOWN_MS + 1_000);
+      runtime.keystrokes(alice.connection, batch(1, "ab"));
+      runtime.keystrokes(bob.connection, batch(1, "ab"));
+      await time.advance(10);
+      expect(await runtime.shutdown(time.now() + 5_000)).toBe("finalised");
+      await time.advance(30_000);
+      // The failed attempt, then the shutdown's own: the save's retry never runs.
+      expect(store.finalizeRace).toHaveBeenCalledTimes(2);
     });
 
     it("leaves a race to its lease when the database does not answer before the deadline", async () => {
