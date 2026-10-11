@@ -38,9 +38,11 @@ re-implement one. A missing rule is added here, not copied there.
   An insert carries one grapheme of at most `MAX_GRAPHEME_LENGTH` code units as received
   (`singleGrapheme`); its NFC form may be longer.
 - **Enter** (D-16) activates a bonus and never appears in a race text. An insert holding a line
-  break ("\n", "\r" or "\r\n") refuses the whole batch (`INVALID_INPUT`), so it never counts as a
-  keystroke, and `createRace` throws for a text holding one. `containsLineBreak` is the shared
-  test, so the interface filters Enter with the same rule.
+  break refuses the whole batch (`INVALID_INPUT`), so it never counts as a keystroke, and
+  `createRace` throws for a text holding one. A line break is what Enter produces ("\n", "\r",
+  "\r\n") or any other mandatory break of Unicode. `containsLineBreak` is exported so the
+  interface can filter Enter with the same rule, and the text pipeline can turn line breaks into
+  spaces before a race.
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
 ## Keystroke protocol (`src/race/types.ts`)
@@ -128,16 +130,27 @@ errors when invalid: `createRace` throws a `RangeError` for them.
 ## Immediate feedback (`predictTyping`, COURSE-04)
 
 The typing zone reacts to every key before the server replies. `predictTyping(start, events,
-errorMode)` applies the engine's own typing fold, the one `applyKeystrokes` uses, to the pending
-events, from the player's last snapshot (or the revealed text):
+errorMode)` applies the engine's own typing fold, the one `applyKeystrokes` uses:
 
 - It gives the typed graphemes, one mark per grapheme (`typedMarks`), the pending error and the
   finish, and nothing else: no counter, measure, rank or `seq`.
 - It skips the checks only the server can make (sequence, phase, status, text version, size,
   plausibility). For a batch the server applies, the prediction equals the applied state.
-- An event the server would refuse (`INVALID_INPUT`, Enter included) gives `{ ok: false }`.
-- Any reply replaces the prediction: the client rebuilds from the snapshot and predicts again the
-  events still pending. A wrong prediction is only visual.
+
+The client keeps a confirmed start and predicts from it the batch in flight followed by the events
+gathered since:
+
+| Moment | Start | Events predicted |
+|---|---|---|
+| Reveal | the text, nothing typed, no pending error | everything typed so far |
+| `applied` or `duplicate` of the batch in flight | that batch's prediction from the previous start, which equals the server's state | the events gathered since |
+| `resync`, or `refused` with a snapshot | the snapshot | none: the unapplied keystrokes are dropped (keystroke protocol) |
+| Reconnection | the snapshot | the batch in flight when `snapshot.ackSeq` is below its `seq`, then the rest |
+
+When an event would be refused (`INVALID_INPUT`, Enter included), `predictTyping` gives
+`{ ok: false }`, and the zone shows the start, marked with `typedMarks`. A client that filters
+Enter and sends one grapheme per insert never sees it. A wrong prediction is only visual: any
+snapshot replaces it.
 
 ## Deadlines (`RaceEvent`)
 

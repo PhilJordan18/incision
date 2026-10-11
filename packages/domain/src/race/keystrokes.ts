@@ -1,7 +1,7 @@
 import type { RaceId } from "../ids";
 import { measuredElapsed } from "./elapsed";
 import { MAX_BATCH_EVENTS, maxPlausibleInserts } from "./limits";
-import { normalizedEvents, typeEvents } from "./typing-fold";
+import { isFinished, normalizedEvents, typeEvents } from "./typing-fold";
 import type {
   ApplyKeystrokes,
   EntrantKeystrokeRefusal,
@@ -53,7 +53,7 @@ export const applyKeystrokes: ApplyKeystrokes = (entrant, batch, context) => {
   if (typing.counters.totalInserts > maxPlausibleInserts(measuredElapsed(context.startsAt, context.now))) {
     return refused(entrant, batch, "IMPLAUSIBLE");
   }
-  const finished = typing.typed.length === entrant.target.length;
+  const finished = isFinished(entrant.target, typing.typed);
   const next: EntrantState = {
     ...entrant,
     ...typing,
