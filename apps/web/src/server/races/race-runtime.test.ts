@@ -513,7 +513,7 @@ describe("RaceRuntime", () => {
     ]);
     expect(rows[0]).toMatchObject({ correctInputs: 2, totalInputs: 2, accuracy: 100 });
     expect(runtime.stage).toBe("saved");
-    expect(settled).toHaveBeenCalledExactlyOnceWith(ownership);
+    expect(settled).toHaveBeenCalledExactlyOnceWith(ownership, "saved");
     expect(lease.stop).toHaveBeenCalled();
     expect(time.pending()).toBe(0);
   });

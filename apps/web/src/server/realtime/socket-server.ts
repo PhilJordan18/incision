@@ -22,6 +22,9 @@ type RealtimeOptions = {
 
 type SocketData = { session?: SocketSession };
 
+/** A handshake refused because the session could not be checked now: the page tries again. */
+export const HANDSHAKE_UNAVAILABLE = "UNAVAILABLE";
+
 /** Bound on one incoming message: a socket that sends more is cut by Socket.IO. */
 export const MAX_MESSAGE_BYTES = 32 * 1024;
 type SessionSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
@@ -44,7 +47,9 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
     authenticate(socket.request.headers.cookie)
       .then((result) => {
         if (result.kind === "refused") {
-          next(new Error("UNAUTHORIZED"));
+          // The session could not be checked (the database did not answer): refused, but as
+          // unavailable, which the page retries, not as a session that ended.
+          next(new Error(result.reason === "CHECK_FAILED" ? HANDSHAKE_UNAVAILABLE : "UNAUTHORIZED"));
           return;
         }
         if (result.kind === "authenticated") {
@@ -52,7 +57,7 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
         }
         next();
       })
-      .catch(() => next(new Error("UNAUTHORIZED")));
+      .catch(() => next(new Error(HANDSHAKE_UNAVAILABLE)));
   });
 
   io.on("connection", (socket) => {

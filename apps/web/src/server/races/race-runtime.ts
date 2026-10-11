@@ -74,7 +74,7 @@ export type RaceRuntimeOptions = {
   /** The room's tabs, read when the race needs them. */
   readonly followers: () => Iterable<RaceConnection>;
   /** The race ended here (saved, interrupted, or its ownership lost): the room's members get a fresh snapshot. */
-  readonly onSettled: (ownership: RaceOwnership) => void;
+  readonly onSettled: (ownership: RaceOwnership, outcome: "saved" | "interrupted" | "lost") => void;
   readonly log: (message: string) => void;
   /** Failures (writes that failed, an engine fault); `log` when not given. */
   readonly logError?: (message: string) => void;
@@ -600,7 +600,7 @@ export class RaceRuntime implements OwnedRace {
     this.#clearTimers();
     this.#control.clear();
     this.#options.lease.stop();
-    this.#options.onSettled(this.ownership);
+    this.#options.onSettled(this.ownership, stage);
   }
 
   #clearTimers(): void {

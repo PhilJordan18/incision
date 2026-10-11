@@ -26,6 +26,9 @@ async function authenticate(cookieHeader: string | undefined): Promise<Handshake
   if (cookieHeader === "session=short") {
     return { kind: "authenticated", session: { accountId: alice, sessionVersion: 1, expiresAt: Date.now() + 300 } };
   }
+  if (cookieHeader === "session=unchecked") {
+    return { kind: "refused", reason: "CHECK_FAILED" };
+  }
   return { kind: "refused", reason: "INVALID_TOKEN" };
 }
 
@@ -99,6 +102,10 @@ describe("attachRealtimeServer", () => {
     const client = await open({ extraHeaders: { cookie: "session=alice" } });
     expect(await client.timeout(3_000).emitWithAck(SESSION_EVENT, { accountId: "someone-else" })).toEqual({ ok: true, accountId: alice });
     expect(registry.size).toBe(1);
+  });
+
+  it("refuses a session that could not be checked as unavailable, which the page retries, not as ended", async () => {
+    await expect(open({ extraHeaders: { cookie: "session=unchecked" } })).rejects.toThrow("UNAVAILABLE");
   });
 
   it("refuses the handshake of an invalid session cookie", async () => {

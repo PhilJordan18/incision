@@ -230,9 +230,18 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         setConnection("reconnecting");
       }
     });
-    socket.on("connect_error", () => {
-      // A refused handshake (session no longer valid) is not retried by the client.
-      if (!socket.active) {
+    socket.on("connect_error", (error: Error) => {
+      // A refused handshake is not retried by the client itself: a session that ended stays
+      // ended; one that could not be checked now (the database did not answer) is tried again.
+      if (socket.active) {
+        return;
+      }
+      if (error.message === "UNAVAILABLE") {
+        setConnection("reconnecting");
+        clearTimeout(retry);
+        retry = setTimeout(() => socket.connect(), RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]);
+        attempt += 1;
+      } else {
         setEnding("signedOut");
       }
     });

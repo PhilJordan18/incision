@@ -4,6 +4,8 @@ export type RoomEvents = {
   changed: [lobbyId: string];
   /** A member left (committed); `closed` when the room closed with it (the host left). */
   left: [lobbyId: string, accountId: string, closed: boolean];
+  /** A race stopped in this process without a confirmed end: its room is watched until it has one. */
+  raceLost: [lobbyId: string];
 };
 
 const processGlobal = globalThis as typeof globalThis & { incisionRoomEvents?: EventEmitter<RoomEvents> };

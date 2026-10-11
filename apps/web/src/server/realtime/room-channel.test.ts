@@ -496,6 +496,31 @@ describe("recovery of an abandoned race when a member watches its room (ADR-0004
     expect(told).toMatchObject({ phase: "waiting", revision: 3 });
   });
 
+  it("looks again while the database does not answer, then tells every member once it does", async () => {
+    racing("lobby-1");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    recoverAbandonedRace = vi.fn(async (lobbyId: string): Promise<RoomRecovery> => {
+      // The database is back for the next look, and the race is recovered then.
+      recoveredNext(lobbyId);
+      throw new Error("connect ECONNREFUSED");
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    expect(await nextSnapshot(alice, 8_000)).toMatchObject({ phase: "waiting", revision: 3 });
+    logged.mockRestore();
+  }, 12_000);
+
+  it("after a race stopped here without a confirmed end, sends the members what the database holds", async () => {
+    const alice = await open("session=alice");
+    await watch(alice);
+    // The race ended meanwhile (its results were saved): no active race to recover.
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => ({ recovered: false }));
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), phase: "results", revision: 5 });
+    const told = nextSnapshot(alice, 2_000);
+    events.emit("raceLost", "lobby-1");
+    expect(await told).toMatchObject({ phase: "results", revision: 5 });
+  });
+
   it("does not look again once nobody follows the room", async () => {
     racing("lobby-1");
     let calls = 0;

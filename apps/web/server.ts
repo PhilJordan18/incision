@@ -78,6 +78,7 @@ async function main(): Promise<void> {
       return () => clearTimeout(timer);
     },
     onRoomChanged: notifyRoomChanged,
+    onRaceLost: (lobbyId) => roomEvents().emit("raceLost", lobbyId),
     log: (message) => console.log(message),
     logError: (message) => console.error(message),
   });

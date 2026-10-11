@@ -13,7 +13,7 @@ const PARTICIPANTS = [
   { entrantId: "e-bea", accountId: "a-bea", memberId: "m-bea", ordinal: 2, displayName: "Bea" },
 ];
 
-function harness(options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; participants?: typeof PARTICIPANTS } = {}) {
+function harness(options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; participants?: typeof PARTICIPANTS; renewed?: boolean } = {}) {
   let now = START;
   const timers: { at: number; callback: () => void }[] = [];
   const created: RaceState[] = [];
@@ -40,9 +40,10 @@ function harness(options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; pa
     beginRacing: vi.fn(async (): Promise<Transition> => ({ won: true, alreadyDone: false })),
     finalizeRace: vi.fn(async (): Promise<Transition> => ({ won: true, alreadyDone: false })),
     interruptOwnRace: vi.fn(async (): Promise<Interruption> => ({ won: true, alreadyDone: false })),
-    renewRaceLease: vi.fn(async () => ({ renewed: true })),
+    renewRaceLease: vi.fn(async () => ({ renewed: options.renewed ?? true })),
   };
   const changed: string[] = [];
+  const lost: string[] = [];
   const service = new RaceService({
     ownerId: "owner-a",
     store,
@@ -54,6 +55,7 @@ function harness(options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; pa
       return () => void timers.splice(timers.indexOf(timer), 1);
     },
     onRoomChanged: (lobbyId) => changed.push(lobbyId),
+    onRaceLost: (lobbyId) => lost.push(lobbyId),
     log: () => undefined,
   });
   const advance = (ms: number) => {
@@ -70,7 +72,7 @@ function harness(options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; pa
     }
     now = target;
   };
-  return { service, store, created, changed, advance };
+  return { service, store, created, changed, lost, advance };
 }
 
 function tab(id: string, accountId: string, locale: "fr" | "en" = "fr") {
@@ -290,6 +292,14 @@ describe("RaceService", () => {
     closed.service.memberLeft(LOBBY, "a-host", { roomClosed: true });
     expect(closed.service.ownsRace(LOBBY)).toBe(false);
     expect(closed.store.interruptOwnRace).not.toHaveBeenCalled();
+  });
+
+  it("signals a race that stopped here without a confirmed end, so its room is watched until it has one", async () => {
+    const { service, lost, advance } = harness({ renewed: false });
+    await service.start(tab("t-host", "a-host").connection, {});
+    advance(10_000);
+    await vi.waitFor(() => expect(lost).toEqual([LOBBY]));
+    expect(service.ownsRace(LOBBY)).toBe(false);
   });
 
   it("refuses new starts once stopping, and ends its races through their own shutdown", async () => {

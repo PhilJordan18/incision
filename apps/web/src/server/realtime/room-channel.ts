@@ -123,10 +123,11 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
   }
 
   events.on("changed", scheduleBroadcast);
-  const recoverIfAbandoned = recoveryOnWatch(dependencies, {
+  const recovery = recoveryOnWatch(dependencies, {
     scheduleBroadcast,
     followed: (lobbyId) => (io.sockets.adapter.rooms.get(channelOf(lobbyId))?.size ?? 0) > 0,
   });
+  events.on("raceLost", recovery.afterLoss);
 
   io.on("connection", (socket: Socket) => {
     const budget: WatchBudget = { startedAt: now(), used: 0, inFlight: false };
@@ -243,7 +244,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       // A member now: the race run here, if any, reaches this tab.
       dependencies.races?.follow(room.lobbyId, connectionOf(socket, accountId, parsed.data?.pageId));
     }
-    await recoverIfAbandoned(room.lobbyId, snapshot.phase);
+    await recovery.onWatch(room.lobbyId, snapshot.phase);
     // A broadcast newer than this read went out meanwhile and skipped this socket: one more
     // tells it (and drops it if the member left in between).
     if (cameOnline || (lastBroadcast.get(room.lobbyId) ?? -1) > snapshot.revision) {
@@ -266,7 +267,8 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
 }
 
 /**
- * Recovery of a race nobody runs any more, when a member watches its room (ADR-0004). Inside
+ * Recovery of a race nobody runs any more, when a member watches its room, or when this process
+ * stopped running it without a confirmed end (ADR-0004). Inside
  * the watch, so within its budget; only in an active phase and for a race this process does
  * not run. A recovered room is broadcast: every member learns that the race was interrupted.
  * While the lease still runs (its owner may be gone, or alive elsewhere), the room is looked at
@@ -278,35 +280,65 @@ function recoveryOnWatch(
   room: { readonly scheduleBroadcast: (lobbyId: string) => void; readonly followed: (lobbyId: string) => boolean },
 ) {
   const lookAgain = new Map<string, NodeJS.Timeout>();
-  const recover = async (lobbyId: string): Promise<void> => {
+  /** Failed looks per room, while the database does not answer: bounded, then given up. */
+  const failures = new Map<string, number>();
+  const later = (lobbyId: string, delayMs: number, refresh: boolean) => {
+    if (lookAgain.has(lobbyId)) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      lookAgain.delete(lobbyId);
+      if (room.followed(lobbyId)) {
+        void recover(lobbyId, refresh);
+      }
+    }, delayMs);
+    timer.unref();
+    lookAgain.set(lobbyId, timer);
+  };
+  /** `refresh`: the members' pages may show an end the database never confirmed; send them what it holds. */
+  const recover = async (lobbyId: string, refresh: boolean): Promise<void> => {
     const recovery = dependencies.raceRecovery;
     if (recovery === undefined || recovery.ownsRace(lobbyId)) {
       return;
     }
     try {
       const outcome = await recovery.recover(lobbyId);
+      failures.delete(lobbyId);
       if (outcome.recovered) {
         room.scheduleBroadcast(lobbyId);
-      } else if (outcome.retryInMs !== undefined && !lookAgain.has(lobbyId)) {
-        const timer = setTimeout(() => {
-          lookAgain.delete(lobbyId);
-          if (room.followed(lobbyId)) {
-            void recover(lobbyId);
-          }
-        }, outcome.retryInMs + LOOK_AGAIN_MARGIN_MS);
-        timer.unref();
-        lookAgain.set(lobbyId, timer);
+      } else if (outcome.retryInMs !== undefined) {
+        later(lobbyId, outcome.retryInMs + LOOK_AGAIN_MARGIN_MS, refresh);
+      } else if (refresh) {
+        // No active race any more (saved or interrupted meanwhile): the pages learn which.
+        room.scheduleBroadcast(lobbyId);
       }
     } catch (error: unknown) {
       console.error("[races] recovery on watch failed:", describeDatabaseError(error));
+      const failed = (failures.get(lobbyId) ?? 0) + 1;
+      if (failed < MAX_FAILED_LOOKS) {
+        failures.set(lobbyId, failed);
+        later(lobbyId, FAILED_LOOK_RETRY_MS, refresh);
+      } else {
+        failures.delete(lobbyId);
+      }
     }
   };
-  return async (lobbyId: string, phase: RoomPhase): Promise<void> => {
-    if (phase === "countdown" || phase === "racing") {
-      await recover(lobbyId);
-    }
+  return {
+    onWatch: async (lobbyId: string, phase: RoomPhase): Promise<void> => {
+      if (phase === "countdown" || phase === "racing") {
+        await recover(lobbyId, false);
+      }
+    },
+    /** A race stopped here without a confirmed end: its room is looked at until the database holds one. */
+    afterLoss: (lobbyId: string): void => {
+      void recover(lobbyId, true);
+    },
   };
 }
+
+/** While the database does not answer, the room is looked at again this often, this many times. */
+const FAILED_LOOK_RETRY_MS = 5_000;
+const MAX_FAILED_LOOKS = 24;
 
 /** After the lease's end on the database clock, a margin for the clocks and the last renewal. */
 const LOOK_AGAIN_MARGIN_MS = 1_000;

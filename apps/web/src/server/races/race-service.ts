@@ -44,6 +44,8 @@ export type RaceServiceOptions = {
   readonly schedule: Schedule;
   /** A room's race changed in the database (started, saved, interrupted): its members get a fresh snapshot. */
   readonly onRoomChanged: (lobbyId: string) => void;
+  /** A race of the room stopped here without a confirmed end (lost lease, unreachable database). */
+  readonly onRaceLost?: (lobbyId: string) => void;
   readonly log: (message: string) => void;
   /** Failures; `log` when not given. */
   readonly logError?: (message: string) => void;
@@ -240,9 +242,14 @@ export class RaceService {
       now: this.#options.now,
       schedule,
       followers: () => this.#followers.get(ownership.lobbyId)?.values() ?? [],
-      onSettled: (settled) => {
+      onSettled: (settled, outcome) => {
         this.#registry.remove(settled);
         this.#options.onRoomChanged(settled.lobbyId);
+        if (outcome === "lost") {
+          // Not run here any more, and the database may not hold its end yet: the room is
+          // watched until it does (its lease ends, then recovery), so open pages learn it.
+          this.#options.onRaceLost?.(settled.lobbyId);
+        }
       },
       log,
       logError: (message) => this.#logError(message),
