@@ -27,12 +27,18 @@ let findActiveMembership: (accountId: string) => Promise<ActiveMembership | unde
 let readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
 let recoverAbandonedRace: (lobbyId: string) => Promise<RoomRecovery>;
 const ownedRaces = new Set<string>();
+const raceFollows: { lobbyId: string; id: string; accountId: string; locale: string }[] = [];
+const raceUnfollows: string[] = [];
 const memberships = new Map<string, ActiveMembership>();
 const snapshots = new Map<string, RoomSnapshot>();
 const clients: Socket[] = [];
 
 async function authenticate(cookie: string | undefined): Promise<HandshakeAuthentication> {
-  const accountId = cookie === undefined ? undefined : ACCOUNTS[cookie];
+  const session = cookie
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("session="));
+  const accountId = session === undefined ? undefined : ACCOUNTS[session];
   return accountId === undefined
     ? { kind: "anonymous" }
     : { kind: "authenticated", session: { accountId, sessionVersion: 1, expiresAt: Date.now() + 60_000 } };
@@ -78,6 +84,8 @@ beforeEach(async () => {
   readRoomSnapshot = vi.fn(async (lobbyId: string) => snapshots.get(lobbyId));
   recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => ({ recovered: false }));
   ownedRaces.clear();
+  raceFollows.length = 0;
+  raceUnfollows.length = 0;
   io = attachRealtimeServer(httpServer, { allowedOrigin: baseUrl, isProduction: true, authenticate, registry });
   registerRoomChannel(io, {
     allowedOrigin: baseUrl,
@@ -87,6 +95,10 @@ beforeEach(async () => {
     findActiveMembership: (accountId) => findActiveMembership(accountId),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
     raceRecovery: { recover: (lobbyId) => recoverAbandonedRace(lobbyId), ownsRace: (lobbyId) => ownedRaces.has(lobbyId) },
+    races: {
+      follow: (lobbyId, connection) => void raceFollows.push({ lobbyId, id: connection.id, accountId: connection.accountId, locale: connection.locale }),
+      unfollow: (id) => void raceUnfollows.push(id),
+    },
   });
 });
 
@@ -119,11 +131,11 @@ afterEach(async () => {
   await io.close();
 });
 
-function open(cookie?: string): Promise<Socket> {
+function open(cookie?: string, headers: Record<string, string> = {}): Promise<Socket> {
   const client = connect(baseUrl, {
     reconnection: false,
     transports: ["websocket"],
-    extraHeaders: { origin: baseUrl, ...(cookie === undefined ? {} : { cookie }) },
+    extraHeaders: { origin: baseUrl, ...headers, ...(cookie === undefined ? {} : { cookie }) },
   });
   clients.push(client);
   return new Promise((resolve, reject) => {
@@ -483,5 +495,35 @@ describe("recovery of an abandoned race when a member watches its room (ADR-0004
     alice.close();
     await new Promise((resolve) => setTimeout(resolve, 1_300));
     expect(calls).toBe(1);
+  });
+});
+
+describe("the races of the room", () => {
+  it("tells the races about a tab once its membership is checked, with its language, and when it closes", async () => {
+    const refused = await open("session=clo");
+    await watch(refused, "ABCDEF");
+    expect(raceFollows).toEqual([]);
+    const alice = await open("session=alice; locale=en");
+    await watch(alice);
+    expect(raceFollows).toEqual([{ lobbyId: "lobby-1", id: alice.id, accountId: ALICE, locale: "en" }]);
+    const id = alice.id;
+    alice.close();
+    await until(() => raceUnfollows.includes(id ?? ""));
+  });
+
+  it("takes a tab's language from the browser when no choice was made", async () => {
+    const bob = await open("session=bob", { "accept-language": "en-CA,fr;q=0.5" });
+    await watch(bob);
+    expect(raceFollows[0]?.locale).toBe("en");
+  });
+
+  it("drops a tab from the races once its member left the room", async () => {
+    const bob = await open("session=bob");
+    await watch(bob);
+    const received = nextSnapshot(bob);
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), revision: 2, members: [member("member-a", ALICE, "Alice", true)] });
+    events.emit("changed", "lobby-1");
+    await received;
+    await until(() => raceUnfollows.includes(bob.id ?? ""));
   });
 });

@@ -152,10 +152,16 @@ export class RaceRuntime implements OwnedRace {
     if (entrant !== undefined && !this.#controllerFollows(entrant.entrantId)) {
       this.#control.set(entrant.entrantId, connection.id);
     }
-    connection.emit(RACE_REVEAL_EVENT, this.#revealFor(entrant?.entrantId));
-    connection.emit(RACE_PROGRESS_EVENT, this.#progress());
-    if (entrant !== undefined) {
-      connection.emit(RACE_SELF_EVENT, this.#selfFor(entrant.entrantId, connection.id));
+    const reveal = this.#revealFor(entrant?.entrantId);
+    const progress = this.#progress();
+    const self = entrant === undefined ? undefined : this.#selfFor(entrant.entrantId, connection.id);
+    if (reveal === undefined || progress === undefined || (entrant !== undefined && self === undefined)) {
+      return;
+    }
+    connection.emit(RACE_REVEAL_EVENT, reveal);
+    connection.emit(RACE_PROGRESS_EVENT, progress);
+    if (self !== undefined) {
+      connection.emit(RACE_SELF_EVENT, self);
     }
     if (this.#stage === "saving") {
       connection.emit(RACE_CONFIRMING_EVENT, { raceId: this.ownership.raceId });
@@ -182,7 +188,7 @@ export class RaceRuntime implements OwnedRace {
     }
     this.#control.set(entrant.entrantId, connection.id);
     this.#sendSelf(entrant.entrantId);
-    return "ok";
+    return this.#stage === "running" ? "ok" : "NO_RACE";
   }
 
   /**
@@ -209,16 +215,13 @@ export class RaceRuntime implements OwnedRace {
       now: this.#now(),
       batch: { raceId: asRaceId(payload.raceId), entrantId: asEntrantId(entrant.entrantId), seq: payload.seq, textVersion: payload.textVersion, events: payload.events },
     });
-    if (output?.keystrokes === undefined) {
+    const self = output?.keystrokes === undefined ? undefined : this.#selfFor(entrant.entrantId, connection.id);
+    if (output?.keystrokes === undefined || self === undefined) {
       return { ok: false, error: "NO_RACE" };
     }
     // The other tabs of this entrant follow its typing.
-    for (const other of this.#connectionsOf(entrant.accountId)) {
-      if (other.id !== connection.id) {
-        other.emit(RACE_SELF_EVENT, this.#selfFor(entrant.entrantId, other.id));
-      }
-    }
-    return { ok: true, result: output.keystrokes, self: this.#selfFor(entrant.entrantId, connection.id) };
+    this.#sendSelf(entrant.entrantId, connection.id);
+    return { ok: true, result: output.keystrokes, self };
   }
 
   /** The member left the room during the race: an immediate abandon (state-machines §3). */
@@ -402,6 +405,9 @@ export class RaceRuntime implements OwnedRace {
       }
       this.#progressSentAt = this.#options.now();
       const progress = this.#progress();
+      if (progress === undefined) {
+        return;
+      }
       for (const connection of this.#options.followers()) {
         connection.emit(RACE_PROGRESS_EVENT, progress);
       }
@@ -454,6 +460,9 @@ export class RaceRuntime implements OwnedRace {
   }
 
   #engineFailed(error: unknown): void {
+    if (this.#stage !== "running" && this.#stage !== "saving") {
+      return;
+    }
     this.#options.log(`[races] the engine failed on ${this.ownership.raceId}: ${error instanceof Error ? error.name : "unknown error"}`);
     try {
       // The reducer is pure: the last good state is intact, and interrupting it only reads it.
@@ -530,43 +539,61 @@ export class RaceRuntime implements OwnedRace {
     }
   }
 
-  #revealFor(selfEntrantId: string | undefined): RaceRevealPayload {
-    const reveal = toRaceReveal(this.#state);
-    return {
-      reveal,
+  /**
+   * The engine's views are pure too: an exception there is an engine failure like one in
+   * `reduceRace`, and ends this race only.
+   */
+  #view<View>(compute: () => View): View | undefined {
+    try {
+      return compute();
+    } catch (error: unknown) {
+      this.#engineFailed(error);
+      return undefined;
+    }
+  }
+
+  #revealFor(selfEntrantId: string | undefined): RaceRevealPayload | undefined {
+    return this.#view(() => ({
+      reveal: toRaceReveal(this.#state),
       entrants: this.#state.entrants.map(({ entrantId }) => ({ entrantId, displayName: this.#entrants.get(entrantId)?.displayName ?? "" })),
       selfEntrantId: selfEntrantId ?? null,
       serverNow: this.#options.now(),
-    };
+    }));
   }
 
-  #progress(): RaceProgressPayload {
+  #progress(): RaceProgressPayload | undefined {
     const now = this.#options.now();
-    return { broadcast: toRaceBroadcast(this.#state, asInstant(now)), serverNow: now };
+    return this.#view(() => ({ broadcast: toRaceBroadcast(this.#state, asInstant(now)), serverNow: now }));
   }
 
-  #selfFor(entrantId: string, connectionId: string): RaceSelfPayload {
-    const snapshot = toEntrantSnapshot(this.#state, asEntrantId(entrantId));
-    if (snapshot === undefined) {
-      throw new Error("An entrant of the race has no snapshot");
-    }
-    const entrant = this.#state.entrants.find((candidate) => candidate.entrantId === entrantId);
-    const elapsed = measuredElapsed(this.#state.startsAt, this.#now(), entrant?.endedAt ?? this.#state.endedAt);
-    const { netWpm, accuracy } = computeMeasures(snapshot.counters, elapsed);
-    return {
-      snapshot,
-      measures: { netWpm, accuracy },
-      control: this.#control.get(entrantId) === connectionId ? "controlling" : "observing",
-    };
+  #selfFor(entrantId: string, connectionId: string): RaceSelfPayload | undefined {
+    return this.#view(() => {
+      const snapshot = toEntrantSnapshot(this.#state, asEntrantId(entrantId));
+      const entrant = this.#state.entrants.find((candidate) => candidate.entrantId === entrantId);
+      if (snapshot === undefined || entrant === undefined) {
+        throw new Error("An entrant of the race has no snapshot");
+      }
+      const elapsed = measuredElapsed(this.#state.startsAt, this.#now(), entrant.endedAt ?? this.#state.endedAt);
+      const { netWpm, accuracy } = computeMeasures(snapshot.counters, elapsed);
+      return { snapshot, measures: { netWpm, accuracy }, control: this.#control.get(entrantId) === connectionId ? "controlling" : "observing" };
+    });
   }
 
-  #sendSelf(entrantId: string): void {
+  /** The entrant's tabs (but `except`) get its typing state and which of them types. */
+  #sendSelf(entrantId: string, except?: string): void {
     const entrant = this.#entrants.get(entrantId);
     if (entrant === undefined) {
       return;
     }
     for (const connection of this.#connectionsOf(entrant.accountId)) {
-      connection.emit(RACE_SELF_EVENT, this.#selfFor(entrantId, connection.id));
+      if (connection.id === except) {
+        continue;
+      }
+      const self = this.#selfFor(entrantId, connection.id);
+      if (self === undefined) {
+        return;
+      }
+      connection.emit(RACE_SELF_EVENT, self);
     }
   }
 

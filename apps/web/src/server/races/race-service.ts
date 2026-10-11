@@ -174,16 +174,16 @@ export class RaceService {
 
   #runtime(ownership: RaceOwnership, state: RaceState, entrants: readonly { entrantId: string; accountId: string; displayName: string }[], acquiredAt: number): RaceRuntime {
     const { store, schedule, log } = this.#options;
-    let runtime: RaceRuntime | undefined;
     const lease = new RaceLease({
       renew: async () => (await store.renewRaceLease(ownership)).renewed,
       now: this.#options.monotonic,
       schedule,
       acquiredAt,
-      onChange: (leaseState) => runtime?.leaseChanged(leaseState),
+      // Called by the lease's timers and renewals, never during this constructor.
+      onChange: (leaseState) => runtime.leaseChanged(leaseState),
       ...(this.#options.leaseTiming === undefined ? {} : { timing: this.#options.leaseTiming }),
     });
-    runtime = new RaceRuntime({
+    const runtime = new RaceRuntime({
       ownership,
       state,
       entrants,
