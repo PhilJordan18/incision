@@ -42,8 +42,11 @@ async function settle(): Promise<void> {
   }
 }
 
-/** A fake clock and timer queue: `advance` runs what falls due, in order. */
-function fakeTime() {
+/**
+ * A fake clock and timer queue: `advance` runs what falls due, in order. `earlyMs` makes every
+ * timer fire that much early, as real timers rounded to the millisecond can.
+ */
+function fakeTime(earlyMs = 0) {
   let now = START;
   let next = 0;
   const timers = new Map<number, { at: number; callback: () => void }>();
@@ -51,7 +54,8 @@ function fakeTime() {
     now: () => now,
     schedule: (callback: () => void, delayMs: number) => {
       const id = next++;
-      timers.set(id, { at: now + delayMs, callback });
+      // Early, but never at once: a timer of 1 ms or more still fires after the current instant.
+      timers.set(id, { at: delayMs <= 0 ? now : now + Math.max(1, delayMs - earlyMs), callback });
       return () => void timers.delete(id);
     },
     async advance(ms: number) {
@@ -73,9 +77,14 @@ function fakeTime() {
   };
 }
 
-function tab(id: string, accountId: string) {
+function tab(id: string, accountId: string, pageId?: string) {
   const received: { event: string; payload: unknown; volatile: boolean }[] = [];
-  const connection: RaceConnection = { id, accountId, emit: (event, payload, options) => void received.push({ event, payload, volatile: options?.volatile === true }) };
+  const connection: RaceConnection = {
+    id,
+    accountId,
+    ...(pageId === undefined ? {} : { pageId }),
+    emit: (event, payload, options) => void received.push({ event, payload, volatile: options?.volatile === true }),
+  };
   return {
     connection,
     received,
@@ -129,8 +138,8 @@ function created(text = "ab", timeLimitMs: number | null = 120_000): RaceState {
   return result.race;
 }
 
-function setup({ state = created(), store = fakeStore() }: { state?: RaceState; store?: ReturnType<typeof fakeStore> } = {}) {
-  const time = fakeTime();
+function setup({ state = created(), store = fakeStore(), earlyMs = 0 }: { state?: RaceState; store?: ReturnType<typeof fakeStore>; earlyMs?: number } = {}) {
+  const time = fakeTime(earlyMs);
   const lease = fakeLease();
   const alice = tab("tab-alice", ALICE.accountId);
   const bob = tab("tab-bob", BOB.accountId);
@@ -234,6 +243,41 @@ describe("RaceRuntime", () => {
     expect(runtime.keystrokes(back.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "duplicate", ackSeq: 1 } });
   });
 
+  it("gives the input back to a page that reconnects before the server saw its former socket close", async () => {
+    const { runtime, time, followers } = setup();
+    const before = tab("tab-page-1", ALICE.accountId, "page-1");
+    followers.splice(0, 1, before.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    runtime.keystrokes(before.connection, batch(1, "a"));
+    // The same page, on a new socket, while the old one still counts as following.
+    const after = tab("tab-page-1-again", ALICE.accountId, "page-1");
+    followers.push(after.connection);
+    runtime.follow(after.connection);
+    expect(after.last<RaceSelfPayload>(RACE_SELF_EVENT)).toMatchObject({ control: "controlling", snapshot: { ackSeq: 1 } });
+    expect(runtime.keystrokes(before.connection, batch(2, "b"))).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+    expect(runtime.keystrokes(after.connection, batch(2, "b"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    // Another page of the same player still observes when it opens.
+    const other = tab("tab-page-2", ALICE.accountId, "page-2");
+    followers.push(other.connection);
+    runtime.follow(other.connection);
+    expect(other.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
+  });
+
+  it("hands the input to the player's other tab when the typing tab closes, and tells it", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    const second = tab("tab-alice-2", ALICE.accountId);
+    followers.push(second.connection);
+    runtime.follow(second.connection);
+    expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
+    followers.splice(followers.indexOf(alice.connection), 1);
+    runtime.unfollow(alice.connection.id);
+    expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
+    expect(runtime.keystrokes(second.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+  });
+
   it("accepts nothing and broadcasts nothing while its lease is not confirmed, then catches up", async () => {
     const { runtime, time, lease, alice, bob } = setup();
     runtime.start();
@@ -289,6 +333,26 @@ describe("RaceRuntime", () => {
     await time.advance(200_000);
     expect(time.pending()).toBe(0);
     expect(store.beginRacing).not.toHaveBeenCalled();
+  });
+
+  it("never broadcasts progress closer than 250 ms apart, even when timers fire early", async () => {
+    const { runtime, time, alice, bob } = setup({ state: created("abcdefghijklmnopqrstuvwxyz"), earlyMs: 1 });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 2_000);
+    const text = "abcdefghijklmnopqrstuvwxyz";
+    for (let seq = 1; seq <= 20; seq += 1) {
+      runtime.keystrokes(alice.connection, batch(seq, text[seq - 1] ?? ""));
+      await time.advance(60);
+    }
+    await time.advance(500);
+    const sent = bob.received.filter((message) => message.event === RACE_PROGRESS_EVENT).map((message) => (message.payload as RaceProgressPayload).serverNow);
+    const racing = sent.filter((serverNow) => serverNow > START + COUNTDOWN_MS);
+    expect(racing.length).toBeGreaterThan(3);
+    for (const [index, serverNow] of racing.entries()) {
+      if (index > 0) {
+        expect(serverNow - (racing[index - 1] ?? 0)).toBeGreaterThanOrEqual(250);
+      }
+    }
   });
 
   it("freezes the engine's results at the end, says they are being confirmed, and saves them once", async () => {

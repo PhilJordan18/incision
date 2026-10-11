@@ -100,10 +100,11 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
 }
 
 /** The tab as the races see it: its id, its session's account and the language of its pages. */
-export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile" | "handshake">, accountId: string): RoomConnection {
+export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile" | "handshake">, accountId: string, pageId?: string): RoomConnection {
   return {
     id: socket.id,
     accountId,
+    ...(pageId === undefined ? {} : { pageId }),
     locale: handshakeLocale(socket.handshake.headers),
     emit: (event, payload, options) => void (options?.volatile === true ? socket.volatile.emit(event, payload) : socket.emit(event, payload)),
   };

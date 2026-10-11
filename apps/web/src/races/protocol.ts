@@ -13,9 +13,9 @@ import { z } from "zod";
 export const RACE_BATCH_EVENT = "race:batch";
 
 /** What one message may carry: twice what the engine accepts, so its own refusal stays reachable. */
-const WIRE_MAX_EVENTS = 2 * MAX_BATCH_EVENTS;
+export const WIRE_MAX_EVENTS = 2 * MAX_BATCH_EVENTS;
 /** A wire bound on one insert, above the engine's grapheme bound (which refuses longer ones). */
-const WIRE_MAX_INSERT_LENGTH = 4 * MAX_GRAPHEME_LENGTH;
+export const WIRE_MAX_INSERT_LENGTH = 4 * MAX_GRAPHEME_LENGTH;
 
 const inputEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("insert"), grapheme: z.string().max(WIRE_MAX_INSERT_LENGTH) }).strict(),

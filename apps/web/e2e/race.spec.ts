@@ -86,7 +86,16 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(hostField).toBeEnabled({ timeout: 6_000 });
     await expect(guestField).toBeEnabled();
 
-    // Paste is refused; a wrong letter is blocked in mandatory correction (D-19) until fixed.
+    // Paste and drop are refused: a pasted text never becomes keystrokes (screen 08).
+    await guestField.evaluate((field) => {
+      field.dispatchEvent(new InputEvent("beforeinput", { inputType: "insertFromPaste", data: "Test text", bubbles: true, cancelable: true }));
+      const data = new DataTransfer();
+      data.setData("text/plain", "Test text");
+      field.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    });
+    await expect(guest.locator(".course-texte .course-juste")).toHaveCount(0);
+    await expect(guestField).toHaveValue("");
+    // A wrong letter is blocked in mandatory correction (D-19) until fixed.
     await guestField.press("x");
     await expect(guest.getByText("Corrige le « T » encadré pour avancer.")).toBeVisible();
     await expect(guestField).toHaveAttribute("aria-invalid", "true");

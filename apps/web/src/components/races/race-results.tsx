@@ -100,7 +100,8 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId }: 
       </div>
       <p className="text-sm text-brume">{t.results.rounding}</p>
 
-      {linkToRace && (
+      {/* The race page is its entrants' history (HIST-02): the link is shown to them only. */}
+      {linkToRace && self !== undefined && (
         <Link href={`/races/${race.raceId}`} className={`${secondaryButton} self-start`}>
           {t.results.openRace}
         </Link>

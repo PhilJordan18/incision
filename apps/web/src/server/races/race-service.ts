@@ -123,6 +123,7 @@ export class RaceService {
     if (this.#registry.stopping) {
       return { ok: false, error: "UNAVAILABLE" };
     }
+    this.#prune(this.#startTimes, START_WINDOW.windowMs);
     if (!this.#withinWindow(this.#startTimes, connection.accountId, START_WINDOW.maxStarts, START_WINDOW.windowMs)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
@@ -189,8 +190,22 @@ export class RaceService {
 
   #runtime(ownership: RaceOwnership, state: RaceState, entrants: readonly { entrantId: string; accountId: string; displayName: string }[], acquiredAt: number): RaceRuntime {
     const { store, schedule, log } = this.#options;
+    let failing = false;
     const lease = new RaceLease({
-      renew: async () => (await store.renewRaceLease(ownership)).renewed,
+      renew: async () => {
+        try {
+          const renewed = (await store.renewRaceLease(ownership)).renewed;
+          failing = false;
+          return renewed;
+        } catch (error: unknown) {
+          // Logged once per outage; the lease retries every 2 s and suspends on time.
+          if (!failing) {
+            this.#logError(`[races] lease renewal of ${ownership.raceId} failed: ${describeDatabaseError(error)}`);
+          }
+          failing = true;
+          throw error;
+        }
+      },
       now: this.#options.monotonic,
       schedule,
       acquiredAt,
@@ -284,6 +299,16 @@ export class RaceService {
     recent.push(now);
     windows.set(key, recent);
     return true;
+  }
+
+  /** Drops the windows with nothing left in them, so the map holds only recent accounts. */
+  #prune(windows: Map<string, number[]>, windowMs: number): void {
+    const now = this.#options.monotonic();
+    for (const [key, times] of windows) {
+      if (times.every((time) => now - time >= windowMs)) {
+        windows.delete(key);
+      }
+    }
   }
 
   #follows(accountId: string): boolean {

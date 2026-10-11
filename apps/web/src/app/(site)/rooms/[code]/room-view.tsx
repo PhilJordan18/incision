@@ -67,6 +67,8 @@ const ROOM_HEADING_ID = "room-heading";
  */
 export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: RoomViewProps) {
   const [snapshot, setSnapshot] = useState(initial);
+  // Kept across the socket's reconnections: a reconnected page takes its race input back.
+  const [pageId] = useState(() => crypto.randomUUID());
   // One per page: the socket's (re)connections attach to it, so a tab keeps its typing state.
   const [race] = useState(
     () =>
@@ -164,7 +166,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       };
       socket
         .timeout(10_000)
-        .emitWithAck(ROOM_WATCH_EVENT, { code: initial.code })
+        .emitWithAck(ROOM_WATCH_EVENT, { code: initial.code, pageId })
         .then((answer: unknown) => {
           if (sent !== generation) {
             return;
@@ -245,7 +247,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       race.detach();
       socket.close();
     };
-  }, [initial.code, router, race]);
+  }, [initial.code, router, race, pageId]);
 
   // A server render newer than what the socket brought (after a refresh) replaces it.
   const [rendered, setRendered] = useState(initial);

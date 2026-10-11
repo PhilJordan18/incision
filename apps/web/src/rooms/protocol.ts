@@ -12,7 +12,11 @@ export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_los
 export const ROOM_WATCH_EVENT = "room:watch";
 export const ROOM_SNAPSHOT_EVENT = "room:snapshot";
 
-export const roomWatchPayloadSchema = z.object({ code: z.string().min(1).max(16) }).strict();
+/**
+ * `pageId`: drawn by the page once and kept across its socket's reconnections, so that a
+ * reconnected page takes its race input back from its own former socket (F-04.0).
+ */
+export const roomWatchPayloadSchema = z.object({ code: z.string().min(1).max(16), pageId: z.uuid().optional() }).strict();
 
 /**
  * `room:watch` events a socket may send per window. A page sends one per connection and a

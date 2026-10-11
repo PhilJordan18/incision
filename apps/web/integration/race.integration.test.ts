@@ -35,16 +35,19 @@ afterAll(async () => {
   // Each process's output is kept with the test results (uploaded by CI on a failure).
   const logs = path.resolve(import.meta.dirname, "..", "test-results");
   await mkdir(logs, { recursive: true });
+  // Every process stops first, so a failed write cannot leave one running.
   for (const server of servers) {
     server.child.kill("SIGCONT");
     server.child.kill("SIGKILL");
+  }
+  for (const server of servers) {
     await writeFile(path.join(logs, `integration-server-${new URL(server.origin).port}.log`), server.output());
   }
   await pool.current?.end();
 });
 
 async function server(index: number): Promise<ServerProcess> {
-  const started = await startServer(PORTS[index] ?? 3856 + index);
+  const started = await startServer(PORTS[index] ?? 3301 + index);
   servers.push(started);
   return started;
 }

@@ -1,7 +1,7 @@
 import { MAX_BATCH_EVENTS } from "@incision/domain";
 import { MAX_MESSAGE_BYTES } from "../server/realtime/socket-server";
 import { describe, expect, it } from "vitest";
-import { keystrokeBatchPayloadSchema, parseKeystrokeBatch } from "./protocol";
+import { keystrokeBatchPayloadSchema, parseKeystrokeBatch, WIRE_MAX_EVENTS, WIRE_MAX_INSERT_LENGTH } from "./protocol";
 
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
 const batch = (change: Record<string, unknown> = {}) => ({ raceId: RACE, seq: 1, textVersion: 0, events: [{ type: "insert", grapheme: "a" }], ...change });
@@ -61,9 +61,11 @@ describe("keystroke batch payloads", () => {
 });
 
 describe("the incoming message bound", () => {
-  it("lets through the largest batch the wire accepts, with three-byte graphemes, under MAX_MESSAGE_BYTES", () => {
-    // 2 × MAX_BATCH_EVENTS events of the longest insert the wire takes, each code unit 3 bytes in UTF-8.
-    const events = Array.from({ length: 2 * MAX_BATCH_EVENTS }, () => ({ type: "insert", grapheme: "€".repeat(64) }));
+  it("lets through the largest batch the schema accepts with three-byte characters, under MAX_MESSAGE_BYTES", () => {
+    // WIRE_MAX_EVENTS inserts of WIRE_MAX_INSERT_LENGTH code units, each 3 bytes in UTF-8: what a
+    // page could send at most with ordinary text. Escaped control characters would be bigger, and
+    // are cut by the bound: no keyboard types them, and the engine would refuse them anyway.
+    const events = Array.from({ length: WIRE_MAX_EVENTS }, () => ({ type: "insert", grapheme: "€".repeat(WIRE_MAX_INSERT_LENGTH) }));
     const payload = batch({ events });
     expect(parseKeystrokeBatch(payload).success).toBe(true);
     // Socket.IO frames it as `42<ack>["race:batch",{…}]`: a few dozen bytes more.

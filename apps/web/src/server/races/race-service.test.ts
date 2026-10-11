@@ -179,10 +179,11 @@ describe("RaceService", () => {
     expect(service.keystrokes(second.connection, batch(1, "T"))).toMatchObject({ ok: true });
     service.unfollow(second.connection.id);
     expect(service.keystrokes(second.connection, batch(2, "e"))).toEqual({ ok: false, error: "NO_RACE" });
-    // The typing tab is gone: the next tab of the entrant that follows takes the input.
+    // The typing tab is gone: the entrant's remaining tab takes the input; a tab opened later observes.
     const third = tab("t-3", "a-host");
     service.follow(LOBBY, third.connection);
-    expect(service.keystrokes(third.connection, batch(2, "e"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(service.keystrokes(third.connection, batch(2, "e"))).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+    expect(service.keystrokes(first.connection, batch(2, "e"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
   });
 
   it("abandons a member who left the room, and ends the race when the room closed", async () => {

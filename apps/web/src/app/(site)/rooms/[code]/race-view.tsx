@@ -28,11 +28,14 @@ const TYPING_INPUT_ID = "race-typing";
 export function RaceView({ race, t, locale, roomLabel, onTakeControl }: RaceViewProps) {
   const state = useSyncExternalStore(race.subscribe, race.getState, race.getState);
   const now = useServerClock(race, state);
+  const waitedLong = useWaitedLong(state.reveal === undefined);
   const { reveal } = state;
   if (reveal === undefined) {
+    // The room counts down or races, but no race reached this tab: it runs elsewhere (two
+    // processes overlapping) or its process stopped; the room recovers it once its lease ends.
     return (
       <p role="status" className="text-embrun">
-        {t.preparing}
+        {waitedLong ? t.elsewhere : t.preparing}
       </p>
     );
   }
@@ -95,6 +98,21 @@ export function RaceView({ race, t, locale, roomLabel, onTakeControl }: RaceView
       </div>
     </div>
   );
+}
+
+/** Without a race after this long, the view says the race is not run here. */
+const ELSEWHERE_AFTER_MS = 5_000;
+
+function useWaitedLong(waiting: boolean): boolean {
+  const [waitedLong, setWaitedLong] = useState(false);
+  useEffect(() => {
+    if (!waiting) {
+      return;
+    }
+    const timer = setTimeout(() => setWaitedLong(true), ELSEWHERE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [waiting]);
+  return waiting && waitedLong;
 }
 
 /** Re-renders every 100 ms while the race counts down or runs, on the server's clock. */

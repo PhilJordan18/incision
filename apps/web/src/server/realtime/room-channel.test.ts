@@ -27,7 +27,7 @@ let findActiveMembership: (accountId: string) => Promise<ActiveMembership | unde
 let readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
 let recoverAbandonedRace: (lobbyId: string) => Promise<RoomRecovery>;
 const ownedRaces = new Set<string>();
-const raceFollows: { lobbyId: string; id: string; accountId: string; locale: string }[] = [];
+const raceFollows: { lobbyId: string; id: string; accountId: string; locale: string; pageId?: string }[] = [];
 const raceUnfollows: string[] = [];
 const memberships = new Map<string, ActiveMembership>();
 const snapshots = new Map<string, RoomSnapshot>();
@@ -96,7 +96,14 @@ beforeEach(async () => {
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
     raceRecovery: { recover: (lobbyId) => recoverAbandonedRace(lobbyId), ownsRace: (lobbyId) => ownedRaces.has(lobbyId) },
     races: {
-      follow: (lobbyId, connection) => void raceFollows.push({ lobbyId, id: connection.id, accountId: connection.accountId, locale: connection.locale }),
+      follow: (lobbyId, connection) =>
+        void raceFollows.push({
+          lobbyId,
+          id: connection.id,
+          accountId: connection.accountId,
+          locale: connection.locale,
+          ...(connection.pageId === undefined ? {} : { pageId: connection.pageId }),
+        }),
       unfollow: (id) => void raceUnfollows.push(id),
     },
   });
@@ -509,6 +516,14 @@ describe("the races of the room", () => {
     const id = alice.id;
     alice.close();
     await until(() => raceUnfollows.includes(id ?? ""));
+  });
+
+  it("passes the page id of the watch to the races, and refuses one that is not a UUID", async () => {
+    const pageId = "4b7f2c1e-3d5a-4e6f-8a9b-0c1d2e3f4a5b";
+    const alice = await open("session=alice");
+    expect(await alice.timeout(3_000).emitWithAck(ROOM_WATCH_EVENT, { code: "ABCDEF", pageId: "not-a-uuid" })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
+    expect(await alice.timeout(3_000).emitWithAck(ROOM_WATCH_EVENT, { code: "ABCDEF", pageId })).toMatchObject({ ok: true });
+    expect(raceFollows.at(-1)).toMatchObject({ id: alice.id, pageId });
   });
 
   it("takes a tab's language from the browser when no choice was made", async () => {

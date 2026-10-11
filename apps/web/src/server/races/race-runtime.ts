@@ -24,6 +24,12 @@ export type RaceConnection = {
   readonly id: string;
   readonly accountId: string;
   /**
+   * The page this socket belongs to, kept by the page across its reconnections; a page that
+   * reconnects takes the input back from its own former socket even before the server has
+   * seen that socket close. Only ever compared within one entrant's own tabs.
+   */
+  readonly pageId?: string;
+  /**
    * `volatile`: may be dropped when the tab is not ready to receive (Socket.IO's volatile), for
    * messages the next one replaces anyway (progress, another tab's typing), so a tab that does
    * not read cannot pile them up on the server.
@@ -111,8 +117,8 @@ export class RaceRuntime implements OwnedRace {
   #stage: Stage = "running";
   /** Frozen at the end and sent unchanged by every attempt, until one is confirmed. */
   #results: readonly RaceResultRow[] | undefined;
-  /** Entrant id → the tab that types for it. */
-  readonly #control = new Map<string, string>();
+  /** Entrant id → the tab that types for it, and its page. */
+  readonly #control = new Map<string, { readonly connectionId: string; readonly pageId: string | undefined }>();
   #cancelTick: (() => void) | undefined;
   #cancelProgress: (() => void) | undefined;
   #progressSentAt = Number.NEGATIVE_INFINITY;
@@ -155,8 +161,9 @@ export class RaceRuntime implements OwnedRace {
       return;
     }
     const entrant = this.#entrantOf(connection.accountId);
-    if (entrant !== undefined && !this.#controllerFollows(entrant.entrantId)) {
-      this.#control.set(entrant.entrantId, connection.id);
+    if (entrant !== undefined && (!this.#controllerFollows(entrant.entrantId) || this.#samePage(entrant.entrantId, connection))) {
+      // No typing tab, or this page reconnected: its former socket's late batches are discarded.
+      this.#control.set(entrant.entrantId, { connectionId: connection.id, pageId: connection.pageId });
     }
     const reveal = this.#revealFor(entrant?.entrantId);
     const progress = this.#progress();
@@ -174,11 +181,25 @@ export class RaceRuntime implements OwnedRace {
     }
   }
 
-  /** A tab closed or left the room: its entrant has no typing tab until one follows or asks. */
+  /**
+   * A tab closed or left the room. If it typed, the entrant's most recent other tab still
+   * following takes the input (state-machines §2), and learns it; otherwise the next tab that
+   * follows or asks does.
+   */
   unfollow(connectionId: string): void {
     for (const [entrantId, controller] of this.#control) {
-      if (controller === connectionId) {
-        this.#control.delete(entrantId);
+      if (controller.connectionId !== connectionId) {
+        continue;
+      }
+      this.#control.delete(entrantId);
+      const entrant = this.#entrants.get(entrantId);
+      const next = entrant === undefined ? undefined : [...this.#connectionsOf(entrant.accountId)].at(-1);
+      if (next !== undefined && (this.#stage === "running" || this.#stage === "saving")) {
+        this.#control.set(entrantId, { connectionId: next.id, pageId: next.pageId });
+        const self = this.#selfFor(entrantId, next.id);
+        if (self !== undefined) {
+          next.emit(RACE_SELF_EVENT, self);
+        }
       }
     }
   }
@@ -192,11 +213,11 @@ export class RaceRuntime implements OwnedRace {
     if (entrant === undefined) {
       return "NOT_AN_ENTRANT";
     }
-    if (this.#control.get(entrant.entrantId) === connection.id) {
+    if (this.#control.get(entrant.entrantId)?.connectionId === connection.id) {
       // Already this tab's: nothing changes, nothing is sent.
       return "ok";
     }
-    this.#control.set(entrant.entrantId, connection.id);
+    this.#control.set(entrant.entrantId, { connectionId: connection.id, pageId: connection.pageId });
     this.#sendSelf(entrant.entrantId);
     return this.#stage === "running" ? "ok" : "NO_RACE";
   }
@@ -214,7 +235,7 @@ export class RaceRuntime implements OwnedRace {
     if (this.#stage !== "running" && this.#stage !== "saving") {
       return { ok: false, error: "NO_RACE" };
     }
-    if (this.#control.get(entrant.entrantId) !== connection.id) {
+    if (this.#control.get(entrant.entrantId)?.connectionId !== connection.id) {
       return { ok: false, error: "NOT_CONTROLLING" };
     }
     if (!this.#options.lease.isAuthoritative()) {
@@ -344,11 +365,17 @@ export class RaceRuntime implements OwnedRace {
       return false;
     }
     for (const connection of this.#options.followers()) {
-      if (connection.id === controller) {
+      if (connection.id === controller.connectionId) {
         return true;
       }
     }
     return false;
+  }
+
+  /** The typing tab's page is this connection's page: the same page, reconnected. */
+  #samePage(entrantId: string, connection: RaceConnection): boolean {
+    const controller = this.#control.get(entrantId);
+    return controller !== undefined && controller.pageId !== undefined && controller.pageId === connection.pageId && controller.connectionId !== connection.id;
   }
 
   /**
@@ -426,8 +453,14 @@ export class RaceRuntime implements OwnedRace {
         // Sent once the lease is confirmed again (`leaseChanged`).
         return;
       }
-      this.#progressSentAt = this.#options.now();
-      const progress = this.#progress();
+      const now = this.#options.now();
+      if (now < this.#progressSentAt + this.#timing.progressEveryMs) {
+        // The timer fired early (timers round to the millisecond): never two broadcasts closer than the interval.
+        this.#scheduleProgress();
+        return;
+      }
+      this.#progressSentAt = now;
+      const progress = this.#progress(now);
       if (progress === undefined) {
         return;
       }
@@ -603,8 +636,7 @@ export class RaceRuntime implements OwnedRace {
     }));
   }
 
-  #progress(): RaceProgressPayload | undefined {
-    const now = this.#options.now();
+  #progress(now = this.#options.now()): RaceProgressPayload | undefined {
     return this.#view(() => ({ broadcast: toRaceBroadcast(this.#state, asInstant(now)), serverNow: now }));
   }
 
@@ -620,7 +652,7 @@ export class RaceRuntime implements OwnedRace {
       return {
         snapshot,
         measures: { netWpm: measures.netWpm, accuracy: measures.accuracy },
-        control: this.#control.get(entrantId) === connectionId ? "controlling" : "observing",
+        control: this.#control.get(entrantId)?.connectionId === connectionId ? "controlling" : "observing",
       };
     });
   }

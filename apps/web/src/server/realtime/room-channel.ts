@@ -160,6 +160,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       budget.inFlight = true;
       watchesInFlight.set(accountId, accountWatches + 1);
       void watch(socket, payload, accountId)
+        .catch((): RoomWatchAck => ({ ok: false, error: "UNAVAILABLE" }))
         .then((answer) => acknowledge(answer))
         .finally(() => {
           budget.inFlight = false;
@@ -240,7 +241,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     if (socket.connected) {
       socket.data.room = { ...room, since: snapshot.revision } satisfies WatchedRoom;
       // A member now: the race run here, if any, reaches this tab.
-      dependencies.races?.follow(room.lobbyId, connectionOf(socket, accountId));
+      dependencies.races?.follow(room.lobbyId, connectionOf(socket, accountId, parsed.data?.pageId));
     }
     await recoverIfAbandoned(room.lobbyId, snapshot.phase);
     // A broadcast newer than this read went out meanwhile and skipped this socket: one more
