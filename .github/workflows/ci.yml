@@ -90,7 +90,14 @@ jobs:
         run: |
           scripts/package-release.sh "$GITHUB_SHA" "$RUNNER_TEMP/release-check.zip"
           listing="$(unzip -Z1 "$RUNNER_TEMP/release-check.zip")"
-          if grep -E '^(tools/|node_modules/@msgpack/|node_modules/@incision/word-lists)' <<< "$listing"; then
+          # Never pass on an empty or truncated listing: the app and its runtime must be there.
+          for required in apps/web/server.ts apps/web/.next/BUILD_ID node_modules/next/package.json; do
+            if ! grep -qxF "$required" <<< "$listing"; then
+              echo "::error::The release archive lacks $required."
+              exit 1
+            fi
+          done
+          if grep -E '^tools/|(^|/)node_modules/@msgpack/|(^|/)node_modules/@incision/word-lists(/|$)' <<< "$listing"; then
             echo "::error::The release archive ships a local tool or one of its dependencies."
             exit 1
           fi
