@@ -127,6 +127,31 @@ transaction.
 Values only the server produces (the ids, the kinds, the error mode, its clock) are programming
 errors when invalid: `createRace` throws a `RangeError` for them.
 
+## Immediate feedback (`predictTyping`, COURSE-04)
+
+The typing zone reacts to every key before the server replies. `predictTyping(start, events,
+errorMode)` applies the engine's own typing fold, the one `applyKeystrokes` uses:
+
+- It gives the typed graphemes, one mark per grapheme (`typedMarks`), the pending error and the
+  finish, and nothing else: no counter, measure, rank or `seq`.
+- It skips the checks only the server can make (sequence, phase, status, text version, size,
+  plausibility). For a batch the server applies, the prediction equals the applied state.
+
+The client keeps a confirmed start and predicts from it the batch in flight followed by the events
+gathered since:
+
+| Moment | Start | Events predicted |
+|---|---|---|
+| Reveal | the text, nothing typed, no pending error | everything typed so far |
+| `applied` or `duplicate` of the batch in flight | that batch's prediction from the previous start, which equals the server's state | the events gathered since |
+| `resync`, or `refused` with a snapshot | the snapshot | none: the unapplied keystrokes are dropped (keystroke protocol) |
+| Reconnection | the snapshot | the batch in flight when `snapshot.ackSeq` is below its `seq`, then the rest |
+
+When an event would be refused (`INVALID_INPUT`, Enter included), `predictTyping` gives
+`{ ok: false }`, and the zone shows the start, marked with `typedMarks`. A client that filters
+Enter and sends one grapheme per insert never sees it. A wrong prediction is only visual: any
+snapshot replaces it.
+
 ## Deadlines (`RaceEvent`)
 
 Time never runs backwards: an event earlier than the race `clock` is handled at the clock. Before
@@ -211,6 +236,7 @@ Stored values are bounded, so database columns can be sized from these constants
 - **Implemented now:**
   - `createRaceRefusal`, `createRace`, `reduceRace`, `toRaceBroadcast` and `toRaceReveal`: a race
     on a fixed text, from the reveal to the results (F-04.1, engine half);
+  - `predictTyping` and `typedMarks`: immediate, visual-only feedback from the same fold;
   - `applyKeystrokes` and `toEntrantSnapshot`: one entrant's batch, whole or not at all, and its
     authoritative snapshot (F-04.4, engine half);
   - `computeMeasures`: Appendix A, exact and never capped (F-02.1);
