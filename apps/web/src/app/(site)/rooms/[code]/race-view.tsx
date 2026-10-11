@@ -370,9 +370,9 @@ function Track({ state, t, locale }: { readonly state: RaceClientState; readonly
                 aria-label={names.get(entrant.entrantId)}
                 value={entrant.position}
                 max={entrant.length}
-                className={`h-2 w-full appearance-none overflow-hidden rounded-full bg-sillage forced-colors:appearance-auto [&::-moz-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-sillage [&::-webkit-progress-value]:rounded-full ${
+                className={`h-2 w-full appearance-none overflow-hidden rounded-full bg-sillage [&::-moz-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-sillage [&::-webkit-progress-value]:rounded-full ${
                   self ? "[&::-moz-progress-bar]:bg-moi [&::-webkit-progress-value]:bg-moi" : "[&::-moz-progress-bar]:bg-brume [&::-webkit-progress-value]:bg-brume"
-                }`}
+                } ${FORCED_COLORS_BAR}`}
               />
               <span className="text-sm text-brume">{t.status[entrant.status]}</span>
             </li>
@@ -382,6 +382,13 @@ function Track({ state, t, locale }: { readonly state: RaceClientState; readonly
     </section>
   );
 }
+
+/**
+ * In forced colours (Windows contrast themes), the styled bar would disappear: the system's own
+ * colours draw it instead, with a visible outline (WCAG 1.4.11).
+ */
+const FORCED_COLORS_BAR =
+  "forced-colors:[forced-color-adjust:none] forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:[&::-webkit-progress-bar]:bg-[Canvas] forced-colors:[&::-webkit-progress-value]:bg-[Highlight] forced-colors:[&::-moz-progress-bar]:bg-[Highlight]";
 
 function Tile({ label, value, unit }: { readonly label: string; readonly value: string; readonly unit?: string }) {
   return (

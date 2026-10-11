@@ -293,6 +293,15 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     }
   }, [interruptedShown]);
 
+  // The start button disappears with the waiting room: the focus goes to the room's heading
+  // rather than to the page, until the typing field takes it at the start.
+  const racingView = snapshot.phase === "countdown" || snapshot.phase === "racing";
+  useEffect(() => {
+    if (racingView && (document.activeElement === null || document.activeElement === document.body)) {
+      document.getElementById(ROOM_HEADING_ID)?.focus();
+    }
+  }, [racingView]);
+
   // The results are read from the database by the server: a newly finished race asks for them.
   const finishedRaceId = snapshot.phase === "results" ? snapshot.race?.raceId : undefined;
   useEffect(() => {

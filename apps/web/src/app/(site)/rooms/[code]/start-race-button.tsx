@@ -27,14 +27,16 @@ export function StartRaceButton({ start, participants, t }: StartRaceButtonProps
     }
     setPending(true);
     setError(undefined);
+    // Started: the button stays pending until the race replaces the waiting room, so a second
+    // press cannot send another start meanwhile.
     try {
       const answer = await start();
       if (!answer.ok) {
         setError(answer.error);
+        setPending(false);
       }
     } catch {
       setError("UNAVAILABLE");
-    } finally {
       setPending(false);
     }
   }
