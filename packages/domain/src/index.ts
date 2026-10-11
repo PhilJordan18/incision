@@ -2,6 +2,7 @@ export * from "./identity/display-name";
 export * from "./identity/initial-display-name";
 export * from "./identity/login";
 export * from "./ids";
+export * from "./measures/compute";
 export * from "./measures/types";
 export * from "./race/elapsed";
 export * from "./race/limits";
