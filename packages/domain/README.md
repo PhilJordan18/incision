@@ -37,6 +37,10 @@ re-implement one. A missing rule is added here, not copied there.
   Positions, progress and the Appendix A counts all use it; "é" counts once however it was typed.
   An insert carries one grapheme of at most `MAX_GRAPHEME_LENGTH` code units as received
   (`singleGrapheme`); its NFC form may be longer.
+- **Enter** (D-16) activates a bonus and never appears in a race text. An insert holding a line
+  break ("\n", "\r" or "\r\n") refuses the whole batch (`INVALID_INPUT`), so it never counts as a
+  keystroke, and `createRace` throws for a text holding one. `containsLineBreak` is the shared
+  test, so the interface filters Enter with the same rule.
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
 ## Keystroke protocol (`src/race/types.ts`)
@@ -120,6 +124,20 @@ transaction.
 
 Values only the server produces (the ids, the kinds, the error mode, its clock) are programming
 errors when invalid: `createRace` throws a `RangeError` for them.
+
+## Immediate feedback (`predictTyping`, COURSE-04)
+
+The typing zone reacts to every key before the server replies. `predictTyping(start, events,
+errorMode)` applies the engine's own typing fold, the one `applyKeystrokes` uses, to the pending
+events, from the player's last snapshot (or the revealed text):
+
+- It gives the typed graphemes, one mark per grapheme (`typedMarks`), the pending error and the
+  finish, and nothing else: no counter, measure, rank or `seq`.
+- It skips the checks only the server can make (sequence, phase, status, text version, size,
+  plausibility). For a batch the server applies, the prediction equals the applied state.
+- An event the server would refuse (`INVALID_INPUT`, Enter included) gives `{ ok: false }`.
+- Any reply replaces the prediction: the client rebuilds from the snapshot and predicts again the
+  events still pending. A wrong prediction is only visual.
 
 ## Deadlines (`RaceEvent`)
 
@@ -205,12 +223,13 @@ Stored values are bounded, so database columns can be sized from these constants
 - **Implemented now:**
   - `createRaceRefusal`, `createRace`, `reduceRace`, `toRaceBroadcast` and `toRaceReveal`: a race
     on a fixed text, from the reveal to the results (F-04.1, engine half);
+  - `predictTyping` and `typedMarks`: immediate, visual-only feedback from the same fold;
   - `applyKeystrokes` and `toEntrantSnapshot`: one entrant's batch, whole or not at all, and its
     authoritative snapshot (F-04.4, engine half);
   - `computeMeasures`: Appendix A, exact and never capped (F-02.1);
   - `rankEntrants`: the final ranking of COURSE-10, ranks 1 to n (F-02.2);
   - `startRefusal` (COURSE-02);
-  - `toGraphemes` and `singleGrapheme`;
+  - `toGraphemes`, `singleGrapheme` and `containsLineBreak`;
   - `measuredElapsed`;
   - the time and id validators, and `compareIds`;
   - `maxPlausibleInserts`.

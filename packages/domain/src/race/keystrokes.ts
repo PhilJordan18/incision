@@ -1,15 +1,13 @@
 import type { RaceId } from "../ids";
-import { singleGrapheme } from "../text/graphemes";
 import { measuredElapsed } from "./elapsed";
 import { MAX_BATCH_EVENTS, maxPlausibleInserts } from "./limits";
+import { normalizedEvents, typeEvents } from "./typing-fold";
 import type {
   ApplyKeystrokes,
   EntrantKeystrokeRefusal,
   EntrantKeystrokeResult,
   EntrantSnapshot,
   EntrantState,
-  ErrorMode,
-  InputEvent,
   KeystrokeBatch,
   ResyncReason,
   ToEntrantSnapshot,
@@ -101,65 +99,4 @@ function hasValidShape(batch: KeystrokeBatch): boolean {
     batch.textVersion >= 0 &&
     batch.events.length >= 1
   );
-}
-
-/** Every event checked before any is applied: one invalid event refuses the whole batch. */
-function normalizedEvents(events: readonly InputEvent[]): readonly InputEvent[] | undefined {
-  const normalized: InputEvent[] = [];
-  for (const event of events) {
-    if (event.type === "deleteBackward") {
-      normalized.push(event);
-      continue;
-    }
-    // The type promises a string; the check keeps a malformed payload a refusal, not a throw.
-    const grapheme = event.type === "insert" && typeof event.grapheme === "string" ? singleGrapheme(event.grapheme) : undefined;
-    if (grapheme === undefined) {
-      return undefined;
-    }
-    normalized.push({ type: "insert", grapheme });
-  }
-  return normalized;
-}
-
-type Typing = Pick<EntrantState, "typed" | "pendingError" | "counters" | "missedKeys">;
-
-/**
- * Types the events in order (D-09, CONF-08). Free mode inserts every grapheme, compared position
- * by position; mandatory correction inserts only the expected one. Events after the finishing
- * insert are discarded.
- */
-function typeEvents(entrant: EntrantState, events: readonly InputEvent[], errorMode: ErrorMode): Typing {
-  const { target } = entrant;
-  const typed = [...entrant.typed];
-  const missedKeys: Record<string, number> = { ...entrant.missedKeys };
-  let { pendingError } = entrant;
-  let { correctInserts, totalInserts } = entrant.counters;
-  for (const event of events) {
-    const expected = target[typed.length];
-    if (expected === undefined) {
-      break;
-    }
-    if (event.type === "deleteBackward") {
-      if (pendingError) {
-        pendingError = false;
-      } else {
-        typed.pop();
-      }
-      continue;
-    }
-    totalInserts += 1;
-    const correct = event.grapheme === expected;
-    if (correct) {
-      correctInserts += 1;
-    } else {
-      missedKeys[expected] = (missedKeys[expected] ?? 0) + 1;
-    }
-    if (correct || errorMode === "free") {
-      typed.push(event.grapheme);
-      pendingError = false;
-    } else {
-      pendingError = true;
-    }
-  }
-  return { typed, pendingError, counters: { correctInserts, totalInserts }, missedKeys };
 }

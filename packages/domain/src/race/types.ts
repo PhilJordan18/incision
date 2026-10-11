@@ -43,7 +43,8 @@ export type AbandonReason = "voluntary" | "disconnection" | "inactivity";
 /**
  * What a player's keyboard produced, in order. An `insert` carries exactly one grapheme, after any
  * input-method composition, of at most `MAX_GRAPHEME_LENGTH` code units as received (its NFC form
- * may be longer); a deletion carries nothing. Navigation keys are never sent.
+ * may be longer); a deletion carries nothing. Navigation keys are never sent, and Enter is never an
+ * insert: it activates a bonus (D-16), so an insert holding a line break refuses the whole batch.
  */
 export type InputEvent =
   | { readonly type: "insert"; readonly grapheme: string }
@@ -357,6 +358,40 @@ export type EntrantSnapshot = {
 
 /** Contract of F-04.4 (engine half): undefined for an entrant the race does not know. */
 export type ToEntrantSnapshot = (state: RaceState, entrantId: EntrantId) => EntrantSnapshot | undefined;
+
+/**
+ * Immediate typing feedback (COURSE-04), for the display only. The start is what the player holds
+ * for their own entrant: the last snapshot, or the revealed text with nothing typed.
+ */
+export type TypingStart = Pick<EntrantSnapshot, "target" | "typed" | "pendingError">;
+
+/** How one typed grapheme shows: the engine's position-by-position comparison. */
+export type TypedMark = "correct" | "wrong";
+
+/**
+ * The typing zone predicted from the pending events. Never counters, measures, rank or `seq`: the
+ * server's replies and snapshots stay the authority, and replace any prediction.
+ */
+export type TypingPrediction =
+  | {
+      readonly ok: true;
+      readonly typed: readonly string[];
+      /** One mark per typed grapheme; every mark is "correct" in mandatory correction. */
+      readonly marks: readonly TypedMark[];
+      /** Mandatory correction: the expected grapheme at `typed.length` shows in error. */
+      readonly pendingError: boolean;
+      /** The target is complete; any later event was discarded. */
+      readonly finished: boolean;
+    }
+  /** One event the server would refuse, so it would refuse the whole batch: nothing is predicted. */
+  | { readonly ok: false; readonly reason: "INVALID_INPUT" };
+
+/**
+ * The same fold `applyKeystrokes` applies, without the batch checks only the server can make (seq,
+ * phase, status, text version, size, plausibility). For a batch the server applies, the prediction
+ * from the starting snapshot equals the applied entrant's `typed`, `pendingError` and finish.
+ */
+export type PredictTyping = (start: TypingStart, events: readonly InputEvent[], errorMode: ErrorMode) => TypingPrediction;
 
 /** What the ranking needs of each entrant, once every entrant is terminal. */
 export type RankInput = {
