@@ -125,6 +125,20 @@ transaction.
 Values only the server produces (the ids, the kinds, the error mode, its clock) are programming
 errors when invalid: `createRace` throws a `RangeError` for them.
 
+## Immediate feedback (`predictTyping`, COURSE-04)
+
+The typing zone reacts to every key before the server replies. `predictTyping(start, events,
+errorMode)` applies the engine's own typing fold, the one `applyKeystrokes` uses, to the pending
+events, from the player's last snapshot (or the revealed text):
+
+- It gives the typed graphemes, one mark per grapheme (`typedMarks`), the pending error and the
+  finish, and nothing else: no counter, measure, rank or `seq`.
+- It skips the checks only the server can make (sequence, phase, status, text version, size,
+  plausibility). For a batch the server applies, the prediction equals the applied state.
+- An event the server would refuse (`INVALID_INPUT`, Enter included) gives `{ ok: false }`.
+- Any reply replaces the prediction: the client rebuilds from the snapshot and predicts again the
+  events still pending. A wrong prediction is only visual.
+
 ## Deadlines (`RaceEvent`)
 
 Time never runs backwards: an event earlier than the race `clock` is handled at the clock. Before
@@ -209,6 +223,7 @@ Stored values are bounded, so database columns can be sized from these constants
 - **Implemented now:**
   - `createRaceRefusal`, `createRace`, `reduceRace`, `toRaceBroadcast` and `toRaceReveal`: a race
     on a fixed text, from the reveal to the results (F-04.1, engine half);
+  - `predictTyping` and `typedMarks`: immediate, visual-only feedback from the same fold;
   - `applyKeystrokes` and `toEntrantSnapshot`: one entrant's batch, whole or not at all, and its
     authoritative snapshot (F-04.4, engine half);
   - `computeMeasures`: Appendix A, exact and never capped (F-02.1);

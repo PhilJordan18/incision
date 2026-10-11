@@ -12,6 +12,7 @@ export * from "./race/ranking";
 export * from "./race/reduce";
 export * from "./race/start";
 export * from "./race/types";
+export * from "./race/typing";
 export * from "./race/views";
 export * from "./rooms/room-admission";
 export * from "./rooms/room-code";
