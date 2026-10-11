@@ -10,6 +10,7 @@ import {
   finalizeRace,
   interruptOwnRace,
   type RaceResultRow,
+  type RaceToCreate,
   recoverAbandonedRaces,
   recoverRoomIfAbandoned,
   renewRaceLease,
@@ -50,10 +51,11 @@ const OWNER_A = "00000000-0000-4000-8000-00000000000a";
 const OWNER_B = "00000000-0000-4000-8000-00000000000b";
 
 /**
- * Stand-in for the engine's start rule in these transaction tests only: the real
- * `startRefusal` of @incision/domain is wired by the server (COURSE-02 evidence lives there).
+ * Stand-in for the engine's start in these transaction tests only: the real `createRace` of
+ * @incision/domain is wired by the server (COURSE-02 evidence lives there).
  */
-const atLeastTwo = (participants: readonly unknown[]) => (participants.length < 2 ? ("NOT_ENOUGH_PARTICIPANTS" as const) : undefined);
+const atLeastTwo = ({ entrants }: RaceToCreate) =>
+  entrants.length < 2 ? { ok: false as const, reason: "NOT_ENOUGH_PARTICIPANTS" as const } : { ok: true as const, race: entrants.length };
 
 async function account(displayName: string): Promise<string> {
   const result = await pool.query<{ id: string }>("insert into accounts (display_name) values ($1) returning id", [displayName]);
@@ -95,7 +97,7 @@ async function room(value: string, others: string[] = ["Bea"]): Promise<{ lobbyI
 }
 
 async function started(hostId: string, ownerId = OWNER_A) {
-  const result = await startRace(db, { accountId: hostId, ownerId, text: "La mer est calme.", config: { language: "fr" }, rulesVersion: 1, refuseStart: atLeastTwo });
+  const result = await startRace(db, { accountId: hostId, ownerId, text: "La mer est calme.", config: { language: "fr" }, rulesVersion: 1, create: atLeastTwo });
   if (!result.ok) {
     throw new Error(result.error);
   }
@@ -290,7 +292,7 @@ describe("startRace", () => {
     const { hostId } = await room("ABCDEF", ["Bea"]);
     const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where display_name = 'Bea'")).rows[0]!.account_id;
     const outsider = await account("Dehors");
-    const call = (accountId: string) => startRace(db, { accountId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, refuseStart: atLeastTwo });
+    const call = (accountId: string) => startRace(db, { accountId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo });
     expect(await call(bea)).toEqual({ ok: false, error: "NOT_HOST" });
     expect(await call(outsider)).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
     await started(hostId);
@@ -301,31 +303,47 @@ describe("startRace", () => {
     expect(await pool.query("select 1 from races where lobby_id = $1", [alone.lobbyId])).toMatchObject({ rowCount: 0 });
   });
 
-  it("gives the engine's check the very entrant ids the entrants keep", async () => {
+  it("has the engine create the race with the very ids its rows keep, and commits what it created", async () => {
     const { hostId } = await room("ABCDEF", ["Bea"]);
-    const checked: string[] = [];
     const result = await startRace(db, {
       accountId: hostId,
       ownerId: OWNER_A,
       text: "La mer est calme.",
       config: {},
       rulesVersion: 1,
-      refuseStart: (participants) => {
-        checked.push(...participants.map((participant) => participant.entrantId));
-        return undefined;
-      },
+      create: (race) => ({ ok: true, race }),
     });
     if (!result.ok) {
       throw new Error(result.error);
     }
-    expect(result.entrants.map((entrant) => entrant.entrantId)).toEqual(checked);
+    expect(result.created.raceId).toBe(result.race.raceId);
+    expect(result.created.entrants.map((entrant) => entrant.entrantId)).toEqual(result.entrants.map((entrant) => entrant.entrantId));
     const stored = await pool.query<{ id: string }>("select id from race_entrants where race_id = $1 order by ordinal", [result.race.raceId]);
-    expect(stored.rows.map((row) => row.id)).toEqual(checked);
+    expect(stored.rows.map((row) => row.id)).toEqual(result.created.entrants.map((entrant) => entrant.entrantId));
+  });
+
+  it("rolls the start back when the engine throws, as for a programming error", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF", ["Bea"]);
+    const before = await lobbyOf(lobbyId);
+    const failing = () =>
+      startRace(db, {
+        accountId: hostId,
+        ownerId: OWNER_A,
+        text: "x",
+        config: {},
+        rulesVersion: 1,
+        create: () => {
+          throw new RangeError("Invalid instant");
+        },
+      });
+    await expect(failing()).rejects.toThrow(RangeError);
+    expect(await lobbyOf(lobbyId)).toEqual(before);
+    expect(Number((await pool.query<{ count: string }>("select count(*) from races")).rows[0]?.count)).toBe(0);
   });
 
   it("creates one race when the host starts twice at the same moment", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
-    const call = () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, refuseStart: atLeastTwo });
+    const call = () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo });
     const [first, second] = await underRoomLock(lobbyId, [call, call]);
     expect([first.ok, second.ok].sort()).toEqual([false, true]);
     expect([first, second].find((result) => !result.ok)).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
@@ -338,7 +356,7 @@ describe("startRace", () => {
     const late = await account("Tard");
     const [joinedEarly, start, joinedLate] = await underRoomLock(lobbyId, [
       () => joinRoomByCode(db, { accountId: early, code: code("ABCDEF"), role: "participant" }),
-      () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, refuseStart: atLeastTwo }),
+      () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo }),
       () => joinRoomByCode(db, { accountId: late, code: code("ABCDEF"), role: "participant" }),
     ]);
     expect(joinedEarly).toMatchObject({ ok: true });

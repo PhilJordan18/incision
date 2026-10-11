@@ -2,23 +2,30 @@ import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import {
+  beginRacing,
+  finalizeRace,
   findActiveMembership,
   getDatabase,
+  interruptOwnRace,
   readRoomSnapshot,
   readSessionVersion,
   recoverAbandonedRaces,
   recoverRoomIfAbandoned,
+  renewRaceLease,
+  startRace,
 } from "@incision/database";
 import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
 import { assignClientAddress } from "./src/server/http/client-address";
-import { registerRoomChannel } from "./src/server/realtime/room-channel";
+import { registerRaceChannel } from "./src/server/realtime/race-channel";
+import { followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
 import { RoomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
 import { authenticateHandshake } from "./src/server/realtime/socket-session";
 import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
-import { getRaceRegistry } from "./src/server/races/race-registry";
+import { processOwnerId } from "./src/server/races/process-owner";
+import { RaceService, serverClock } from "./src/server/races/race-service";
 import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
@@ -53,6 +60,28 @@ async function main(): Promise<void> {
       }),
     registry,
   });
+  // The races this process runs (F-04.0, ADR-0004): every write fenced by owner and generation.
+  const races = new RaceService({
+    ownerId: processOwnerId(),
+    store: {
+      startRace: (input) => startRace(databaseOf(env), input),
+      beginRacing: (ownership) => beginRacing(databaseOf(env), ownership),
+      finalizeRace: (ownership, results) => finalizeRace(databaseOf(env), ownership, results),
+      interruptOwnRace: (ownership, reason) => interruptOwnRace(databaseOf(env), ownership, reason),
+      renewRaceLease: (ownership) => renewRaceLease(databaseOf(env), ownership),
+    },
+    now: serverClock,
+    monotonic: () => performance.now(),
+    schedule: (callback, delayMs) => {
+      const timer = setTimeout(callback, delayMs);
+      timer.unref();
+      return () => clearTimeout(timer);
+    },
+    onRoomChanged: notifyRoomChanged,
+    log: (message) => console.log(message),
+  });
+  // A departure committed by a server action ends the leaver's race, or the race if the room closed.
+  roomEvents().on("left", (lobbyId, accountId, closed) => races.memberLeft(lobbyId, accountId, closed));
   // Room presence (CP-06): membership from the database, changes from the server actions.
   const roomChannel = registerRoomChannel(io, {
     allowedOrigin: env.appOrigin,
@@ -63,9 +92,11 @@ async function main(): Promise<void> {
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
     raceRecovery: {
       recover: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),
-      ownsRace: (lobbyId) => getRaceRegistry().ownsRace(lobbyId),
+      ownsRace: (lobbyId) => races.ownsRace(lobbyId),
     },
+    races,
   });
+  registerRaceChannel(io, { allowedOrigin: env.appOrigin, registry, races, followedRoom });
 
   // Races a previous process left behind (ADR-0004): recovered without delaying the server.
   if (env.databaseUrl !== undefined) {
@@ -91,7 +122,7 @@ async function main(): Promise<void> {
     // the sockets close.
     void (async () => {
       try {
-        const report = await getRaceRegistry().stop({ onEnded: (lobbyId) => notifyRoomChanged(lobbyId), timeoutMs: RACE_STOP_MS });
+        const report = await races.stop({ onEnded: (lobbyId) => notifyRoomChanged(lobbyId), timeoutMs: RACE_STOP_MS });
         if (report.finalised + report.interrupted + report.left > 0) {
           console.log(`[races] stopped: ${report.finalised} finalised, ${report.interrupted} interrupted, ${report.left} left to their lease`);
         }

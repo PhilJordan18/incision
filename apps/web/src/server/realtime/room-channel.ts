@@ -4,7 +4,9 @@ import { parseRoomCode, type RoomPhase } from "@incision/domain";
 import type { Server, Socket } from "socket.io";
 import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
 import { publicSnapshot } from "../../rooms/public-snapshot";
+import type { RaceService } from "../races/race-service";
 import type { RoomEvents } from "../rooms/room-events";
+import { connectionOf } from "./race-channel";
 import type { RoomPresence } from "./room-presence";
 import type { SessionRegistry } from "./session-registry";
 import { currentSession } from "./socket-server";
@@ -24,6 +26,8 @@ export type RoomChannelDependencies = {
     /** Whether this process runs the room's race; such a race is never recovered here. */
     readonly ownsRace: (lobbyId: string) => boolean;
   };
+  /** The races this process runs: told which tabs follow which room, once the membership is checked. */
+  readonly races?: Pick<RaceService, "follow" | "unfollow">;
   readonly now?: () => number;
 };
 
@@ -113,6 +117,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
         socket.leave(channelOf(lobbyId));
         presence.remove(lobbyId, watched.memberId, socket.id);
         socket.data.room = undefined;
+        dependencies.races?.unfollow(socket.id);
       }
     }
   }
@@ -168,6 +173,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     });
 
     socket.on("disconnect", () => {
+      dependencies.races?.unfollow(socket.id);
       const watched = watchedRoomOf(socket.data);
       if (watched !== undefined && presence.remove(watched.lobbyId, watched.memberId, socket.id)) {
         scheduleBroadcast(watched.lobbyId);
@@ -189,6 +195,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
   function unfollow(socket: Socket, room: Omit<WatchedRoom, "since">): void {
     void socket.leave(channelOf(room.lobbyId));
     socket.data.room = undefined;
+    dependencies.races?.unfollow(socket.id);
     if (presence.remove(room.lobbyId, room.memberId, socket.id)) {
       scheduleBroadcast(room.lobbyId);
     }
@@ -232,6 +239,8 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     }
     if (socket.connected) {
       socket.data.room = { ...room, since: snapshot.revision } satisfies WatchedRoom;
+      // A member now: the race run here, if any, reaches this tab.
+      dependencies.races?.follow(room.lobbyId, connectionOf(socket, accountId));
     }
     await recoverIfAbandoned(room.lobbyId, snapshot.phase);
     // A broadcast newer than this read went out meanwhile and skipped this socket: one more
@@ -300,6 +309,11 @@ function recoveryOnWatch(
 
 /** After the lease's end on the database clock, a margin for the clocks and the last renewal. */
 const LOOK_AGAIN_MARGIN_MS = 1_000;
+
+/** The room a socket follows, once the room channel admitted it. */
+export function followedRoom(socket: Pick<Socket, "data">): string | undefined {
+  return watchedRoomOf(socket.data)?.lobbyId;
+}
 
 function watchedRoomOf(data: unknown): WatchedRoom | undefined {
   if (typeof data !== "object" || data === null || !("room" in data)) {

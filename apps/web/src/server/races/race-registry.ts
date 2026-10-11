@@ -15,10 +15,11 @@ export type OwnedRace = {
   /** Stopping it ends the renewals for good (`RaceLease.stop`). */
   readonly lease: { readonly stop: () => void };
   /**
-   * Ends the race for a stopping process. The runtime decides how: a race whose results are
-   * frozen may get one attempt to save them before it is interrupted.
+   * Ends the race for a stopping process, before `deadline` (the server's clock). The runtime
+   * decides how: a race whose results are frozen gets one attempt to save them before it is
+   * interrupted.
    */
-  readonly shutdown: () => Promise<ShutdownOutcome>;
+  readonly shutdown: (deadline: number) => Promise<ShutdownOutcome>;
 };
 
 export type StopOptions = {
@@ -26,6 +27,8 @@ export type StopOptions = {
   readonly onEnded: (lobbyId: string, outcome: Exclude<ShutdownOutcome, "left">) => void;
   /** The shutdowns run at once and are not awaited beyond this, within the process's grace. */
   readonly timeoutMs: number;
+  /** The server's clock, which the shutdowns' deadline refers to. */
+  readonly now?: () => number;
 };
 
 export type StopReport = { readonly finalised: number; readonly interrupted: number; readonly left: number; readonly timedOut: boolean };
@@ -37,8 +40,8 @@ export type StopReport = { readonly finalised: number; readonly interrupted: num
  * own shutdown; a race stays registered until that settles, so it is never recovered here as
  * an abandoned one meanwhile.
  */
-export class RaceRegistry {
-  readonly #races = new Map<string, OwnedRace>();
+export class RaceRegistry<Race extends OwnedRace = OwnedRace> {
+  readonly #races = new Map<string, Race>();
   #stopping = false;
 
   get stopping(): boolean {
@@ -50,7 +53,7 @@ export class RaceRegistry {
    * registered for the room is stale (the committed start proves it is no longer the room's
    * current one), so its lease stops and the new race replaces it.
    */
-  add(race: OwnedRace): boolean {
+  add(race: Race): boolean {
     if (this.#stopping) {
       return false;
     }
@@ -75,14 +78,20 @@ export class RaceRegistry {
     return this.#races.has(lobbyId);
   }
 
-  async stop({ onEnded, timeoutMs }: StopOptions): Promise<StopReport> {
+  /** The race this process runs in the room, if any. */
+  get(lobbyId: string): Race | undefined {
+    return this.#races.get(lobbyId);
+  }
+
+  async stop({ onEnded, timeoutMs, now = Date.now }: StopOptions): Promise<StopReport> {
+    const deadline = now() + timeoutMs;
     this.#stopping = true;
     const counts = { finalised: 0, interrupted: 0 };
     const owned = [...this.#races.values()];
     const attempts = owned.map(async (race) => {
       let outcome: ShutdownOutcome = "left";
       try {
-        outcome = await race.shutdown();
+        outcome = await race.shutdown(deadline);
       } catch {
         // Left to its lease.
       } finally {
@@ -109,12 +118,4 @@ export class RaceRegistry {
     }
     return { ...counts, left: owned.length - counts.finalised - counts.interrupted, timedOut: !settled };
   }
-}
-
-// Next bundles server actions separately from the custom server: one registry per process.
-const processGlobal = globalThis as typeof globalThis & { incisionRaceRegistry?: RaceRegistry };
-
-export function getRaceRegistry(): RaceRegistry {
-  processGlobal.incisionRaceRegistry ??= new RaceRegistry();
-  return processGlobal.incisionRaceRegistry;
 }

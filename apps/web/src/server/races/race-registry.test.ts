@@ -1,6 +1,6 @@
 import type { RaceOwnership } from "@incision/database";
 import { describe, expect, it } from "vitest";
-import { getRaceRegistry, type OwnedRace, RaceRegistry, type ShutdownOutcome } from "./race-registry";
+import { type OwnedRace, RaceRegistry, type ShutdownOutcome } from "./race-registry";
 
 function owned(lobbyId: string, shutdown: () => Promise<ShutdownOutcome> = async () => "interrupted", raceId = `race-${lobbyId}`) {
   let stopped = false;
@@ -82,8 +82,4 @@ describe("RaceRegistry", () => {
     expect(hanging.stopped()).toBe(true);
   });
 
-  it("is one per process, shared by every bundled copy of the module", () => {
-    expect(getRaceRegistry()).toBe(getRaceRegistry());
-    expect((globalThis as typeof globalThis & { incisionRaceRegistry?: RaceRegistry }).incisionRaceRegistry).toBe(getRaceRegistry());
-  });
 });

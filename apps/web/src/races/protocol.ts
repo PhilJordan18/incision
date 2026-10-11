@@ -1,4 +1,4 @@
-import { MAX_BATCH_EVENTS, MAX_GRAPHEME_LENGTH } from "@incision/domain";
+import { ENTRANT_KINDS, ERROR_MODES, MAX_BATCH_EVENTS, MAX_GRAPHEME_LENGTH } from "@incision/domain";
 import { z } from "zod";
 
 /**
@@ -11,7 +11,6 @@ import { z } from "zod";
  * session, never from here.
  */
 export const RACE_BATCH_EVENT = "race:batch";
-export const RACE_ABANDON_EVENT = "race:abandon";
 
 /** What one message may carry: twice what the engine accepts, so its own refusal stays reachable. */
 const WIRE_MAX_EVENTS = 2 * MAX_BATCH_EVENTS;
@@ -46,5 +45,140 @@ export function parseKeystrokeBatch(payload: unknown): ParsedBatch {
   return parsed.success ? { success: true, data: parsed.data } : { success: false, issues: parsed.error.issues };
 }
 
-/** Leaving the race on purpose (COURSE-07): the reason is always `voluntary`, set by the server. */
-export const abandonPayloadSchema = z.object({ raceId: z.uuid() }).strict();
+/**
+ * The host starts the race of its room (COURSE-02). The payload carries nothing: the account
+ * comes from the session, the room from the database, the text and the settings from the server.
+ */
+export const RACE_START_EVENT = "race:start";
+export const raceStartPayloadSchema = z.object({}).strict();
+export const RACE_START_ERRORS = [
+  "UNAUTHORIZED",
+  "NOT_IN_A_ROOM",
+  "NOT_HOST",
+  "ROOM_NOT_WAITING",
+  "NOT_ENOUGH_PARTICIPANTS",
+  "NO_HUMAN_PARTICIPANT",
+  "RATE_LIMITED",
+  "UNAVAILABLE",
+] as const;
+export type RaceStartError = (typeof RACE_START_ERRORS)[number];
+export const raceStartAckSchema = z.union([z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), error: z.enum(RACE_START_ERRORS) })]);
+export type RaceStartAck = z.infer<typeof raceStartAckSchema>;
+
+/**
+ * A second tab of the same member observes; this asks for the input to move here
+ * (docs/architecture/state-machines.md §2). The previous tab then observes.
+ */
+export const RACE_CONTROL_EVENT = "race:control";
+export const raceControlPayloadSchema = z.object({ raceId: z.uuid() }).strict();
+export const RACE_CONTROL_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NO_RACE"] as const;
+export const raceControlAckSchema = z.union([z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), error: z.enum(RACE_CONTROL_ERRORS) })]);
+export type RaceControlAck = z.infer<typeof raceControlAckSchema>;
+
+/** Server to browser: the race's text and settings, from the countdown on, never before (COURSE-03). */
+export const RACE_REVEAL_EVENT = "race:reveal";
+/** Server to browser: everyone's public progress (COURSE-05), at most four times a second. */
+export const RACE_PROGRESS_EVENT = "race:progress";
+/** Server to the entrant's own tabs: its typing state, its live measures and which tab types. */
+export const RACE_SELF_EVENT = "race:self";
+/** Server to browser: the race ended and its results are being saved; nothing is official yet. */
+export const RACE_CONFIRMING_EVENT = "race:confirming";
+
+const instant = z.number().int().nonnegative();
+const entrantStatus = z.enum(["racing", "finished", "timedOut", "abandoned"]);
+
+/** `RaceReveal` of @incision/domain, plus who runs, and the server's clock to count down from. */
+export const raceRevealPayloadSchema = z.object({
+  reveal: z.object({
+    raceId: z.uuid(),
+    text: z.array(z.string()).readonly(),
+    errorMode: z.enum(ERROR_MODES),
+    countdownAt: instant,
+    startsAt: instant,
+    timeLimit: instant.nullable(),
+  }),
+  entrants: z.array(z.object({ entrantId: z.string(), displayName: z.string() })).readonly(),
+  /** The reader's own entrant; null for a spectator. */
+  selfEntrantId: z.string().nullable(),
+  serverNow: instant,
+});
+export type RaceRevealPayload = z.infer<typeof raceRevealPayloadSchema>;
+
+/** `RaceBroadcast` of @incision/domain. */
+export const raceProgressPayloadSchema = z.object({
+  broadcast: z.object({
+    raceId: z.uuid(),
+    revision: z.number().int().nonnegative(),
+    phase: z.enum(["countdown", "racing", "ended", "interrupted"]),
+    startsAt: instant,
+    endedAt: instant.optional(),
+    timeLimit: instant.nullable(),
+    entrants: z.array(
+      z.object({
+        entrantId: z.string(),
+        kind: z.enum(ENTRANT_KINDS),
+        status: entrantStatus,
+        position: z.number().int().nonnegative(),
+        length: z.number().int().positive(),
+        netWpm: z.number().nonnegative(),
+        endedAt: instant.optional(),
+      }),
+    ).readonly(),
+  }),
+  serverNow: instant,
+});
+export type RaceProgressPayload = z.infer<typeof raceProgressPayloadSchema>;
+
+/** `EntrantSnapshot` of @incision/domain: rebuilds one player's typing zone. */
+export const entrantSnapshotSchema = z.object({
+  raceId: z.uuid(),
+  entrantId: z.string(),
+  textVersion: z.number().int().nonnegative(),
+  target: z.array(z.string()).readonly(),
+  typed: z.array(z.string()).readonly(),
+  pendingError: z.boolean(),
+  ackSeq: z.number().int().nonnegative(),
+  status: entrantStatus,
+  counters: z.object({ correctInserts: z.number().int().nonnegative(), totalInserts: z.number().int().nonnegative() }),
+});
+export type EntrantSnapshotPayload = z.infer<typeof entrantSnapshotSchema>;
+
+/** Appendix A measures, as the engine computed them on the server (`computeMeasures`). */
+const measuresSchema = z.object({ netWpm: z.number().nonnegative(), accuracy: z.number().min(0).max(100) });
+
+export const raceSelfPayloadSchema = z.object({
+  snapshot: entrantSnapshotSchema,
+  measures: measuresSchema,
+  /** Only the controlling tab sends keystrokes; the others observe (state-machines §2). */
+  control: z.enum(["controlling", "observing"]),
+});
+export type RaceSelfPayload = z.infer<typeof raceSelfPayloadSchema>;
+
+export const raceConfirmingPayloadSchema = z.object({ raceId: z.uuid() });
+
+/** `KeystrokeResult` of @incision/domain: the engine's answer to a batch. */
+const keystrokeResultSchema = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("applied"), seq: z.number(), ackSeq: z.number(), textVersion: z.number() }),
+  z.object({ outcome: z.literal("duplicate"), seq: z.number(), ackSeq: z.number() }),
+  z.object({ outcome: z.literal("resync"), seq: z.number(), reason: z.enum(["OUT_OF_ORDER", "TEXT_VERSION_CHANGED"]), snapshot: entrantSnapshotSchema }),
+  z.object({
+    outcome: z.literal("refused"),
+    seq: z.number(),
+    reason: z.enum(["WRONG_RACE", "UNKNOWN_ENTRANT", "NOT_RACING", "ENTRANT_TERMINAL", "BATCH_TOO_LARGE", "INVALID_INPUT", "IMPLAUSIBLE"]),
+    snapshot: entrantSnapshotSchema.optional(),
+  }),
+]);
+
+/**
+ * Refusals before the engine: a payload that is not a batch, a socket that is not an entrant
+ * or not its controlling tab, no race run here, a lease not confirmed in time (ADR-0004), or
+ * more than MAX_BATCHES_PER_SECOND messages.
+ */
+export const RACE_BATCH_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NOT_CONTROLLING", "NO_RACE", "SUSPENDED", "RATE_LIMITED"] as const;
+export type RaceBatchError = (typeof RACE_BATCH_ERRORS)[number];
+
+export const raceBatchAckSchema = z.union([
+  z.object({ ok: z.literal(true), result: keystrokeResultSchema, self: raceSelfPayloadSchema }),
+  z.object({ ok: z.literal(false), error: z.enum(RACE_BATCH_ERRORS) }),
+]);
+export type RaceBatchAck = z.infer<typeof raceBatchAckSchema>;

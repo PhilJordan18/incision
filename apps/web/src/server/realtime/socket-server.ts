@@ -21,12 +21,17 @@ type RealtimeOptions = {
 };
 
 type SocketData = { session?: SocketSession };
+
+/** Bound on one incoming message: a socket that sends more is cut by Socket.IO. */
+export const MAX_MESSAGE_BYTES = 32 * 1024;
 type SessionSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
 export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOptions): Server {
   const { allowedOrigin, isProduction, authenticate, registry } = options;
   const io = new Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>(httpServer, {
     serveClient: false,
+    // The largest message a page sends is a keystroke batch of a few kilobytes; the default is 1 MB.
+    maxHttpBufferSize: MAX_MESSAGE_BYTES,
     // Close upgrade requests nobody handles; in development Next's reload socket needs them open.
     destroyUpgrade: isProduction,
     allowRequest: (request, callback) => {

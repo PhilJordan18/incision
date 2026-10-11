@@ -1,6 +1,6 @@
 import { MAX_BATCH_EVENTS } from "@incision/domain";
 import { describe, expect, it } from "vitest";
-import { abandonPayloadSchema, keystrokeBatchPayloadSchema, parseKeystrokeBatch } from "./protocol";
+import { keystrokeBatchPayloadSchema, parseKeystrokeBatch } from "./protocol";
 
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
 const batch = (change: Record<string, unknown> = {}) => ({ raceId: RACE, seq: 1, textVersion: 0, events: [{ type: "insert", grapheme: "a" }], ...change });
@@ -56,12 +56,5 @@ describe("keystroke batch payloads", () => {
 
   it("match the full schema whenever the size step passes", () => {
     expect(keystrokeBatchPayloadSchema.safeParse(batch()).success).toBe(parseKeystrokeBatch(batch()).success);
-  });
-});
-
-describe("abandonPayloadSchema", () => {
-  it("takes the race only: the reason is the server's", () => {
-    expect(abandonPayloadSchema.safeParse({ raceId: RACE }).success).toBe(true);
-    expect(abandonPayloadSchema.safeParse({ raceId: RACE, reason: "disconnection" }).success).toBe(false);
   });
 });

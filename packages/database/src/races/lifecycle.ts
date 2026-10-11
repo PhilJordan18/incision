@@ -51,7 +51,13 @@ export type StartedEntrant = {
   readonly displayName: string;
 };
 
-export type StartRaceInput<Refusal extends string> = {
+/** The race as the engine is asked to create it, with the ids its rows will keep. */
+export type RaceToCreate = {
+  readonly raceId: string;
+  readonly entrants: readonly { readonly entrantId: string; readonly kind: "human" }[];
+};
+
+export type StartRaceInput<Refusal extends string, Created> = {
   /** The account asking to start, from its session: it must host the room it occupies. */
   readonly accountId: string;
   /** This process (ADR-0004). */
@@ -60,33 +66,36 @@ export type StartRaceInput<Refusal extends string> = {
   readonly config: Readonly<Record<string, unknown>>;
   readonly rulesVersion: number;
   /**
-   * The engine's checks (`createRaceRefusal`: the start rule, then the text and the settings),
-   * applied to the participants read under the room lock, with the entrant ids they will keep;
-   * never a copy of them here.
+   * The engine's start (`createRace`, which applies `createRaceRefusal`: the start rule, then
+   * the text and the settings), on the participants read under the room lock, with the race
+   * and entrant ids the rows keep; never a copy of its rules here. A refusal changes nothing;
+   * an exception (a programming error, `RangeError`) rolls the start back.
    */
-  readonly refuseStart: (participants: readonly { readonly entrantId: string; readonly kind: "human" }[]) => Refusal | undefined;
+  readonly create: (race: RaceToCreate) => { readonly ok: false; readonly reason: Refusal } | { readonly ok: true; readonly race: Created };
 };
 
-export type StartRaceResult<Refusal extends string> =
+export type StartRaceResult<Refusal extends string, Created> =
   | {
       readonly ok: true;
       readonly race: RaceOwnership & { readonly roundNo: number; readonly countdownAt: Date; readonly leaseExpiresAt: Date };
       readonly entrants: readonly StartedEntrant[];
+      /** What `create` returned: the race in memory, committed with its rows. */
+      readonly created: Created;
     }
   | { readonly ok: false; readonly error: "NOT_IN_A_ROOM" | "NOT_HOST" | "ROOM_NOT_WAITING" | Refusal };
 
 /**
  * The host starts a race (COURSE-02/03): under the room lock, the room must be waiting and the
- * caller must still host it; the engine's rule decides on the participants (spectators never
- * race). One transaction freezes the text, the configuration and the entrants, takes the
- * lease, and moves the room to COUNTDOWN, which refuses every new admission (SALLE-09). A
- * second start finds the room in COUNTDOWN and changes nothing.
+ * caller must still host it; the engine creates the race from the participants (spectators
+ * never race), or refuses. One transaction freezes the text, the configuration and the
+ * entrants, takes the lease, and moves the room to COUNTDOWN, which refuses every new
+ * admission (SALLE-09). A second start finds the room in COUNTDOWN and changes nothing.
  */
-export async function startRace<Refusal extends string>(
+export async function startRace<Refusal extends string, Created>(
   db: Database,
-  input: StartRaceInput<Refusal>,
-): Promise<StartRaceResult<Refusal>> {
-  return boundedTransaction(db, async (tx): Promise<StartRaceResult<Refusal>> => {
+  input: StartRaceInput<Refusal, Created>,
+): Promise<StartRaceResult<Refusal, Created>> {
+  return boundedTransaction(db, async (tx): Promise<StartRaceResult<Refusal, Created>> => {
     const seen = await findActiveMembership(tx, input.accountId);
     if (seen === undefined) {
       return { ok: false, error: "NOT_IN_A_ROOM" };
@@ -112,7 +121,8 @@ export async function startRace<Refusal extends string>(
       .from(lobbyMembers)
       .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, "participant"), isNull(lobbyMembers.leftAt)))
       .orderBy(asc(lobbyMembers.joinedAt), asc(lobbyMembers.id));
-    // Ids drawn here, not by the database, so the engine checks the very ids the entrants keep.
+    // Ids drawn here, not by the database, so the engine creates the race with the ids the rows keep.
+    const raceId = randomUUID();
     const entrants = participants.map(
       (participant, index): StartedEntrant => ({
         entrantId: randomUUID(),
@@ -123,15 +133,16 @@ export async function startRace<Refusal extends string>(
       }),
     );
     // Every member is an account today: guests and bots come with their own cards.
-    const refusal = input.refuseStart(entrants.map(({ entrantId }) => ({ entrantId, kind: "human" as const })));
-    if (refusal !== undefined) {
-      return { ok: false, error: refusal };
+    const created = input.create({ raceId, entrants: entrants.map(({ entrantId }) => ({ entrantId, kind: "human" as const })) });
+    if (!created.ok) {
+      return { ok: false, error: created.reason };
     }
     const previous = firstRow(await tx.select({ value: max(races.roundNo) }).from(races).where(eq(races.lobbyId, lobby.id)));
     const race = firstRow(
       await tx
         .insert(races)
         .values({
+          id: raceId,
           lobbyId: lobby.id,
           roundNo: (previous.value ?? 0) + 1,
           rulesVersion: input.rulesVersion,
@@ -181,6 +192,7 @@ export async function startRace<Refusal extends string>(
         leaseExpiresAt: race.leaseExpiresAt,
       },
       entrants,
+      created: created.race,
     };
   }, READ_COMMITTED);
 }
