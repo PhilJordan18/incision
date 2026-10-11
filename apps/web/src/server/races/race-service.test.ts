@@ -14,7 +14,12 @@ const PARTICIPANTS = [
 ];
 
 function harness(
-  options: { refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS"; participants?: typeof PARTICIPANTS; renewed?: boolean; noTexts?: boolean } = {},
+  options: {
+    refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS";
+    participants?: typeof PARTICIPANTS;
+    renewed?: boolean;
+    texts?: Readonly<Record<"fr" | "en", string>> | null;
+  } = {},
 ) {
   let now = START;
   const timers: { at: number; callback: () => void }[] = [];
@@ -58,7 +63,7 @@ function harness(
     },
     onRoomChanged: (lobbyId) => changed.push(lobbyId),
     onRaceLost: (lobbyId) => lost.push(lobbyId),
-    texts: options.noTexts === true ? undefined : FIXTURE_RACE_TEXTS,
+    texts: options.texts === null ? undefined : (options.texts ?? FIXTURE_RACE_TEXTS),
     log: () => undefined,
   });
   const advance = (ms: number) => {
@@ -105,6 +110,18 @@ describe("RaceService", () => {
     expect(bea.reveal()?.selfEntrantId).toBe("e-bea");
   });
 
+  it("runs the texts it is given, never the fixtures in their place", async () => {
+    const texts = { fr: "Texte injecté pour ce test.", en: "Text injected for this test." };
+    const { service, store } = harness({ texts });
+    const host = tab("t-host", "a-host", "fr");
+    const bea = tab("t-bea", "a-bea", "en");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    expect(await service.start(host.connection, {})).toEqual({ ok: true });
+    expect(store.startRace.mock.calls[0]?.[0]).toMatchObject({ text: texts.fr });
+    expect(bea.reveal()?.reveal.text.join("")).toBe(texts.fr);
+  });
+
   it("marks the race text with the host's language for every reader", async () => {
     const { service } = harness();
     const host = tab("t-host", "a-host", "en");
@@ -117,7 +134,7 @@ describe("RaceService", () => {
   });
 
   it("refuses every start, before the database, when no race text may run on this server", async () => {
-    const { service, store } = harness({ noTexts: true });
+    const { service, store } = harness({ texts: null });
     const host = tab("t-host", "a-host");
     service.follow(LOBBY, host.connection);
     expect(await service.start(host.connection, {})).toEqual({ ok: false, error: "RACES_UNAVAILABLE" });

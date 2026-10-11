@@ -286,8 +286,9 @@ function recoveryOnWatch(
   const maxFailedLooks = dependencies.recoveryTiming?.maxFailedLooks ?? MAX_FAILED_LOOKS;
   const lookAgain = new Map<string, { readonly timer: NodeJS.Timeout; refresh: boolean }>();
   /**
-   * Failed looks per room, kept until a look succeeds or a race of the room is lost here, so that
-   * watches cannot start the series again: bounded, then given up.
+   * Failed looks per room, bounded, then given up. Kept until a look succeeds or a race of the
+   * room is lost here, so that watches cannot start the series again; dropped too when a pending
+   * look finds that nobody follows the room any more (the next watch then starts a new series).
    */
   const failures = new Map<string, number>();
   const later = (lobbyId: string, delayMs: number, refresh: boolean) => {

@@ -170,6 +170,36 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(second.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
   });
 
+  test("each interruption seen on an open page takes the focus, even twice in a row", async ({ browser }) => {
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA" });
+    const code = await openRoom(host);
+    await join(guest, code);
+    const heading = host.locator("#interrupted-heading");
+    for (const round of [1, 2]) {
+      // A race of the room that no process runs any more: its lease ran out (ADR-0004).
+      const abandoned = await query(
+        `with room as (select id from lobbies where code = $1),
+         race as (
+           insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, owner_id, lease_expires_at)
+           select id, $2, 'racing', 1, 'Test text.', '{}'::jsonb, now() - interval '1 minute', now() - interval '50 seconds', gen_random_uuid(), now() - interval '10 seconds' from room
+           returning id, lobby_id
+         )
+         update lobbies set phase = 'racing', current_race_id = race.id from race where lobbies.id = race.lobby_id
+         returning lobbies.id`,
+        [code, round],
+      );
+      expect(abandoned).toHaveLength(1);
+      // The host's focus is on the start button, which the new race id replaces.
+      await host.getByRole("button", { name: "Start the race" }).focus();
+      // The guest's new watch recovers the race (owner_lost), and every member's page learns it.
+      await guest.reload();
+      await expect(heading).toHaveText(/Race interrupted/);
+      await expect(heading).toBeFocused();
+      await expect(host.getByText("The server running the race stopped answering: it has no results.")).toBeVisible();
+    }
+  });
+
   test("a player who leaves during the race abandons, and keeps a ranked result", async ({ browser }) => {
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
     const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
