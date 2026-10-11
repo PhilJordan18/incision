@@ -176,8 +176,9 @@ function applyDue(state: RaceState, now: Instant): RaceState {
   const deadline = timeLimitDeadline(started);
   let race: RaceState = started;
   for (const expiry of dueExpiries(started, now)) {
+    // Each entrant's deadline is independent: only those before the time limit apply (D-06 tie).
     if (deadline !== undefined && expiry.at >= deadline) {
-      break;
+      continue;
     }
     const entrant = race.entrants[expiry.index];
     if (entrant !== undefined) {
@@ -198,9 +199,9 @@ function applyDue(state: RaceState, now: Instant): RaceState {
 type Expiry = { readonly index: number; readonly at: Instant; readonly reason: AbandonReason };
 
 /**
- * The abandons due at `now` (strictly after their deadline, so a reaction at the deadline counts),
- * earliest first. An entrant's earlier deadline wins; at the same instant the reason is
- * `disconnection`. Bots have none (D-17).
+ * The abandons due at `now` (strictly after their deadline, so a reaction at the deadline counts).
+ * An entrant's earlier deadline wins; at the same instant the reason is `disconnection`. Bots have
+ * none (D-17). Their order does not matter: each is independent, and the race's end is the latest.
  */
 function dueExpiries(state: RaceState, now: Instant): readonly Expiry[] {
   const expiries: Expiry[] = [];
@@ -215,7 +216,7 @@ function dueExpiries(state: RaceState, now: Instant): readonly Expiry[] {
       expiries.push(expiry);
     }
   });
-  return expiries.sort((left, right) => left.at - right.at || left.index - right.index);
+  return expiries;
 }
 
 function graceDeadline(entrant: EntrantState): Instant | undefined {

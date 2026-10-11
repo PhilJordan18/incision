@@ -378,7 +378,21 @@ const resumed = (entrantId: EntrantId, sinceStart: number): RaceEvent => ({ type
 const present = (entrantId: EntrantId, sinceStart: number): RaceEvent => ({ type: "present", entrantId, now: at(sinceStart) });
 
 describe("reduceRace: grace and inactivity (F-04.6, D-06, D-17)", () => {
-  it("a duplicate or a refused batch is not activity; a newly applied one is", () => {
+  it("applies an abandon before the time limit even when another entrant's deadline falls after it", () => {
+    // Bob's grace (200 s) falls after the limit (150 s) and is listed first; Alice's inactivity (120 s) before it.
+    const state = race({ timeLimit: asDuration(150_000), clock: at(110_000), entrants: [runner(BOB, { lastActivityAt: at(110_000), disconnectedAt: at(170_000) }), runner(ALICE, { inactive: true })] });
+    const output = reduceRace(state, tick(300_000));
+    expect(entrantOf(output, ALICE)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: at(120_000) });
+    expect(entrantOf(output, BOB)).toMatchObject({ status: "timedOut", endedAt: at(150_000) });
+    expect(output.state).toMatchObject({ phase: "ended", endedAt: at(150_000) });
+  });
+
+  it("gives the grace's expiry as the next deadline when it comes first", () => {
+    const state = race({ clock: at(10_000), entrants: [runner(ALICE, { lastActivityAt: at(10_000) }), runner(BOB, { lastActivityAt: at(10_000) })] });
+    expect(reduceRace(state, lost(ALICE, 10_000)).nextDeadline).toBe(at(40_001));
+  });
+
+    it("a duplicate or a refused batch is not activity; a newly applied one is", () => {
     const state = race({ clock: at(61_000), entrants: [runner(ALICE, { inactive: true, typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } }), runner(BOB, { lastActivityAt: at(61_000) })] });
     const duplicate = reduceRace(state, keystrokes(ALICE, 1, [insert("a")], 62_000));
     expect(duplicate.keystrokes).toMatchObject({ outcome: "duplicate" });
@@ -397,6 +411,7 @@ describe("reduceRace: grace and inactivity (F-04.6, D-06, D-17)", () => {
     expect(reduceRace(ended, present(BOB, 4_000)).ignored).toBe("RACE_OVER");
     expect(reduceRace(race({ entrants: [aliceDone, runner(BOB)] }), lost(ALICE, 4_000)).ignored).toBe("ENTRANT_TERMINAL");
     expect(reduceRace(race({ entrants: [runner(ALICE), runner(BOB, { kind: "bot" })] }), present(BOB, 4_000)).ignored).toBe("BOT_ENTRANT");
+    expect(reduceRace(race({ entrants: [runner(ALICE), runner(BOB, { kind: "bot", status: "finished", endedAt: at(3_000), typed: ["a", "b"] })] }), present(BOB, 4_000)).ignored).toBe("ENTRANT_TERMINAL");
     expect(reduceRace(race(), resumed(BOB, 4_000)).ignored).toBe("NOT_DISCONNECTED");
     expect(reduceRace(race({ entrants: [runner(ALICE), runner(BOB, { disconnectedAt: at(1_000) })] }), lost(BOB, 4_000)).ignored).toBe("ALREADY_DISCONNECTED");
   });
