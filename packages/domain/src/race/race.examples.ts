@@ -299,7 +299,7 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     expected: { phase: "countdown", changed: false, statuses: [[BOB, "racing"]], nextDeadline: at(0) },
   },
   {
-    name: "a second loss and a resumption without a loss change nothing",
+    name: "a second loss changes nothing: the first grace keeps running",
     input: { state: race({ entrants: [runner(ALICE, { disconnectedAt: at(0) }), runner(BOB)] }), event: { type: "connectionLost", entrantId: ALICE, now: at(1_000) } },
     expected: { phase: "racing", changed: false, ignored: "ALREADY_DISCONNECTED" },
   },

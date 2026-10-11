@@ -188,21 +188,23 @@ export type CreateRace = (input: CreateRaceInput) => CreateRaceResult;
  * the order they fall due, so a late timer never decides a result (docs/architecture/
  * state-machines.md §3):
  * 1. `countdown` → `racing` once `now >= startsAt`;
- * 2. each racing human's own deadlines (D-06, D-17), independent of one another, the first one
- *    that falls due winning:
- *    - shown `inactive` once `now >= lastActivityAt + INACTIVITY_WARNING_MS`;
- *    - an abandon for `inactivity` once `now > lastActivityAt + INACTIVITY_ABANDON_MS`, so a
- *      reaction at that exact instant still counts;
- *    - an abandon for `disconnection` once `now > disconnectedAt + RESUME_GRACE_MS`, so a resumption
- *      at that exact instant still counts;
- *    an abandon is dated at its deadline, and when both fall at the same instant the reason is
- *    `disconnection`;
+ * 2. each racing human's own abandon (D-06, D-17), independent of the others, the earlier deadline
+ *    winning:
+ *    - for `inactivity` once `now > lastActivityAt + INACTIVITY_ABANDON_MS`, so a reaction at that
+ *      exact instant still counts;
+ *    - for `disconnection` once `now > disconnectedAt + RESUME_GRACE_MS`, so a resumption at that
+ *      exact instant still counts;
+ *    an abandon is dated at its deadline, and when both deadlines are the same instant the reason is
+ *    `disconnection`. Only deadlines before the time limit apply: a deadline at the same instant as
+ *    the time limit is a tie, which the time limit wins (D-06);
  * 3. with a time limit, `racing` → `ended` once `now >= startsAt + timeLimit`: entrants still racing
- *    time out with `endedAt` = that deadline. The time limit wins a tie with any other deadline (D-06);
+ *    time out with `endedAt` = that deadline;
  * 4. a race whose entrants are all terminal ends, at the latest of `startsAt` and the last `endedAt`,
  *    never from `countdown`: when everyone abandons during the countdown, it ends at `startsAt`, with
  *    every entrant an abandon, zero elapsed time and zero measures; the countdown never counts as
- *    typing time. Once it has ended, a later deadline (the time limit included) changes nothing.
+ *    typing time. Once it has ended, a later deadline (the time limit included) changes nothing;
+ * 5. the `inactive` marker of each human still racing, once `now >= lastActivityAt +
+ *    INACTIVITY_WARNING_MS`.
  *
  * Bots are never inactive and never disconnected (D-17). An `ended` or `interrupted` race is final:
  * no later event, a late timer included, changes it.
@@ -370,8 +372,9 @@ export type PublicEntrantProgress = {
   readonly netWpm: number;
   readonly endedAt?: Instant;
   /**
-   * D-17: the inactive marker on the track. The entrant's own client also shows « Tu es toujours
-   * là ? » from it. A disconnection has no public marker.
+   * D-17: the inactive marker on the track, for a racing entrant only (false once terminal). The
+   * entrant's own client also shows « Tu es toujours là ? » from it. A disconnection has no public
+   * marker.
    */
   readonly inactive: boolean;
 };

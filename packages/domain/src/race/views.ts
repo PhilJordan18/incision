@@ -20,7 +20,8 @@ export const toRaceBroadcast: ToRaceBroadcast = (state, now) => {
       length: entrant.target.length,
       netWpm: liveMeasures(state, entrant, at).netWpm,
       ...(entrant.endedAt === undefined ? {} : { endedAt: entrant.endedAt }),
-      inactive: entrant.inactive,
+      // D-17's marker shows an idle runner: false once terminal, whenever a timer fired.
+      inactive: entrant.status === "racing" && entrant.inactive,
     }),
   );
   return {

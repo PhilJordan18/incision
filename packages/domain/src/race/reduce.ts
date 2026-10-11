@@ -1,5 +1,5 @@
 import { computeMeasures } from "../measures/compute";
-import { asInstant, type Instant } from "../time";
+import { asInstant, MAX_INSTANT, type Instant } from "../time";
 import { measuredElapsed } from "./elapsed";
 import { applyKeystrokes } from "./keystrokes";
 import { INACTIVITY_ABANDON_MS, INACTIVITY_WARNING_MS, RESUME_GRACE_MS } from "./limits";
@@ -158,7 +158,7 @@ function withEntrant(state: RaceState, index: number, entrant: EntrantState): Ra
 }
 
 /**
- * The transitions due at `now`, in the order they fall due:
+ * The transitions due at `now`, in this order:
  * 1. the start;
  * 2. while racing, each human's own abandon (inactivity or disconnection, D-06, D-17), earliest
  *    first, as long as it comes before the time limit; the race ends as soon as everyone is
@@ -182,7 +182,8 @@ function applyDue(state: RaceState, now: Instant): RaceState {
     }
     const entrant = race.entrants[expiry.index];
     if (entrant !== undefined) {
-      race = withEntrant(race, expiry.index, { ...entrant, status: "abandoned", abandonReason: expiry.reason, endedAt: expiry.at });
+      // Due means strictly before `now`, so the deadline is a valid instant.
+      race = withEntrant(race, expiry.index, { ...entrant, status: "abandoned", abandonReason: expiry.reason, endedAt: asInstant(expiry.at) });
     }
   }
   const lastEnd = allTerminalAt(race);
@@ -196,7 +197,7 @@ function applyDue(state: RaceState, now: Instant): RaceState {
   return { ...race, entrants: race.entrants.map((entrant) => (shownInactive(entrant, now) ? { ...entrant, inactive: true } : entrant)) };
 }
 
-type Expiry = { readonly index: number; readonly at: Instant; readonly reason: AbandonReason };
+type Expiry = { readonly index: number; readonly at: number; readonly reason: AbandonReason };
 
 /**
  * The abandons due at `now` (strictly after their deadline, so a reaction at the deadline counts).
@@ -219,16 +220,17 @@ function dueExpiries(state: RaceState, now: Instant): readonly Expiry[] {
   return expiries;
 }
 
-function graceDeadline(entrant: EntrantState): Instant | undefined {
-  return entrant.disconnectedAt === undefined ? undefined : asInstant(entrant.disconnectedAt + RESUME_GRACE_MS);
+/** The presence deadlines are compared as plain numbers: near MAX_INSTANT they may lie past it. */
+function graceDeadline(entrant: EntrantState): number | undefined {
+  return entrant.disconnectedAt === undefined ? undefined : entrant.disconnectedAt + RESUME_GRACE_MS;
 }
 
-function inactivityDeadline(entrant: EntrantState): Instant {
-  return asInstant(entrant.lastActivityAt + INACTIVITY_ABANDON_MS);
+function inactivityDeadline(entrant: EntrantState): number {
+  return entrant.lastActivityAt + INACTIVITY_ABANDON_MS;
 }
 
-function warningInstant(entrant: EntrantState): Instant {
-  return asInstant(entrant.lastActivityAt + INACTIVITY_WARNING_MS);
+function warningInstant(entrant: EntrantState): number {
+  return entrant.lastActivityAt + INACTIVITY_WARNING_MS;
 }
 
 function shownInactive(entrant: EntrantState, now: Instant): boolean {
@@ -280,7 +282,9 @@ function nextDeadline(state: RaceState): Instant | undefined {
       candidates.push(grace + 1);
     }
   }
-  return candidates.length === 0 ? undefined : asInstant(Math.min(...candidates));
+  // A deadline past MAX_INSTANT never falls due.
+  const reachable = candidates.filter((instant) => instant <= MAX_INSTANT);
+  return reachable.length === 0 ? undefined : asInstant(Math.min(...reachable));
 }
 
 /**

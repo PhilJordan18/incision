@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computeMeasures } from "../measures/compute";
 import { asEntrantId, asRaceId, type EntrantId } from "../ids";
 import { toGraphemes } from "../text/graphemes";
-import { asDuration, asInstant, type Instant } from "../time";
+import { asDuration, asInstant, MAX_INSTANT, type Instant } from "../time";
 import { createRace } from "./create";
 import { measuredElapsed } from "./elapsed";
 import { EXAMPLE_ENTRANT, EXAMPLE_RACE } from "./keystrokes.examples";
@@ -387,12 +387,53 @@ describe("reduceRace: grace and inactivity (F-04.6, D-06, D-17)", () => {
     expect(output.state).toMatchObject({ phase: "ended", endedAt: at(150_000) });
   });
 
+  it("a deadline one millisecond before the time limit is not a tie: the abandon applies", () => {
+    const state = race({ timeLimit: asDuration(120_001), clock: at(119_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(119_000) })] });
+    const output = reduceRace(state, tick(120_001));
+    expect(entrantOf(output, ALICE)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: at(120_000) });
+    expect(entrantOf(output, BOB)).toMatchObject({ status: "timedOut", endedAt: at(120_001) });
+  });
+
+  it("« Je suis là » is activity but never ends a grace", () => {
+    const state = race({ clock: at(30_000), entrants: [runner(ALICE, { disconnectedAt: at(10_000), lastActivityAt: at(10_000) }), runner(BOB, { lastActivityAt: at(30_000) })] });
+    const here = reduceRace(state, present(ALICE, 30_000));
+    expect(entrantOf(here, ALICE)).toMatchObject({ lastActivityAt: at(30_000), disconnectedAt: at(10_000) });
+    expect(entrantOf(reduceRace(here.state, tick(40_001)), ALICE)).toMatchObject({ status: "abandoned", abandonReason: "disconnection", endedAt: at(40_000) });
+  });
+
+  it("publishes the marker only while racing, so the final view does not depend on when a timer fired", () => {
+    const state = race({ timeLimit: asDuration(90_000), clock: at(1_000), entrants: [runner(ALICE), runner(BOB, { lastActivityAt: at(1_000) })] });
+    const direct = reduceRace(state, tick(90_000)).state;
+    const marked = reduceRace(reduceRace(state, tick(60_000)).state, tick(90_000)).state;
+    expect(marked.entrants.find((entrant) => entrant.entrantId === ALICE)?.inactive).toBe(true);
+    const view = (race: RaceState): unknown => ({ ...toRaceBroadcast(race, at(95_000)), revision: 0 });
+    expect(view(marked)).toEqual(view(direct));
+    expect(toRaceBroadcast(marked, at(95_000)).entrants.map((entrant) => entrant.inactive)).toEqual([false, false]);
+  });
+
+  it("never throws near MAX_INSTANT: deadlines past it are left out", () => {
+    const created = createRace({ raceId: EXAMPLE_RACE, text: "ab", errorMode: "free", timeLimit: thirtySeconds, participants: [{ entrantId: ALICE, kind: "human" }, { entrantId: BOB, kind: "human" }], now: asInstant(MAX_INSTANT - 3_000 - 30_000) });
+    if (!created.ok) {
+      throw new Error(created.reason);
+    }
+    const started = reduceRace(created.race, { type: "tick", now: created.race.startsAt });
+    expect(started.state.phase).toBe("racing");
+    expect(started.nextDeadline).toBe(MAX_INSTANT);
+    expect(reduceRace(started.state, { type: "present", entrantId: ALICE, now: asInstant(MAX_INSTANT - 1_000) }).ignored).toBeUndefined();
+    // Without a time limit, every presence deadline lies past MAX_INSTANT: no next deadline at all.
+    const unlimited = createRace({ raceId: EXAMPLE_RACE, text: "ab", errorMode: "free", timeLimit: null, participants: [{ entrantId: ALICE, kind: "human" }, { entrantId: BOB, kind: "human" }], now: asInstant(MAX_INSTANT - 3_000 - 30_000) });
+    if (!unlimited.ok) {
+      throw new Error(unlimited.reason);
+    }
+    expect(reduceRace(unlimited.race, { type: "tick", now: unlimited.race.startsAt }).nextDeadline).toBeUndefined();
+  });
+
   it("gives the grace's expiry as the next deadline when it comes first", () => {
     const state = race({ clock: at(10_000), entrants: [runner(ALICE, { lastActivityAt: at(10_000) }), runner(BOB, { lastActivityAt: at(10_000) })] });
     expect(reduceRace(state, lost(ALICE, 10_000)).nextDeadline).toBe(at(40_001));
   });
 
-    it("a duplicate or a refused batch is not activity; a newly applied one is", () => {
+  it("a duplicate or a refused batch is not activity; a newly applied one is", () => {
     const state = race({ clock: at(61_000), entrants: [runner(ALICE, { inactive: true, typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } }), runner(BOB, { lastActivityAt: at(61_000) })] });
     const duplicate = reduceRace(state, keystrokes(ALICE, 1, [insert("a")], 62_000));
     expect(duplicate.keystrokes).toMatchObject({ outcome: "duplicate" });
@@ -547,6 +588,11 @@ describe("reduceRace invariants with long pauses and presence events (F-04.6)", 
             expect(entrant.endedAt).toBe(after.startsAt + after.timeLimit);
           }
           if (entrant.status === "racing" && entrant.kind === "human" && after.phase === "racing") {
+            // Never past a deadline while still racing.
+            expect(after.clock).toBeLessThanOrEqual(entrant.lastActivityAt + 120_000);
+            if (entrant.disconnectedAt !== undefined) {
+              expect(after.clock).toBeLessThanOrEqual(entrant.disconnectedAt + 30_000);
+            }
             // The marker follows the rule exactly once the event is handled.
             expect(entrant.inactive).toBe(after.clock >= entrant.lastActivityAt + 60_000);
             if (entrant.inactive) {

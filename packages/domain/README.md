@@ -159,16 +159,14 @@ and after handling any event, `reduceRace` applies every transition due at that 
 order they fall due, so a late timer never decides a result:
 
 1. **The start.** The race starts at `startsAt`.
-2. **Each racing human's own deadlines** (D-06, D-17), independent of one another; the first one
-   that falls due wins:
-   - **inactive marker** at the last activity + 60 s, inclusive;
-   - **abandon for inactivity** after the last activity + 120 s: a reaction at exactly 120 s still
-     counts;
-   - **abandon for disconnection** after the loss + 30 s: a resumption at exactly 30 s still
-     counts.
+2. **Each racing human's own abandon** (D-06, D-17), independent of the others; the earlier
+   deadline wins:
+   - **for inactivity** after the last activity + 120 s: a reaction at exactly 120 s still counts;
+   - **for disconnection** after the loss + 30 s: a resumption at exactly 30 s still counts.
 
-   An abandon is dated at its deadline, so its measures include the wait; when both fall at the same
-   instant, the reason is `disconnection`.
+   An abandon is dated at its deadline, so its measures include the wait; when both deadlines are
+   the same instant, the reason is `disconnection`. A deadline at the same instant as the time limit
+   is a tie, which the time limit wins.
 3. **The time limit** (when there is one). The race ends at `startsAt + timeLimit`, inclusive, and
    whoever is still racing times out at that deadline. It wins a tie with any other deadline (D-06).
 4. **Everyone terminal.** A race whose entrants are all terminal ends, never from the countdown.
@@ -178,6 +176,8 @@ order they fall due, so a late timer never decides a result:
    - every entrant is an abandon;
    - the elapsed time and the measures are zero, and the countdown never counts as typing time;
    - no victory and no record is awarded.
+5. **The inactive marker** of each human still racing, from the last activity + 60 s, inclusive. It
+   is public while the entrant races and false once the entrant is terminal.
 
 **Reconnection and inactivity** (COURSE-08, D-06, D-17):
 
