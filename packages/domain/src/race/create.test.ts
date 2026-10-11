@@ -149,6 +149,15 @@ describe("createRace (F-04.1)", () => {
     expect(() => createRace(input(overrides as Partial<CreateRaceInput>))).toThrow(RangeError);
   });
 
+  it.each([["a line feed", "ab\ncd"], ["a carriage return", "ab\rcd"], ["a CRLF", "ab\r\ncd"]])("throws a RangeError for a text holding %s: a race text never does (D-16)", (_label, text) => {
+    expect(createRaceRefusal(input({ text }))).toBeUndefined();
+    expect(() => createRace(input({ text }))).toThrow(RangeError);
+  });
+
+  it("still gives the refusals first for a text holding a line break", () => {
+    expect(createRace(input({ text: "\n", participants: [human("alice")] }))).toEqual({ ok: false, reason: "NOT_ENOUGH_PARTICIPANTS" });
+  });
+
   it("accepts the latest now whose deadline is MAX_INSTANT exactly", () => {
     const result = createRace(input({ now: asInstant(MAX_INSTANT - COUNTDOWN_MS - TIME_LIMIT_MIN_MS), timeLimit: asDuration(TIME_LIMIT_MIN_MS) }));
     expect(result.ok && result.race.startsAt + TIME_LIMIT_MIN_MS).toBe(MAX_INSTANT);

@@ -1,5 +1,5 @@
 import { asEntrantId, asRaceId } from "../ids";
-import { toGraphemes } from "../text/graphemes";
+import { containsLineBreak, toGraphemes } from "../text/graphemes";
 import { asInstant } from "../time";
 import { COUNTDOWN_MS, MAX_TEXT_GRAPHEMES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "./limits";
 import { ENTRANT_KINDS, startRefusal } from "./start";
@@ -15,7 +15,8 @@ import { ERROR_MODES, type CreateRace, type CreateRaceInput, type CreateRaceRefu
  * before the start. Passing it guarantees valid parameters, not that the host may start or that
  * the room is still available: under the room lock the start rechecks the host, the phase and the
  * participants, and gives `createRace` the text, configuration and entrants frozen for that
- * transaction.
+ * transaction. It does not check what only the server produces (the ids, the kinds, a line break
+ * in the text): `createRace` throws for those.
  */
 export function createRaceRefusal(input: Pick<CreateRaceInput, "participants" | "text" | "timeLimit">): CreateRaceRefusal | undefined {
   const start = startRefusal(input.participants);
@@ -44,7 +45,8 @@ export function createRaceRefusal(input: Pick<CreateRaceInput, "participants" | 
  * A race on a fixed text, from the reveal (F-04.1). It applies `createRaceRefusal` first, so the
  * two never disagree. Values the server alone produces (the race and entrant ids, the kinds, the
  * error mode, its clock) are checked as programming errors and throw a `RangeError`, as does a
- * `now` whose start or time-limit deadline would pass `MAX_INSTANT`.
+ * `now` whose start or time-limit deadline would pass `MAX_INSTANT`, and a text with a line break:
+ * the server's texts never contain one (D-16).
  */
 export const createRace: CreateRace = (input) => {
   const reason = createRaceRefusal(input);
@@ -52,6 +54,9 @@ export const createRace: CreateRace = (input) => {
     return { ok: false, reason };
   }
   const raceId = asRaceId(input.raceId);
+  if (containsLineBreak(input.text)) {
+    throw new RangeError("A race text never contains a line break (D-16)");
+  }
   if (!ERROR_MODES.includes(input.errorMode)) {
     throw new RangeError(`Invalid error mode ${String(input.errorMode)}`);
   }

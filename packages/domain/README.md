@@ -37,6 +37,12 @@ re-implement one. A missing rule is added here, not copied there.
   Positions, progress and the Appendix A counts all use it; "é" counts once however it was typed.
   An insert carries one grapheme of at most `MAX_GRAPHEME_LENGTH` code units as received
   (`singleGrapheme`); its NFC form may be longer.
+- **Enter** (D-16) activates a bonus and never appears in a race text. An insert holding a line
+  break refuses the whole batch (`INVALID_INPUT`), so it never counts as a keystroke, and
+  `createRace` throws for a text holding one. A line break is what Enter produces ("\n", "\r",
+  "\r\n") or any other mandatory break of Unicode. `containsLineBreak` is exported so the
+  interface can filter Enter with the same rule, and the text pipeline can turn line breaks into
+  spaces before a race.
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
 ## Keystroke protocol (`src/race/types.ts`)
@@ -210,7 +216,7 @@ Stored values are bounded, so database columns can be sized from these constants
   - `computeMeasures`: Appendix A, exact and never capped (F-02.1);
   - `rankEntrants`: the final ranking of COURSE-10, ranks 1 to n (F-02.2);
   - `startRefusal` (COURSE-02);
-  - `toGraphemes` and `singleGrapheme`;
+  - `toGraphemes`, `singleGrapheme` and `containsLineBreak`;
   - `measuredElapsed`;
   - the time and id validators, and `compareIds`;
   - `maxPlausibleInserts`.

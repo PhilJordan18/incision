@@ -43,7 +43,8 @@ export type AbandonReason = "voluntary" | "disconnection" | "inactivity";
 /**
  * What a player's keyboard produced, in order. An `insert` carries exactly one grapheme, after any
  * input-method composition, of at most `MAX_GRAPHEME_LENGTH` code units as received (its NFC form
- * may be longer); a deletion carries nothing. Navigation keys are never sent.
+ * may be longer); a deletion carries nothing. Navigation keys are never sent, and Enter is never an
+ * insert: it activates a bonus (D-16), so an insert holding a line break refuses the whole batch.
  */
 export type InputEvent =
   | { readonly type: "insert"; readonly grapheme: string }

@@ -141,6 +141,20 @@ describe("applyKeystrokes (F-04.4)", () => {
     expect(applyKeystrokes(entrant("ab"), sent, context("free", 1_000)).result).toMatchObject({ outcome: "refused", reason: "INVALID_INPUT" });
   });
 
+  it.each([
+    ["free", "\n"],
+    ["free", "\r\n"],
+    ["mandatory", "\n"],
+    ["mandatory", "\r"],
+  ] as const)("in %s mode, Enter (%j) never counts as a keystroke: the whole batch is refused (D-16)", (mode, enter) => {
+    const before = entrant("abc", { typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } });
+    for (const events of [[insert(enter)], [insert("b"), insert(enter)], [insert("b"), insert("c"), insert(enter)], [insert(enter), deleteBackward]]) {
+      const output = applyKeystrokes(before, batch(2, events), context(mode, 1_000));
+      expect(output.result).toMatchObject({ outcome: "refused", reason: "INVALID_INPUT", snapshot: { ackSeq: 1, typed: ["a"], counters: { correctInserts: 1, totalInserts: 1 } } });
+      expect(output.entrant).toBe(before);
+    }
+  });
+
   it("finishes at the server's instant of the batch", () => {
     const output = applyKeystrokes(entrant("ab"), batch(1, [insert("a"), insert("b")]), context("mandatory", 4_321));
     expect(output.entrant).toMatchObject({ status: "finished", endedAt: at(4_321) });
@@ -181,7 +195,8 @@ describe("toEntrantSnapshot", () => {
 });
 
 describe("applyKeystrokes invariants over seeded random batches", () => {
-  const graphemes = ["a", "b", " ", "é", "é", "x", "ab"];
+  // "ab" is not one grapheme and "\n" is Enter (D-16): both refuse the whole batch.
+  const graphemes = ["a", "b", " ", "é", "é", "x", "ab", "\n"];
   const text = "ab é ba a b ab é ba a b ab é ba a b";
   for (const errorMode of ["free", "mandatory"] as const) {
     // 6 000 batches per mode: about 0.5 s alone, but several seconds on a loaded machine.
@@ -221,6 +236,7 @@ describe("applyKeystrokes invariants over seeded random batches", () => {
             continue;
           }
           expect(result.ackSeq).toBe(before.ackSeq + 1);
+          expect(events.some((event) => event.type === "insert" && event.grapheme.includes("\n"))).toBe(false);
           expect(after.counters.correctInserts).toBeLessThanOrEqual(after.counters.totalInserts);
           expect(after.counters.totalInserts).toBeGreaterThanOrEqual(before.counters.totalInserts);
           expect(after.counters.correctInserts).toBeGreaterThanOrEqual(before.counters.correctInserts);
