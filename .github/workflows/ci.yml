@@ -84,6 +84,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Integration tests (server processes, F-04.0)
+        # Two processes of the production build on their own database of the service container:
+        # a full race over Socket.IO, tabs and reconnection, a lost ownership, a stop during a race.
+        env:
+          INTEGRATION_DATABASE_URL: postgresql://incision_test:incision_test_only@localhost:5432/incision_e2e_integration
+          INTEGRATION_PORTS: 3301,3302
+        run: npm run test:integration -w @incision/web
+
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
 
