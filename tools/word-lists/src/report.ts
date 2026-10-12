@@ -1,7 +1,7 @@
 /**
  * Calibration report for F-02.4 (Q-1): counts and distributions of the pinned wordfreq lists, by
- * language, and how the proposed complexity thresholds split them. It decides nothing: the
- * thresholds are Philippe's call, and the derived lists are not published by this script.
+ * language, and how the proposed complexity thresholds split them. It decides nothing: I set the
+ * thresholds after reading it, and this script publishes no derived list.
  *
  * Usage: npm run report -w @incision/word-lists -- <raw-dir>
  * where <raw-dir> holds `wordfreq-3.1.1/wordfreq/data/large_{fr,en}.msgpack.gz` and

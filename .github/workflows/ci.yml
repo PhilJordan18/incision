@@ -97,8 +97,13 @@ jobs:
               exit 1
             fi
           done
-          if grep -E '^tools/|(^|/)node_modules/@msgpack/|(^|/)node_modules/@incision/word-lists(/|$)' <<< "$listing"; then
+          # grep exits 1 when nothing matches; any other failure must not read as a clean archive.
+          if found="$(grep -E '^tools/|(^|/)node_modules/@msgpack/|(^|/)node_modules/@incision/word-lists(/|$)' <<< "$listing")"; then
+            echo "$found"
             echo "::error::The release archive ships a local tool or one of its dependencies."
+            exit 1
+          elif [ $? -ne 1 ]; then
+            echo "::error::grep failed while checking the release archive."
             exit 1
           fi
           rm "$RUNNER_TEMP/release-check.zip"

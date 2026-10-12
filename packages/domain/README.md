@@ -235,7 +235,7 @@ Stored values are bounded, so database columns can be sized from these constants
 - **Data, server only.** The lists, the exclusions (P-2) and the forbidden pairs come from the
   subpath `@incision/domain/words`, never from `index.ts`, which exports only the types and the
   pure functions. Today they are hand-written fixtures (`WORD_DATA_NOTICE`). The reviewed lists
-  replace them only after Philippe approves their packaging, licences and attributions.
+  replace them once their packaging, licences and attributions have been reviewed.
 - **Leak detection.** Each list is one string literal opening with `WORD_DATA_SENTINEL`, so no
   bundler can keep the words and drop the marker. `tools/word-lists` fails when a client asset
   holds the sentinel or a fingerprint word, and checks that the sentinel lives only under
