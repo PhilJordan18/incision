@@ -12,8 +12,8 @@ The room persists between races. Its phase follows exactly the COURSE-01 busines
 | EN_ATTENTE → DECOMPTE | Host, 2..capacity participants including at least one present human; bots included, spectators excluded. Freeze text/configuration/entrants; reveal the text now, never before. |
 | DECOMPTE → EN_COURSE | Server clock after **3 seconds**, common start. No early keystroke accepted. |
 | EN_COURSE → RESULTATS | All FINISHED/ABANDONED, or timer expired; assign TIMED_OUT to the entrants still active, then persist once. |
-| RESULTATS → EN_ATTENTE | The host prepares a new round with the remaining members; configuration editable again. |
-| EN_ATTENTE/RESULTATS → FERMEE | Closure by the host; invalidate links and admissions, release the presences. |
+| RESULTATS → EN_ATTENTE | The host prepares a new round with the remaining members, including those who joined on the results (`startNextRound`, guarded by the finished race's id: a late or repeated request changes nothing); configuration editable again (F-03.1). |
+| EN_ATTENTE/RESULTATS → FERMEE | Closure by the host (`closeRoom`, refused during a race); every member leaves, admissions stop, the races stay in their entrants' history. |
 | Any open phase → FERMEE | After the host's departure/expiry, no connected human successor: close according to SALLE-08. If a race is active, keep a trace of the interruption, without a fake completed result. |
 
 Scope choice: no "cancel the current race to change the settings" button before the final obligations. The host can leave and hand over their role; settings are changed between rounds. No system host and no automatic matchmaking start. A "ready" check is not required by COURSE-02 and is not added as a mandatory condition.

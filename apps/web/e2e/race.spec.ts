@@ -49,6 +49,11 @@ async function join(guest: Page, code: string): Promise<void> {
   await expect(guest.getByText("[.En direct]")).toBeVisible();
 }
 
+/** The room's crew, as the waiting room lists it. */
+function crewOf(page: Page) {
+  return page.getByRole("region", { name: "Équipage" }).getByRole("listitem");
+}
+
 /** The text as the page shows it, grapheme by grapheme. */
 async function raceText(page: Page): Promise<string> {
   const text = page.locator(".course-texte");
@@ -300,4 +305,65 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guestQuestion).toHaveCount(0);
     await expect(guestOnHost).not.toContainText("inactive");
   });
+
+  test("the host takes everyone present to the next round, a newcomer included, and races them again (F-04.7)", async ({ browser }) => {
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA" });
+    const { page: leaver } = await signedIn(browser, "Mousse", { locale: "fr-CA" });
+    const code = await openRoom(host);
+    await join(guest, code);
+    await join(leaver, code);
+    await host.getByRole("button", { name: "Start the race" }).click();
+    const text = await raceText(guest);
+    await expect(guest.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
+    await leaver.getByRole("button", { name: "Abandonner la course" }).click();
+    await leaver.getByRole("button", { name: "Oui, abandonner" }).click();
+    await Promise.all([typeText(host.getByLabel("Your typing"), text), typeText(guest.getByLabel("Ta frappe"), text)]);
+    await expect(host.getByRole("heading", { name: /End of the crossing/i })).toBeVisible({ timeout: 15_000 });
+
+    // During the results, someone joins and someone leaves; only the host is offered the next round.
+    const { page: newcomer } = await signedIn(browser, "Vigie", { locale: "fr-CA" });
+    await join(newcomer, code);
+    await leaver.getByRole("button", { name: "Quitter la salle" }).click();
+    await expect(guest.getByRole("button", { name: "Prochaine manche" })).toHaveCount(0);
+    await expectNoAccessibilityViolation(host);
+    await host.getByRole("button", { name: "Next round" }).click();
+
+    // Everyone present waits again, the focus on the room's heading, without a reload.
+    await expect(host.getByRole("button", { name: "Start the race" })).toBeVisible();
+    await expect(host.getByRole("heading", { level: 1 })).toBeFocused();
+    await expect(crewOf(guest)).toHaveCount(3);
+    await expect(crewOf(newcomer)).toHaveCount(3);
+    await host.getByRole("button", { name: "Start the race" }).click();
+    await expect(newcomer.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
+    const runners = host.getByRole("region", { name: "Crew racing" }).getByRole("listitem");
+    await expect(runners).toHaveCount(3);
+    await expect(runners.filter({ hasText: "Mousse" })).toHaveCount(0);
+    await expect(runners.filter({ hasText: "Vigie" })).toHaveCount(1);
+  });
+
+  test("the host closes the room from the results: everyone sees it closed, and the race stays readable (F-04.7)", async ({ browser }) => {
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US", theme: "abysse" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
+    const code = await openRoom(host);
+    await join(guest, code);
+    await host.getByRole("button", { name: "Start the race" }).click();
+    const text = await raceText(host);
+    await expect(guest.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
+    await guest.getByRole("button", { name: "Abandonner la course" }).click();
+    await guest.getByRole("button", { name: "Oui, abandonner" }).click();
+    await typeText(host.getByLabel("Your typing"), text);
+    await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
+    const raceHref = await guest.getByRole("link", { name: "Voir la fiche de la course" }).getAttribute("href");
+
+    await host.getByRole("button", { name: "Close the room" }).click();
+    await expect(host.getByText(`The host closed room ${code} for everyone.`)).toBeVisible();
+    await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();
+    await expectNoAccessibilityViolation(guest);
+    await expectNoHorizontalScroll(guest);
+    // The race stays in its runners' history (HIST-02).
+    await guest.goto(raceHref ?? "/");
+    await expect(guest.getByRole("table").getByRole("row").nth(2)).toContainText("Matelot");
+  });
 });
+
