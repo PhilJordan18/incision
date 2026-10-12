@@ -1076,14 +1076,17 @@ describe("RaceRuntime: lost connections, inactivity and the confirmed abandon (F
   });
 
   it("lets a view that fails while telling the end interrupt the race, and saves nothing", async () => {
-    const { runtime, time, store } = setup({ state: created("abc") });
+    const { runtime, time, store, bob } = setup({ state: created("abc") });
     runtime.start();
     await time.advance(COUNTDOWN_MS + 120_000 - 1);
+    const toldBob = bob.count(RACE_SELF_EVENT);
     engine.failMeasures = true;
     await time.advance(1);
     await settle();
     expect(store.interruptOwnRace).toHaveBeenCalledWith(ownership, "engine_error");
     expect(store.finalizeRace).not.toHaveBeenCalled();
+    // The telling stopped with the failure: no entrant learns an end the interruption overrides.
+    expect(bob.count(RACE_SELF_EVENT)).toBe(toldBob);
   });
 
   it("tells nothing more to an entrant already terminal that asks to abandon again", async () => {

@@ -328,7 +328,7 @@ export class RaceRuntime implements OwnedRace {
     // The other tabs of this entrant follow its typing while it races: the next batch replaces
     // it. An entrant this batch (or a deadline before it) ended was told reliably by `#apply`.
     if (output.keystrokes.outcome === "applied" && self.snapshot.status === "racing") {
-      this.#sendSelf(entrant.entrantId, { except: connection.id, volatile: this.#stage === "running" });
+      this.#sendSelf(entrant.entrantId, { except: connection.id, volatile: true });
     }
     return { ok: true, result: output.keystrokes, self };
   }
@@ -545,10 +545,14 @@ export class RaceRuntime implements OwnedRace {
   /**
    * Every entrant the engine just made terminal (a deadline, an abandon, a batch, the end of the
    * race): its tabs learn it reliably, so no page keeps a racing field. The tab that sent the
-   * request (`answered`) gets it in its answer instead.
+   * request (`answered`) gets it in its answer instead. A view that fails stops the telling: its
+   * `engine_error` interruption alone decides, for every entrant.
    */
   #tellEnded(before: RaceState, after: RaceState, answered: string | undefined): void {
     for (const entrant of after.entrants) {
+      if (this.#stage !== "running" && this.#stage !== "saving") {
+        return;
+      }
       const previous = before.entrants.find((one) => one.entrantId === entrant.entrantId);
       if (previous?.status === "racing" && entrant.status !== "racing") {
         this.#sendSelf(entrant.entrantId, { volatile: false, ...(answered === undefined ? {} : { except: answered }) });

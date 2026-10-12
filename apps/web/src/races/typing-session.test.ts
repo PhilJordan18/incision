@@ -349,4 +349,3 @@ describe("TypingSession", () => {
     expect(other.session.block).toBe("over");
   });
 });
-
