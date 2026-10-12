@@ -13,8 +13,8 @@ import {
 } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 
-// The real engine everywhere; one test makes its reducer throw, as an engine fault would.
-const engine = vi.hoisted(() => ({ failNext: false }));
+// The real engine everywhere; some tests make its reducer or a view throw, as an engine fault would.
+const engine = vi.hoisted(() => ({ failNext: false, failMeasures: false }));
 vi.mock("@incision/domain", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@incision/domain")>();
   return {
@@ -25,6 +25,13 @@ vi.mock("@incision/domain", async (importOriginal) => {
         throw new RangeError("engine fault");
       }
       return actual.reduceRace(...args);
+    },
+    toEntrantMeasures: (...args: Parameters<typeof actual.toEntrantMeasures>) => {
+      if (engine.failMeasures) {
+        engine.failMeasures = false;
+        throw new RangeError("view fault");
+      }
+      return actual.toEntrantMeasures(...args);
     },
   };
 });
@@ -1010,6 +1017,73 @@ describe("RaceRuntime: lost connections, inactivity and the confirmed abandon (F
     expect(entrant(runtime, "e-bob")?.disconnectedAt).toBeUndefined();
     await time.advance(RESUME_GRACE_MS + 1);
     expect(entrant(runtime, "e-bob")?.status).toBe("racing");
+  });
+
+  it("tells every tab of every entrant, reliably, when the time limit ends the race", async () => {
+    const { runtime, time, alice, bob, followers } = setup({ state: created("abc") });
+    const aliceTwo = tab("tab-alice-2", ALICE.accountId);
+    followers.push(aliceTwo.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 120_000);
+    for (const one of [alice, aliceTwo, bob]) {
+      const last = one.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1);
+      expect(last).toMatchObject({ volatile: false, payload: { snapshot: { status: "timedOut" } } });
+    }
+  });
+
+  it("tells the entrant's other tabs once, reliably, when its own batch finishes it", async () => {
+    const { runtime, time, alice, followers } = setup();
+    const aliceTwo = tab("tab-alice-2", ALICE.accountId);
+    followers.push(aliceTwo.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    runtime.keystrokes(alice.connection, batch(1, "a"));
+    const before = aliceTwo.count(RACE_SELF_EVENT);
+    const answeredBefore = alice.count(RACE_SELF_EVENT);
+    expect(runtime.keystrokes(alice.connection, batch(2, "b"))).toMatchObject({ ok: true, self: { snapshot: { status: "finished" } } });
+    const told = aliceTwo.received.filter((message) => message.event === RACE_SELF_EVENT).slice(before);
+    expect(told).toHaveLength(1);
+    expect(told[0]).toMatchObject({ volatile: false, payload: { snapshot: { status: "finished" } } });
+    // The tab that sent the batch has its state in the answer, not twice.
+    expect(alice.count(RACE_SELF_EVENT)).toBe(answeredBefore);
+  });
+
+  it("tells the other tabs when a batch arrives after a deadline its timer has not handled yet", async () => {
+    let now = START;
+    const followers: RaceConnection[] = [];
+    const alice = tab("tab-alice", ALICE.accountId);
+    const aliceTwo = tab("tab-alice-2", ALICE.accountId);
+    followers.push(alice.connection, aliceTwo.connection, tab("tab-bob", BOB.accountId).connection);
+    const runtime = new RaceRuntime({
+      ownership,
+      state: created("abc"),
+      entrants: [ALICE, BOB],
+      language: "fr",
+      store: fakeStore(),
+      lease: fakeLease(),
+      now: () => now,
+      // Late timers: none fires in this test.
+      schedule: () => () => undefined,
+      followers: () => followers,
+      onSettled: vi.fn(),
+      log: vi.fn(),
+    });
+    runtime.start();
+    now = START + COUNTDOWN_MS + 120_000 + 5;
+    expect(runtime.keystrokes(alice.connection, batch(1, "a"))).toMatchObject({ ok: true, self: { snapshot: { status: "timedOut" } } });
+    const last = aliceTwo.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1);
+    expect(last).toMatchObject({ volatile: false, payload: { snapshot: { status: "timedOut" } } });
+  });
+
+  it("lets a view that fails while telling the end interrupt the race, and saves nothing", async () => {
+    const { runtime, time, store } = setup({ state: created("abc") });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 120_000 - 1);
+    engine.failMeasures = true;
+    await time.advance(1);
+    await settle();
+    expect(store.interruptOwnRace).toHaveBeenCalledWith(ownership, "engine_error");
+    expect(store.finalizeRace).not.toHaveBeenCalled();
   });
 
   it("tells nothing more to an entrant already terminal that asks to abandon again", async () => {

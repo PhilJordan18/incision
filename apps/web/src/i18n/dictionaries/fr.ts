@@ -147,7 +147,7 @@ export const fr = {
     leave: "Quitter la salle",
     leaving: "Départ…",
     hostLeaveNote: "Si tu quittes en tant qu’hôte, la salle se ferme pour tout le monde.",
-    raceLeaveNote: "Pendant la course, quitter la salle compte comme un abandon.",
+    raceLeaveNote: "Pendant la course, quitter la salle compte comme un abandon si tu cours encore.",
     closedHeadingBold: "Salle",
     closedHeadingSerif: "fermée",
     closed: "L’hôte a quitté la salle {code} : elle est fermée pour tout le monde.",

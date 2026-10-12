@@ -143,7 +143,7 @@ export const en: Dictionary = {
     leave: "Leave the room",
     leaving: "Leaving…",
     hostLeaveNote: "If you leave as the host, the room closes for everyone.",
-    raceLeaveNote: "During the race, leaving the room counts as giving up.",
+    raceLeaveNote: "During the race, leaving the room counts as giving up if you are still racing.",
     closedHeadingBold: "Room",
     closedHeadingSerif: "closed",
     closed: "The host left room {code}: it is closed for everyone.",

@@ -313,19 +313,22 @@ export class RaceRuntime implements OwnedRace {
     if (!this.#options.lease.isAuthoritative()) {
       return { ok: false, error: "SUSPENDED" };
     }
-    const output = this.#apply({
-      type: "keystrokes",
-      now: this.#now(),
-      batch: { raceId: asRaceId(payload.raceId), entrantId: asEntrantId(entrant.entrantId), seq: payload.seq, textVersion: payload.textVersion, events: payload.events },
-    });
+    const output = this.#apply(
+      {
+        type: "keystrokes",
+        now: this.#now(),
+        batch: { raceId: asRaceId(payload.raceId), entrantId: asEntrantId(entrant.entrantId), seq: payload.seq, textVersion: payload.textVersion, events: payload.events },
+      },
+      connection.id,
+    );
     const self = output?.keystrokes === undefined ? undefined : this.#selfFor(entrant.entrantId, connection.id);
     if (output?.keystrokes === undefined || self === undefined) {
       return { ok: false, error: "NO_RACE" };
     }
-    // The other tabs of this entrant follow its typing when it changed: the next batch replaces
-    // it, unless this one finished the entrant or the race, whose last state must arrive.
-    if (output.keystrokes.outcome === "applied") {
-      this.#sendSelf(entrant.entrantId, { except: connection.id, volatile: this.#stage === "running" && self.snapshot.status === "racing" });
+    // The other tabs of this entrant follow its typing while it races: the next batch replaces
+    // it. An entrant this batch (or a deadline before it) ended was told reliably by `#apply`.
+    if (output.keystrokes.outcome === "applied" && self.snapshot.status === "racing") {
+      this.#sendSelf(entrant.entrantId, { except: connection.id, volatile: this.#stage === "running" });
     }
     return { ok: true, result: output.keystrokes, self };
   }
@@ -504,9 +507,10 @@ export class RaceRuntime implements OwnedRace {
 
   /**
    * Hands one event to the engine. An unexpected exception there ends this race only: the last
-   * good state is interrupted in memory and in the database (`engine_error`).
+   * good state is interrupted in memory and in the database (`engine_error`). `answered`: the tab
+   * whose request this is, which gets its state in its answer.
    */
-  #apply(event: RaceEvent): RaceOutput | undefined {
+  #apply(event: RaceEvent, answered?: string): RaceOutput | undefined {
     if (this.#stage !== "running" && !(this.#stage === "saving" && event.type === "keystrokes")) {
       return undefined;
     }
@@ -522,7 +526,11 @@ export class RaceRuntime implements OwnedRace {
     if (before.phase === "countdown" && output.state.phase !== "countdown") {
       this.#writeBegin();
     }
-    this.#tellEnded(before, output.state, event);
+    this.#tellEnded(before, output.state, answered);
+    if (this.#stage !== "running" && this.#stage !== "saving") {
+      // A view failed while telling it (`engine_error`): that interruption decides, nothing else.
+      return undefined;
+    }
     if (output.changed) {
       this.#scheduleProgress();
     }
@@ -535,18 +543,15 @@ export class RaceRuntime implements OwnedRace {
   }
 
   /**
-   * An entrant the engine just made terminal without answering it directly (a deadline, an
-   * abandon, the end of the race): its tabs learn it reliably, so no page keeps a racing field.
-   * A batch's own tab gets it in its answer, and its other tabs from `keystrokes`.
+   * Every entrant the engine just made terminal (a deadline, an abandon, a batch, the end of the
+   * race): its tabs learn it reliably, so no page keeps a racing field. The tab that sent the
+   * request (`answered`) gets it in its answer instead.
    */
-  #tellEnded(before: RaceState, after: RaceState, event: RaceEvent): void {
+  #tellEnded(before: RaceState, after: RaceState, answered: string | undefined): void {
     for (const entrant of after.entrants) {
-      if (event.type === "keystrokes" && event.batch.entrantId === entrant.entrantId) {
-        continue;
-      }
       const previous = before.entrants.find((one) => one.entrantId === entrant.entrantId);
       if (previous?.status === "racing" && entrant.status !== "racing") {
-        this.#sendSelf(entrant.entrantId, { volatile: false });
+        this.#sendSelf(entrant.entrantId, { volatile: false, ...(answered === undefined ? {} : { except: answered }) });
       }
     }
   }

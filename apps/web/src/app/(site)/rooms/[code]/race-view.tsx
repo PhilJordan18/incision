@@ -160,12 +160,18 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
  * focus back to the field.
  */
 function StillThere({ t, onPresent }: { readonly t: Dictionary["races"]; readonly onPresent: () => Promise<boolean> }) {
-  const [failed, setFailed] = useState(false);
+  const [step, setStep] = useState<"idle" | "sending" | "failed">("idle");
   const answer = async () => {
+    // One answer at a time: it shares its window with the abandon.
+    if (step === "sending") {
+      return;
+    }
+    setStep("sending");
     const taken = await onPresent();
-    setFailed(!taken);
+    setStep(taken ? "idle" : "failed");
     if (taken) {
-      focusTyping();
+      // The field when it takes keys, otherwise the line that says why (an observing tab).
+      focusTyping(document.getElementById(TYPING_STATUS_ID));
     }
   };
   return (
@@ -176,11 +182,11 @@ function StillThere({ t, onPresent }: { readonly t: Dictionary["races"]; readonl
         </h2>
         <p className="text-embrun">{t.stillThereBody}</p>
       </div>
-      <button type="button" onClick={() => void answer()} className={`${secondaryButton} self-start`}>
+      <button type="button" onClick={() => void answer()} aria-disabled={step === "sending"} className={`${secondaryButton} self-start aria-disabled:cursor-progress`}>
         {t.present}
       </button>
       <p role="alert" className="min-h-5 text-sm text-erreur">
-        {failed && (
+        {step === "failed" && (
           <>
             <span aria-hidden="true">⚠ </span>
             {t.presentFailed}
@@ -414,10 +420,10 @@ function TypingZone({
             : ended !== undefined
               ? t[ended]
               : expected !== undefined
-              ? expected === " "
-                ? t.blockedSpace
-                : format(t.blocked, { expected })
-              : t.typingHint;
+                ? expected === " "
+                  ? t.blockedSpace
+                  : format(t.blocked, { expected })
+                : t.typingHint;
   return (
     <div className="flex flex-col gap-4">
       <RaceText target={reveal?.text ?? []} typing={typing} label={t.textLabel} language={language} overlay={overlay} />
@@ -435,7 +441,7 @@ function TypingZone({
           spellCheck={false}
           disabled={!enabled}
           aria-invalid={expected !== undefined}
-          aria-describedby="race-typing-status"
+          aria-describedby={TYPING_STATUS_ID}
           className="h-16 w-full rounded-bouton border border-voile bg-abysse px-4 font-mono text-xl text-ecume focus-visible:border-moi aria-invalid:border-2 aria-invalid:border-erreur disabled:bg-sillage"
         />
         <p id={TYPING_STATUS_ID} role="status" tabIndex={-1} className={`min-h-6 text-sm outline-none ${expected !== undefined ? "text-erreur" : "text-brume"}`}>

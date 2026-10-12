@@ -130,9 +130,6 @@ export class RaceClient {
     if (this.#session === undefined) {
       return;
     }
-    if (parsed.data.abandonReason !== this.#state.abandonReason) {
-      this.#state = { ...this.#state, abandonReason: parsed.data.abandonReason };
-    }
     // The session notifies through `onChange`, which updates the state once.
     this.#session.receive(parsed.data);
   }
@@ -154,7 +151,9 @@ export class RaceClient {
     this.#state = {
       ...this.#state,
       ...change,
-      ...(session === undefined ? {} : { typing: session.view(), block: session.block, control: session.control, measures: session.measures }),
+      ...(session === undefined
+        ? {}
+        : { typing: session.view(), block: session.block, control: session.control, measures: session.measures, abandonReason: session.abandonReason }),
     };
     for (const listener of this.#listeners) {
       listener();
