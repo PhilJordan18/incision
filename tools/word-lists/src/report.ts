@@ -5,7 +5,7 @@
  *
  * Usage: npm run report -w @incision/word-lists -- <raw-dir>
  * where <raw-dir> holds `wordfreq-3.1.1/wordfreq/data/large_{fr,en}.msgpack.gz` and
- * `ldnoobw-5faf2ba/{fr,en}` (see the raw folder's PROVENANCE.md).
+ * `ldnoobw-5faf2ba/{fr,en}`: pinned sources and hashes in this tool's README.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
