@@ -280,7 +280,7 @@ describe("an integrated race (F-04.0)", () => {
     const h = await tab(a.origin, host.cookie);
     const g = await tab(a.origin, guest.cookie);
     await h.ask("room:watch", { code });
-    await g.ask("room:watch", { code });
+    await g.ask("room:watch", { code, pageId: FIRST_PAGE });
     expect(await h.ask("race:start", {})).toEqual({ ok: true });
     const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
     const raceId = reveal.reveal.raceId;
@@ -315,12 +315,14 @@ describe("an integrated race (F-04.0)", () => {
     // A wakes up: its lease is past, its renewal refused, and nothing it does counts any more.
     await sleep(3_000);
     // The guest's socket to A did not survive the freeze: without a ping for more than 15 s the
-    // client's own heartbeat closed it (F-04.6). The page comes back to A as a new tab, at once.
+    // client's own heartbeat closed it (F-04.6). The same page comes back to A at once, and takes
+    // its input back (its page id), so its late batch reaches the fence itself.
     expect(g.socket.connected).toBe(false);
     const back = await tab(a.origin, guest.cookie);
-    await back.ask("room:watch", { code });
+    await back.ask("room:watch", { code, pageId: FIRST_PAGE });
     const late = (await back.ask("race:batch", { raceId, seq, textVersion: 0, events: [{ type: "insert", grapheme: "e" }] })) as RaceBatchAck;
-    expect(late.ok === false || late.result.outcome !== "applied").toBe(true);
+    // Refused by the lease (SUSPENDED while A has not settled yet) or by the race being gone (NO_RACE).
+    expect(late.ok ? late.result.outcome : late.error).toMatch(/^(SUSPENDED|NO_RACE)$/);
     expect(await query("select 1 from race_results where race_id = $1", [raceId])).toEqual([]);
     expect((await query<{ state: string; owner_epoch: number }>("select state, owner_epoch from races where id = $1", [raceId]))[0]).toEqual({ state: "interrupted", owner_epoch: 2 });
     expect((await fetch(`${a.origin}/api/health/live`)).ok).toBe(true);

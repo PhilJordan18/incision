@@ -238,22 +238,24 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(field).toBeEnabled({ timeout: 6_000 });
     await typeText(field, text.slice(0, 4));
 
-    // Asked first; Escape keeps racing and gives the focus back to the button.
+    // Asked first; Escape keeps racing and gives the focus back to the field.
     const guestGiveUp = guest.getByRole("button", { name: "Abandonner la course" });
     await guestGiveUp.click();
     await expect(guest.getByRole("heading", { name: "Abandonner la course ?" })).toBeFocused();
     await expectNoAccessibilityViolation(guest);
     await expectNoHorizontalScroll(guest);
     await guest.keyboard.press("Escape");
-    await expect(guestGiveUp).toBeFocused();
-    await expect(field).toBeEnabled();
+    await expect(field).toBeFocused();
+    await expect(guest.getByRole("heading", { name: "Abandonner la course ?" })).toHaveCount(0);
 
     // The host gives up for good.
     await host.getByRole("button", { name: "Give up the race" }).click();
     await expect(host.getByRole("heading", { name: "Give up the race?" })).toBeFocused();
     await expectNoAccessibilityViolation(host);
     await host.getByRole("button", { name: "Yes, give up" }).click();
-    await expect(host.getByText("You gave up. You can follow the race to the end.")).toBeVisible();
+    // The focus goes to the line that says it.
+    await expect(host.locator("#race-typing-status")).toBeFocused();
+    await expect(host.locator("#race-typing-status")).toHaveText("You gave up. You can follow the race to the end.");
     await expect(host.getByLabel("Your typing")).toBeDisabled();
     await expect(host.getByRole("button", { name: "Give up the race" })).toHaveCount(0);
     // The others see it on the list, from the server.
@@ -267,7 +269,8 @@ test.describe("the first complete race (F-04.0)", () => {
 
   test("an idle player is asked if they are still there after 60 s; the button or a keystroke clears it for everyone (D-17)", async ({ browser }) => {
     test.setTimeout(150_000);
-    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
+    // The dark theme (Abysse) for the host, the light one (Aube) for the guest.
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US", theme: "abysse" });
     const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", theme: "aube" });
     const code = await openRoom(host);
     await join(guest, code);
@@ -286,9 +289,12 @@ test.describe("the first complete race (F-04.0)", () => {
     await expectNoAccessibilityViolation(host);
     await expectNoAccessibilityViolation(guest);
 
-    // The button for one, a keystroke for the other.
-    await host.getByRole("button", { name: "I'm here" }).click();
+    // The button for one, a keystroke for the other; the button gives the focus back to typing.
+    await host.getByRole("button", { name: "I’m here" }).click();
     await expect(hostQuestion).toHaveCount(0);
+    await expect(host.getByLabel("Your typing")).toBeFocused();
+    // A presence, never an abandon: the host still races.
+    await expect(host.getByRole("region", { name: "Crew racing" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("racing");
     await expect(hostOnGuest).not.toContainText("inactif");
     await typeText(guest.getByLabel("Ta frappe"), text.slice(0, 1));
     await expect(guestQuestion).toHaveCount(0);

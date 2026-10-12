@@ -134,7 +134,9 @@ export class RaceService {
     if (tabs?.size === 0) {
       this.#followers.delete(lobbyId);
     }
-    this.#registry.get(lobbyId)?.unfollow(connectionId, leaving?.accountId);
+    if (leaving !== undefined) {
+      this.#registry.get(lobbyId)?.unfollow(connectionId, leaving.accountId);
+    }
   }
 
   /**

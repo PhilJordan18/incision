@@ -52,7 +52,7 @@ In this diagram, INSCRIT means registered and ACTIF means active. Orthogonal con
 - Race timer expiring **before** the grace period: TIMED_OUT, even if the entrant is momentarily absent. A disconnection does not become an abandonment before the 30 seconds.
 - For two identical deadlines, process the end of the race time first: documented deterministic choice.
 - Voluntary departure from the room during a race, or confirmed abandonment (two steps in the page, from any tab of the entrant): ABANDONED immediately, without resuming this round.
-- Inactivity (D-17), separate from the connection state: no newly applied batch and no « Je suis là » for 60 s shows the entrant inactive (asked « Tu es toujours là ? »); 120 s gives ABANDONED, reason INACTIVITY, dated at its deadline. A batch that changes nothing, or a return after a loss, is not activity.
+- Inactivity (D-17), separate from the connection state: no newly applied batch and no « Je suis là » for 60 s shows the entrant inactive (asked « Tu es toujours là ? »); 120 s gives ABANDONED, reason INACTIVITY, dated at its deadline. A newly applied batch is activity (even a Backspace with nothing to delete); a duplicate, refused or resynced batch, or a return after a loss, is not.
 - A terminal result is immutable. Delayed/replayed packets never improve the rank or the result.
 - Disconnection during the countdown: the entrant stays registered, the grace period starts, the race starts at the scheduled time. A valid resumption joins at the current time, not at a new start.
 

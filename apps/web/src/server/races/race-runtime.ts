@@ -5,6 +5,7 @@ import {
   asRaceId,
   type EntrantId,
   type EntrantResult,
+  type EntrantState,
   type RaceEnd,
   type RaceEvent,
   type RaceOutput,
@@ -217,8 +218,8 @@ export class RaceRuntime implements OwnedRace {
    * most recent other open tab takes it and learns it (state-machines §2). If it was the
    * entrant's last tab, the engine learns the loss now, at the server's detection (D-06).
    */
-  unfollow(connectionId: string, accountId?: string): void {
-    const entrant = accountId === undefined ? undefined : this.#entrantOf(accountId);
+  unfollow(connectionId: string, accountId: string): void {
+    const entrant = this.#entrantOf(accountId);
     if (entrant !== undefined && !this.#hasTab(entrant.accountId)) {
       this.#connectionLost(entrant.entrantId);
     }
@@ -339,15 +340,11 @@ export class RaceRuntime implements OwnedRace {
 
   /**
    * The entrant gives the race up, confirmed in its page (COURSE-07): terminal, ranked by its
-   * progress. Every tab of the entrant learns its new status at once.
+   * progress. Every tab of the entrant learns its new status at once (`#tellEnded`); an entrant
+   * already terminal changes nothing and is told nothing.
    */
   abandon(connection: RaceConnection): "ok" | "NOT_AN_ENTRANT" | "NO_RACE" | "SUSPENDED" {
-    const answer = this.#entrantAction(connection, (entrantId) => ({ type: "abandon", entrantId, now: this.#now() }));
-    const entrant = this.#entrantOf(connection.accountId);
-    if (answer === "ok" && entrant !== undefined) {
-      this.#sendSelf(entrant.entrantId, { volatile: false });
-    }
-    return answer;
+    return this.#entrantAction(connection, (entrantId) => ({ type: "abandon", entrantId, now: this.#now() }));
   }
 
   #entrantAction(
@@ -525,6 +522,7 @@ export class RaceRuntime implements OwnedRace {
     if (before.phase === "countdown" && output.state.phase !== "countdown") {
       this.#writeBegin();
     }
+    this.#tellEnded(before, output.state, event);
     if (output.changed) {
       this.#scheduleProgress();
     }
@@ -534,6 +532,23 @@ export class RaceRuntime implements OwnedRace {
       this.#scheduleTick(output.nextDeadline);
     }
     return output;
+  }
+
+  /**
+   * An entrant the engine just made terminal without answering it directly (a deadline, an
+   * abandon, the end of the race): its tabs learn it reliably, so no page keeps a racing field.
+   * A batch's own tab gets it in its answer, and its other tabs from `keystrokes`.
+   */
+  #tellEnded(before: RaceState, after: RaceState, event: RaceEvent): void {
+    for (const entrant of after.entrants) {
+      if (event.type === "keystrokes" && event.batch.entrantId === entrant.entrantId) {
+        continue;
+      }
+      const previous = before.entrants.find((one) => one.entrantId === entrant.entrantId);
+      if (previous?.status === "racing" && entrant.status !== "racing") {
+        this.#sendSelf(entrant.entrantId, { volatile: false });
+      }
+    }
   }
 
   #scheduleTick(deadline: number | undefined): void {
@@ -785,6 +800,7 @@ export class RaceRuntime implements OwnedRace {
         snapshot,
         measures: { netWpm: measures.netWpm, accuracy: measures.accuracy },
         control: this.#control.get(entrantId)?.connectionId === connectionId ? "controlling" : "observing",
+        ...abandonReasonOf(this.#state, entrantId),
       };
     });
   }
@@ -831,4 +847,10 @@ export function toResultRow(result: EntrantResult): RaceResultRow {
     accuracy: result.measures.accuracy,
     ...(result.abandonReason === undefined ? {} : { abandonmentReason: result.abandonReason }),
   };
+}
+
+/** Why the entrant abandoned, for its own page to say it (D-06 and D-17 stay apart from a choice). */
+function abandonReasonOf(state: RaceState, entrantId: string): { readonly abandonReason?: NonNullable<EntrantState["abandonReason"]> } {
+  const reason = state.entrants.find((entrant) => entrant.entrantId === entrantId)?.abandonReason;
+  return reason === undefined ? {} : { abandonReason: reason };
 }
