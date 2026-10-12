@@ -307,36 +307,43 @@ test.describe("the first complete race (F-04.0)", () => {
   });
 
   test("the host takes everyone present to the next round, a newcomer included, and races them again (F-04.7)", async ({ browser }) => {
-    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
-    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA" });
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "en-US" });
     const { page: leaver } = await signedIn(browser, "Mousse", { locale: "fr-CA" });
     const code = await openRoom(host);
     await join(guest, code);
     await join(leaver, code);
-    await host.getByRole("button", { name: "Start the race" }).click();
+    await host.getByRole("button", { name: "Lancer la course" }).click();
     const text = await raceText(guest);
-    await expect(guest.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
+    await expect(guest.getByLabel("Your typing")).toBeEnabled({ timeout: 6_000 });
     await leaver.getByRole("button", { name: "Abandonner la course" }).click();
     await leaver.getByRole("button", { name: "Oui, abandonner" }).click();
-    await Promise.all([typeText(host.getByLabel("Your typing"), text), typeText(guest.getByLabel("Ta frappe"), text)]);
-    await expect(host.getByRole("heading", { name: /End of the crossing/i })).toBeVisible({ timeout: 15_000 });
+    await Promise.all([typeText(host.getByLabel("Ta frappe"), text), typeText(guest.getByLabel("Your typing"), text)]);
+    await expect(host.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
 
     // During the results, someone joins and someone leaves; only the host is offered the next round.
     const { page: newcomer } = await signedIn(browser, "Vigie", { locale: "fr-CA" });
     await join(newcomer, code);
     await leaver.getByRole("button", { name: "Quitter la salle" }).click();
-    await expect(guest.getByRole("button", { name: "Prochaine manche" })).toHaveCount(0);
+    await expect(guest.getByRole("heading", { name: /End of the crossing/i })).toBeVisible();
+    await expect(guest.getByRole("region", { name: "Host actions" })).toHaveCount(0);
+    await expect(newcomer.getByRole("region", { name: "Actions de l’hôte" })).toHaveCount(0);
+    // As on screen 10: the host's actions, beside the race page, come before the ranking.
+    const actions = host.getByRole("region", { name: "Actions de l’hôte" });
+    await expect(actions.getByRole("link", { name: "Voir la fiche de la course" })).toBeVisible();
+    expect(await actions.evaluate((element) => Boolean(element.compareDocumentPosition(document.querySelector("table") ?? element) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
     await expectNoAccessibilityViolation(host);
-    await host.getByRole("button", { name: "Next round" }).click();
+    await expectNoHorizontalScroll(host);
+    await actions.getByRole("button", { name: "Prochaine manche" }).click();
 
     // Everyone present waits again, the focus on the room's heading, without a reload.
-    await expect(host.getByRole("button", { name: "Start the race" })).toBeVisible();
+    await expect(host.getByRole("button", { name: "Lancer la course" })).toBeVisible();
     await expect(host.getByRole("heading", { level: 1 })).toBeFocused();
-    await expect(crewOf(guest)).toHaveCount(3);
+    await expect(guest.getByRole("heading", { level: 1 })).toBeFocused();
     await expect(crewOf(newcomer)).toHaveCount(3);
-    await host.getByRole("button", { name: "Start the race" }).click();
+    await host.getByRole("button", { name: "Lancer la course" }).click();
     await expect(newcomer.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
-    const runners = host.getByRole("region", { name: "Crew racing" }).getByRole("listitem");
+    const runners = host.getByRole("region", { name: "Équipage en course" }).getByRole("listitem");
     await expect(runners).toHaveCount(3);
     await expect(runners.filter({ hasText: "Mousse" })).toHaveCount(0);
     await expect(runners.filter({ hasText: "Vigie" })).toHaveCount(1);
@@ -355,10 +362,14 @@ test.describe("the first complete race (F-04.0)", () => {
     await typeText(host.getByLabel("Your typing"), text);
     await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
     const raceHref = await guest.getByRole("link", { name: "Voir la fiche de la course" }).getAttribute("href");
+    await expect(host.getByRole("region", { name: "Host actions" })).toBeVisible();
+    await expectNoAccessibilityViolation(host);
 
     await host.getByRole("button", { name: "Close the room" }).click();
-    await expect(host.getByText(`The host closed room ${code} for everyone.`)).toBeVisible();
+    await expect(host.getByText(`You closed room ${code} for everyone.`)).toBeVisible();
+    await expect(host.getByRole("heading", { name: /Room\s*closed/i })).toBeFocused();
     await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();
+    await expect(guest.getByRole("heading", { name: /Salle\s*fermée/i })).toBeFocused();
     await expectNoAccessibilityViolation(guest);
     await expectNoHorizontalScroll(guest);
     // The race stays in its runners' history (HIST-02).

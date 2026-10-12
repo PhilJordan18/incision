@@ -1,5 +1,6 @@
 import type { RaceResultView } from "@incision/database";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { card, monoLabel, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
@@ -13,6 +14,8 @@ type RaceResultsProps = {
   /** Shown in the room: a link to the race's own page (HIST-02). */
   readonly linkToRace?: boolean;
   readonly headingId?: string;
+  /** The room's actions after the summary, before the ranking (screen 10), given the race link to place beside them. */
+  readonly actions?: (openRace: ReactNode) => ReactNode;
 };
 
 const OUTCOME_STATUS = { finished: "finished", timed_out: "timedOut", abandoned: "abandoned" } as const;
@@ -22,10 +25,17 @@ const OUTCOME_STATUS = { finished: "finished", timed_out: "timedOut", abandoned:
  * engine and puts arrivals first, then time-outs and abandons by progress, never WPM first.
  * Read from the database once saved, so a reload shows exactly what was stored.
  */
-export function RaceResults({ race, t, locale, linkToRace = false, headingId }: RaceResultsProps) {
+export function RaceResults({ race, t, locale, linkToRace = false, headingId, actions }: RaceResultsProps) {
   const ranked = race.entrants.filter((entrant) => entrant.result !== undefined);
   const self = race.entrants.find((entrant) => entrant.isSelf);
   const finishers = ranked.filter((entrant) => entrant.result?.outcome === "finished").length;
+  // The race page is its entrants' history (HIST-02): the link is shown to them only.
+  const openRace =
+    linkToRace && self !== undefined ? (
+      <Link href={`/races/${race.raceId}`} className={`${secondaryButton} self-start`}>
+        {t.results.openRace}
+      </Link>
+    ) : null;
   return (
     <section aria-labelledby={headingId ?? "results-heading"} className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
@@ -59,6 +69,8 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId }: 
       ) : null}
 
       {finishers === 0 && <p className="text-embrun">{t.results.noVictory}</p>}
+
+      {actions === undefined ? openRace : actions(openRace)}
 
       {/* Scrolls sideways at 360 px: focusable and named, so the keyboard reaches every column. */}
       <div role="region" aria-label={t.results.tableLabel} tabIndex={0} className={`${card} overflow-x-auto p-0`}>
@@ -104,13 +116,6 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId }: 
         </table>
       </div>
       <p className="text-sm text-brume">{t.results.rounding}</p>
-
-      {/* The race page is its entrants' history (HIST-02): the link is shown to them only. */}
-      {linkToRace && self !== undefined && (
-        <Link href={`/races/${race.raceId}`} className={`${secondaryButton} self-start`}>
-          {t.results.openRace}
-        </Link>
-      )}
     </section>
   );
 }

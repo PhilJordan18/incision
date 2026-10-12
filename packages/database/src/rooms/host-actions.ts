@@ -1,4 +1,5 @@
-import { eq } from "drizzle-orm";
+import type { RoomPhase } from "@incision/domain";
+import { eq, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { lobbies } from "../schema";
 import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transaction";
@@ -24,12 +25,15 @@ export type CloseRoomResult =
   /** ROOM_RACING: a race counts down or runs; closing then is the host leaving (D-06), not this. */
   | { readonly ok: false; readonly error: HostRefusal | "ROOM_RACING" };
 
-type LockedRoom = { readonly lobbyId: string; readonly phase: string; readonly currentRaceId: string | null };
+type LockedRoom = { readonly lobbyId: string; readonly phase: RoomPhase; readonly currentRaceId: string | null };
 
-/** The room of the account, locked, if the account is its host; otherwise why not. */
-async function lockOwnRoom(tx: Transaction, accountId: string): Promise<LockedRoom | HostRefusal> {
+/**
+ * The room of the account, locked, if the account is its host; otherwise why not. With `code`,
+ * only that room: a page left open on a room the account has since left never acts on its next one.
+ */
+async function lockOwnRoom(tx: Transaction, accountId: string, code?: string): Promise<LockedRoom | HostRefusal> {
   const seen = await findActiveMembership(tx, accountId);
-  if (seen === undefined) {
+  if (seen === undefined || (code !== undefined && seen.code !== code)) {
     return "NOT_IN_A_ROOM";
   }
   const [lobby] = await tx
@@ -71,8 +75,10 @@ export async function startNextRound(db: Database, input: { readonly accountId: 
         return { ok: false, error: "NOT_ON_RESULTS" };
       }
       // The finished race stays the room's current race until the next one starts.
-      await tx.update(lobbies).set({ phase: "waiting" }).where(eq(lobbies.id, room.lobbyId));
-      await bumpRevision(tx, room.lobbyId);
+      await tx
+        .update(lobbies)
+        .set({ phase: "waiting", revision: sql`${lobbies.revision} + 1` })
+        .where(eq(lobbies.id, room.lobbyId));
       return { ok: true, lobbyId: room.lobbyId, alreadyDone: false };
     },
     READ_COMMITTED,
@@ -80,14 +86,15 @@ export async function startNextRound(db: Database, input: { readonly accountId: 
 }
 
 /**
- * The host closes the room from the waiting room or the results (state-machines §1): every
- * member leaves with it. Its races stay readable by their entrants (HIST-02).
+ * The host closes the room `code`, the one its page shows, from the waiting room or the results
+ * (state-machines §1): every member leaves with it. Its races stay readable by their entrants
+ * (HIST-02).
  */
-export async function closeRoom(db: Database, input: { readonly accountId: string }): Promise<CloseRoomResult> {
+export async function closeRoom(db: Database, input: { readonly accountId: string; readonly code: string }): Promise<CloseRoomResult> {
   return boundedTransaction(
     db,
     async (tx): Promise<CloseRoomResult> => {
-      const room = await lockOwnRoom(tx, input.accountId);
+      const room = await lockOwnRoom(tx, input.accountId, input.code);
       if (typeof room === "string") {
         return { ok: false, error: room };
       }

@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { RaceResults } from "@/components/races/race-results";
+import { HostRoundActions } from "@/components/rooms/host-round-actions";
 import { JoinCodeForm } from "@/components/rooms/join-code-form";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { StatePanel } from "@/components/ui/state-panel";
@@ -107,6 +108,23 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
       // member: a new membership of the same room starts a fresh view. A finished race's results
       // are read from the database here, as stored.
       const race = await finishedRaceOf(state.snapshot, accountId);
+      // The host leaving closes the room (CP-06): whoever hosts the results hosts the next round.
+      const hosts = state.snapshot.members.some((member) => member.memberId === state.memberId && member.isHost);
+      const results =
+        race === undefined
+          ? undefined
+          : {
+              raceId: race.raceId,
+              panel: (
+                <RaceResults
+                  race={race}
+                  t={t.races}
+                  locale={locale}
+                  linkToRace
+                  actions={hosts ? (openRace) => <HostRoundActions t={t.rooms.hostActions} code={state.snapshot.code} raceId={race.raceId} secondary={openRace} /> : undefined}
+                />
+              ),
+            };
       return (
         <RoomView
           key={state.memberId}
@@ -115,7 +133,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
           t={t.rooms}
           tRaces={t.races}
           locale={locale}
-          results={race === undefined ? undefined : { raceId: race.raceId, panel: <RaceResults race={race} t={t.races} locale={locale} linkToRace /> }}
+          results={results}
         />
       );
     }

@@ -1058,8 +1058,8 @@ describe("history and constraints", () => {
 
 describe("the host after the results: next round or close (F-04.7, COURSE-11)", () => {
   /** A room whose first race finished: it shows the results. */
-  async function afterResults(others: string[] = ["Bea"]) {
-    const fixture = await room("ABCDEF", others);
+  async function afterResults(others: string[] = ["Bea"], value = "ABCDEF") {
+    const fixture = await room(value, others);
     const { race, entrants } = await started(fixture.hostId);
     await beginRacing(db, race);
     await finalizeRace(db, race, resultsFor(entrants));
@@ -1106,49 +1106,98 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
   it("closes the room from the results or the waiting room, every member leaving, the race still readable", async () => {
     const { lobbyId, hostId, memberIds, race } = await afterResults();
     const bea = await accountOf(memberIds[0] ?? "");
-    expect(await closeRoom(db, { accountId: bea })).toEqual({ ok: false, error: "NOT_HOST" });
-    expect(await closeRoom(db, { accountId: hostId })).toEqual({ ok: true, lobbyId });
-    expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "closed" });
+    expect(await closeRoom(db, { accountId: bea, code: "ABCDEF" })).toEqual({ ok: false, error: "NOT_HOST" });
+    const before = await lobbyOf(lobbyId);
+    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: true, lobbyId });
+    // The pages keep the newest snapshot by revision: the closed one must win.
+    expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "closed", revision: (before?.revision ?? 0) + 1 });
     expect((await pool.query("select 1 from lobby_members where lobby_id = $1 and left_at is null", [lobbyId])).rowCount).toBe(0);
     expect((await readRaceForEntrant(db, race.raceId, bea))?.entrants).toHaveLength(2);
-    expect(await closeRoom(db, { accountId: hostId })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
+    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
 
     const waiting = await room("BCDEFG");
-    expect(await closeRoom(db, { accountId: waiting.hostId })).toEqual({ ok: true, lobbyId: waiting.lobbyId });
+    expect(await closeRoom(db, { accountId: waiting.hostId, code: "BCDEFG" })).toEqual({ ok: true, lobbyId: waiting.lobbyId });
+  });
+
+  it("closes only the room the host's page shows, never the room the host is in since", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF");
+    // In another tab, the host left this room (closing it) and opened a new one.
+    await leaveCurrentRoom(db, hostId);
+    const characters = [..."BCDEFG"].map((character) => ROOM_CODE_ALPHABET.indexOf(character));
+    let draw = 0;
+    const next = await createRoomWithHost(db, { accountId: hostId, role: "participant", visibility: "code", capacity: 30, randomIndex: () => characters[draw++] ?? 0 });
+    expect(next).toMatchObject({ ok: true });
+    const newLobby = next.ok ? next.room.id : "";
+    const before = await lobbyOf(newLobby);
+    // The first tab, still showing the old room, asks to close it.
+    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
+    expect(await lobbyOf(newLobby)).toEqual(before);
+    expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "closed" });
   });
 
   it("does not close a room whose race counts down or runs: that is the host leaving (D-06)", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
-    await started(hostId);
-    expect(await closeRoom(db, { accountId: hostId })).toEqual({ ok: false, error: "ROOM_RACING" });
+    const { race } = await started(hostId);
+    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: false, error: "ROOM_RACING" });
     expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "countdown" });
+    await beginRacing(db, race);
+    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: false, error: "ROOM_RACING" });
+    expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "racing" });
   });
 
-  it("lets the next round and the closing race under the room lock: the room ends closed either way", async () => {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const { lobbyId, hostId, race } = await afterResults();
-      const [next, close] = await Promise.all([startNextRound(db, { accountId: hostId, raceId: race.raceId }), closeRoom(db, { accountId: hostId })]);
-      expect(close).toEqual({ ok: true, lobbyId });
-      // Before the closing, it went to the waiting room; after it, the host is no longer in a room.
-      expect([JSON.stringify({ ok: true, lobbyId, alreadyDone: false }), JSON.stringify({ ok: false, error: "NOT_IN_A_ROOM" })]).toContain(JSON.stringify(next));
-      expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "closed" });
-      await pool.query("update lobbies set host_member_id = null");
-      await pool.query("delete from lobbies");
-      await pool.query("delete from races");
-    }
+  it("shows the finished race on the results only: once the room waits again, members read nothing through it", async () => {
+    const { lobbyId, hostId, memberIds, race } = await afterResults();
+    const bea = await accountOf(memberIds[0] ?? "");
+    const cyr = await account("Cyr");
+    expect(await joinRoomByCode(db, { accountId: cyr, code: code("ABCDEF"), role: "participant" })).toMatchObject({ ok: true });
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: cyr })).toBeDefined();
+    await startNextRound(db, { accountId: hostId, raceId: race.raceId });
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: cyr })).toBeUndefined();
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: hostId })).toBeUndefined();
+    // Its entrants keep it in their history (HIST-02).
+    expect((await readRaceForEntrant(db, race.raceId, bea))?.raceId).toBe(race.raceId);
   });
 
-  it("never leaves anyone in a room that closed while they joined it", async () => {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const { lobbyId, hostId } = await afterResults();
-      const late = await account(`Tardif ${attempt}`);
-      const [joined] = await Promise.all([joinRoomByCode(db, { accountId: late, code: code("ABCDEF"), role: "participant" }), closeRoom(db, { accountId: hostId })]);
-      // Admitted before the closing, then gone with it; or refused because the room closed.
-      expect(joined.ok ? "admitted" : joined).toEqual(joined.ok ? "admitted" : { ok: false, error: "ROOM_NOT_ADMITTING", phase: "closed" });
-      expect((await pool.query("select 1 from lobby_members where lobby_id = $1 and left_at is null", [lobbyId])).rowCount).toBe(0);
-      await pool.query("update lobbies set host_member_id = null");
-      await pool.query("delete from lobbies");
-      await pool.query("delete from races");
-    }
+  it("orders the next round and the closing by the room lock: the room ends closed either way", async () => {
+    const first = await afterResults();
+    const [next, closed] = await underRoomLock(first.lobbyId, [
+      () => startNextRound(db, { accountId: first.hostId, raceId: first.race.raceId }),
+      () => closeRoom(db, { accountId: first.hostId, code: "ABCDEF" }),
+    ]);
+    expect(next).toEqual({ ok: true, lobbyId: first.lobbyId, alreadyDone: false });
+    expect(closed).toEqual({ ok: true, lobbyId: first.lobbyId });
+    expect(await lobbyOf(first.lobbyId)).toMatchObject({ phase: "closed" });
+
+    const second = await afterResults(["Bea"], "BCDEFG");
+    const [closedFirst, nextAfter] = await underRoomLock(second.lobbyId, [
+      () => closeRoom(db, { accountId: second.hostId, code: "BCDEFG" }),
+      () => startNextRound(db, { accountId: second.hostId, raceId: second.race.raceId }),
+    ]);
+    expect(closedFirst).toEqual({ ok: true, lobbyId: second.lobbyId });
+    expect(nextAfter).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
+    expect(await lobbyOf(second.lobbyId)).toMatchObject({ phase: "closed" });
+  });
+
+  it("never leaves anyone in a room that closed while they joined it, in either order", async () => {
+    const first = await afterResults();
+    const early = await account("Tôt");
+    const [joined, closed] = await underRoomLock(first.lobbyId, [
+      () => joinRoomByCode(db, { accountId: early, code: code("ABCDEF"), role: "participant" }),
+      () => closeRoom(db, { accountId: first.hostId, code: "ABCDEF" }),
+    ]);
+    // Admitted before the closing, then gone with it.
+    expect(joined).toMatchObject({ ok: true });
+    expect(closed).toEqual({ ok: true, lobbyId: first.lobbyId });
+    expect((await pool.query("select 1 from lobby_members where lobby_id = $1 and left_at is null", [first.lobbyId])).rowCount).toBe(0);
+
+    const second = await afterResults(["Bea"], "BCDEFG");
+    const late = await account("Tard");
+    const [closedFirst, refused] = await underRoomLock(second.lobbyId, [
+      () => closeRoom(db, { accountId: second.hostId, code: "BCDEFG" }),
+      () => joinRoomByCode(db, { accountId: late, code: code("BCDEFG"), role: "participant" }),
+    ]);
+    expect(closedFirst).toEqual({ ok: true, lobbyId: second.lobbyId });
+    expect(refused).toEqual({ ok: false, error: "ROOM_NOT_ADMITTING", phase: "closed" });
+    expect((await pool.query("select 1 from lobby_members where lobby_id = $1 and left_at is null", [second.lobbyId])).rowCount).toBe(0);
   });
 });

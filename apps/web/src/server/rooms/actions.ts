@@ -1,7 +1,17 @@
 "use server";
 
 import { randomInt } from "node:crypto";
-import { closeRoom, createRoomWithHost, describeDatabaseError, findActiveMembership, joinRoomByCode, leaveCurrentRoom, startNextRound } from "@incision/database";
+import {
+  type CloseRoomResult,
+  closeRoom,
+  createRoomWithHost,
+  describeDatabaseError,
+  findActiveMembership,
+  joinRoomByCode,
+  leaveCurrentRoom,
+  type NextRoundResult,
+  startNextRound,
+} from "@incision/database";
 import { MEMBER_ROLES, type MemberRole, parseRoomCode, ROOM_MAX_CAPACITY, type RoomCodeError } from "@incision/domain";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -197,25 +207,30 @@ export async function leaveRoomAction(_previous: LeaveRoomState, formData: FormD
   redirect(returnToSchema.parse(formData.get("returnTo")));
 }
 
-export type HostActionState = {
-  readonly error?: "RATE_LIMITED" | "UNAVAILABLE" | "NOT_IN_A_ROOM" | "NOT_HOST" | "NOT_ON_RESULTS" | "ROOM_RACING";
-};
+/** The database's refusals, then the action's own. */
+export type HostActionError = Extract<NextRoundResult | CloseRoomResult, { readonly ok: false }>["error"] | "RATE_LIMITED" | "UNAVAILABLE";
+
+export type HostActionState = { readonly error?: HostActionError };
+
+/** PostgreSQL writes UUIDs in lower case; the page sends them so, a hand-made request may not. */
+const raceIdSchema = z.uuid().transform((id) => id.toLowerCase());
 
 /**
  * The host takes everyone present back to the waiting room for the next round (COURSE-11). The
  * race whose results the page shows comes with the request: a late or repeated one changes
- * nothing. The pages learn it from the room's snapshot.
+ * nothing. The pages learn it from the room's snapshot; a repeated request tells them again, in
+ * case the first telling was lost.
  */
-export async function nextRoundAction(_previous: HostActionState, formData: FormData): Promise<HostActionState> {
+export async function nextRoundAction(formData: FormData): Promise<HostActionState> {
   const { accountId } = await requireAccountSession("/");
-  const raceId = z.uuid().safeParse(formData.get("raceId"));
+  const raceId = raceIdSchema.safeParse(formData.get("raceId"));
   if (!raceId.success) {
     return { error: "NOT_ON_RESULTS" };
   }
   if (!allowRoomChange(accountId)) {
     return { error: "RATE_LIMITED" };
   }
-  let result: Awaited<ReturnType<typeof startNextRound>>;
+  let result: NextRoundResult;
   try {
     result = await startNextRound(authDatabase(), { accountId, raceId: raceId.data });
   } catch (error: unknown) {
@@ -225,25 +240,28 @@ export async function nextRoundAction(_previous: HostActionState, formData: Form
   if (!result.ok) {
     return { error: result.error };
   }
-  if (!result.alreadyDone) {
-    notifyRoomChanged(result.lobbyId);
-  }
+  notifyRoomChanged(result.lobbyId);
   return {};
 }
 
 /**
- * The host closes the room from the waiting room or the results (state-machines §1): every
- * member leaves; the races stay in each entrant's history. The host's page then shows the
+ * The host closes the room its page shows (`code`), from the waiting room or the results
+ * (state-machines §1): every member leaves; the races stay in each entrant's history. A page
+ * left open on a room the host has since left closes nothing. The host's page then shows the
  * closed room, as everyone else's does.
  */
-export async function closeRoomAction(): Promise<HostActionState> {
+export async function closeRoomAction(formData: FormData): Promise<HostActionState> {
   const { accountId } = await requireAccountSession("/");
+  const code = parseRoomCode(z.string().catch("").parse(formData.get("code")));
+  if (!code.ok) {
+    return { error: "NOT_IN_A_ROOM" };
+  }
   if (!allowRoomChange(accountId)) {
     return { error: "RATE_LIMITED" };
   }
-  let result: Awaited<ReturnType<typeof closeRoom>>;
+  let result: CloseRoomResult;
   try {
-    result = await closeRoom(authDatabase(), { accountId });
+    result = await closeRoom(authDatabase(), { accountId, code: code.code });
   } catch (error: unknown) {
     logFailure("close", error);
     return { error: "UNAVAILABLE" };
