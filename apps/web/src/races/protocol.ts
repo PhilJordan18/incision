@@ -79,6 +79,23 @@ export const RACE_CONTROL_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_E
 export const raceControlAckSchema = z.union([z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), error: z.enum(RACE_CONTROL_ERRORS) })]);
 export type RaceControlAck = z.infer<typeof raceControlAckSchema>;
 
+/**
+ * « Je suis là » (D-17): the entrant answers the inactivity question, from any of its tabs
+ * (presence, not control). For the engine it is activity, as a newly applied batch is.
+ */
+export const RACE_PRESENT_EVENT = "race:present";
+/** The entrant gives the race up once the page had it confirmed (COURSE-07): terminal, from any of its tabs. */
+export const RACE_ABANDON_EVENT = "race:abandon";
+/** The payload of both: the race they are about; the entrant comes from the session. */
+export const raceEntrantActionPayloadSchema = z.object({ raceId: z.uuid() }).strict();
+export const RACE_ENTRANT_ACTION_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NO_RACE", "SUSPENDED", "RATE_LIMITED"] as const;
+export type RaceEntrantActionError = (typeof RACE_ENTRANT_ACTION_ERRORS)[number];
+export const raceEntrantActionAckSchema = z.union([
+  z.object({ ok: z.literal(true) }),
+  z.object({ ok: z.literal(false), error: z.enum(RACE_ENTRANT_ACTION_ERRORS) }),
+]);
+export type RaceEntrantActionAck = z.infer<typeof raceEntrantActionAckSchema>;
+
 /** Server to browser: the race's text and settings, from the countdown on, never before (COURSE-03). */
 export const RACE_REVEAL_EVENT = "race:reveal";
 /** Server to browser: everyone's public progress (COURSE-05), at most four times a second. */
@@ -128,6 +145,8 @@ export const raceProgressPayloadSchema = z.object({
         length: z.number().int().positive(),
         netWpm: z.number().nonnegative(),
         endedAt: instant.optional(),
+        /** D-17: no activity for INACTIVITY_WARNING_MS; only ever true while the entrant races. */
+        inactive: z.boolean(),
       }),
     ).readonly(),
   }),

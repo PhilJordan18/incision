@@ -12,14 +12,17 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
 import {
+  RACE_ABANDON_EVENT,
   RACE_BATCH_EVENT,
   RACE_CONFIRMING_EVENT,
   RACE_CONTROL_EVENT,
+  RACE_PRESENT_EVENT,
   RACE_PROGRESS_EVENT,
   RACE_REVEAL_EVENT,
   RACE_SELF_EVENT,
   RACE_START_EVENT,
   raceControlAckSchema,
+  raceEntrantActionAckSchema,
   type RaceStartAck,
   raceStartAckSchema,
 } from "@/races/protocol";
@@ -84,6 +87,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   );
   const startRef = useRef<() => Promise<RaceStartAck>>(async () => ({ ok: false, error: "UNAVAILABLE" }));
   const takeControlRef = useRef<(raceId: string) => void>(() => undefined);
+  const entrantActionRef = useRef<(event: typeof RACE_PRESENT_EVENT | typeof RACE_ABANDON_EVENT, raceId: string) => Promise<boolean>>(async () => false);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [ending, setEnding] = useState<Ending | undefined>(undefined);
   const [copy, setCopy] = useState<CopyFeedback>(undefined);
@@ -121,6 +125,19 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           .emitWithAck(RACE_CONTROL_EVENT, { raceId })
           .then((answer: unknown) => raceControlAckSchema.safeParse(answer))
           .catch(() => undefined);
+      }
+    };
+    // « Je suis là » and the confirmed abandon: the server's broadcast and this tab's state
+    // (race:self) show their effect; the answer only says whether the request went through.
+    entrantActionRef.current = async (event, raceId) => {
+      if (!socket.connected) {
+        return false;
+      }
+      try {
+        const answer = raceEntrantActionAckSchema.safeParse(await socket.timeout(5_000).emitWithAck(event, { raceId }));
+        return answer.success && answer.data.ok;
+      } catch {
+        return false;
       }
     };
     let attempt = 0;
@@ -403,6 +420,8 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           {connectionLine}
           {leave}
         </div>
+        {/* D-06: a lost connection is kept 30 s, from the server's detection. */}
+        {connection === "reconnecting" && <p className={`${card} border-or text-embrun`}>{tRaces.raceReconnect}</p>}
         <h1 id={ROOM_HEADING_ID} tabIndex={-1} className="sr-only">
           {format(t.roomTitle, { code: snapshot.code })}
         </h1>
@@ -413,6 +432,8 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           roomLabel={format(t.roomTitle, { code: snapshot.code })}
           expectedRaceId={snapshot.race?.raceId}
           onTakeControl={(raceId) => takeControlRef.current(raceId)}
+          onPresent={(raceId) => void entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
+          onAbandon={(raceId) => entrantActionRef.current(RACE_ABANDON_EVENT, raceId)}
         />
       </div>
     );

@@ -4,7 +4,7 @@ import { io as connect, type ManagerOptions, type Socket, type SocketOptions } f
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PING_EVENT } from "./ping";
 import { SessionRegistry } from "./session-registry";
-import { attachRealtimeServer, SESSION_EVENT } from "./socket-server";
+import { attachRealtimeServer, HEARTBEAT, SESSION_EVENT } from "./socket-server";
 import type { HandshakeAuthentication } from "./socket-session";
 
 let httpServer: HttpServer;
@@ -86,6 +86,11 @@ describe("attachRealtimeServer", () => {
 
   it.each(refusedHandshakes)("refuses $label", async ({ transports, headers }) => {
     await expect(open({ transports, extraHeaders: headers })).rejects.toThrow();
+  });
+
+  it("pings every 10 s and drops a socket silent for 5 s more, so a silent loss is noticed within 15 s (D-06)", () => {
+    expect(HEARTBEAT).toEqual({ pingIntervalMs: 10_000, pingTimeoutMs: 5_000 });
+    expect(io.engine.opts).toMatchObject({ pingInterval: 10_000, pingTimeout: 5_000 });
   });
 
   it("refuses a JSONP polling handshake", async () => {

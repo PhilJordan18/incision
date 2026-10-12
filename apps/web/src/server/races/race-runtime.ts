@@ -3,6 +3,7 @@ import {
   asEntrantId,
   asInstant,
   asRaceId,
+  type EntrantId,
   type EntrantResult,
   type RaceEnd,
   type RaceEvent,
@@ -130,6 +131,11 @@ export class RaceRuntime implements OwnedRace {
    * short grace (a network blip), then handed to another open tab. `cancel` stops the hand-over.
    */
   readonly #vacated = new Map<string, { readonly pageId: string | undefined; readonly cancel: () => void }>();
+  /**
+   * Entrants none of whose tabs follows the room, as the engine was told (D-06): their grace runs
+   * from the server's detection of the loss, and a tab of theirs that follows again resumes them.
+   */
+  readonly #lost = new Set<string>();
   #cancelTick: (() => void) | undefined;
   #cancelProgress: (() => void) | undefined;
   #progressSentAt = Number.NEGATIVE_INFINITY;
@@ -157,13 +163,21 @@ export class RaceRuntime implements OwnedRace {
     return this.#stage;
   }
 
-  /** Starts the renewals, reveals the race to the room and schedules its first transition. */
+  /**
+   * Starts the renewals, reveals the race to the room and schedules its first transition. An
+   * entrant with no tab following the room at the start is already gone: its grace starts now.
+   */
   start(): void {
     this.#options.lease.start();
     for (const connection of this.#options.followers()) {
       this.follow(connection);
     }
     this.#apply({ type: "tick", now: this.#now() });
+    for (const entrant of this.#entrants.values()) {
+      if (!this.#hasTab(entrant.accountId)) {
+        this.#connectionLost(entrant.entrantId);
+      }
+    }
   }
 
   /** A tab of the room (re)opened: it gets the race, and the input if its entrant has no typing tab. */
@@ -172,6 +186,10 @@ export class RaceRuntime implements OwnedRace {
       return;
     }
     const entrant = this.#entrantOf(connection.accountId);
+    if (entrant !== undefined && this.#lost.delete(entrant.entrantId)) {
+      // Before any batch of this tab, which can only come once it follows (D-06).
+      this.#apply({ type: "connectionResumed", entrantId: asEntrantId(entrant.entrantId), now: this.#now() });
+    }
     if (entrant !== undefined && (this.#free(entrant.entrantId, connection) || this.#samePage(entrant.entrantId, connection))) {
       // No typing tab, or this page reconnected: its former socket's late batches are discarded.
       this.#control.set(entrant.entrantId, { connectionId: connection.id, pageId: connection.pageId });
@@ -194,11 +212,16 @@ export class RaceRuntime implements OwnedRace {
   }
 
   /**
-   * A tab closed or left the room. If it typed, its input waits a short grace for that tab's page
-   * to come back (a network blip); then the entrant's most recent other open tab takes it and
-   * learns it (state-machines §2).
+   * A tab closed or left the room (`accountId`: its session's account). If it typed, its input
+   * waits a short grace for that tab's page to come back (a network blip); then the entrant's
+   * most recent other open tab takes it and learns it (state-machines §2). If it was the
+   * entrant's last tab, the engine learns the loss now, at the server's detection (D-06).
    */
-  unfollow(connectionId: string): void {
+  unfollow(connectionId: string, accountId?: string): void {
+    const entrant = accountId === undefined ? undefined : this.#entrantOf(accountId);
+    if (entrant !== undefined && !this.#hasTab(entrant.accountId)) {
+      this.#connectionLost(entrant.entrantId);
+    }
     for (const [entrantId, controller] of this.#control) {
       if (controller.connectionId !== connectionId) {
         continue;
@@ -306,6 +329,52 @@ export class RaceRuntime implements OwnedRace {
     return { ok: true, result: output.keystrokes, self };
   }
 
+  /**
+   * « Je suis là » (D-17), from any tab of the entrant: activity for the engine. Like a batch,
+   * only while this process can prove it owns the race.
+   */
+  present(connection: RaceConnection): "ok" | "NOT_AN_ENTRANT" | "NO_RACE" | "SUSPENDED" {
+    return this.#entrantAction(connection, (entrantId) => ({ type: "present", entrantId, now: this.#now() }));
+  }
+
+  /**
+   * The entrant gives the race up, confirmed in its page (COURSE-07): terminal, ranked by its
+   * progress. Every tab of the entrant learns its new status at once.
+   */
+  abandon(connection: RaceConnection): "ok" | "NOT_AN_ENTRANT" | "NO_RACE" | "SUSPENDED" {
+    const answer = this.#entrantAction(connection, (entrantId) => ({ type: "abandon", entrantId, now: this.#now() }));
+    const entrant = this.#entrantOf(connection.accountId);
+    if (answer === "ok" && entrant !== undefined) {
+      this.#sendSelf(entrant.entrantId, { volatile: false });
+    }
+    return answer;
+  }
+
+  #entrantAction(
+    connection: RaceConnection,
+    event: (entrantId: EntrantId) => RaceEvent,
+  ): "ok" | "NOT_AN_ENTRANT" | "NO_RACE" | "SUSPENDED" {
+    const entrant = this.#entrantOf(connection.accountId);
+    if (entrant === undefined) {
+      return "NOT_AN_ENTRANT";
+    }
+    if (this.#stage !== "running") {
+      return "NO_RACE";
+    }
+    if (!this.#options.lease.isAuthoritative()) {
+      return "SUSPENDED";
+    }
+    // The engine ignores what no longer applies (an entrant already terminal, a race over).
+    return this.#apply(event(asEntrantId(entrant.entrantId))) === undefined ? "NO_RACE" : "ok";
+  }
+
+  #connectionLost(entrantId: string): void {
+    if (!this.#lost.has(entrantId)) {
+      this.#lost.add(entrantId);
+      this.#apply({ type: "connectionLost", entrantId: asEntrantId(entrantId), now: this.#now() });
+    }
+  }
+
   /** The member left the room during the race: an immediate abandon (state-machines §3). */
   memberLeft(accountId: string): void {
     const entrant = this.#entrantOf(accountId);
@@ -400,6 +469,13 @@ export class RaceRuntime implements OwnedRace {
       }
     }
     return undefined;
+  }
+
+  #hasTab(accountId: string): boolean {
+    for (const _ of this.#connectionsOf(accountId)) {
+      return true;
+    }
+    return false;
   }
 
   *#connectionsOf(accountId: string): Iterable<RaceConnection> {

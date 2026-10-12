@@ -1,5 +1,16 @@
 import type { Interruption, RaceOwnership, RaceResultRow, Transition } from "@incision/database";
-import { asDuration, asEntrantId, asInstant, asRaceId, COUNTDOWN_MS, createRace, type RaceState } from "@incision/domain";
+import {
+  asDuration,
+  asEntrantId,
+  asInstant,
+  asRaceId,
+  COUNTDOWN_MS,
+  createRace,
+  INACTIVITY_ABANDON_MS,
+  INACTIVITY_WARNING_MS,
+  type RaceState,
+  RESUME_GRACE_MS,
+} from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 
 // The real engine everywhere; one test makes its reducer throw, as an engine fault would.
@@ -843,5 +854,131 @@ describe("RaceRuntime", () => {
       raced.runtime.start();
       expect(await raced.runtime.shutdown(raced.time.now() + 5_000)).toBe("finalised");
     });
+  });
+});
+
+describe("RaceRuntime: lost connections, inactivity and the confirmed abandon (F-04.6)", () => {
+  const entrant = (runtime: RaceRuntime, entrantId: string) => runtime.state.entrants.find((one) => one.entrantId === entrantId);
+  /** The entrant's last tab leaves, as the race service reports it: gone from the followers first. */
+  const leave = (runtime: RaceRuntime, followers: RaceConnection[], connection: RaceConnection) => {
+    followers.splice(followers.indexOf(connection), 1);
+    runtime.unfollow(connection.id, connection.accountId);
+  };
+
+  it("tells the engine when an entrant's last tab is gone, at the server's detection, and only then", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 1_000);
+    const second = tab("tab-alice-2", ALICE.accountId);
+    followers.push(second.connection);
+    runtime.follow(second.connection);
+    // One tab among two: control moves, the entrant is still connected.
+    leave(runtime, followers, alice.connection);
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBeUndefined();
+    await time.advance(2_000);
+    leave(runtime, followers, second.connection);
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBe(START + COUNTDOWN_MS + 3_000);
+    expect(entrant(runtime, "e-bob")?.disconnectedAt).toBeUndefined();
+  });
+
+  it("resumes an entrant whose tab follows again within the grace, before that tab's first batch", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    leave(runtime, followers, alice.connection);
+    // The grace includes its deadline (D-06).
+    await time.advance(RESUME_GRACE_MS);
+    const back = tab("tab-alice-back", ALICE.accountId);
+    followers.push(back.connection);
+    runtime.follow(back.connection);
+    expect(entrant(runtime, "e-alice")).toMatchObject({ status: "racing" });
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBeUndefined();
+    expect(runtime.keystrokes(back.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    await time.advance(RESUME_GRACE_MS + 1);
+    expect(entrant(runtime, "e-alice")?.status).toBe("racing");
+  });
+
+  it("abandons an entrant gone beyond the grace, dated at its deadline, and a late tab cannot bring it back", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    leave(runtime, followers, alice.connection);
+    // Its own timer, from nextDeadline: nothing else happens meanwhile.
+    await time.advance(RESUME_GRACE_MS + 1);
+    expect(entrant(runtime, "e-alice")).toMatchObject({ status: "abandoned", abandonReason: "disconnection", endedAt: START + COUNTDOWN_MS + RESUME_GRACE_MS });
+    const late = tab("tab-alice-late", ALICE.accountId);
+    followers.push(late.connection);
+    runtime.follow(late.connection);
+    expect(entrant(runtime, "e-alice")?.status).toBe("abandoned");
+    expect(late.last<RaceSelfPayload>(RACE_SELF_EVENT)?.snapshot.status).toBe("abandoned");
+  });
+
+  it("starts the grace of an entrant that has no tab in the room at the start", async () => {
+    const { runtime, time, bob, followers } = setup();
+    followers.splice(followers.indexOf(bob.connection), 1);
+    runtime.start();
+    expect(entrant(runtime, "e-bob")?.disconnectedAt).toBe(START);
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBeUndefined();
+    await time.advance(COUNTDOWN_MS + RESUME_GRACE_MS);
+    expect(entrant(runtime, "e-bob")).toMatchObject({ status: "abandoned", abandonReason: "disconnection" });
+  });
+
+  it("shows an idle entrant inactive, lets « Je suis là » or a keystroke reset it, and abandons it at 120 s otherwise", async () => {
+    const { runtime, time, alice, bob, spectator } = setup({ state: created("abc", null) });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + INACTIVITY_WARNING_MS);
+    const progress = () => spectator.last<RaceProgressPayload>(RACE_PROGRESS_EVENT)?.broadcast.entrants.find((one) => one.entrantId === "e-alice");
+    await time.advance(250);
+    expect(progress()?.inactive).toBe(true);
+    expect(runtime.present(alice.connection)).toBe("ok");
+    await time.advance(250);
+    expect(progress()?.inactive).toBe(false);
+    expect(entrant(runtime, "e-alice")?.lastActivityAt).toBe(START + COUNTDOWN_MS + INACTIVITY_WARNING_MS + 250);
+    // Bob never reacts: an abandon for inactivity, dated at its deadline, while Alice still races.
+    await time.advance(INACTIVITY_ABANDON_MS - INACTIVITY_WARNING_MS);
+    expect(entrant(runtime, "e-bob")).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: START + COUNTDOWN_MS + INACTIVITY_ABANDON_MS });
+    expect(entrant(runtime, "e-alice")?.status).toBe("racing");
+    expect(runtime.keystrokes(alice.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(runtime.present(bob.connection)).toBe("ok");
+    expect(entrant(runtime, "e-bob")?.status).toBe("abandoned");
+  });
+
+  it("abandons on the entrant's confirmed request, from any of its tabs, and every tab learns it reliably", async () => {
+    const { runtime, time, alice, bob, spectator, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 500);
+    const second = tab("tab-alice-2", ALICE.accountId);
+    followers.push(second.connection);
+    runtime.follow(second.connection);
+    expect(runtime.abandon(second.connection)).toBe("ok");
+    expect(entrant(runtime, "e-alice")).toMatchObject({ status: "abandoned", abandonReason: "voluntary" });
+    for (const one of [alice, second]) {
+      const last = one.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1);
+      expect(last).toMatchObject({ volatile: false, payload: { snapshot: { status: "abandoned" } } });
+    }
+    expect(runtime.abandon(spectator.connection)).toBe("NOT_AN_ENTRANT");
+    expect(runtime.present(spectator.connection)).toBe("NOT_AN_ENTRANT");
+    // Again: the engine ignores it, and the answer stays the same.
+    expect(runtime.abandon(alice.connection)).toBe("ok");
+    expect(runtime.keystrokes(alice.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "refused", reason: "ENTRANT_TERMINAL" } });
+    expect(entrant(runtime, "e-bob")?.status).toBe("racing");
+    expect(bob.count(RACE_SELF_EVENT)).toBe(1);
+  });
+
+  it("takes neither « Je suis là » nor an abandon while the lease is suspended or once the race no longer runs here", async () => {
+    const { runtime, time, lease, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    lease.set("suspended");
+    expect(runtime.present(alice.connection)).toBe("SUSPENDED");
+    expect(runtime.abandon(alice.connection)).toBe("SUSPENDED");
+    lease.set("held");
+    await runtime.shutdown();
+    expect(runtime.abandon(alice.connection)).toBe("NO_RACE");
+    // Closing every socket after a shutdown tells the engine nothing.
+    const revision = runtime.state.revision;
+    leave(runtime, followers, alice.connection);
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBeUndefined();
+    expect(runtime.state.revision).toBe(revision);
   });
 });
