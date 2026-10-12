@@ -35,11 +35,12 @@ async function signedIn(browser: Browser, displayName: string, options: { locale
   return { page: await context.newPage(), context };
 }
 
+/** Opens a room as `host`, whose pages are in English or in French. */
 async function openRoom(host: Page): Promise<string> {
   await host.goto("/rooms/new");
-  await host.getByRole("button", { name: "Open the room" }).click();
+  await host.getByRole("button", { name: /^(Open the room|Ouvrir la salle)$/ }).click();
   await expect(host).toHaveURL(/\/rooms\/[2-9A-HJKMNP-Z]{6}$/);
-  await expect(host.getByText("[.Live]")).toBeVisible();
+  await expect(host.getByText(/^\[\.(Live|En direct)\]$/)).toBeVisible();
   return host.url().split("/").at(-1) ?? "";
 }
 

@@ -99,8 +99,12 @@ describe("closeRoomAction", () => {
       expect(await close(bad)).toEqual({ error: "NOT_IN_A_ROOM" });
     }
     expect(closeRoom).not.toHaveBeenCalled();
+    // The refused codes spent nothing: the whole budget is still there.
     closeRoom.mockResolvedValue({ ok: true, lobbyId: "L" });
-    expect(await close("ABCDEF")).toEqual({});
+    for (let index = 0; index < ROOM_CHANGE_LIMIT.maxFailures; index += 1) {
+      expect(await close("ABCDEF")).toEqual({});
+    }
+    expect(await close("ABCDEF")).toEqual({ error: "RATE_LIMITED" });
     expect(closeRoom).toHaveBeenCalledWith(expect.anything(), { accountId: "alice", code: "ABCDEF" });
   });
 
