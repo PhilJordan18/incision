@@ -12,7 +12,7 @@ import { authDatabase } from "@/server/auth/store";
 import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
 import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
 import { allowRoomChange, forgiveRoomChange } from "./room-change-limiter";
-import { notifyRoomChanged } from "./room-events";
+import { notifyMemberLeft, notifyRoomChanged } from "./room-events";
 
 export type JoinError =
   | RoomCodeError
@@ -175,7 +175,8 @@ export type LeaveRoomState = { readonly error?: "RATE_LIMITED" | "UNAVAILABLE" }
 
 /**
  * Leave the current room, then go on to `returnTo` (a same-site path). The host leaving
- * closes the room at the checkpoint (host succession comes with SALLE-08).
+ * closes the room at the checkpoint (host succession comes with SALLE-08). Leaving during a
+ * race is an immediate abandon (state-machines §3); the host leaving interrupts it (D-06).
  */
 export async function leaveRoomAction(_previous: LeaveRoomState, formData: FormData): Promise<LeaveRoomState> {
   const { accountId } = await requireAccountSession("/");
@@ -190,6 +191,7 @@ export async function leaveRoomAction(_previous: LeaveRoomState, formData: FormD
     return { error: "UNAVAILABLE" };
   }
   if (left !== undefined) {
+    notifyMemberLeft(left.lobbyId, accountId, left.closed);
     notifyRoomChanged(left.lobbyId);
   }
   redirect(returnToSchema.parse(formData.get("returnTo")));

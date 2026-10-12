@@ -34,6 +34,8 @@ const serverEnvSchema = z
     AUTH_DISCORD_SECRET: nonEmpty.optional(),
     /** Reverse proxies in front of the app whose X-Forwarded-For entry is trusted: 1 on App Service. */
     TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(2).optional(),
+    /** `allowed`: a production build may run the race text test fixtures (local builds, a test deployment). */
+    RACE_FIXTURE_TEXTS: z.literal("allowed", { error: 'must be "allowed" or unset' }).optional(),
   })
   .superRefine((env, context) => {
     const problem = (path: string, message: string) => context.addIssue({ code: "custom", path: [path], message });
@@ -71,6 +73,11 @@ export type ServerEnv = {
   /** HTTPS public URL: Auth.js then names its cookies `__Secure-…` (also the JWT key salt). */
   readonly secureCookies: boolean;
   readonly trustedProxyHops: number;
+  /**
+   * The race texts are test fixtures (race-texts.ts): they run outside production, and in
+   * production only with RACE_FIXTURE_TEXTS=allowed. Otherwise race starts are refused.
+   */
+  readonly fixtureRaceTexts: boolean;
 };
 
 /** Validates the environment at start-up. Error messages name variables, never their values. */
@@ -82,7 +89,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     const problems = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
     throw new Error(`Invalid server environment: ${problems.join("; ")}`);
   }
-  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS } = result.data;
+  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS, RACE_FIXTURE_TEXTS } = result.data;
   const appOrigin = new URL(APP_URL ?? `http://localhost:${PORT}`).origin;
   return {
     isProduction: NODE_ENV === "production",
@@ -92,6 +99,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     authSecret: AUTH_SECRET,
     secureCookies: appOrigin.startsWith("https:"),
     trustedProxyHops: TRUSTED_PROXY_HOPS ?? 0,
+    fixtureRaceTexts: NODE_ENV !== "production" || RACE_FIXTURE_TEXTS === "allowed",
   };
 }
 

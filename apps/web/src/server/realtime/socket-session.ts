@@ -3,10 +3,13 @@ import { checkSession, type SessionVersionReader } from "../auth/session-token";
 
 export type SocketSession = { readonly accountId: string; readonly sessionVersion: number; readonly expiresAt: number };
 
+/** Why a handshake's session was refused; only CHECK_FAILED (the check could not run) is retried. */
+export type HandshakeRefusal = "NO_SECRET" | "INVALID_TOKEN" | "MALFORMED" | "EXPIRED" | "REVOKED" | "ACCOUNT_NOT_FOUND" | "CHECK_FAILED";
+
 export type HandshakeAuthentication =
   | { readonly kind: "anonymous" }
   | { readonly kind: "authenticated"; readonly session: SocketSession }
-  | { readonly kind: "refused"; readonly reason: string };
+  | { readonly kind: "refused"; readonly reason: HandshakeRefusal };
 
 export type SocketSessionOptions = {
   /** AUTH_SECRET, the secret Auth.js encrypts the session cookie with; undefined refuses every cookie. */
