@@ -7,6 +7,7 @@ export * from "./pool";
 export * from "./races/lifecycle";
 export * from "./races/results";
 export * from "./rooms/create-room";
+export * from "./rooms/host-actions";
 export * from "./rooms/membership";
 export * from "./schema";
 export * from "./tls";
