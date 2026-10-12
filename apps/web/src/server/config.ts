@@ -34,7 +34,7 @@ const serverEnvSchema = z
     AUTH_DISCORD_SECRET: nonEmpty.optional(),
     /** Reverse proxies in front of the app whose X-Forwarded-For entry is trusted: 1 on App Service. */
     TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(2).optional(),
-    /** `allowed`: a production build may run the race text test fixtures (local builds, a test deployment). */
+    /** `allowed`: races run the short test fixtures instead of the chosen texts (local test builds). */
     RACE_FIXTURE_TEXTS: z.literal("allowed", { error: 'must be "allowed" or unset' }).optional(),
   })
   .superRefine((env, context) => {
@@ -73,10 +73,7 @@ export type ServerEnv = {
   /** HTTPS public URL: Auth.js then names its cookies `__Secure-…` (also the JWT key salt). */
   readonly secureCookies: boolean;
   readonly trustedProxyHops: number;
-  /**
-   * The race texts are test fixtures (race-texts.ts): they run outside production, and in
-   * production only with RACE_FIXTURE_TEXTS=allowed. Otherwise race starts are refused.
-   */
+  /** Races run the short test fixtures (RACE_FIXTURE_TEXTS=allowed) instead of the chosen texts (race-texts.ts). */
   readonly fixtureRaceTexts: boolean;
 };
 
@@ -99,7 +96,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     authSecret: AUTH_SECRET,
     secureCookies: appOrigin.startsWith("https:"),
     trustedProxyHops: TRUSTED_PROXY_HOPS ?? 0,
-    fixtureRaceTexts: NODE_ENV !== "production" || RACE_FIXTURE_TEXTS === "allowed",
+    fixtureRaceTexts: RACE_FIXTURE_TEXTS === "allowed",
   };
 }
 
