@@ -177,6 +177,7 @@ export const en: Dictionary = {
       NOT_ENOUGH_PARTICIPANTS: "The race needs at least 2 participants; spectators do not count.",
       NO_HUMAN_PARTICIPANT: "At least one participant must be a person.",
       RATE_LIMITED: "Wait a moment before starting again.",
+      RACES_CLOSED: "Races are temporarily closed on this site. The room stays open: try again later.",
       UNAVAILABLE: "The race could not start, the server is not answering. Try again.",
     },
     preparing: "Preparing the race…",

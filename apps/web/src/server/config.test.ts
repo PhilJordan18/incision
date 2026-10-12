@@ -27,6 +27,7 @@ describe("parseServerEnv", () => {
       secureCookies: false,
       trustedProxyHops: 0,
       fixtureRaceTexts: false,
+      races: "closed",
     });
   });
 
@@ -40,6 +41,7 @@ describe("parseServerEnv", () => {
       secureCookies: true,
       trustedProxyHops: 1,
       fixtureRaceTexts: false,
+      races: "closed",
     });
   });
 
@@ -52,6 +54,21 @@ describe("parseServerEnv", () => {
     for (const value of ["true", "1", "yes", "ALLOWED"]) {
       expect(() => parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: value })).toThrow(/RACE_FIXTURE_TEXTS: must be "allowed" or unset/);
     }
+  });
+
+  it("closes new races unless RACES_ENABLED is exactly true, and still starts with any other value", () => {
+    expect(parseServerEnv(production).races).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "" }).races).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "false" }).races).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "true" }).races).toBe("open");
+    for (const value of ["TRUE", "1", "yes", "hunter2"]) {
+      expect(parseServerEnv({ ...production, RACES_ENABLED: value }).races).toBe("invalid");
+    }
+  });
+
+  it("never lets RACES_ENABLED open the test fixtures to a deployed site", () => {
+    expect(() => parseServerEnv({ ...production, RACES_ENABLED: "true", RACE_FIXTURE_TEXTS: "allowed" })).toThrow(/RACE_FIXTURE_TEXTS: is for local test builds only/);
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "true" }).fixtureRaceTexts).toBe(false);
   });
 
   it("refuses to start a deployed production site on the test fixtures, whatever its host looks like", () => {

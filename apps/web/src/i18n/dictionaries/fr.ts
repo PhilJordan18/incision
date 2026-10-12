@@ -181,6 +181,7 @@ export const fr = {
       NOT_ENOUGH_PARTICIPANTS: "Il faut au moins 2 participants ; les spectateurs ne comptent pas.",
       NO_HUMAN_PARTICIPANT: "Il faut au moins une personne parmi les participants.",
       RATE_LIMITED: "Patiente un instant avant de relancer.",
+      RACES_CLOSED: "Les courses sont temporairement fermées sur ce site. La salle reste ouverte : réessaie plus tard.",
       UNAVAILABLE: "La course n’a pas pu démarrer, le serveur ne répond pas. Réessaie.",
     },
     preparing: "Préparation de la course…",

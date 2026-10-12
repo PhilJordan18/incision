@@ -61,6 +61,8 @@ export const RACE_START_ERRORS = [
   "NOT_ENOUGH_PARTICIPANTS",
   "NO_HUMAN_PARTICIPANT",
   "RATE_LIMITED",
+  /** New races are closed on this server (RACES_ENABLED is not `true`). */
+  "RACES_CLOSED",
   "UNAVAILABLE",
 ] as const;
 export type RaceStartError = (typeof RACE_START_ERRORS)[number];

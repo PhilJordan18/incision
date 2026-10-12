@@ -43,6 +43,7 @@ export default defineConfig({
       TRUSTED_PROXY_HOPS: "1",
       // A local production build: the race text test fixtures may run.
       RACE_FIXTURE_TEXTS: "allowed",
+      RACES_ENABLED: "true",
       // Placeholders, not credentials: the tests never complete an OAuth round trip.
       AUTH_GITHUB_ID: "e2e-github-client-id",
       AUTH_GITHUB_SECRET: "e2e-placeholder-not-a-secret",

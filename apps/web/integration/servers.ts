@@ -63,6 +63,7 @@ export async function startServer(port: number, environment: Readonly<Record<str
       DATABASE_URL,
       TRUSTED_PROXY_HOPS: "0",
       RACE_FIXTURE_TEXTS: "allowed",
+      RACES_ENABLED: "true",
       AUTH_GITHUB_ID: "integration-github-client-id",
       AUTH_GITHUB_SECRET: "integration-placeholder-not-a-secret",
       AUTH_DISCORD_ID: "integration-discord-client-id",

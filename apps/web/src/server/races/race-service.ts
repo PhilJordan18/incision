@@ -46,6 +46,11 @@ export type RaceServiceOptions = {
   readonly onRoomChanged: (lobbyId: string) => void;
   /** The texts races run, per interface language (the host's at the start, D-19). */
   readonly texts: Readonly<Record<Locale, RaceText>>;
+  /**
+   * New races may start (RACES_ENABLED=true, races-switch.ts). Otherwise every start is refused
+   * here, before the database; races already running, rooms and results are not affected.
+   */
+  readonly racesOpen: boolean;
   /** A race of the room stopped here without a confirmed end (lost lease, unreachable database). */
   readonly onRaceLost?: (lobbyId: string) => void;
   readonly log: (message: string) => void;
@@ -131,6 +136,10 @@ export class RaceService {
     }
     if (this.#registry.stopping) {
       return { ok: false, error: "UNAVAILABLE" };
+    }
+    // The one way a race is created, the next round's start included: closed means none.
+    if (!this.#options.racesOpen) {
+      return { ok: false, error: "RACES_CLOSED" };
     }
     this.#prune(this.#startTimes, START_WINDOW.windowMs);
     if (!this.#withinWindow(this.#startTimes, connection.accountId, START_WINDOW.maxStarts, START_WINDOW.windowMs)) {

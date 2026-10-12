@@ -1,5 +1,6 @@
 import { isLocalDatabase, usesVerifiedTls } from "@incision/database";
 import { z } from "zod";
+import { type RacesSwitch, racesSwitchOf } from "./races/races-switch";
 
 /** Variables without which production must not start (docs/DEPLOYMENT.md lists them). */
 const REQUIRED_IN_PRODUCTION = [
@@ -36,6 +37,8 @@ const serverEnvSchema = z
     TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(2).optional(),
     /** `allowed`: races run the short test fixtures instead of the chosen texts (local test builds). */
     RACE_FIXTURE_TEXTS: z.literal("allowed", { error: 'must be "allowed" or unset' }).optional(),
+    /** Only `true` lets new races start; any other value closes them without stopping the start-up. */
+    RACES_ENABLED: z.string().optional(),
   })
   .superRefine((env, context) => {
     const problem = (path: string, message: string) => context.addIssue({ code: "custom", path: [path], message });
@@ -79,6 +82,8 @@ export type ServerEnv = {
   readonly trustedProxyHops: number;
   /** Races run the short test fixtures (RACE_FIXTURE_TEXTS=allowed) instead of the chosen texts (race-texts.ts). */
   readonly fixtureRaceTexts: boolean;
+  /** Whether new races may start (RACES_ENABLED, races-switch.ts); never which texts they run. */
+  readonly races: RacesSwitch;
 };
 
 /** Validates the environment at start-up. Error messages name variables, never their values. */
@@ -90,7 +95,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     const problems = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
     throw new Error(`Invalid server environment: ${problems.join("; ")}`);
   }
-  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS, RACE_FIXTURE_TEXTS } = result.data;
+  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS, RACE_FIXTURE_TEXTS, RACES_ENABLED } = result.data;
   const appOrigin = new URL(APP_URL ?? `http://localhost:${PORT}`).origin;
   return {
     isProduction: NODE_ENV === "production",
@@ -101,6 +106,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     secureCookies: appOrigin.startsWith("https:"),
     trustedProxyHops: TRUSTED_PROXY_HOPS ?? 0,
     fixtureRaceTexts: RACE_FIXTURE_TEXTS === "allowed",
+    races: racesSwitchOf(RACES_ENABLED),
   };
 }
 

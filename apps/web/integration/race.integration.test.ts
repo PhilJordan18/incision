@@ -59,6 +59,9 @@ async function tab(origin: string, cookie: string): Promise<Tab> {
   return opened;
 }
 
+/** The finished race of the first test, read again by the last one on a server with races closed. */
+let finished: { readonly raceId: string; readonly cookie: string; readonly guestName: string } | undefined;
+
 const FIRST_PAGE = "1c7e2a5b-3f4d-4e6a-8b9c-0d1e2f3a4b5c";
 const SECOND_PAGE = "2d8f3b6c-4a5e-4f7b-9c0d-1e2f3a4b5c6d";
 
@@ -173,6 +176,7 @@ describe("an integrated race (F-04.0)", () => {
     const html = await page.text();
     expect(html).toContain("Invitée");
     expect(html).toContain("Fin de la");
+    finished = { raceId, cookie: host.cookie, guestName: "Invitée" };
     const stranger = await account("int-stranger", "Inconnue");
     const hidden = await (await fetch(`${a.origin}/races/${raceId}`, { headers: { cookie: stranger.cookie, "accept-language": "fr" } })).text();
     expect(hidden).toContain("Course introuvable");
@@ -317,5 +321,35 @@ describe("an integrated race (F-04.0)", () => {
     expect(await query<{ text: string }>("select r.config_snapshot->>'text' as text from races r where r.id = $1", [reveal.reveal.raceId])).toEqual([
       { text: RACE_TEXTS.fr.id },
     ]);
+  }, 60_000);
+
+  it("closes new races without RACES_ENABLED: a direct start creates nothing, rooms and stored results stay", async () => {
+    // The previous test's process stops (its race is interrupted, as at any restart): its port is free again.
+    const previous = servers.at(-1);
+    previous?.child.kill("SIGTERM");
+    await previous?.exited;
+    const d = await startServer(PORTS[1] ?? 3302, { RACES_ENABLED: "" });
+    servers.push(d);
+    expect(d.output()).toContain('[races] new races are closed (RACES_ENABLED is not "true")');
+    const host = await account("int-host-6", "Hôte six");
+    const guest = await account("int-guest-6", "Invité six");
+    const code = await room(host, [guest]);
+    const h = await tab(d.origin, host.cookie);
+    const g = await tab(d.origin, guest.cookie);
+    // The room works: both watch it live.
+    expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await g.ask("room:watch", { code })).toMatchObject({ ok: true });
+    // Straight to the socket, as a page without its button would: refused, and no race row.
+    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "RACES_CLOSED" });
+    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "RACES_CLOSED" });
+    expect(await query<{ races: number; phase: string }>("select count(r.id)::int as races, l.phase from lobbies l left join races r on r.lobby_id = l.id where l.code = $1 group by l.phase", [code])).toEqual([
+      { races: 0, phase: "waiting" },
+    ]);
+    expect(g.received.some((message) => message.event === "race:reveal")).toBe(false);
+    // A race finished before still reads the same for its entrants (HIST-02).
+    expect(finished).toBeDefined();
+    const page = await fetch(`${d.origin}/races/${finished?.raceId}`, { headers: { cookie: finished?.cookie ?? "", "accept-language": "fr" } });
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain(finished?.guestName);
   }, 60_000);
 });

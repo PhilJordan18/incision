@@ -19,6 +19,7 @@ function harness(
     participants?: typeof PARTICIPANTS;
     renewed?: boolean;
     texts?: Readonly<Record<"fr" | "en", RaceText>>;
+    racesOpen?: boolean;
   } = {},
 ) {
   let now = START;
@@ -64,6 +65,7 @@ function harness(
     onRoomChanged: (lobbyId) => changed.push(lobbyId),
     onRaceLost: (lobbyId) => lost.push(lobbyId),
     texts: options.texts ?? FIXTURE_RACE_TEXTS,
+    racesOpen: options.racesOpen ?? true,
     log: () => undefined,
   });
   const advance = (ms: number) => {
@@ -120,6 +122,35 @@ describe("RaceService", () => {
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
     expect(store.startRace.mock.calls[0]?.[0]).toMatchObject({ text: texts.fr.text, config: { language: "fr", text: "fr-injected" } });
     expect(bea.reveal()?.reveal.text.join("")).toBe(texts.fr.text);
+  });
+
+  it("refuses every start before the database while races are closed (RACES_ENABLED), and leaves the room as it was", async () => {
+    const { service, store, changed } = harness({ racesOpen: false });
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    // The host's button, a repeat, or a direct call (the next round's start too): one path, refused.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect(await service.start(host.connection, {})).toEqual({ ok: false, error: "RACES_CLOSED" });
+    }
+    expect(store.startRace).not.toHaveBeenCalled();
+    expect(service.ownsRace(LOBBY)).toBe(false);
+    expect(changed).toEqual([]);
+    expect(bea.reveal()).toBeUndefined();
+    // The room's members still come and go.
+    service.unfollow("t-bea");
+    service.memberLeft(LOBBY, "a-bea", { roomClosed: false });
+  });
+
+  it("opens races without changing which texts they run (the engine's refusals stay, below)", async () => {
+    const texts = { fr: { id: "fr-open", text: "Texte ouvert pour ce test." }, en: { id: "en-open", text: "Text open for this test." } };
+    const { service, store } = harness({ racesOpen: true, texts });
+    const host = tab("t-host", "a-host", "fr");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, tab("t-bea", "a-bea").connection);
+    expect(await service.start(host.connection, {})).toEqual({ ok: true });
+    expect(store.startRace.mock.calls[0]?.[0]).toMatchObject({ text: texts.fr.text, config: { text: "fr-open" } });
   });
 
   it("marks the race text with the host's language for every reader", async () => {
@@ -266,6 +297,7 @@ describe("RaceService", () => {
       },
       onRoomChanged: () => undefined,
       texts: FIXTURE_RACE_TEXTS,
+      racesOpen: true,
       log: () => undefined,
       logError: (message) => logged.push(message),
       leaseTiming: { leaseMs: 30_000, renewEveryMs: 1, safetyMarginMs: 5_000, retryEveryMs: 1, maxSuspensionMs: 60_000 },
