@@ -61,3 +61,18 @@ describe("classifyMeasures", () => {
     expect(classifyMeasures({ ...base, meanLetters: 5 }, thresholds)).toBe("medium");
   });
 });
+
+describe("measureText: review findings", () => {
+  it("does not let a dash token hide a sentence start, nor count numbers in M1", () => {
+    // "Hydrographie" starts a sentence after the dash, so it is no proper noun and counts as rare.
+    expect(measureText("La mer. - Hydrographie", list, 4).rareWordShare).toBeCloseTo(100 / 3);
+    expect(measureText("12 34 mer", list, 4).meanLetters).toBe(3);
+  });
+
+  it("skips the euphonic t and keeps English I in the vocabulary measure", () => {
+    const words: WordList = { language: "fr", version: "t", entries: [{ word: "va", zipf: 5 }, { word: "il", zipf: 6 }, { word: "la", zipf: 7 }] };
+    expect(measureText("La va-t-il", words, 4)).toMatchObject({ rareWordShare: 0, unknownWords: [] });
+    const english: WordList = { language: "en", version: "t", entries: [{ word: "so", zipf: 6 }, { word: "i", zipf: 6.5 }, { word: "ran", zipf: 4.8 }] };
+    expect(measureText("So I ran", english, 4)).toMatchObject({ rareWordShare: 0, unknownWords: [] });
+  });
+});

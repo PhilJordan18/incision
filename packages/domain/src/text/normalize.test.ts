@@ -69,3 +69,33 @@ describe("countWords and cutToWords (D-10)", () => {
     expect(() => cutToWords("la mer", 3)).toThrow(RangeError);
   });
 });
+
+describe("normalizePassage: review findings", () => {
+  const ch = (code: number): string => String.fromCodePoint(code);
+
+  it("keeps times and references intact and spaces after other marks", () => {
+    expect(ok("Il est 10:30, verset 3:16.")).toBe("Il est 10:30, verset 3:16.");
+    expect(ok("etc.: Quoi...? Oui!?")).toBe("etc. : Quoi... ? Oui !?");
+  });
+
+  it("records every change, Unicode composition and space collapsing included", () => {
+    expect(normalizePassage("  un  deux ", "fr")).toEqual({ ok: true, text: "un deux", changes: ["spaces"] });
+    expect(normalizePassage(`${ch(0x212a)}ilo`, "en")).toEqual({ ok: true, text: "Kilo", changes: ["unicode"] });
+  });
+
+  it("turns typographic hyphens inside a word into a plain hyphen", () => {
+    expect(normalizePassage(`répondit${ch(0x2011)}elle`, "fr")).toEqual({ ok: true, text: "répondit-elle", changes: ["hyphens"] });
+  });
+
+  it("refuses bidirectional controls, wherever they stand", () => {
+    for (const code of [0x202e, 0x2066, 0x2067, 0x2068, 0x2069, 0x200e, 0x200f]) {
+      expect(normalizePassage(`la ${ch(code)}mer`, "fr")).toMatchObject({ ok: false, reason: "UNTYPABLE_CHARACTER", position: 3 });
+      expect(normalizePassage(`${ch(code)}la mer`, "fr")).toMatchObject({ ok: false, reason: "UNTYPABLE_CHARACTER", position: 0 });
+    }
+  });
+
+  it("never ends a cut on a lone dash or an opening mark", () => {
+    expect(cutToWords("plans - not even", 1)).toBe("plans");
+    expect(cutToWords("un deux ( trois", 2)).toBe("un deux");
+  });
+});

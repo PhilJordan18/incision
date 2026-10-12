@@ -9,7 +9,7 @@ import { toGraphemes } from "./graphemes";
 import { normalizePassage } from "./normalize";
 import type { CoherentTextSettings, Complexity, TextOptions } from "./settings";
 import { MARKS } from "./typable";
-import { countWords, cutToWords, tokensOf } from "./words";
+import { countWords, cutToWords, isWordToken, tokensOf } from "./words";
 
 /** A passage of the corpus, stored normalised (normalizePassage) with its source elsewhere. */
 export type Passage = {
@@ -26,8 +26,9 @@ const TRAILING_MARKS = /[.,;:!?)"]+$/u;
 
 /**
  * The host's options applied to a normalised passage, in a fixed order:
- * - numbers off: every token holding a digit goes whole ("1866", "1er"); its trailing marks move
- *   onto the previous token, except a closing mark it opened itself;
+ * - numbers off: every token holding a digit goes whole ("1866", "1er"); its closing and end marks
+ *   move onto the previous word (an end mark only if that word has none yet), and a quote or
+ *   parenthesis it opened moves onto the next word, so marks stay balanced;
  * - punctuation off: every mark goes, and a dash token with it; apostrophes and hyphens inside a
  *   word stay (they are spelling);
  * - capitals off: lowercase; on keeps the source case;
@@ -53,18 +54,30 @@ export function applyPassageOptions(text: string, options: TextOptions): string 
 
 function withoutNumbers(tokens: readonly string[]): string[] {
   const kept: string[] = [];
+  let pendingOpeners = "";
   for (const token of tokens) {
     if (!HAS_DIGIT.test(token)) {
-      kept.push(token);
+      kept.push(isWordToken(token) ? pendingOpeners + token : token);
+      if (isWordToken(token)) pendingOpeners = "";
       continue;
     }
-    const openers = token.match(LEADING_OPENERS)?.[0] ?? "";
+    let openers = token.match(LEADING_OPENERS)?.[0] ?? "";
     let trailing = token.match(TRAILING_MARKS)?.[0] ?? "";
-    for (const opener of openers) {
-      trailing = trailing.replace(opener === "(" ? ")" : '"', "");
+    // A mark the number both opens and closes goes with it.
+    for (const opener of [...openers]) {
+      const closer = opener === "(" ? ")" : '"';
+      if (trailing.includes(closer)) {
+        trailing = trailing.replace(closer, "");
+        openers = openers.replace(opener, "");
+      }
     }
-    if (trailing !== "" && kept.length > 0) {
-      kept[kept.length - 1] += trailing;
+    pendingOpeners += openers;
+    const previous = kept.findLastIndex(isWordToken);
+    if (trailing !== "" && previous !== -1) {
+      const word = kept[previous] ?? "";
+      const closers = trailing.replace(/[^)"]/gu, "");
+      const ends = /[.,;:!?]$/u.test(word.replace(/[)"]+$/u, "")) ? "" : trailing.replace(/[)"]/gu, "");
+      kept[previous] = word + ends + closers;
     }
   }
   return kept;

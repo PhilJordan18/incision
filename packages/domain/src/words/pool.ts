@@ -18,10 +18,22 @@ export function foldForExclusion(word: string): string {
     .normalize("NFC");
 }
 
+/** Folded forms of a list's entries, computed once per list object: lists are immutable data. */
+const FOLDED = new WeakMap<WordList, readonly string[]>();
+
+export function foldedEntries(list: WordList): readonly string[] {
+  let folded = FOLDED.get(list);
+  if (folded === undefined) {
+    folded = list.entries.map((entry) => foldForExclusion(entry.word));
+    FOLDED.set(list, folded);
+  }
+  return folded;
+}
+
 /**
  * The words a random text may draw from: the list minus its exclusions, applied first and always,
  * then the optional `accept` filter (a complexity level, letters without accents…). The pool may be
- * empty; the text generator will refuse that case before drawing (F-02.5).
+ * empty; the text generator refuses that case before drawing (F-02.5).
  */
 export function buildWordPool(input: {
   readonly list: WordList;
@@ -33,7 +45,8 @@ export function buildWordPool(input: {
     throw new RangeError(`Exclusions in ${exclusions.language} cannot filter a list in ${list.language}`);
   }
   const excluded = new Set(exclusions.words.map(foldForExclusion));
-  const allowed = list.entries.filter((entry) => !excluded.has(foldForExclusion(entry.word)));
+  const folded = foldedEntries(list);
+  const allowed = list.entries.filter((_, index) => !excluded.has(folded[index] ?? ""));
   const pool: Omit<WordPool, "__brand"> = {
     language: list.language,
     listVersion: list.version,
@@ -47,7 +60,7 @@ export function buildWordPool(input: {
 /** Whether two words may not follow each other in a random text, in either order. */
 export type ForbiddenPairRule = (first: string, second: string) => boolean;
 
-/** The rule for a pair list, matched on folded forms; the generator will apply it (F-02.5). */
+/** The rule for a pair list, matched on folded forms; the generator applies it (F-02.5). */
 export function forbiddenPairRule(list: ForbiddenPairList): ForbiddenPairRule {
   const key = (first: string, second: string): string => {
     const [low, high] = [foldForExclusion(first), foldForExclusion(second)].sort();

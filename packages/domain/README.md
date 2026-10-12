@@ -245,12 +245,12 @@ Stored values are bounded, so database columns can be sized from these constants
   in `.next/static`, not the RSC payloads of prerendered pages; the rule for F-02.5 is that the
   lists are never passed as props to client components.
 - **`buildWordPool`** applies the exclusions first and always, on exact folded forms
-  (`foldForExclusion`: compatibility forms unified, no accents, œ and æ spelled out, straight
-  apostrophes, lowercase). Excluding
+  (`foldForExclusion`: compatibility forms unified, invisible characters removed, no accents, œ and
+  æ spelled out, straight apostrophes, lowercase). Excluding
   "con" never removes "conte". An `accept` filter (a level, letters without accents…) runs after.
 - **`forbiddenPairRule`** says whether two words may not follow each other, in either order. A word
-  of a pair stays drawable alone. The generator (F-02.5) will apply it with a bounded,
-  deterministic search and a typed refusal, never by deleting a word after drawing.
+  of a pair stays drawable alone. The generator (F-02.5) applies it with a bounded, deterministic
+  search and a typed refusal, never by deleting a word after drawing.
 
 ## Race texts (`src/text/`, F-02.5)
 
@@ -267,26 +267,35 @@ Stored values are bounded, so database columns can be sized from these constants
 - **Two normalisations.** Dictionary words follow `src/words` (an explicit alphabet per language,
   then folding for exclusions). Passages follow `normalizePassage` (version 1): special spaces,
   typographic apostrophes and quotes, the ellipsis, sentence dashes to " - " with the words kept
-  apart, French spacing before `; : ! ?`. Invisible characters, primes and anything untypable (œ
-  and æ included, until P-4) are refused with their position, never changed blindly.
+  apart, the typographic hyphens ‐ and ‑ inside a word to "-", French spacing before `; : ! ?`
+  (none before a ":" followed by a digit, as in 10:30). Every change is reported, Unicode
+  composition included. Invisible characters, primes and anything untypable (bidirectional
+  controls, œ and æ until P-4) are refused with their position, never changed blindly.
 - **Words.** A word is a token holding a letter or a digit (D-10): a lone `?` or a dash is none.
-  A cut ends after its Nth word, with the punctuation that directly follows.
+  A cut ends after its Nth word, with the closing punctuation that directly follows; never on a
+  lone dash or an opening mark.
 - **Coherent mode.** The options apply to the normalised passage first (numbers, punctuation,
   capitals, accents, in that order), then the text is cut after its Nth word from the passage's
   start. Nothing is invented, rewritten or joined from distant passages.
 - **Random mode.** The pool removes the exclusions first, then applies the band, the accents
   policy (words without diacritics when accents are off, never misspelled), the excluded
-  characters, and leaves out œ and æ. Proven incompatibilities are refused before any draw:
+  characters, and leaves out œ and æ. Two words are the same when they are spelled the same ("la"
+  and "là" differ, Q-7); forbidden pairs compare folded forms, and a number between two words
+  does not separate them. Proven incompatibilities are refused before any draw:
   `NO_COMPATIBLE_WORDS`, `INCLUDED_CHARACTER_UNAVAILABLE`, `INCLUDED_CHARACTERS_DO_NOT_FIT` (by
-  counting) and `FORBIDDEN_PAIRS_UNAVOIDABLE`. The draw is then a deterministic, bounded search
-  (`SEARCH_ATTEMPTS`, `DRAWS_PER_SLOT`, `COVER_ATTEMPTS`) that places the words covering the
-  included letters, the numbers and the drawn words so that no word repeats and no forbidden pair
-  touches; no word is deleted afterwards. When it ends without a text it answers
-  `TEXT_SEARCH_EXHAUSTED`, which proves nothing.
+  counting) and `FORBIDDEN_PAIRS_UNAVOIDABLE`; they hold under the documented number rule (about
+  one token in ten, Q-4). The draw is then a deterministic, bounded search (`COVER_ATTEMPTS`,
+  `ARRANGE_ATTEMPTS`, `DRAWS_PER_SLOT`) that redraws the words covering the included letters,
+  places them and the drawn words so that no word repeats and no forbidden pair touches, then
+  inserts the numbers; no word is deleted afterwards. When it ends without a text it answers
+  `TEXT_SEARCH_EXHAUSTED`, which proves nothing. The pool is built once per call from data
+  prepared once per list, so a 200-word text from 60,000 words takes about 0.2 s.
 - **Final checks.** `raceTextViolations` lists every guarantee the final text breaks: exactly N
-  words, typable characters, no line break, the grapheme bound, each option's effect, included and
-  excluded characters, repeats, pairs, numbers and marks. `generateRaceText` throws on any, since a
-  broken guarantee is a bug. It returns the text with its versions (generator, criteria,
+  words, typable characters, no line break, the grapheme bound, each option's effect; in random
+  mode, each word read from the list itself (band, exclusions, alphabet, accents), included and
+  excluded characters, repeats, pairs, numbers, marks and their spacing, a word at each sentence
+  start, and capitals only there when every sentence end shows a mark. `generateRaceText` throws
+  on any, since a broken guarantee is a bug; the message never quotes a word of the text. It returns the text with its versions (generator, criteria,
   normalisation, PRNG) and its provenance (list versions and pool size, or the passage id).
 - **Seed.** The generator takes a `RandomState` drawn by the server with crypto for this text
   alone, kept private (Q-15).

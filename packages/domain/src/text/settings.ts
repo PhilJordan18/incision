@@ -79,6 +79,12 @@ const ACCENTED = /[^\u0000-\u007f]/u;
 const PAIRED: Readonly<Record<string, string>> = { "(": ")", ")": "(" };
 
 /**
+ * Most entries a host may send to include or exclude. The interface offers far fewer; the server's
+ * schema caps the arrays first (TECH-07), so a longer one here is a bug.
+ */
+export const MAX_SETTING_CHARACTERS = 100;
+
+/**
  * A character the host may include or exclude: one letter of the language, a digit or a mark,
  * lowercased. Returns undefined for anything else (two graphemes, a space, "ß" in French, and œ or
  * æ, which random mode avoids for now: P-4).
@@ -91,10 +97,14 @@ export function settingCharacter(input: string, language: TextLanguage): string 
   return supported.includes(character) ? character : undefined;
 }
 
-/** The marks a random text may use: the complexity's, plus the included ones, minus the excluded ones. */
+/**
+ * The marks a random text may use: the complexity's, plus the included ones, minus the excluded
+ * ones. Parentheses go as a pair: including one brings the other, excluding one removes both.
+ */
 export function availableMarks(settings: RandomTextSettings, criteria: ComplexityCriteria): readonly Mark[] {
   const excluded = characterSet(settings.exclude, settings.language);
-  const wanted = new Set<string>([...criteria.marks, ...characterSet(settings.include, settings.language)]);
+  const included = [...characterSet(settings.include, settings.language)];
+  const wanted = new Set<string>([...criteria.marks, ...included, ...included.flatMap((character) => (character in PAIRED ? [PAIRED[character] ?? ""] : []))]);
   return MARKS.filter((mark) => wanted.has(mark) && !excluded.has(mark) && !(mark in PAIRED && excluded.has(PAIRED[mark] ?? "")));
 }
 
@@ -102,10 +112,30 @@ function characterSet(inputs: readonly string[], language: TextLanguage): Readon
   return new Set(inputs.map((input) => settingCharacter(input, language)).filter((character): character is string => character !== undefined));
 }
 
+/** Throws unless the criteria can drive a bounded generation: only a bug can produce bad ones. */
+export function checkCriteria(criteria: Readonly<Record<Complexity, ComplexityCriteria>>): void {
+  for (const complexity of COMPLEXITIES) {
+    const level = criteria[complexity];
+    const [shortest, longest] = level.sentenceTokens;
+    const digits = String(level.maxNumber).length;
+    if (
+      !Number.isInteger(level.maxLetters) || level.maxLetters < 1 || !Number.isFinite(level.minZipf) ||
+      !Number.isInteger(shortest) || !Number.isInteger(longest) || shortest < 1 || longest < shortest ||
+      level.maxNumber !== 10 ** digits - 1 || !level.marks.every((mark) => (MARKS as readonly string[]).includes(mark))
+    ) {
+      throw new RangeError(`Invalid complexity criteria for ${complexity}`);
+    }
+  }
+}
+
 /** Settings validity that needs no list and no passage. RangeError for values only a bug can produce. */
 export function textSettingsRefusal(settings: TextSettings, criteria: Readonly<Record<Complexity, ComplexityCriteria>> = COMPLEXITY_CRITERIA): TextSettingsRefusal | undefined {
   if (!TEXT_KINDS.includes(settings.kind) || !TEXT_LANGUAGES.includes(settings.language) || !COMPLEXITIES.includes(settings.complexity)) {
     throw new RangeError("Unknown text kind, language or complexity");
+  }
+  checkCriteria(criteria);
+  if (settings.kind === "random" && (settings.include.length > MAX_SETTING_CHARACTERS || settings.exclude.length > MAX_SETTING_CHARACTERS)) {
+    throw new RangeError(`At most ${MAX_SETTING_CHARACTERS} characters to include or exclude`);
   }
   if (!Number.isInteger(settings.wordCount) || settings.wordCount < MIN_TEXT_WORDS || settings.wordCount > MAX_TEXT_WORDS) {
     return "WORD_COUNT_OUT_OF_RANGE";

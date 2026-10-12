@@ -1,14 +1,15 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { PINNED_INPUTS, readPinned } from "../src/pinned";
 
 describe("readPinned", () => {
   const raw = mkdtempSync(join(tmpdir(), "pinned-"));
   writeFileSync(join(raw, "list"), "maison\n");
   const sha = createHash("sha256").update("maison\n").digest("hex");
+  afterAll(() => rmSync(raw, { recursive: true, force: true }));
 
   it("returns a file whose SHA-256 is the pinned one", () => {
     expect(readPinned(raw, "list", { list: sha }).toString()).toBe("maison\n");

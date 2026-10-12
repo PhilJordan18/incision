@@ -16,9 +16,13 @@ export function countWords(text: string): number {
   return tokensOf(text).filter(isWordToken).length;
 }
 
+/** Punctuation that closes what comes before it; a dash or an opening mark starts what follows. */
+const CLOSING = /^[.,;:!?)]+$/u;
+
 /**
- * The text cut after its `count`th word, keeping the punctuation-only tokens that directly
- * follow it ("… mers ;" stays whole). RangeError when the text has fewer words.
+ * The text cut after its `count`th word, keeping the closing punctuation tokens that directly
+ * follow it ("… mers ;" stays whole). A cut never ends on a lone dash or an opening mark.
+ * RangeError when the text has fewer words.
  */
 export function cutToWords(text: string, count: number): string {
   const kept: string[] = [];
@@ -27,6 +31,8 @@ export function cutToWords(text: string, count: number): string {
     if (isWordToken(token)) {
       if (words === count) break;
       words += 1;
+    } else if (words === count && !CLOSING.test(token)) {
+      break;
     }
     kept.push(token);
   }

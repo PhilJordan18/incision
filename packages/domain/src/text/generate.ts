@@ -5,10 +5,11 @@
 import { createRandom, PRNG_VERSION, type RandomState } from "../random/prng";
 import { MAX_TEXT_GRAPHEMES } from "../race/limits";
 import { foldForExclusion, forbiddenPairRule } from "../words/pool";
+import type { WordList } from "../words/types";
 import { checkPassages, passageCut, type Passage } from "./coherent";
 import { containsLineBreak, toGraphemes } from "./graphemes";
 import { NORMALIZATION_VERSION } from "./normalize";
-import { drawRandomText, randomContentRefusal, randomPool, type RandomContentRefusal, type RandomWords } from "./random";
+import { drawRandomText, randomContentRefusal, randomPlan, type RandomContentRefusal, type RandomPlan, type RandomWords } from "./random";
 import {
   availableMarks,
   COMPLEXITY_CRITERIA,
@@ -32,13 +33,14 @@ export const TEXT_GENERATOR_VERSION = 1;
  */
 export type RaceTextRefusal = TextSettingsRefusal | "NO_COMPATIBLE_PASSAGE" | RandomContentRefusal | "TEXT_SEARCH_EXHAUSTED";
 
-export type RaceTextSources =
-  | { readonly settings: RandomTextSettings; readonly words: RandomWords }
-  | { readonly settings: CoherentTextSettings; readonly passages: readonly Passage[] };
+type RandomSources = { readonly settings: RandomTextSettings; readonly words: RandomWords };
+type CoherentSources = { readonly settings: CoherentTextSettings; readonly passages: readonly Passage[] };
+export type RaceTextSources = RandomSources | CoherentSources;
 
 export type RaceTextInput = RaceTextSources & {
   /** Four uint32 drawn by the server with crypto for this text only; kept private (Q-15). */
   readonly state: RandomState;
+  /** Defaults to COMPLEXITY_CRITERIA; validated, since a bad value could unbound the search. */
   readonly criteria?: Readonly<Record<Complexity, ComplexityCriteria>>;
 };
 
@@ -56,29 +58,37 @@ export type RaceTextResult =
     }
   | { readonly ok: false; readonly reason: RaceTextRefusal };
 
-const isRandom = (sources: RaceTextSources): sources is Extract<RaceTextSources, { readonly words: RandomWords }> => sources.settings.kind === "random";
+const isRandom = (sources: RaceTextSources): sources is RandomSources => sources.settings.kind === "random";
+
+type Proven = Exclude<RaceTextRefusal, "TEXT_SEARCH_EXHAUSTED">;
+
+/** The refusals that need no draw, with the random plan built once for the draw that follows. */
+function prepare(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>>): { readonly refusal?: Proven; readonly plan?: RandomPlan } {
+  const settingsRefusal = textSettingsRefusal(sources.settings, criteria);
+  if (settingsRefusal !== undefined) return { refusal: settingsRefusal };
+  if (isRandom(sources)) {
+    const plan = randomPlan(sources.settings, sources.words, criteria[sources.settings.complexity]);
+    return { refusal: randomContentRefusal(plan), plan };
+  }
+  checkPassages(sources.passages);
+  return sources.passages.some((passage) => passageCut(passage, sources.settings) !== undefined) ? {} : { refusal: "NO_COMPATIBLE_PASSAGE" };
+}
 
 /** Every refusal that needs no draw, in priority order; never a text. */
-export function raceTextRefusal(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>> = COMPLEXITY_CRITERIA): Exclude<RaceTextRefusal, "TEXT_SEARCH_EXHAUSTED"> | undefined {
-  const settingsRefusal = textSettingsRefusal(sources.settings, criteria);
-  if (settingsRefusal !== undefined) return settingsRefusal;
-  if (isRandom(sources)) {
-    return randomContentRefusal(sources.settings, sources.words, criteria[sources.settings.complexity]);
-  }
-  const coherent = sources as Extract<RaceTextSources, { readonly passages: readonly Passage[] }>;
-  checkPassages(coherent.passages);
-  return coherent.passages.some((passage) => passageCut(passage, coherent.settings) !== undefined) ? undefined : "NO_COMPATIBLE_PASSAGE";
+export function raceTextRefusal(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>> = COMPLEXITY_CRITERIA): Proven | undefined {
+  return prepare(sources, criteria).refusal;
 }
 
 export function generateRaceText(input: RaceTextInput): RaceTextResult {
   const criteria = input.criteria ?? COMPLEXITY_CRITERIA;
-  const refusal = raceTextRefusal(input, criteria);
+  const { refusal, plan } = prepare(input, criteria);
   if (refusal !== undefined) return { ok: false, reason: refusal };
   const random = createRandom(input.state);
   const versions: RaceTextVersions = { generator: TEXT_GENERATOR_VERSION, criteria: CRITERIA_VERSION, normalization: NORMALIZATION_VERSION, prng: PRNG_VERSION };
   if (isRandom(input)) {
     const { settings, words } = input;
-    const draw = drawRandomText(settings, words, criteria[settings.complexity], random);
+    if (plan === undefined) throw new RangeError("A random request always has a plan");
+    const draw = drawRandomText(plan, settings, criteria[settings.complexity], random);
     if (!draw.ok) return draw;
     assertValid(draw.text, input, criteria);
     return {
@@ -89,7 +99,7 @@ export function generateRaceText(input: RaceTextInput): RaceTextResult {
       provenance: { kind: "random", listVersion: words.list.version, exclusionsVersion: words.exclusions.version, pairsVersion: words.pairs.version, poolSize: draw.poolSize },
     };
   }
-  const { settings, passages } = input as Extract<RaceTextInput, { readonly passages: readonly Passage[] }>;
+  const { settings, passages } = input;
   const compatible = passages.flatMap((passage) => {
     const cut = passageCut(passage, settings);
     return cut === undefined ? [] : [{ passage, cut }];
@@ -101,16 +111,32 @@ export function generateRaceText(input: RaceTextInput): RaceTextResult {
 }
 
 const MARK_SET: ReadonlySet<string> = new Set(MARKS);
-const EDGES = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 const NUMBER = /^\d+$/u;
+const LEADING = /^[^\p{L}\p{N}]+/u;
+const TRAILING = /(?<=[\p{L}\p{N}])[^\p{L}\p{N}]+$/u;
+const TERMINAL_END = /[.!?]"?\)?$/u;
+const FRENCH_HIGH = /[;:!?]/u;
+
+const coreOf = (token: string): string => token.replace(LEADING, "").replace(TRAILING, "").toLowerCase();
+
+/** The list's Zipf lookup, built once per list object. */
+const ZIPF = new WeakMap<WordList, ReadonlyMap<string, number>>();
+function zipfOf(list: WordList): ReadonlyMap<string, number> {
+  let zipf = ZIPF.get(list);
+  if (zipf === undefined) {
+    zipf = new Map(list.entries.map((entry) => [entry.word, entry.zipf]));
+    ZIPF.set(list, zipf);
+  }
+  return zipf;
+}
 
 /**
- * Every guarantee the final text breaks, after all transformations; empty for a valid text.
- * generateRaceText throws on any: a broken guarantee is a bug, never a retry or a silent fix.
+ * Every guarantee the final text breaks, after all transformations; empty for a valid text. The
+ * random checks read the list, the exclusions and the alphabet directly, never the pool, so a
+ * faulty pool cannot vouch for itself. generateRaceText throws on any: a broken guarantee is a bug.
  */
 export function raceTextViolations(text: string, sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>> = COMPLEXITY_CRITERIA): readonly string[] {
-  const { settings } = sources;
-  const { options, language, wordCount } = settings;
+  const { options, language, wordCount } = sources.settings;
   const violations: string[] = [];
   const check = (holds: boolean, rule: string): void => {
     if (!holds) violations.push(rule);
@@ -127,48 +153,58 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
   check(options.accents || !/[^ -~]/u.test(text), "no diacritic with accents off");
   if (!isRandom(sources)) return violations;
 
-  const random = sources as Extract<RaceTextSources, { readonly words: RandomWords }>;
+  const { settings, words } = sources;
+  const level = criteria[settings.complexity];
   const characters = (inputs: readonly string[]): string[] => inputs.map((input) => settingCharacter(input, language) ?? "").filter((character) => character !== "");
-  const level = criteria[random.settings.complexity];
+  const excludedCharacters = characters(settings.exclude);
+  const zipf = zipfOf(words.list);
+  const excluded = new Set(words.exclusions.words.map(foldForExclusion));
+  const rule = forbiddenPairRule(words.pairs);
   const lower = text.toLowerCase();
-  const poolSize = randomPool(random.settings, random.words, level).entries.length;
-  const rule = forbiddenPairRule(random.words.pairs);
-  // Checked from the list itself, not through randomPool, so a faulty pool cannot vouch for itself.
-  const zipf = new Map(random.words.list.entries.map((entry) => [entry.word, entry.zipf]));
-  const excluded = new Set(random.words.exclusions.words.map(foldForExclusion));
-  const excludedCharacters = characters(random.settings.exclude);
-  const cores = tokens.filter(isWordToken).map((token) => token.replace(EDGES, "").toLowerCase());
+  const cores = tokens.filter(isWordToken).map(coreOf);
   for (const core of cores) {
     if (NUMBER.test(core)) {
       check(options.numbers && Number(core) <= level.maxNumber && !(core.length > 1 && core.startsWith("0")), `"${core}" is an allowed number`);
       continue;
     }
     check((zipf.get(core) ?? Number.NEGATIVE_INFINITY) >= level.minZipf, `"${core}" is in the list, at Zipf ${level.minZipf} or more`);
-    check(toGraphemes(core).length <= level.maxLetters, `"${core}" has at most ${level.maxLetters} letters`);
+    check([...core].length <= level.maxLetters, `"${core}" has at most ${level.maxLetters} letters`);
     check(!excluded.has(foldForExclusion(core)), `"${core}" is not excluded`);
     check(usesWordLetters(core, language) && ![...core].some((character) => HARD_TO_TYPE_LETTERS.includes(character) || excludedCharacters.includes(character)), `"${core}" uses allowed letters`);
     check(options.accents || /^[a-z']+$/u.test(core), `"${core}" has no diacritic with accents off`);
   }
-  check(!characters(random.settings.exclude).some((character) => lower.includes(character)), "no excluded character");
-  check(characters(random.settings.include).every((character) => lower.includes(character)), "every included character");
-  for (let index = 1; index < cores.length; index += 1) {
-    const [left, right] = [cores[index - 1] ?? "", cores[index] ?? ""];
-    if (NUMBER.test(left) || NUMBER.test(right)) continue;
-    check(poolSize < 2 || foldForExclusion(left) !== foldForExclusion(right), "no word twice in a row");
+  check(!excludedCharacters.some((character) => lower.includes(character)), "no excluded character");
+  check(characters(settings.include).every((character) => lower.includes(character)), "every included character");
+  // Neighbours are the words around a number too: "sale 12 juif" counts as "sale juif".
+  const sequence = cores.filter((core) => !NUMBER.test(core));
+  let multiWordPool: boolean | undefined;
+  for (let index = 1; index < sequence.length; index += 1) {
+    const [left, right] = [sequence[index - 1] ?? "", sequence[index] ?? ""];
+    if (left === right) {
+      multiWordPool ??= randomPlan(settings, words, level).pool.length >= 2;
+      check(!multiWordPool, "no word twice in a row");
+    }
     check(!rule(left, right), "no forbidden pair side by side");
   }
   check(!options.numbers || cores.some((core) => NUMBER.test(core)), "at least one number with numbers on");
+  const marks = availableMarks(settings, level);
   if (options.punctuation) {
     const used = [...text].filter((character) => MARK_SET.has(character));
-    const allowed = new Set<string>(availableMarks(random.settings, level));
     check(used.length > 0, "at least one mark with punctuation on");
-    check(used.every((mark) => allowed.has(mark) || (mark === ")" && allowed.has("("))), "marks from the available set only");
+    check(used.every((mark) => marks.includes(mark as (typeof marks)[number])), "marks from the available set only");
+    check(
+      tokens.every((token) => (language === "fr" ? !FRENCH_HIGH.test(token) || /^[;:!?]$/u.test(token) : !/^[;:!?]$/u.test(token))),
+      language === "fr" ? "a space before each ; : ! ? in French" : "no space before ; : ! ? in English",
+    );
   }
-  // Every sentence starts with a word (Q-2), capitalised when capitals are on; a terminal mark shows where the next one starts.
-  const startsSentence = (index: number): boolean => index === 0 || /[.!?]"?\)?$/u.test(tokens[index - 1] ?? "");
+  // Every sentence starts with a word (Q-2), capitalised when capitals are on. When every sentence end
+  // shows a mark, the starts are all visible, and capitals appear nowhere else.
+  const startsSentence = (index: number): boolean => index === 0 || TERMINAL_END.test(tokens[index - 1] ?? "");
   check(!tokens.some((token, index) => startsSentence(index) && !/^["(]?\p{L}/u.test(token)), "a word at each sentence start");
   if (options.capitals) {
     check(!tokens.some((token, index) => startsSentence(index) && !/^["(]?\p{Lu}/u.test(token)), "a capital at each sentence start");
+    const endsVisible = options.punctuation && marks.some((mark) => mark === "." || mark === "?" || mark === "!");
+    check(!endsVisible || !tokens.some((token, index) => !startsSentence(index) && /\p{Lu}/u.test(token)), "capitals only at sentence starts");
   }
   return violations;
 }
@@ -176,6 +212,7 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
 function assertValid(text: string, sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>>): void {
   const violations = raceTextViolations(text, sources, criteria);
   if (violations.length > 0) {
-    throw new RangeError(`Generated text breaks a guarantee: ${violations.join("; ")}`);
+    // Words stay out of the message: one may be an excluded word, and messages reach logs.
+    throw new RangeError(`Generated text breaks a guarantee: ${violations.map((violation) => violation.replace(/"[^"]*"/gu, "a word")).join("; ")}`);
   }
 }

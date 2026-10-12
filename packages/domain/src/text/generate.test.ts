@@ -210,12 +210,30 @@ describe("refusals: proven incompatibilities, then an exhausted search", () => {
     expect(raceTextRefusal({ settings, words: custom(["sea", "ship"], [["sea", "ship"]]) })).toBe("FORBIDDEN_PAIRS_UNAVOIDABLE");
   });
 
-  it("says when the bounded search ends without a text, without claiming a proof", () => {
-    // "sea" must appear (the only word with an "e") but may neighbour no word: no proof catches it.
+  it("proves the case where an included letter is held only by a word that may neighbour none", () => {
+    // "sea" must appear (the only word with an "e") but may neighbour no word, numbers notwithstanding.
     const words = custom(["sea", "ship", "map"], [["sea", "ship"], ["sea", "map"]]);
-    const settings = randomSettings({ language: "en", wordCount: 10, options: { ...ALL_ON, numbers: false }, include: ["e"] });
+    const settings = randomSettings({ language: "en", wordCount: 10, include: ["e"] });
+    expect(raceTextRefusal({ settings, words })).toBe("FORBIDDEN_PAIRS_UNAVOIDABLE");
+  });
+
+  it("says when the bounded search ends without a text, without claiming a proof", () => {
+    // "zz" holds the only "z" and may neighbour one word among 5,000: a text exists, the bounded draws rarely meet it.
+    const letter = (value: number): string => String.fromCharCode(97 + (value % 25));
+    const others = Array.from({ length: 5_000 }, (_, index) => `w${letter(index)}${letter(Math.floor(index / 25))}${letter(Math.floor(index / 625))}`);
+    const words: RandomWords = {
+      list: { language: "en", version: "custom", entries: ["zz", ...others].map((word) => ({ word, zipf: 5 })) },
+      exclusions: { language: "en", version: "custom", words: [] },
+      pairs: { language: "en", version: "custom", pairs: others.slice(1).map((other): [string, string] => ["zz", other]) },
+    };
+    const settings = randomSettings({ language: "en", wordCount: 10, include: ["z"], options: { ...ALL_ON, numbers: false } });
     expect(raceTextRefusal({ settings, words })).toBeUndefined();
-    expect(generateRaceText({ settings, words, state: STATES[0] as RandomState })).toEqual({ ok: false, reason: "TEXT_SEARCH_EXHAUSTED" });
+    const reasons = STATES.slice(0, 30).map((state) => {
+      const result = generateRaceText({ settings, words, state });
+      return result.ok ? "ok" : result.reason;
+    });
+    expect(reasons.every((reason) => reason === "ok" || reason === "TEXT_SEARCH_EXHAUSTED")).toBe(true);
+    expect(reasons).toContain("TEXT_SEARCH_EXHAUSTED");
   });
 
   it("refuses a coherent request no passage can serve", () => {
@@ -227,7 +245,7 @@ describe("refusals: proven incompatibilities, then an exhausted search", () => {
     const pick = <T>(items: readonly T[]): T => items[fuzz.index(items.length)] as T;
     for (let round = 0; round < 300; round += 1) {
       const language = pick(["fr", "en"] as const);
-      const characters = [..."aeiostzwkq0123456789.,?!;:\"("];
+      const characters = [..."aeiostzwkq0123456789.,?!;:\"()"];
       const include = characters.filter(() => fuzz.index(12) === 0);
       const exclude = characters.filter((character) => !include.includes(character) && fuzz.index(10) === 0);
       const settings = randomSettings({ language, complexity: pick(COMPLEXITIES), wordCount: pick([10, 11, 50, 200]), options: pick(OPTION_SETS), include, exclude });
@@ -278,5 +296,107 @@ describe("raceTextViolations: each guarantee is checked on the final text", () =
     expect(violations).toEqual(expect.arrayContaining([expect.stringContaining("no digit"), expect.stringContaining("no mark"), expect.stringContaining("no capital"), expect.stringContaining("allowed number")]));
     const french: CoherentTextSettings = { kind: "coherent", language: "fr", wordCount: 10, complexity: "easy", options: off.options };
     expect(raceTextViolations("la mer est très calme et le vent souffle fort", { settings: french, passages: [] })).toEqual([expect.stringContaining("no diacritic")]);
+  });
+});
+
+describe("review findings, kept as regressions", () => {
+  it("brings the opening parenthesis along when only the closing one is included", () => {
+    for (const complexity of ["easy", "medium"] as const) {
+      for (const state of STATES.slice(0, 20)) {
+        const result = text(generateRaceText({ settings: randomSettings({ complexity, wordCount: 20, include: [")"] }), words: WORDS.fr, state }));
+        expect(result).toMatch(/\([^ ()]+\)/u);
+      }
+    }
+    expect(text(generateRaceText({ settings: randomSettings({ complexity: "easy", include: [")"], exclude: [".", ","] }), words: WORDS.fr, state: STATES[0] as RandomState }))).toMatch(/\(/u);
+  });
+
+  it("treats words spelled differently as different words, even when they fold alike (la, là)", () => {
+    const words: RandomWords = { list: wordList("fr", ["la", "là", "mer", "ou", "où", "sur", "sûr"]), exclusions: { language: "fr", version: "custom", words: [] }, pairs: { language: "fr", version: "custom", pairs: [] } };
+    for (const state of STATES.slice(0, 100)) {
+      expect(generateRaceText({ settings: randomSettings({ wordCount: 50, options: { ...ALL_ON, numbers: false } }), words, state }).ok).toBe(true);
+    }
+    const two: RandomWords = { ...words, list: wordList("fr", ["la", "là"]) };
+    const tokens = tokensOf(text(generateRaceText({ settings: randomSettings({ wordCount: 10, options: { punctuation: false, numbers: false, capitals: false, accents: true } }), words: two, state: STATES[0] as RandomState })));
+    expect(tokens.every((token, index) => index === 0 || token !== tokens[index - 1])).toBe(true);
+  });
+
+  it("alternates the two words of a two-word pool, never repeating one", () => {
+    const result = text(generateRaceText({ settings: randomSettings({ language: "en", wordCount: 10, options: { punctuation: false, numbers: false, capitals: false, accents: true } }), words: custom(["sea", "map"]), state: STATES[2] as RandomState }));
+    expect(["sea map sea map sea map sea map sea map", "map sea map sea map sea map sea map sea"]).toContain(result);
+  });
+
+  it("keeps a forced cover word away from its forbidden partner, numbers between them included", () => {
+    const words = custom(["sea", "ship", "map", "star"], [["sea", "ship"]]);
+    for (const state of STATES.slice(0, 50)) {
+      const tokens = tokensOf(text(generateRaceText({ settings: randomSettings({ language: "en", wordCount: 20, include: ["e"], options: { punctuation: false, numbers: true, capitals: false, accents: true } }), words, state })));
+      const sequence = tokens.filter((token) => !/^\d+$/u.test(token));
+      expect(sequence).toContain("sea");
+      expect(sequence.some((word, index) => index > 0 && [word, sequence[index - 1]].sort().join(" ") === "sea ship")).toBe(false);
+    }
+  });
+
+  it("redraws the cover when the greedy one cannot be placed", () => {
+    // "dia" covers both letters but may neighbour nothing; "ba" and "dc" together can alternate.
+    const words = custom(["dia", "ba", "dc"], [["dia", "ba"], ["dia", "dc"]]);
+    const settings = randomSettings({ language: "en", wordCount: 10, complexity: "hard", include: ["a", "d"], options: { ...ALL_ON, numbers: false } });
+    for (const state of STATES.slice(0, 20)) {
+      expect(generateRaceText({ settings, words, state }).ok).toBe(true);
+    }
+  });
+
+  it("falls back from a greedy cover that rarely fits to words that fit anywhere", () => {
+    // "ab" covers both letters but may neighbour one word among 5,000; "aq" and "bq" fit anywhere.
+    const letter = (value: number): string => String.fromCharCode(99 + (value % 20));
+    const others = Array.from({ length: 5_000 }, (_, index) => `x${letter(index)}${letter(Math.floor(index / 20))}${letter(Math.floor(index / 400))}`);
+    const words: RandomWords = {
+      list: { language: "en", version: "custom", entries: ["ab", "aq", "bq", ...others].map((word) => ({ word, zipf: 5 })) },
+      exclusions: { language: "en", version: "custom", words: [] },
+      pairs: { language: "en", version: "custom", pairs: others.slice(1).map((other): [string, string] => ["ab", other]) },
+    };
+    const settings = randomSettings({ language: "en", wordCount: 10, include: ["a", "b"], options: { ...ALL_ON, numbers: false } });
+    for (const state of STATES.slice(0, 10)) {
+      expect(generateRaceText({ settings, words, state }).ok).toBe(true);
+    }
+  });
+
+  it("spaces French ; and : when they are included in a hard text", () => {
+    for (const state of STATES.slice(0, 20)) {
+      const tokens = tokensOf(text(generateRaceText({ settings: randomSettings({ complexity: "hard", include: [";", ":"] }), words: WORDS.fr, state })));
+      expect(tokens).toEqual(expect.arrayContaining([";", ":"]));
+      expect(tokens.some((token) => /[;:]/u.test(token) && token.length > 1)).toBe(false);
+    }
+  });
+
+  it("refuses when included digits leave no word slot, with injected criteria", () => {
+    const criteria = { ...COMPLEXITY_CRITERIA, easy: { ...COMPLEXITY_CRITERIA.easy, maxNumber: 9 } };
+    const settings = randomSettings({ complexity: "easy", wordCount: 10, include: [..."0123456789"] });
+    expect(raceTextRefusal({ settings, words: WORDS.fr }, criteria)).toBe("INCLUDED_CHARACTERS_DO_NOT_FIT");
+  });
+
+  it("throws on criteria or settings only a bug can produce", () => {
+    const criteria = { ...COMPLEXITY_CRITERIA, easy: { ...COMPLEXITY_CRITERIA.easy, sentenceTokens: [0, 0] as const } };
+    expect(() => raceTextRefusal({ settings: randomSettings({ complexity: "easy" }), words: WORDS.fr }, criteria)).toThrow(RangeError);
+    expect(() => raceTextRefusal({ settings: randomSettings({ include: Array.from({ length: 101 }, () => "a") }), words: WORDS.fr })).toThrow(RangeError);
+  });
+
+});
+
+describe("raceTextViolations: checks added after the reviews", () => {
+  const words = custom(["sea", "ship", "map", "star", "zest", "wave", "bad"], [["sea", "ship"]]);
+  const settings = randomSettings({ language: "en", wordCount: 10, options: ALL_ON, include: [], exclude: [] });
+  const sources = { settings, words: { ...words, exclusions: { language: "en" as const, version: "custom", words: ["bad"] } } };
+
+  it.each([
+    ["an excluded word", "Star map sea bad zest 12 wave map star wave.", "is not excluded"],
+    ["a capital away from a sentence start", "Star Map sea star zest 12 wave map star wave.", "capitals only at sentence starts"],
+    ["a forbidden pair across a number", "Star map sea 12 ship zest wave map star wave.", "forbidden pair"],
+    ["an English mark standing alone", "Star map sea star zest 12 wave map star wave !", "no space before"],
+  ])("reports %s", (_label, candidate, rule) => {
+    expect(raceTextViolations(candidate, sources).some((violation) => violation.includes(rule))).toBe(true);
+  });
+
+  it("reports a French high mark attached to its word", () => {
+    const french = randomSettings({ wordCount: 3, options: ALL_ON });
+    expect(raceTextViolations("Mer port; vent.", { settings: french, words: WORDS.fr }).some((violation) => violation.includes("a space before"))).toBe(true);
   });
 });

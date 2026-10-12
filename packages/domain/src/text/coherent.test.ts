@@ -51,3 +51,13 @@ describe("checkPassages", () => {
     expect(() => checkPassages([TEST_PASSAGES[0] as Passage, TEST_PASSAGES[0] as Passage])).toThrow(RangeError);
   });
 });
+
+describe("applyPassageOptions: numbers off keeps the marks balanced", () => {
+  const off = { punctuation: true, numbers: false, capitals: true, accents: true };
+
+  it("moves an opening quote onto the next word and never doubles an end mark", () => {
+    expect(applyPassageOptions('Il dit "1866 fut une année" puis rien.', off)).toBe('Il dit "fut une année" puis rien.');
+    expect(applyPassageOptions("la mer. 1866. Puis le vent", off)).toBe("la mer. Puis le vent");
+    expect(applyPassageOptions("la fin - 1866. Le jour", off)).toBe("la fin. - Le jour");
+  });
+});

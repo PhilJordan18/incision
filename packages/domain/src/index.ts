@@ -22,7 +22,8 @@ export * from "./text/generate";
 export * from "./text/graphemes";
 export * from "./text/measure";
 export * from "./text/normalize";
-export * from "./text/random";
+// The draw itself stays internal: generateRaceText always checks its result.
+export { ARRANGE_ATTEMPTS, COVER_ATTEMPTS, DRAWS_PER_SLOT, type RandomContentRefusal, type RandomWords } from "./text/random";
 export * from "./text/settings";
 export * from "./text/typable";
 export * from "./text/words";

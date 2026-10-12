@@ -50,7 +50,7 @@ describe("buildWordPool", () => {
     expect(pool.entries.map((entry) => entry.word)).toEqual(["maison"]);
   });
 
-  it("may return an empty pool, which the generator will refuse before any draw (F-02.5)", () => {
+  it("may return an empty pool, which the generator refuses before any draw (F-02.5)", () => {
     expect(buildWordPool({ list: list("seul"), exclusions: exclusions("seul") }).entries).toEqual([]);
   });
 

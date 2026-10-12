@@ -8,18 +8,20 @@
  * - ’ ‘ ʼ become ' and “ ” „ become "; « and » become ", attached to the quoted words;
  * - … becomes three dots;
  * - a sentence dash (— – ‒ ―, or "--" as Gutenberg writes it) becomes "-" between two spaces,
- *   so the words on each side stay separate; a hyphen inside a word stays;
- * - French keeps one space before ; : ! ? and English none;
+ *   so the words on each side stay separate; a hyphen inside a word stays, and the typographic
+ *   hyphens ‐ and ‑ between two letters become "-";
+ * - French keeps one space before ; : ! ? (none before ":" followed by a digit, as in 10:30) and
+ *   English none;
  * - primes, ´ and ` used as apostrophes, and invisible characters are refused with their position,
  *   never removed or converted blindly; so is any character outside the typable set (œ and æ
- *   included, until P-4 sets a rule).
+ *   included, until P-4 sets a rule). Every change made is reported, Unicode composition included.
  */
 import type { TextLanguage } from "../words/types";
 import { untypableCharacters } from "./typable";
 
 export const NORMALIZATION_VERSION = 1;
 
-export type NormalisationChange = "spaces" | "apostrophes" | "quotes" | "ellipsis" | "dashes" | "spacing";
+export type NormalisationChange = "unicode" | "spaces" | "apostrophes" | "quotes" | "ellipsis" | "dashes" | "hyphens" | "spacing";
 
 export type PassageNormalisation =
   | { readonly ok: true; readonly text: string; readonly changes: readonly NormalisationChange[] }
@@ -31,33 +33,51 @@ export type PassageNormalisation =
       readonly position: number;
     };
 
-const REFUSED = /[\u2032\u2033\u00b4`\u200b\u200c\u200d\u2060\ufeff\u00ad]/u;
-const SPACES = /[\u00a0\u202f\u2007\u2009\u200a\u2002-\u2006\t\n\r\v\f\u0085\u2028\u2029 ]+/gu;
+const chars = (...codes: readonly number[]): string => String.fromCodePoint(...codes);
+
+/** Primes, acute and grave accents used as apostrophes, zero-width characters, word joiner, BOM, soft hyphen. */
+const REFUSED: ReadonlySet<string> = new Set(chars(0x2032, 0x2033, 0xb4, 0x60, 0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, 0xad));
+/** No-break, narrow, figure, thin, hair and en-to-six-per-em spaces, tab, and every line break of containsLineBreak. */
+const SPECIAL_SPACES = new RegExp(`[${chars(0xa0, 0x202f, 0x2007, 0x2009, 0x200a, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x09, 0x0a, 0x0d, 0x0b, 0x0c, 0x85, 0x2028, 0x2029)}]`, "gu");
+const APOSTROPHES = new RegExp(`[${chars(0x2019, 0x2018, 0x2bc)}]`, "gu");
+const QUOTES = new RegExp(`[${chars(0x201c, 0x201d, 0x201e)}]`, "gu");
+const OPENING_GUILLEMET = new RegExp(`${chars(0xab)} ?`, "gu");
+const CLOSING_GUILLEMET = new RegExp(` ?${chars(0xbb)}`, "gu");
+const ELLIPSIS = new RegExp(chars(0x2026), "gu");
+const DASHES = new RegExp(` ?(?:[${chars(0x2012, 0x2013, 0x2014, 0x2015)}]|-{2,}) ?`, "gu");
+const HYPHENS = new RegExp(`(?<=\\p{L})[${chars(0x2010, 0x2011)}](?=\\p{L})`, "gu");
 
 export function normalizePassage(source: string, language: TextLanguage): PassageNormalisation {
-  const refused = [...source].findIndex((character) => REFUSED.test(character));
+  const refused = [...source].findIndex((character) => REFUSED.has(character));
   if (refused !== -1) {
     return { ok: false, reason: "REFUSED_CHARACTER", character: [...source][refused] ?? "", position: refused };
   }
   const changes = new Set<NormalisationChange>();
-  const step = (text: string, pattern: RegExp, replacement: string, change: NormalisationChange): string => {
+  let text = source.normalize("NFC");
+  if (text !== source) changes.add("unicode");
+  const step = (pattern: RegExp, replacement: string, change: NormalisationChange): void => {
     const next = text.replace(pattern, replacement);
     if (next !== text) changes.add(change);
-    return next;
+    text = next;
   };
-  let text = source.normalize("NFC");
-  text = step(text, /[\u00a0\u202f\u2007\u2009\u200a\u2002-\u2006\t\n\r\v\f\u0085\u2028\u2029]/gu, " ", "spaces");
-  text = step(text, /[’‘ʼ]/gu, "'", "apostrophes");
-  text = step(text, /[“”„]/gu, '"', "quotes");
-  text = step(text, /« */gu, '"', "quotes");
-  text = step(text, / *»/gu, '"', "quotes");
-  text = step(text, /…/gu, "...", "ellipsis");
-  text = step(text, / *(?:[\u2012\u2013\u2014\u2015]|-{2,}) */gu, " - ", "dashes");
-  text = text.replace(SPACES, " ").trim();
-  text = language === "fr"
-    ? step(text, /([\p{L}\p{N}")]) ?([;:!?])/gu, "$1 $2", "spacing")
-    : step(text, /([\p{L}\p{N}")]) ([;:!?])/gu, "$1$2", "spacing");
-  text = text.normalize("NFC");
+  // Spaces first, so every later pattern meets single spaces only and stays linear.
+  step(SPECIAL_SPACES, " ", "spaces");
+  step(/ {2,}/gu, " ", "spaces");
+  step(/^ | $/gu, "", "spaces");
+  step(APOSTROPHES, "'", "apostrophes");
+  step(QUOTES, '"', "quotes");
+  step(OPENING_GUILLEMET, '"', "quotes");
+  step(CLOSING_GUILLEMET, '"', "quotes");
+  step(ELLIPSIS, "...", "ellipsis");
+  step(DASHES, " - ", "dashes");
+  step(HYPHENS, "-", "hyphens");
+  step(/^ | $/gu, "", "spaces");
+  if (language === "fr") {
+    step(/(?<=[^ ;:!?]) ?([;!?])/gu, " $1", "spacing");
+    step(/(?<=[^ ;:!?]) ?:(?!\d)/gu, " :", "spacing");
+  } else {
+    step(/ ([;:!?])/gu, "$1", "spacing");
+  }
   if (text === "") {
     return { ok: false, reason: "EMPTY", character: "", position: 0 };
   }
