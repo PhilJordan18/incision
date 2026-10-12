@@ -1,6 +1,12 @@
 import { EventEmitter } from "node:events";
 
-export type RoomEvents = { changed: [lobbyId: string] };
+export type RoomEvents = {
+  changed: [lobbyId: string];
+  /** A member left (committed); `closed` when the room closed with it (the host left). */
+  left: [lobbyId: string, accountId: string, closed: boolean];
+  /** A race stopped in this process without a confirmed end: its room is watched until it has one. */
+  raceLost: [lobbyId: string];
+};
 
 const processGlobal = globalThis as typeof globalThis & { incisionRoomEvents?: EventEmitter<RoomEvents> };
 
@@ -16,4 +22,12 @@ export function roomEvents(): EventEmitter<RoomEvents> {
 /** Called after a committed change of membership: members receive a fresh snapshot. */
 export function notifyRoomChanged(lobbyId: string): void {
   roomEvents().emit("changed", lobbyId);
+}
+
+/**
+ * Called after a committed departure, before `notifyRoomChanged`: a race this process runs in
+ * the room ends for that member (an abandon), or ends altogether if the room closed.
+ */
+export function notifyMemberLeft(lobbyId: string, accountId: string, closed: boolean): void {
+  roomEvents().emit("left", lobbyId, accountId, closed);
 }

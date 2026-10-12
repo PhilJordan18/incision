@@ -4,6 +4,8 @@ export * from "./identity/accounts";
 export * from "./identity/password";
 export * from "./local-database";
 export * from "./pool";
+export * from "./races/lifecycle";
+export * from "./races/results";
 export * from "./rooms/create-room";
 export * from "./rooms/membership";
 export * from "./schema";

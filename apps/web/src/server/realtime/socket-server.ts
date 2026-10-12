@@ -1,5 +1,6 @@
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { type DefaultEventsMap, Server, type Socket } from "socket.io";
+import { HANDSHAKE_UNAVAILABLE } from "../../rooms/protocol";
 import { isAllowedHandshake } from "./origin";
 import { answerPing, PING_EVENT } from "./ping";
 import type { SessionRegistry } from "./session-registry";
@@ -21,12 +22,26 @@ type RealtimeOptions = {
 };
 
 type SocketData = { session?: SocketSession };
+
+/** Bound on one incoming message: a socket that sends more is cut by Socket.IO. */
+export const MAX_MESSAGE_BYTES = 32 * 1024;
+/**
+ * How soon a connection lost without a word (a network cut, a sleeping laptop) is noticed: the
+ * server pings every PING_INTERVAL_MS and closes a socket that has not answered within
+ * PING_TIMEOUT_MS, so at most about 15 s after its last packet instead of Socket.IO's 45 s.
+ * A race's 30 s grace (D-06) counts from that detection.
+ */
+export const HEARTBEAT = { pingIntervalMs: 10_000, pingTimeoutMs: 5_000 } as const;
 type SessionSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
 export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOptions): Server {
   const { allowedOrigin, isProduction, authenticate, registry } = options;
   const io = new Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>(httpServer, {
     serveClient: false,
+    // The largest message a page sends is a keystroke batch of a few kilobytes; the default is 1 MB.
+    maxHttpBufferSize: MAX_MESSAGE_BYTES,
+    pingInterval: HEARTBEAT.pingIntervalMs,
+    pingTimeout: HEARTBEAT.pingTimeoutMs,
     // Close upgrade requests nobody handles; in development Next's reload socket needs them open.
     destroyUpgrade: isProduction,
     allowRequest: (request, callback) => {
@@ -39,7 +54,9 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
     authenticate(socket.request.headers.cookie)
       .then((result) => {
         if (result.kind === "refused") {
-          next(new Error("UNAUTHORIZED"));
+          // The session could not be checked (the database did not answer): refused, but as
+          // unavailable, which the page retries, not as a session that ended.
+          next(new Error(result.reason === "CHECK_FAILED" ? HANDSHAKE_UNAVAILABLE : "UNAUTHORIZED"));
           return;
         }
         if (result.kind === "authenticated") {
@@ -47,7 +64,11 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
         }
         next();
       })
-      .catch(() => next(new Error("UNAUTHORIZED")));
+      .catch((error: unknown) => {
+        // A bug rather than a database blip: logged, and refused as unavailable (fail closed).
+        console.error("[auth] socket handshake check failed:", error instanceof Error ? error.name : "unknown error");
+        next(new Error(HANDSHAKE_UNAVAILABLE));
+      });
   });
 
   io.on("connection", (socket) => {

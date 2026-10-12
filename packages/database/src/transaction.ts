@@ -5,8 +5,8 @@ export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 export type Queryable = Database | Transaction;
 
 /**
- * The room rules rely on READ COMMITTED: after the room lock, each statement sees every
- * commit made before it (counts, taken names, memberships).
+ * The room and race rules rely on READ COMMITTED: after the room lock, each statement sees
+ * every commit made before it (counts, taken names, memberships, the latest race row).
  */
 export const READ_COMMITTED = { isolationLevel: "read committed" } as const;
 

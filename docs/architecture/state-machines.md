@@ -45,13 +45,14 @@ stateDiagram-v2
   ABANDONED --> [*]
 ```
 
-In this diagram, INSCRIT means registered and ACTIF means active. Orthogonal connection state: CONNECTED → GRACE → CONNECTED, or GRACE → EXPIRED. The grace period is **30 000 ms**, also while waiting, as a design choice. A return is accepted up to and including the deadline if the phase allows it; an event received after the deadline is refused. The server compares the clock with the deadline, even if its processing of the timer is delayed.
+In this diagram, INSCRIT means registered and ACTIF means active. Orthogonal connection state: CONNECTED → GRACE → CONNECTED, or GRACE → EXPIRED. The grace period is **30 000 ms**, also while waiting, as a design choice. During a race it starts when the server detects that the entrant's **last** tab is gone (F-04.6): at once for a closed or reloaded tab, within about 15 s of the last exchange for a silent network loss (Socket.IO heartbeat: a ping every 10 s, 5 s to answer). An entrant with no tab in the room at the start is gone from the start. The server tells the engine about the return before any batch of the returning tab. A return is accepted up to and including the deadline if the phase allows it; an event received after the deadline is refused. The server compares the clock with the deadline, even if its processing of the timer is delayed.
 
 - The race continues during the disconnection; accepted progress is kept.
 - Grace period expiry: ABANDONED, reason DISCONNECTION_TIMEOUT, progress frozen at the last accepted input.
 - Race timer expiring **before** the grace period: TIMED_OUT, even if the entrant is momentarily absent. A disconnection does not become an abandonment before the 30 seconds.
 - For two identical deadlines, process the end of the race time first: documented deterministic choice.
-- Voluntary departure from the room during a race, or confirmed abandonment: ABANDONED immediately, without resuming this round.
+- Voluntary departure from the room during a race, or confirmed abandonment (two steps in the page, from any tab of the entrant): ABANDONED immediately, without resuming this round.
+- Inactivity (D-17), separate from the connection state: no newly applied batch and no « Je suis là » for 60 s shows the entrant inactive (asked « Tu es toujours là ? »); 120 s gives ABANDONED, reason INACTIVITY, dated at its deadline. A newly applied batch is activity (even a Backspace with nothing to delete); a duplicate, refused or resynced batch, or a return after a loss, is not.
 - A terminal result is immutable. Delayed/replayed packets never improve the rank or the result.
 - Disconnection during the countdown: the entrant stays registered, the grace period starts, the race starts at the scheduled time. A valid resumption joins at the current time, not at a new start.
 
