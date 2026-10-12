@@ -9,8 +9,11 @@ import { decode } from "@msgpack/msgpack";
  */
 export type FrequencyBins = readonly (readonly string[])[];
 
-export function readCbPack(gzipped: Uint8Array): FrequencyBins {
-  const data: unknown = decode(gunzipSync(gzipped));
+/** Decompression stops at this size: a real large list is about 10 MB, a gzip bomb is refused. */
+export const MAX_PACK_BYTES = 64 * 2 ** 20;
+
+export function readCbPack(gzipped: Uint8Array, maxBytes = MAX_PACK_BYTES): FrequencyBins {
+  const data: unknown = decode(gunzipSync(gzipped, { maxOutputLength: maxBytes }));
   if (!Array.isArray(data) || data.length === 0) {
     throw new RangeError("A cB pack is a non-empty array");
   }

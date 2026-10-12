@@ -21,6 +21,8 @@ describe("foldForExclusion", () => {
     ["aujourd‘hui", "aujourd'hui"],
     ["ﬁn", "fin"],
     ["ｃｏｎ", "con"],
+    ["idi\u200dot", "idiot"],
+    ["idi\u00adot", "idiot"],
     ["maison", "maison"],
   ])("folds %s to %s", (word, folded) => {
     expect(foldForExclusion(word)).toBe(folded);

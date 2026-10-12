@@ -19,7 +19,8 @@ from them is committed until their packaging, licences and attributions have bee
 | LDNOOBW `en` | idem | `af851ecef1d5f212caba17339b12ac39cc2fef7d78c74876f67237644fcee8bd` | CC BY 4.0 |
 
 Lay them out as `<raw-dir>/wordfreq-3.1.1/wordfreq/data/large_{fr,en}.msgpack.gz` and
-`<raw-dir>/ldnoobw-5faf2ba/{fr,en}`, then check the hashes with `shasum -a 256`.
+`<raw-dir>/ldnoobw-5faf2ba/{fr,en}`. The tool checks each file against its pinned SHA-256
+(`src/pinned.ts`) before reading it and fails closed on a mismatch; decompression stops at 64 MB.
 
 ## Commands
 

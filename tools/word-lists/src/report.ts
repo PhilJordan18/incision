@@ -7,9 +7,8 @@
  * where <raw-dir> holds `wordfreq-3.1.1/wordfreq/data/large_{fr,en}.msgpack.gz` and
  * `ldnoobw-5faf2ba/{fr,en}`: pinned sources and hashes in this tool's README.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { readCbPack, zipfOfBin } from "./cbpack";
+import { readPinned } from "./pinned";
 
 type Language = "fr" | "en";
 type Entry = { readonly word: string; readonly zipf: number; readonly length: number };
@@ -28,12 +27,12 @@ const ASCII_LETTERS = /^[a-z]+$/;
 const DIACRITIC = /[^\u0000-\u007f]/u;
 
 function entries(rawDir: string, language: Language): readonly Entry[] {
-  const bins = readCbPack(readFileSync(join(rawDir, "wordfreq-3.1.1", "wordfreq", "data", `large_${language}.msgpack.gz`)));
+  const bins = readCbPack(readPinned(rawDir, `wordfreq-3.1.1/wordfreq/data/large_${language}.msgpack.gz`));
   return bins.flatMap((bin, index) => bin.map((word) => ({ word, zipf: zipfOfBin(index), length: graphemes(word) })));
 }
 
 function excluded(rawDir: string, language: Language): ReadonlySet<string> {
-  const lines = readFileSync(join(rawDir, "ldnoobw-5faf2ba", language), "utf8").split("\n");
+  const lines = readPinned(rawDir, `ldnoobw-5faf2ba/${language}`).toString("utf8").split("\n");
   return new Set(lines.map((line) => line.trim().toLowerCase()).filter((line) => line !== ""));
 }
 

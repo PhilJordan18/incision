@@ -21,6 +21,14 @@ describe("readCbPack", () => {
   });
 });
 
+describe("readCbPack size bound", () => {
+  it("refuses a pack that decompresses beyond the bound", () => {
+    const big = pack([{ format: "cB", version: 1 }, Array.from({ length: 2000 }, (_, index) => `mot${index}`)]);
+    expect(() => readCbPack(big, 1024)).toThrow(RangeError);
+    expect(readCbPack(big)[0]).toHaveLength(2000);
+  });
+});
+
 describe("zipfOfBin", () => {
   it("maps −i centibels to Zipf 9 − i/100", () => {
     expect(zipfOfBin(0)).toBe(9);

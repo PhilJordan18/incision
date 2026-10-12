@@ -2,13 +2,14 @@ import type { ExclusionList, ForbiddenPairList, WordEntry, WordList, WordPool } 
 
 /**
  * The form two words are compared in for exclusions and forbidden pairs: compatibility forms
- * unified (ligature "ﬁ", fullwidth letters), accents dropped, œ and æ spelled out, typographic
- * apostrophes made straight, lowercase. So "Connard", a decomposed "é" or "œ" never slip past a
+ * unified (ligature "ﬁ", fullwidth letters), invisible characters removed (zero-width joiner, soft
+ * hyphen…), accents dropped, œ and æ spelled out, typographic apostrophes made straight, lowercase. So "Connard", a decomposed "é" or "œ" never slip past a
  * list written another way. Exact forms only: excluding "con" never removes "conte".
  */
 export function foldForExclusion(word: string): string {
   return word
     .normalize("NFKD")
+    .replace(/\p{Default_Ignorable_Code_Point}/gu, "")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/œ/g, "oe")

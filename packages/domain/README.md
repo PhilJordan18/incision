@@ -48,7 +48,9 @@ re-implement one. A missing rule is added here, not copied there.
   xoshiro128** 1.1 (Blackman and Vigna, public domain), local to one pure call. `state()` resumes
   the exact sequence, so a stored state and `PRNG_VERSION` reproduce a draw. `index` is unbiased by
   rejection; `shuffled` is Fisher–Yates on a copy. Never for codes, tokens
-  or anything secret: room codes keep crypto (D-01).
+  or anything secret: room codes keep crypto (D-01). A state stays on the server, never in a
+  client payload or a log, and each purpose (a text, a bot, the bonuses) draws its own fresh state:
+  xoshiro is invertible, so a few outputs reveal the state that produced them.
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
 ## Keystroke protocol (`src/race/types.ts`)
