@@ -8,7 +8,7 @@ import { passageCut, type Passage } from "./coherent";
 import { generateRaceText, raceTextRefusal, raceTextViolations, TEXT_GENERATOR_VERSION, type RaceTextResult } from "./generate";
 import { NORMALIZATION_VERSION } from "./normalize";
 import type { RandomWords } from "./random";
-import { COMPLEXITIES, CRITERIA_VERSION, type CoherentTextSettings, type RandomTextSettings, type TextOptions } from "./settings";
+import { COMPLEXITIES, COMPLEXITY_CRITERIA, CRITERIA_VERSION, type CoherentTextSettings, type RandomTextSettings, type TextOptions } from "./settings";
 import { EN_TEST_EXCLUSIONS, EN_TEST_LIST, EN_TEST_PAIRS, FR_TEST_EXCLUSIONS, FR_TEST_LIST, FR_TEST_PAIRS, TEST_PASSAGES } from "./text.fixtures";
 import { tokensOf } from "./words";
 
@@ -149,6 +149,24 @@ describe("generateRaceText: guarantees on the final text", () => {
     }
   });
 
+  it("draws every word from its complexity band, checked against the list itself", () => {
+    const zipf = new Map(FR_TEST_LIST.entries.map((entry) => [entry.word, entry.zipf]));
+    for (const complexity of COMPLEXITIES) {
+      const { maxLetters, minZipf } = COMPLEXITY_CRITERIA[complexity];
+      for (const state of STATES.slice(0, 20)) {
+        const words = tokensOf(text(generateRaceText({ settings: randomSettings({ complexity, options: { punctuation: false, numbers: false, capitals: false, accents: true } }), words: WORDS.fr, state })));
+        expect(words.every((word) => [...word].length <= maxLetters && (zipf.get(word) ?? 0) >= minZipf)).toBe(true);
+      }
+    }
+  });
+
+  it("makes room for every included end mark, even in ten hard words", () => {
+    for (const state of STATES.slice(0, 30)) {
+      const result = text(generateRaceText({ settings: randomSettings({ complexity: "hard", wordCount: 10, include: [".", "?", "!"] }), words: WORDS.fr, state }));
+      expect([".", "?", "!"].every((mark) => result.includes(mark))).toBe(true);
+    }
+  });
+
   it("records its versions and its provenance", () => {
     expect(generateRaceText({ settings: randomSettings(), words: WORDS.fr, state: STATES[0] as RandomState })).toMatchObject({
       ok: true,
@@ -239,7 +257,8 @@ describe("raceTextViolations: each guarantee is checked on the final text", () =
     ["a line break", "Star map\nsea star zest 12 wave map star wave.", "no line break"],
     ["nine words", "Star map sea star zest 12 wave map star.", "exactly 10 words"],
     ["an untypable letter", "Stär map sea star zest 12 wave map star wave.", "typable"],
-    ["a word outside the pool", "Star map sea star zest 12 wave map star moon.", "pool word"],
+    ["a word outside the list", "Star map sea star zest 12 wave map star moon.", "is in the list"],
+    ["a number opening a sentence", "Star map sea. 12 zest star wave map star wave.", "a word at each sentence start"],
     ["an excluded character", "Star map sea star zest 12 wave map star wave. k", "excluded"],
     ["a missing included character", "Star map sea star wave 12 wave map star wave.", "every included"],
     ["a word twice in a row", "Star map sea star zest 12 wave wave star map.", "twice"],
@@ -256,7 +275,7 @@ describe("raceTextViolations: each guarantee is checked on the final text", () =
   it("reports what each option off forbids", () => {
     const off = { ...settings, include: [], exclude: [], options: { punctuation: false, numbers: false, capitals: false, accents: false } };
     const violations = raceTextViolations("Star map sea star zest 12 wave map star wave.", { settings: off, words });
-    expect(violations).toEqual(expect.arrayContaining([expect.stringContaining("no digit"), expect.stringContaining("no mark"), expect.stringContaining("no capital"), expect.stringContaining("pool word")]));
+    expect(violations).toEqual(expect.arrayContaining([expect.stringContaining("no digit"), expect.stringContaining("no mark"), expect.stringContaining("no capital"), expect.stringContaining("allowed number")]));
     const french: CoherentTextSettings = { kind: "coherent", language: "fr", wordCount: 10, complexity: "easy", options: off.options };
     expect(raceTextViolations("la mer est très calme et le vent souffle fort", { settings: french, passages: [] })).toEqual([expect.stringContaining("no diacritic")]);
   });

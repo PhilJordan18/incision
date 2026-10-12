@@ -21,7 +21,7 @@ import {
   type RandomTextSettings,
   type TextSettingsRefusal,
 } from "./settings";
-import { MARKS, untypableCharacters } from "./typable";
+import { HARD_TO_TYPE_LETTERS, MARKS, untypableCharacters, usesWordLetters } from "./typable";
 import { countWords, isWordToken, tokensOf } from "./words";
 
 export const TEXT_GENERATOR_VERSION = 1;
@@ -128,22 +128,33 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
   if (!isRandom(sources)) return violations;
 
   const random = sources as Extract<RaceTextSources, { readonly words: RandomWords }>;
+  const characters = (inputs: readonly string[]): string[] => inputs.map((input) => settingCharacter(input, language) ?? "").filter((character) => character !== "");
   const level = criteria[random.settings.complexity];
   const lower = text.toLowerCase();
-  const pool = new Set(randomPool(random.settings, random.words, level).entries.map((entry) => entry.word));
+  const poolSize = randomPool(random.settings, random.words, level).entries.length;
   const rule = forbiddenPairRule(random.words.pairs);
+  // Checked from the list itself, not through randomPool, so a faulty pool cannot vouch for itself.
+  const zipf = new Map(random.words.list.entries.map((entry) => [entry.word, entry.zipf]));
+  const excluded = new Set(random.words.exclusions.words.map(foldForExclusion));
+  const excludedCharacters = characters(random.settings.exclude);
   const cores = tokens.filter(isWordToken).map((token) => token.replace(EDGES, "").toLowerCase());
   for (const core of cores) {
-    const valid = NUMBER.test(core) ? options.numbers && Number(core) <= level.maxNumber && !(core.length > 1 && core.startsWith("0")) : pool.has(core);
-    check(valid, `"${core}" is a pool word or an allowed number`);
+    if (NUMBER.test(core)) {
+      check(options.numbers && Number(core) <= level.maxNumber && !(core.length > 1 && core.startsWith("0")), `"${core}" is an allowed number`);
+      continue;
+    }
+    check((zipf.get(core) ?? Number.NEGATIVE_INFINITY) >= level.minZipf, `"${core}" is in the list, at Zipf ${level.minZipf} or more`);
+    check(toGraphemes(core).length <= level.maxLetters, `"${core}" has at most ${level.maxLetters} letters`);
+    check(!excluded.has(foldForExclusion(core)), `"${core}" is not excluded`);
+    check(usesWordLetters(core, language) && ![...core].some((character) => HARD_TO_TYPE_LETTERS.includes(character) || excludedCharacters.includes(character)), `"${core}" uses allowed letters`);
+    check(options.accents || /^[a-z']+$/u.test(core), `"${core}" has no diacritic with accents off`);
   }
-  const characters = (inputs: readonly string[]): string[] => inputs.map((input) => settingCharacter(input, language) ?? "").filter((character) => character !== "");
   check(!characters(random.settings.exclude).some((character) => lower.includes(character)), "no excluded character");
   check(characters(random.settings.include).every((character) => lower.includes(character)), "every included character");
   for (let index = 1; index < cores.length; index += 1) {
     const [left, right] = [cores[index - 1] ?? "", cores[index] ?? ""];
     if (NUMBER.test(left) || NUMBER.test(right)) continue;
-    check(pool.size < 2 || foldForExclusion(left) !== foldForExclusion(right), "no word twice in a row");
+    check(poolSize < 2 || foldForExclusion(left) !== foldForExclusion(right), "no word twice in a row");
     check(!rule(left, right), "no forbidden pair side by side");
   }
   check(!options.numbers || cores.some((core) => NUMBER.test(core)), "at least one number with numbers on");
@@ -153,10 +164,11 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
     check(used.length > 0, "at least one mark with punctuation on");
     check(used.every((mark) => allowed.has(mark) || (mark === ")" && allowed.has("("))), "marks from the available set only");
   }
+  // Every sentence starts with a word (Q-2), capitalised when capitals are on; a terminal mark shows where the next one starts.
+  const startsSentence = (index: number): boolean => index === 0 || /[.!?]"?\)?$/u.test(tokens[index - 1] ?? "");
+  check(!tokens.some((token, index) => startsSentence(index) && !/^["(]?\p{L}/u.test(token)), "a word at each sentence start");
   if (options.capitals) {
-    // Every sentence starts with a capital; a terminal mark shows where the next one starts.
-    const startsSentence = (index: number): boolean => index === 0 || /[.!?]"?\)?$/u.test(tokens[index - 1] ?? "");
-    check(!tokens.some((token, index) => startsSentence(index) && isWordToken(token) && !/^["(]?[\p{Lu}\p{N}]/u.test(token)), "a capital at each sentence start");
+    check(!tokens.some((token, index) => startsSentence(index) && !/^["(]?\p{Lu}/u.test(token)), "a capital at each sentence start");
   }
   return violations;
 }

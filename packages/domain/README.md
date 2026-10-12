@@ -252,6 +252,45 @@ Stored values are bounded, so database columns can be sized from these constants
   of a pair stays drawable alone. The generator (F-02.5) will apply it with a bounded,
   deterministic search and a typed refusal, never by deleting a word after drawing.
 
+## Race texts (`src/text/`, F-02.5)
+
+- **Settings.** `TextSettings` is coherent or random (CONF-02 to CONF-07, D-10, D-19): a language,
+  10 to 200 words, a complexity, and four options (punctuation, numbers, capitals, accents).
+  Random settings add the characters to include or exclude; coherent settings cannot express them.
+  `textSettingsRefusal` needs no data, so the interface runs it as the host configures.
+- **Complexity.** `COMPLEXITY_CRITERIA` holds the starting values (letters, Zipf, marks, largest
+  number, sentence length), versioned by `CRITERIA_VERSION`. They stay parameters until they are
+  calibrated on the real lists (P-1). `measureText` gives a passage's measures M1 to M4;
+  `classifyMeasures` turns them into a level with thresholds the caller provides. The measures are
+  only measures: the editorial appraisal of a passage (theme, suitability) is recorded with the
+  corpus, never computed here.
+- **Two normalisations.** Dictionary words follow `src/words` (an explicit alphabet per language,
+  then folding for exclusions). Passages follow `normalizePassage` (version 1): special spaces,
+  typographic apostrophes and quotes, the ellipsis, sentence dashes to " - " with the words kept
+  apart, French spacing before `; : ! ?`. Invisible characters, primes and anything untypable (œ
+  and æ included, until P-4) are refused with their position, never changed blindly.
+- **Words.** A word is a token holding a letter or a digit (D-10): a lone `?` or a dash is none.
+  A cut ends after its Nth word, with the punctuation that directly follows.
+- **Coherent mode.** The options apply to the normalised passage first (numbers, punctuation,
+  capitals, accents, in that order), then the text is cut after its Nth word from the passage's
+  start. Nothing is invented, rewritten or joined from distant passages.
+- **Random mode.** The pool removes the exclusions first, then applies the band, the accents
+  policy (words without diacritics when accents are off, never misspelled), the excluded
+  characters, and leaves out œ and æ. Proven incompatibilities are refused before any draw:
+  `NO_COMPATIBLE_WORDS`, `INCLUDED_CHARACTER_UNAVAILABLE`, `INCLUDED_CHARACTERS_DO_NOT_FIT` (by
+  counting) and `FORBIDDEN_PAIRS_UNAVOIDABLE`. The draw is then a deterministic, bounded search
+  (`SEARCH_ATTEMPTS`, `DRAWS_PER_SLOT`, `COVER_ATTEMPTS`) that places the words covering the
+  included letters, the numbers and the drawn words so that no word repeats and no forbidden pair
+  touches; no word is deleted afterwards. When it ends without a text it answers
+  `TEXT_SEARCH_EXHAUSTED`, which proves nothing.
+- **Final checks.** `raceTextViolations` lists every guarantee the final text breaks: exactly N
+  words, typable characters, no line break, the grapheme bound, each option's effect, included and
+  excluded characters, repeats, pairs, numbers and marks. `generateRaceText` throws on any, since a
+  broken guarantee is a bug. It returns the text with its versions (generator, criteria,
+  normalisation, PRNG) and its provenance (list versions and pool size, or the passage id).
+- **Seed.** The generator takes a `RandomState` drawn by the server with crypto for this text
+  alone, kept private (Q-15).
+
 ## Contracts and examples
 
 - **Types first.** Functions that are not implemented yet exist only as types, so there is never a
@@ -278,6 +317,8 @@ Stored values are bounded, so database columns can be sized from these constants
   - `maxPlausibleInserts`;
   - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4);
   - `buildWordPool`, `foldForExclusion` and `forbiddenPairRule`, with the data on the
-    `./words` subpath (F-02.4).
+    `./words` subpath (F-02.4);
+  - `textSettingsRefusal`, `raceTextRefusal`, `generateRaceText`, `raceTextViolations`,
+    `normalizePassage`, `countWords`, `cutToWords` and `measureText` (F-02.5, on fixtures).
 - **Changes.** A contract changes only through an engine pull request, announced before the
   integration that depends on it.
