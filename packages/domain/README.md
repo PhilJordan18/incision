@@ -236,13 +236,15 @@ Stored values are bounded, so database columns can be sized from these constants
   subpath `@incision/domain/words`, never from `index.ts`, which exports only the types and the
   pure functions. Today they are hand-written fixtures (`WORD_DATA_NOTICE`). The reviewed lists
   replace them once their packaging, licences and attributions have been reviewed.
-- **Leak detection.** Each list is one string literal opening with `WORD_DATA_SENTINEL`, so no
+- **Leak detection.** Each list is one template literal opening with `WORD_DATA_SENTINEL`, so no
   bundler can keep the words and drop the marker. `tools/word-lists` fails when a client asset
   holds the sentinel or a fingerprint word, and checks that the sentinel lives only under
-  `src/words/data/`, imported from nowhere else in the engine. That check covers client assets;
-  the lists are never passed as props to client components, so they never ride in an RSC payload.
+  `src/words/data/`, imported from nowhere else in the engine. That check covers the client assets
+  in `.next/static`, not the RSC payloads of prerendered pages; the rule for F-02.5 is that the
+  lists are never passed as props to client components.
 - **`buildWordPool`** applies the exclusions first and always, on exact folded forms
-  (`foldForExclusion`: no accents, œ and æ spelled out, straight apostrophe, lowercase). Excluding
+  (`foldForExclusion`: compatibility forms unified, no accents, œ and æ spelled out, straight
+  apostrophes, lowercase). Excluding
   "con" never removes "conte". An `accept` filter (a level, letters without accents…) runs after.
 - **`forbiddenPairRule`** says whether two words may not follow each other, in either order. A word
   of a pair stays drawable alone. The generator (F-02.5) will apply it with a bounded,

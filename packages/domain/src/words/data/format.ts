@@ -1,6 +1,6 @@
 /**
  * The text format of the word data, server-only (subpath `@incision/domain/words`, never
- * `index.ts`). Each list is one string literal whose first line starts with WORD_DATA_SENTINEL, so
+ * `index.ts`). Each list is one template literal whose first line starts with WORD_DATA_SENTINEL, so
  * no bundler can keep the words and drop the marker: the client-bundle check (tools/word-lists)
  * finds the sentinel wherever a list leaks.
  *

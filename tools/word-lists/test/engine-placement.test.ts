@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join, normalize } from "node:path";
+import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { WORD_LISTS_SENTINEL } from "../src/bundle-check";
 
@@ -20,8 +20,9 @@ export function dataImports(path: string, content: string): string[] {
   return specifiers(content).filter((specifier) => {
     if (specifier === "@incision/domain/words" || specifier.startsWith("@incision/domain/words/")) return true;
     if (!specifier.startsWith(".")) return false;
-    const target = normalize(join(dirname(path), specifier));
-    return target === DATA_DIR || target.startsWith(`${DATA_DIR}/`);
+    // Resolved against an absolute engine root, so "../../src/words/data" lands where it points.
+    const target = posix.resolve("/engine/src", posix.dirname(path), specifier);
+    return target === `/engine/src/${DATA_DIR}` || target.startsWith(`/engine/src/${DATA_DIR}/`);
   });
 }
 
@@ -61,6 +62,7 @@ describe("dataImports", () => {
     ["random/prng.ts", 'export { EXCLUSIONS } from "../words/data/index";'],
     ["race/create.ts", "import { WORD_LISTS } from '@incision/domain/words';"],
     ["words/pool.ts", 'import "./data/fr";'],
+    ["words/pool.ts", 'import { WORD_LISTS } from "../../src/words/data";'],
   ])("catches %s importing the data: %s", (path, content) => {
     expect(dataImports(path, content)).toHaveLength(1);
   });
@@ -71,6 +73,7 @@ describe("dataImports", () => {
     ["words/data/data.test.ts", 'import * as words from "./index";'],
     ["index.ts", 'export * from "./words/pool";'],
     ["words/pool.ts", 'import { x } from "./database";'],
+    ["words/pool.ts", 'import { x } from "../../lib/words/data";'],
   ])("lets %s import %s", (path, content) => {
     expect(dataImports(path, content)).toEqual([]);
   });

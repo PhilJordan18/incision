@@ -9,8 +9,9 @@
  * data file without a sentinel-headed literal, or a fingerprint absent from every such literal all
  * fail explicitly. Only the literals count, so a comment naming a word proves nothing.
  *
- * It covers client assets. The lists are never passed as props to client components, so they
- * never ride in an RSC payload, which no build output can show for dynamic pages.
+ * It covers the client assets in `.next/static`, not the RSC payloads of prerendered pages (the
+ * `.html` and `.rsc` files under `.next/server/app`); the rule for F-02.5 is that the lists are
+ * never passed as props to client components. Scanning those payloads comes with the CI wiring.
  *
  * Usage: npm run bundle-check -w @incision/word-lists -- <client-static-dir> <data-file>... [--fingerprint <word>]...
  * Relative paths are resolved from the directory npm was run in.
@@ -54,15 +55,16 @@ export function checkBundle(
   const clientDirFound = existsSync(clientStaticDir) && statSync(clientStaticDir).isDirectory();
   const clientFiles = clientDirFound
     ? readdirSync(clientStaticDir, { recursive: true, encoding: "utf8" })
-        .map((name) => join(clientStaticDir, name))
-        .filter(isFile)
-        .map((file) => ({ file, content: readFileSync(file, "utf8") }))
+        .map((name) => ({ name: name.split(sep).join("/"), file: join(clientStaticDir, name) }))
+        .filter(({ file }) => isFile(file))
+        .map(({ name, file }) => ({ name, file, content: readFileSync(file, "utf8") }))
     : [];
   const data = dataFiles.filter(isFile).map((file) => ({ file, literals: sentinelLiterals(readFileSync(file, "utf8"), sentinel) }));
   return {
     clientDirFound,
     scannedClientFiles: clientFiles.length,
-    scannedClientChunks: clientFiles.filter(({ file }) => file.endsWith(".js") && file.includes(`${sep}chunks${sep}`)).length,
+    // Named from the static directory, so a parent folder called "chunks" never counts.
+    scannedClientChunks: clientFiles.filter(({ name }) => name.startsWith("chunks/") && name.endsWith(".js")).length,
     clientHits: clientFiles.filter(({ content }) => content.includes(sentinel)).map(({ file }) => file),
     fingerprintHits: clientFiles.flatMap(({ file, content }) => fingerprints.filter((fingerprint) => content.includes(fingerprint)).map((fingerprint) => ({ file, fingerprint }))),
     missingDataFiles: dataFiles.filter((file) => !isFile(file)),

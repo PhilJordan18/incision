@@ -20,7 +20,7 @@ export function foldForExclusion(word: string): string {
 /**
  * The words a random text may draw from: the list minus its exclusions, applied first and always,
  * then the optional `accept` filter (a complexity level, letters without accents…). The pool may be
- * empty; the text generator refuses that case before drawing (F-02.5).
+ * empty; the text generator will refuse that case before drawing (F-02.5).
  */
 export function buildWordPool(input: {
   readonly list: WordList;

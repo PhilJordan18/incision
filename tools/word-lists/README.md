@@ -1,8 +1,9 @@
 # @incision/word-lists — preparing the random-mode word lists (F-02.4)
 
-A local tool, never part of the release or the browser bundle. Its only dependency,
-`@msgpack/msgpack` 3.1.3, is a dev dependency. The engine keeps its purity guard: the lists reach
-`packages/domain` as generated data only, on the server-only subpath `@incision/domain/words`.
+A local tool, never part of the release or the browser bundle. All its dependencies are dev
+dependencies; apart from the usual tooling, the only one is `@msgpack/msgpack` 3.1.3. The engine
+keeps its purity guard: the lists reach `packages/domain` as generated data only, on the
+server-only subpath `@incision/domain/words`.
 
 ## Pinned inputs
 

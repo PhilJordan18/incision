@@ -49,6 +49,9 @@ describe("the word-data bundle check", () => {
     const good = fixture(CLEAN).data;
     expect(failures(fixture({}).client, [good])).toEqual(["no client JavaScript chunk scanned: build the app first, or check the path"]);
     expect(failures(fixture({ "css/a.css": "body{}", "media/a.js": "1" }).client, [good])).toEqual(["no client JavaScript chunk scanned: build the app first, or check the path"]);
+    expect(failures(fixture({ "chunks/a.css": "body{}" }).client, [good])).toEqual(["no client JavaScript chunk scanned: build the app first, or check the path"]);
+    const nested = fixture({ "chunks/x/static/app.js": "console.log(1)" }).client;
+    expect(failures(join(nested, "chunks", "x", "static"), [good])).toEqual(["no client JavaScript chunk scanned: build the app first, or check the path"]);
     expect(failures(join(client, "..", "no-build"), [good])).toEqual(["client static directory not found: build the app first"]);
     expect(failures(client, [good], ["absentword"])).toEqual(['fingerprint "absentword" is in no data literal, so it proves nothing']);
   });

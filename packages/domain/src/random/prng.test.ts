@@ -163,7 +163,6 @@ describe("index", () => {
     }
     expect(counts.every((count) => Math.abs(count - 10_000) < 500)).toBe(true);
   });
-
 });
 
 describe("shuffled", () => {
