@@ -4,11 +4,12 @@ import { toGraphemes } from "../text/graphemes";
 import { asDuration, asInstant, type Duration, type Instant } from "../time";
 import { EXAMPLE_ENTRANT, EXAMPLE_RACE } from "./keystrokes.examples";
 import type {
-  AbandonIgnored,
+  AbandonReason,
   EntrantKeystrokeRefusal,
   EntrantState,
   EntrantStatus,
   KeystrokeResult,
+  PresenceIgnored,
   RaceEvent,
   RaceKeystrokeRefusal,
   RacePhase,
@@ -37,6 +38,8 @@ function runner(entrantId: EntrantId, overrides: Partial<EntrantState> = {}): En
     missedKeys: {},
     ackSeq: 0,
     status: "racing",
+    lastActivityAt: at(0),
+    inactive: false,
     ...overrides,
   };
 }
@@ -73,7 +76,11 @@ type RaceExpectation = {
     readonly outcome: KeystrokeResult["outcome"];
     readonly reason?: RaceKeystrokeRefusal | EntrantKeystrokeRefusal | ResyncReason;
   };
-  readonly ignored?: AbandonIgnored;
+  readonly ignored?: PresenceIgnored;
+  /** The inactive marker of these entrants after the event (D-17). */
+  readonly inactive?: readonly (readonly [EntrantId, boolean])[];
+  /** These entrants' abandon reason and `endedAt`, after the event. */
+  readonly abandons?: readonly (readonly [EntrantId, AbandonReason, Instant])[];
   readonly statuses?: readonly (readonly [EntrantId, EntrantStatus])[];
   /** Entrant ids from rank 1, when the event ends the race; absent means `ended` is absent. */
   readonly ranking?: readonly EntrantId[];
@@ -186,9 +193,9 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     expected: { phase: "interrupted", changed: false, keystrokes: { outcome: "refused", reason: "NOT_RACING" } },
   },
   {
-    name: "on the first path, with no time limit, a tick never ends the race by itself (D-17)",
-    input: { state: race(), event: { type: "tick", now: at(3_600_000) } },
-    expected: { phase: "racing", changed: false },
+    name: "with no time limit there is no hidden cap: an hour in, runners still typing keep racing (CONF-01, D-17)",
+    input: { state: race({ clock: at(3_599_000), entrants: [runner(ALICE, { lastActivityAt: at(3_590_000) }), runner(BOB, { lastActivityAt: at(3_598_000) })] }), event: { type: "tick", now: at(3_600_000) } },
+    expected: { phase: "racing", changed: false, nextDeadline: at(3_650_000) },
   },
   {
     name: "one millisecond before the time limit, the race goes on",
@@ -219,5 +226,86 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     name: "an event earlier than the race clock is handled at the clock: time never runs backwards",
     input: { state: race({ clock: at(5_000) }), event: keystrokes("race-1", BOB, 1, "a", 4_000) },
     expected: { phase: "racing", changed: true, keystrokes: { outcome: "applied" } },
+  },
+  // F-04.6: the 30-second grace (D-06) and inactivity (D-17). Bob keeps typing unless stated.
+  {
+    name: "a lost connection resumed exactly at its deadline keeps the runner racing (D-06)",
+    input: { state: race({ clock: at(39_000), entrants: [runner(ALICE, { disconnectedAt: at(10_000), lastActivityAt: at(10_000) }), runner(BOB, { lastActivityAt: at(39_000) })] }), event: { type: "connectionResumed", entrantId: ALICE, now: at(40_000) } },
+    expected: { phase: "racing", changed: false, statuses: [[ALICE, "racing"]] },
+  },
+  {
+    name: "one millisecond after its deadline, the resumption comes too late: an abandon dated at the deadline",
+    input: { state: race({ clock: at(39_000), entrants: [runner(ALICE, { disconnectedAt: at(10_000), lastActivityAt: at(10_000) }), runner(BOB, { lastActivityAt: at(39_000) })] }), event: { type: "connectionResumed", entrantId: ALICE, now: at(40_001) } },
+    expected: { phase: "racing", changed: true, ignored: "ENTRANT_TERMINAL", abandons: [[ALICE, "disconnection", at(40_000)]] },
+  },
+  {
+    name: "the inactive marker appears at exactly 60 s without a keystroke, and is broadcast (D-17)",
+    input: { state: race({ clock: at(59_000), entrants: [runner(ALICE), runner(BOB, { lastActivityAt: at(59_000) })] }), event: { type: "tick", now: at(60_000) } },
+    expected: { phase: "racing", changed: true, inactive: [[ALICE, true], [BOB, false]], nextDeadline: at(119_000) },
+  },
+  {
+    name: "a batch applied at exactly 60 s, even a wrong insert in mandatory correction, lifts the marker in the same handling: nothing to broadcast",
+    input: { state: race({ errorMode: "mandatory", clock: at(59_000), entrants: [runner(ALICE), runner(BOB, { lastActivityAt: at(59_000) })] }), event: keystrokes("race-1", ALICE, 1, "x", 60_000) },
+    expected: { phase: "racing", changed: false, keystrokes: { outcome: "applied" }, inactive: [[ALICE, false]] },
+  },
+  {
+    name: "a refused or resynced batch is not activity: the marker stays",
+    input: { state: race({ clock: at(61_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(61_000) })] }), event: keystrokes("race-1", ALICE, 5, "a", 62_000) },
+    expected: { phase: "racing", changed: false, keystrokes: { outcome: "resync", reason: "OUT_OF_ORDER" }, inactive: [[ALICE, true]] },
+  },
+  {
+    name: "« Je suis là » at exactly 120 s still counts: the runner is back in the race (D-17)",
+    input: { state: race({ clock: at(119_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(119_000) })] }), event: { type: "present", entrantId: ALICE, now: at(120_000) } },
+    expected: { phase: "racing", changed: true, statuses: [[ALICE, "racing"]], inactive: [[ALICE, false]] },
+  },
+  {
+    name: "without a reaction, the runner abandons for inactivity, dated at 120 s",
+    input: { state: race({ clock: at(119_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(119_000) })] }), event: { type: "tick", now: at(120_001) } },
+    expected: { phase: "racing", changed: true, abandons: [[ALICE, "inactivity", at(120_000)]] },
+  },
+  {
+    name: "a resumption alone does not reset the inactivity (D-17)",
+    input: { state: race({ clock: at(109_000), entrants: [runner(ALICE, { inactive: true, disconnectedAt: at(100_000) }), runner(BOB, { lastActivityAt: at(109_000) })] }), event: { type: "connectionResumed", entrantId: ALICE, now: at(110_000) } },
+    expected: { phase: "racing", changed: false, inactive: [[ALICE, true]], nextDeadline: at(120_001) },
+  },
+  {
+    name: "the deadlines are independent: an inactivity that expires before the grace wins",
+    input: { state: race({ clock: at(101_000), entrants: [runner(ALICE, { inactive: true, disconnectedAt: at(100_000) }), runner(BOB, { lastActivityAt: at(129_000) })] }), event: { type: "tick", now: at(130_001) } },
+    expected: { phase: "racing", changed: true, abandons: [[ALICE, "inactivity", at(120_000)]] },
+  },
+  {
+    name: "a grace and an inactivity expiring at the same instant: the reason is disconnection",
+    input: { state: race({ clock: at(91_000), entrants: [runner(ALICE, { inactive: true, disconnectedAt: at(90_000) }), runner(BOB, { lastActivityAt: at(119_000) })] }), event: { type: "tick", now: at(120_001) } },
+    expected: { phase: "racing", changed: true, abandons: [[ALICE, "disconnection", at(120_000)]] },
+  },
+  {
+    name: "the time limit wins a tie with the grace: a time-out, not an abandon (D-06)",
+    input: { state: race({ timeLimit: thirtySeconds, clock: at(1_000), entrants: [runner(ALICE, { disconnectedAt: at(0) }), runner(BOB, { lastActivityAt: at(1_000) })] }), event: { type: "tick", now: at(30_001) } },
+    expected: { phase: "ended", changed: true, statuses: [[ALICE, "timedOut"], [BOB, "timedOut"]], ranking: [ALICE, BOB], endedAt: at(30_000) },
+  },
+  {
+    name: "the time limit wins a tie with the inactivity too",
+    input: { state: race({ timeLimit: asDuration(120_000), clock: at(119_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(119_000) })] }), event: { type: "tick", now: at(120_001) } },
+    expected: { phase: "ended", changed: true, statuses: [[ALICE, "timedOut"], [BOB, "timedOut"]], endedAt: at(120_000), ranking: [ALICE, BOB] },
+  },
+  {
+    name: "a late tick after everyone abandoned before the time limit ends the race at the last abandon, never with time-outs",
+    input: { state: race({ timeLimit: asDuration(600_000), clock: at(21_000), entrants: [runner(ALICE, { disconnectedAt: at(10_000) }), runner(BOB, { disconnectedAt: at(20_000) })] }), event: { type: "tick", now: at(700_000) } },
+    expected: { phase: "ended", changed: true, abandons: [[ALICE, "disconnection", at(40_000)], [BOB, "disconnection", at(50_000)]], endedAt: at(50_000), ranking: [ALICE, BOB] },
+  },
+  {
+    name: "a connection lost during the countdown: the grace runs and the race still starts on time",
+    input: { state: countdown, event: { type: "connectionLost", entrantId: BOB, now: at(-2_000) } },
+    expected: { phase: "countdown", changed: false, statuses: [[BOB, "racing"]], nextDeadline: at(0) },
+  },
+  {
+    name: "a second loss changes nothing: the first grace keeps running",
+    input: { state: race({ entrants: [runner(ALICE, { disconnectedAt: at(0) }), runner(BOB)] }), event: { type: "connectionLost", entrantId: ALICE, now: at(1_000) } },
+    expected: { phase: "racing", changed: false, ignored: "ALREADY_DISCONNECTED" },
+  },
+  {
+    name: "a bot is never inactive and never disconnected (D-17)",
+    input: { state: race({ clock: at(499_000), entrants: [runner(ALICE, { lastActivityAt: at(499_000) }), runner(BOB, { kind: "bot" })] }), event: { type: "connectionLost", entrantId: BOB, now: at(500_000) } },
+    expected: { phase: "racing", changed: false, ignored: "BOT_ENTRANT", statuses: [[BOB, "racing"]], inactive: [[BOB, false]] },
   },
 ];

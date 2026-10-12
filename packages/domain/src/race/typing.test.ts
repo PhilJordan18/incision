@@ -25,6 +25,8 @@ function entrant(target: string, overrides: Partial<EntrantState> = {}): Entrant
     missedKeys: {},
     ackSeq: 0,
     status: "racing",
+    lastActivityAt: STARTS_AT,
+    inactive: false,
     ...overrides,
   };
 }
