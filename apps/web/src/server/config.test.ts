@@ -54,8 +54,12 @@ describe("parseServerEnv", () => {
     }
   });
 
-  it("refuses to start a deployed production site on the test fixtures", () => {
+  it("refuses to start a deployed production site on the test fixtures, whatever its host looks like", () => {
     expect(() => parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: "allowed" })).toThrow(/RACE_FIXTURE_TEXTS: is for local test builds only/);
+    // Only the parsed host counts, exactly: a name that merely starts like a local one is remote.
+    for (const appUrl of ["https://localhost.evil.example", "https://localhost@evil.example", "https://127.0.0.1.nip.io", "https://localhost."]) {
+      expect(() => parseServerEnv({ ...production, APP_URL: appUrl, AUTH_URL: appUrl, RACE_FIXTURE_TEXTS: "allowed" })).toThrow(/RACE_FIXTURE_TEXTS: is for local test builds only/);
+    }
   });
 
   it("keeps only the origin of APP_URL", () => {
