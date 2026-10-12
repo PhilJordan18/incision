@@ -388,19 +388,26 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   }
 
   const participants = snapshot.members.filter((member) => member.role === "participant").length;
+  // During the race, leaving is an abandon (state-machines §3), said before the click.
+  const leavingAbandons = !self.isHost && self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
   const leave = (
     <div className="flex max-w-xs flex-col gap-2">
       <LeaveRoomForm
         label={t.leave}
         pendingLabel={t.leaving}
         errors={t.changeErrors}
-        describedBy={self.isHost ? "host-leave-note" : undefined}
+        describedBy={self.isHost ? "host-leave-note" : leavingAbandons ? "race-leave-note" : undefined}
         onLeaving={onLeaving}
         onFailed={onLeaveFailed}
       />
       {self.isHost && (
         <p id="host-leave-note" className="text-sm text-brume">
           {t.hostLeaveNote}
+        </p>
+      )}
+      {leavingAbandons && (
+        <p id="race-leave-note" className="text-sm text-brume">
+          {t.raceLeaveNote}
         </p>
       )}
     </div>
@@ -420,8 +427,6 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           {connectionLine}
           {leave}
         </div>
-        {/* D-06: a lost connection is kept 30 s, from the server's detection. */}
-        {connection === "reconnecting" && <p className={`${card} border-or text-embrun`}>{tRaces.raceReconnect}</p>}
         <h1 id={ROOM_HEADING_ID} tabIndex={-1} className="sr-only">
           {format(t.roomTitle, { code: snapshot.code })}
         </h1>
@@ -432,8 +437,9 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           roomLabel={format(t.roomTitle, { code: snapshot.code })}
           expectedRaceId={snapshot.race?.raceId}
           onTakeControl={(raceId) => takeControlRef.current(raceId)}
-          onPresent={(raceId) => void entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
+          onPresent={(raceId) => entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
           onAbandon={(raceId) => entrantActionRef.current(RACE_ABANDON_EVENT, raceId)}
+          reconnecting={connection === "reconnecting"}
         />
       </div>
     );

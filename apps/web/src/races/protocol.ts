@@ -176,6 +176,8 @@ export const raceSelfPayloadSchema = z.object({
   measures: measuresSchema,
   /** Only the controlling tab sends keystrokes; the others observe (state-machines §2). */
   control: z.enum(["controlling", "observing"]),
+  /** Why this entrant abandoned, once it did: a choice, a lost connection (D-06) or inactivity (D-17). */
+  abandonReason: z.enum(["voluntary", "disconnection", "inactivity"]).optional(),
 });
 export type RaceSelfPayload = z.infer<typeof raceSelfPayloadSchema>;
 

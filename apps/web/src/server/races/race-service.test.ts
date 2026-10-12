@@ -256,6 +256,49 @@ describe("RaceService", () => {
     expect(service.present(bea.connection, { raceId: RACE })).toEqual({ ok: true });
   });
 
+  it("keeps « Je suis là » a presence, never an abandon, and refuses a race id that is not a UUID", async () => {
+    const { service, advance } = harness();
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
+    const beaTwo = tab("t-bea-2", "a-bea");
+    for (const one of [host, bea, beaTwo]) {
+      service.follow(LOBBY, one.connection);
+    }
+    await service.start(host.connection, {});
+    advance(COUNTDOWN_MS);
+    expect(service.present(bea.connection, { raceId: "not-a-uuid" })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
+    expect(service.present(bea.connection, { raceId: RACE })).toEqual({ ok: true });
+    advance(1_000);
+    const progress = host.received.filter((message) => message.event === RACE_PROGRESS_EVENT).at(-1)?.payload as RaceProgressPayload | undefined;
+    expect(progress?.broadcast.entrants.find((one) => one.entrantId === "e-bea")).toMatchObject({ status: "racing" });
+    // One window for the account, whatever its number of sockets.
+    for (let index = 1; index < ENTRANT_ACTION_WINDOW.maxRequests; index += 1) {
+      service.present(index % 2 === 0 ? bea.connection : beaTwo.connection, { raceId: RACE });
+    }
+    expect(service.present(beaTwo.connection, { raceId: RACE })).toEqual({ ok: false, error: "RATE_LIMITED" });
+  });
+
+  it("resumes an entrant whose only tab comes back within the grace: it is still racing after it", async () => {
+    const { service, advance } = harness();
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    await service.start(host.connection, {});
+    advance(COUNTDOWN_MS);
+    service.unfollow("t-bea");
+    advance(10_000);
+    service.follow(LOBBY, tab("t-bea-back", "a-bea").connection);
+    for (let second = 0; second <= RESUME_GRACE_MS / 1_000; second += 1) {
+      advance(1_000);
+      for (let turn = 0; turn < 10; turn += 1) {
+        await Promise.resolve();
+      }
+    }
+    const progress = host.received.filter((message) => message.event === RACE_PROGRESS_EVENT).at(-1)?.payload as RaceProgressPayload | undefined;
+    expect(progress?.broadcast.entrants.find((one) => one.entrantId === "e-bea")).toMatchObject({ status: "racing" });
+  });
+
   it("tells the race which account's tab left, so the loss of its last tab starts the grace", async () => {
     const { service, advance } = harness();
     const host = tab("t-host", "a-host");
