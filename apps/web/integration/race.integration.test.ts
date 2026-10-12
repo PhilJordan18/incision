@@ -331,8 +331,9 @@ describe("an integrated race (F-04.0)", () => {
     const d = await startServer(PORTS[1] ?? 3302, { RACES_ENABLED: "" });
     servers.push(d);
     expect(d.output()).toContain('[races] new races are closed (RACES_ENABLED is not "true")');
-    const host = await account("int-host-6", "Hôte six");
-    const guest = await account("int-guest-6", "Invité six");
+    // Logins of its own: the other tests' numbered logins may be taken by later cards' tests.
+    const host = await account("int-host-closed", "Hôte fermé");
+    const guest = await account("int-guest-closed", "Invité fermé");
     const code = await room(host, [guest]);
     const h = await tab(d.origin, host.cookie);
     const g = await tab(d.origin, guest.cookie);
