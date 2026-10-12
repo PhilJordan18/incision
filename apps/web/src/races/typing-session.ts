@@ -54,6 +54,7 @@ export class TypingSession {
   #snapshot: EntrantSnapshotPayload | undefined;
   #measures: RaceSelfPayload["measures"] | undefined;
   #control: RaceSelfPayload["control"] = "observing";
+  #abandonReason: RaceSelfPayload["abandonReason"];
   #inFlight: SentBatch | undefined;
   #pending: InputEvent[] = [];
   #lastSentAt = Number.NEGATIVE_INFINITY;
@@ -66,6 +67,11 @@ export class TypingSession {
 
   get control(): RaceSelfPayload["control"] {
     return this.#control;
+  }
+
+  /** Why this entrant abandoned, from the server's latest state, once it did. */
+  get abandonReason(): RaceSelfPayload["abandonReason"] {
+    return this.#abandonReason;
   }
 
   /** The server's latest measures for this entrant (Appendix A, from the engine). */
@@ -103,6 +109,7 @@ export class TypingSession {
     this.#snapshot = self.snapshot;
     this.#measures = self.measures;
     this.#control = self.control;
+    this.#abandonReason = self.abandonReason;
     // A fresh state from the server ends a wait for it (suspended, or a tab not followed yet).
     this.#block = undefined;
     if (this.#control === "observing") {
@@ -250,6 +257,7 @@ export class TypingSession {
     this.#snapshot = self.snapshot;
     this.#measures = self.measures;
     this.#control = self.control;
+    this.#abandonReason = self.abandonReason;
     this.#block = undefined;
     if (result.outcome === "resync" || result.outcome === "refused") {
       // Nothing of it was applied: the events typed on top of it are dropped too.

@@ -160,7 +160,7 @@ export const en: Dictionary = {
         UNAVAILABLE: "That did not work, the server is not answering. Try again.",
       },
     },
-    raceLeaveNote: "During the race, leaving the room counts as giving up.",
+    raceLeaveNote: "During the race, leaving the room counts as giving up if you are still racing.",
     closedHeadingBold: "Room",
     closedHeadingSerif: "closed",
     closed: "The host closed room {code} for everyone.",

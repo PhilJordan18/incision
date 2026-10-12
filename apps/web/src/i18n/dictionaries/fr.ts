@@ -164,7 +164,7 @@ export const fr = {
         UNAVAILABLE: "Ça n’a pas fonctionné, le serveur ne répond pas. Réessaie.",
       },
     },
-    raceLeaveNote: "Pendant la course, quitter la salle compte comme un abandon.",
+    raceLeaveNote: "Pendant la course, quitter la salle compte comme un abandon si tu cours encore.",
     closedHeadingBold: "Salle",
     closedHeadingSerif: "fermée",
     closed: "L’hôte a fermé la salle {code} pour tout le monde.",
