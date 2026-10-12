@@ -309,7 +309,8 @@ test.describe("the first complete race (F-04.0)", () => {
   });
 
   test("the host takes everyone present to the next round, a newcomer included, and races them again (F-04.7)", async ({ browser }) => {
-    // A whole race, a newcomer, axe at 360 px, then a second start: more than the default 30 s.
+    // A whole race, a newcomer, axe at 360 px, then a second start: about 16 s on a calm machine;
+    // 60 s leaves room under load, where the default 30 s would be tight.
     test.setTimeout(60_000);
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "fr-CA", width: 360, theme: "aube" });
     const { page: guest } = await signedIn(browser, "Matelot", { locale: "en-US" });
