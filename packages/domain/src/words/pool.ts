@@ -1,19 +1,19 @@
 import type { ExclusionList, ForbiddenPairList, WordEntry, WordList, WordPool } from "./types";
 
 /**
- * The form two words are compared in for exclusions and forbidden pairs: accents dropped, œ and æ
- * spelled out, the typographic apostrophe made straight, lowercase. So "Connard", a decomposed
- * "é" or "œ" never slip past a list written another way. Exact forms only: excluding "con" never
- * removes "conte".
+ * The form two words are compared in for exclusions and forbidden pairs: compatibility forms
+ * unified (ligature "ﬁ", fullwidth letters), accents dropped, œ and æ spelled out, typographic
+ * apostrophes made straight, lowercase. So "Connard", a decomposed "é" or "œ" never slip past a
+ * list written another way. Exact forms only: excluding "con" never removes "conte".
  */
 export function foldForExclusion(word: string): string {
   return word
-    .normalize("NFD")
+    .normalize("NFKD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/œ/g, "oe")
     .replace(/æ/g, "ae")
-    .replace(/[’ʼ]/g, "'")
+    .replace(/[’‘ʼ]/g, "'")
     .normalize("NFC");
 }
 
@@ -46,7 +46,7 @@ export function buildWordPool(input: {
 /** Whether two words may not follow each other in a random text, in either order. */
 export type ForbiddenPairRule = (first: string, second: string) => boolean;
 
-/** The rule for a pair list, matched on folded forms; the generator applies it (F-02.5). */
+/** The rule for a pair list, matched on folded forms; the generator will apply it (F-02.5). */
 export function forbiddenPairRule(list: ForbiddenPairList): ForbiddenPairRule {
   const key = (first: string, second: string): string => {
     const [low, high] = [foldForExclusion(first), foldForExclusion(second)].sort();

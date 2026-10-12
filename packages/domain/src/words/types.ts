@@ -3,7 +3,7 @@
  * server-only subpath `@incision/domain/words`; this file and the pool functions are the contract.
  */
 
-/** Languages of a race text (CONF-02): the same values as the interface's locale. */
+/** Languages of a race text (CONF-02); the interface's locales (apps/web) use the same codes. */
 export const TEXT_LANGUAGES = ["fr", "en"] as const;
 export type TextLanguage = (typeof TEXT_LANGUAGES)[number];
 

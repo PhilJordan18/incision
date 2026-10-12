@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { generateRoomCode, ROOM_CODE_LENGTH } from "../rooms/room-code";
 import { asRandomState, createRandom, PRNG_VERSION, type Random, type RandomState, shuffled } from "./prng";
 
 const draws = (random: Random, count: number): number[] => Array.from({ length: count }, () => random.uint32());
@@ -115,6 +114,7 @@ describe("the random state", () => {
     ["a fraction", [1, 2, 3, 1.5]],
     ["NaN", [1, 2, 3, Number.NaN]],
     ["all zeros", [0, 0, 0, 0]],
+    ["a sparse array, whose hole every() would skip", Object.assign(new Array<number>(4), { 0: 1, 2: 3, 3: 4 })],
   ])("refuses %s", (_label, values) => {
     expect(() => asRandomState(values)).toThrow(RangeError);
     expect(() => createRandom(values as unknown as RandomState)).toThrow(RangeError);
@@ -164,9 +164,6 @@ describe("index", () => {
     expect(counts.every((count) => Math.abs(count - 10_000) < 500)).toBe(true);
   });
 
-  it("serves as the RandomIndex of a pure rule", () => {
-    expect(generateRoomCode(createRandom([1, 2, 3, 4]).index)).toHaveLength(ROOM_CODE_LENGTH);
-  });
 });
 
 describe("shuffled", () => {

@@ -18,6 +18,18 @@ describe("parseWordListSource", () => {
     });
   });
 
+  it("accepts the bounds: Zipf 9 and 0, a 32-character version", () => {
+    expect(parseWordListSource(words("900 de\n0 la")).entries).toEqual([
+      { word: "de", zipf: 9 },
+      { word: "la", zipf: 0 },
+    ]);
+    expect(parseWordListSource(`${WORD_DATA_SENTINEL} words en ${"v".repeat(32)}\n500 of`).version).toHaveLength(32);
+  });
+
+  it("names the line endings when a source uses CRLF", () => {
+    expect(() => parseWordListSource(`${WORD_DATA_SENTINEL} words fr v1\r\n500 de`)).toThrow(/LF line endings/);
+  });
+
   it("accepts an empty list and a trailing newline", () => {
     expect(parseWordListSource(`${WORD_DATA_SENTINEL} words en fixture-1\n`).entries).toEqual([]);
   });
@@ -33,6 +45,7 @@ describe("parseWordListSource", () => {
     ["a version with an underscore", `${WORD_DATA_SENTINEL} words fr v_1\n500 de`],
     ["a version split in two", `${WORD_DATA_SENTINEL} words fr v 1\n500 de`],
     ["an extra header field", `${WORD_DATA_SENTINEL} words fr v1 extra\n500 de`],
+    ["a 33-character version", `${WORD_DATA_SENTINEL} words fr ${"v".repeat(33)}\n500 de`],
   ])("refuses %s", (_label, source) => {
     expect(() => parseWordListSource(source)).toThrow(RangeError);
   });
@@ -52,6 +65,9 @@ describe("parseWordListSource", () => {
     ["a leading apostrophe", "500 'tis"],
     ["a doubled space", "500 de  la"],
     ["a hyphen", "500 peut-être"],
+    ["a bin with a leading zero", "050 de"],
+    ["a ligature", "500 ﬁn"],
+    ["fullwidth letters", "500 ｃｏｎ"],
   ])("refuses %s", (_label, body) => {
     expect(() => parseWordListSource(words(body))).toThrow(RangeError);
   });
@@ -77,6 +93,7 @@ describe("parseExclusionSource and parsePairSource", () => {
     ["a pair of three words", () => parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nun deux trois`)],
     ["a single word as a pair", () => parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nseul`)],
     ["a word paired with itself", () => parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nmot mot`)],
+    ["two words equal once folded", () => parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\ncote côte`)],
   ])("refuse %s", (_label, parse) => {
     expect(parse).toThrow(RangeError);
   });

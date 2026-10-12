@@ -1,5 +1,5 @@
-// Hand-written fixture list (see notice.ts): no third-party data. "vrombizouille" is a made-up
-// word, unique to this list, that the client-bundle check uses as a fingerprint.
+// Hand-written fixture list (see notice.ts): no third-party data. Its last word is made up, unique
+// to this list, and serves as the client-bundle check's fingerprint.
 export const FR_WORDS = `incision-word-lists-data-v1 words fr fixture-1
 600 de la et
 520 pas être

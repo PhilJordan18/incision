@@ -1,4 +1,4 @@
-// Hand-written fixtures (see notice.ts). The reviewed forbidden pairs (P-2, option c) are not approved yet.
+// Hand-written fixtures (see notice.ts). The forbidden pairs (P-2, option c) are under review.
 export const FR_PAIRS = `incision-word-lists-data-v1 pairs fr fixture-1
 soleil lune`;
 

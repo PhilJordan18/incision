@@ -7,7 +7,6 @@
  * and grant permission to use, copy, modify and distribute it. This is written from the published
  * algorithm; no code is copied.
  */
-import type { RandomIndex } from "../rooms/room-code";
 
 /**
  * Names the generator, the rejection rule of `index` and the order of `shuffled`. Changing any of
@@ -22,7 +21,7 @@ export type Random = {
   /** The next 32-bit output. */
   readonly uint32: () => number;
   /** An unbiased integer in `[0, upperBound)`, by rejection; `upperBound` from 1 to 2^32. */
-  readonly index: RandomIndex;
+  readonly index: (upperBound: number) => number;
   /** A copy of the current state: resuming from it continues the same sequence. */
   readonly state: () => RandomState;
 };
@@ -31,7 +30,12 @@ const UINT32_RANGE = 2 ** 32;
 
 /** Checks a stored or freshly drawn state; RangeError unless four uint32, not all zero. */
 export function asRandomState(values: readonly number[]): RandomState {
-  if (values.length !== 4 || !values.every((value) => Number.isInteger(value) && value >= 0 && value < UINT32_RANGE)) {
+  // By position, not with every(): every() skips the holes of a sparse array.
+  const valid = (index: number): boolean => {
+    const value = values[index];
+    return Number.isInteger(value) && value !== undefined && value >= 0 && value < UINT32_RANGE;
+  };
+  if (values.length !== 4 || ![0, 1, 2, 3].every(valid)) {
     throw new RangeError("A random state is four integers in [0, 2^32)");
   }
   if (values.every((value) => value === 0)) {

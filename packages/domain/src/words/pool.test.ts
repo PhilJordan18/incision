@@ -18,6 +18,9 @@ describe("foldForExclusion", () => {
     ["Œuvre", "oeuvre"],
     ["cæcum", "caecum"],
     ["aujourd’hui", "aujourd'hui"],
+    ["aujourd‘hui", "aujourd'hui"],
+    ["ﬁn", "fin"],
+    ["ｃｏｎ", "con"],
     ["maison", "maison"],
   ])("folds %s to %s", (word, folded) => {
     expect(foldForExclusion(word)).toBe(folded);
@@ -31,12 +34,21 @@ describe("buildWordPool", () => {
     expect([pool.language, pool.listVersion, pool.exclusionsVersion]).toEqual(["fr", "test-1", "excl-1"]);
   });
 
-  it("applies the exclusions before the accept filter, whatever the filter keeps", () => {
-    const pool = buildWordPool({ list: list("maison", "interdit", "jardin"), exclusions: exclusions("interdit"), accept: (entry) => entry.word !== "jardin" });
+  it("never shows an excluded word to the accept filter, which sees the others once, in order", () => {
+    const seen: string[] = [];
+    const pool = buildWordPool({
+      list: list("maison", "interdit", "jardin"),
+      exclusions: exclusions("interdit"),
+      accept: (entry) => {
+        seen.push(entry.word);
+        return entry.word !== "jardin";
+      },
+    });
+    expect(seen).toEqual(["maison", "jardin"]);
     expect(pool.entries.map((entry) => entry.word)).toEqual(["maison"]);
   });
 
-  it("may return an empty pool: the generator refuses it before any draw (F-02.5)", () => {
+  it("may return an empty pool, which the generator will refuse before any draw (F-02.5)", () => {
     expect(buildWordPool({ list: list("seul"), exclusions: exclusions("seul") }).entries).toEqual([]);
   });
 
@@ -71,6 +83,9 @@ describe("forbiddenPairRule", () => {
     expect(rule("juif", "maison")).toBe(false);
     expect(rule("sale", "jew")).toBe(false);
     expect(rule("sale", "sale")).toBe(false);
+    // Their halves concatenate to a listed pair ("juif" + "sale", "dirty" + "jew").
+    expect(rule("juifsa", "le")).toBe(false);
+    expect(rule("dirtyj", "ew")).toBe(false);
   });
 
   it("forbids nothing for an empty list", () => {

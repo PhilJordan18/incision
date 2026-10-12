@@ -47,7 +47,7 @@ re-implement one. A missing rule is added here, not copied there.
   `RandomState` (four uint32, not all zero) with crypto and passes it in. `createRandom` runs
   xoshiro128** 1.1 (Blackman and Vigna, public domain), local to one pure call. `state()` resumes
   the exact sequence, so a stored state and `PRNG_VERSION` reproduce a draw. `index` is unbiased by
-  rejection and fits `RandomIndex`; `shuffled` is Fisher–Yates on a copy. Never for codes, tokens
+  rejection; `shuffled` is Fisher–Yates on a copy. Never for codes, tokens
   or anything secret: room codes keep crypto (D-01).
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
@@ -239,13 +239,14 @@ Stored values are bounded, so database columns can be sized from these constants
 - **Leak detection.** Each list is one string literal opening with `WORD_DATA_SENTINEL`, so no
   bundler can keep the words and drop the marker. `tools/word-lists` fails when a client asset
   holds the sentinel or a fingerprint word, and checks that the sentinel lives only under
-  `src/words/data/`.
+  `src/words/data/`, imported from nowhere else in the engine. That check covers client assets;
+  the lists are never passed as props to client components, so they never ride in an RSC payload.
 - **`buildWordPool`** applies the exclusions first and always, on exact folded forms
   (`foldForExclusion`: no accents, œ and æ spelled out, straight apostrophe, lowercase). Excluding
   "con" never removes "conte". An `accept` filter (a level, letters without accents…) runs after.
 - **`forbiddenPairRule`** says whether two words may not follow each other, in either order. A word
-  of a pair stays drawable alone. The generator (F-02.5) applies it with a bounded, deterministic
-  search and a typed refusal; it never deletes a word after drawing.
+  of a pair stays drawable alone. The generator (F-02.5) will apply it with a bounded,
+  deterministic search and a typed refusal, never by deleting a word after drawing.
 
 ## Contracts and examples
 
@@ -270,8 +271,8 @@ Stored values are bounded, so database columns can be sized from these constants
   - `toGraphemes`, `singleGrapheme` and `containsLineBreak`;
   - `measuredElapsed`;
   - the time and id validators, and `compareIds`;
-  - `maxPlausibleInserts`.
-  - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4).
+  - `maxPlausibleInserts`;
+  - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4);
   - `buildWordPool`, `foldForExclusion` and `forbiddenPairRule`, with the data on the
     `./words` subpath (F-02.4).
 - **Changes.** A contract changes only through an engine pull request, announced before the
