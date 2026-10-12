@@ -170,7 +170,7 @@ export const fr = {
   races: {
     start: "Lancer la course",
     starting: "Lancement…",
-    startNote: "Course de 2 minutes sur un texte d’essai, en frappe bloquée : une erreur se corrige avant d’avancer.",
+    startNote: "Course de 2 minutes sur un passage du domaine public, en frappe bloquée : une erreur se corrige avant d’avancer.",
     startNeedsTwo: "Il faut au moins 2 participants pour lancer la course ; les spectateurs ne comptent pas.",
     startErrors: {
       INVALID_PAYLOAD: "La demande n’a pas été comprise. Recharge la page.",

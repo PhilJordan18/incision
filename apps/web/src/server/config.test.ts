@@ -44,13 +44,18 @@ describe("parseServerEnv", () => {
   });
 
   it("runs the race text test fixtures only when told to, with the one accepted value, in any environment", () => {
-    expect(parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: "allowed" }).fixtureRaceTexts).toBe(true);
+    const localProduction = { ...production, APP_URL: "http://localhost:8080", AUTH_URL: "http://localhost:8080" };
+    expect(parseServerEnv({ ...localProduction, RACE_FIXTURE_TEXTS: "allowed" }).fixtureRaceTexts).toBe(true);
     expect(parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: "" }).fixtureRaceTexts).toBe(false);
     expect(parseServerEnv({ NODE_ENV: "test" }).fixtureRaceTexts).toBe(false);
     expect(parseServerEnv({ NODE_ENV: "test", RACE_FIXTURE_TEXTS: "allowed" }).fixtureRaceTexts).toBe(true);
     for (const value of ["true", "1", "yes", "ALLOWED"]) {
       expect(() => parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: value })).toThrow(/RACE_FIXTURE_TEXTS: must be "allowed" or unset/);
     }
+  });
+
+  it("refuses to start a deployed production site on the test fixtures", () => {
+    expect(() => parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: "allowed" })).toThrow(/RACE_FIXTURE_TEXTS: is for local test builds only/);
   });
 
   it("keeps only the origin of APP_URL", () => {

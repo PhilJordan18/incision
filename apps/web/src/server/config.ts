@@ -56,6 +56,10 @@ const serverEnvSchema = z
     if (env.APP_URL !== undefined && !isHttpsOrLocal(env.APP_URL)) {
       problem("APP_URL", "must use HTTPS in production");
     }
+    // The short test texts never reach a deployed site: only a local production build (E2E, integration) runs them.
+    if (env.RACE_FIXTURE_TEXTS === "allowed" && !isLocalUrl(env.APP_URL)) {
+      problem("RACE_FIXTURE_TEXTS", "is for local test builds only (APP_URL on localhost)");
+    }
     // Without verified TLS, pg would send the password in clear text or trust any certificate.
     if (env.DATABASE_URL !== undefined && !isLocalDatabase(env.DATABASE_URL) && !usesVerifiedTls(env.DATABASE_URL)) {
       problem("DATABASE_URL", "must use verified TLS (sslmode=verify-full) in production");
@@ -103,6 +107,11 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
 function isPublicRoot(authUrl: string, appOrigin: string): boolean {
   const url = URL.parse(authUrl);
   return url !== null && url.origin === appOrigin && url.pathname === "/" && url.search === "" && url.hash === "";
+}
+
+function isLocalUrl(appUrl: string | undefined): boolean {
+  const url = appUrl === undefined ? null : URL.parse(appUrl);
+  return url !== null && LOCAL_HOSTNAMES.has(url.hostname);
 }
 
 function isHttpsOrLocal(appUrl: string): boolean {
