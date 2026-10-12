@@ -226,4 +226,72 @@ test.describe("the first complete race (F-04.0)", () => {
     await expectNoHorizontalScroll(host);
     await expectNoAccessibilityViolation(host);
   });
+
+  test("a player gives up only after confirming it, and the results say it was a choice (COURSE-07)", async ({ browser }) => {
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
+    const code = await openRoom(host);
+    await join(guest, code);
+    await host.getByRole("button", { name: "Start the race" }).click();
+    const text = await raceText(guest);
+    const field = guest.getByLabel("Ta frappe");
+    await expect(field).toBeEnabled({ timeout: 6_000 });
+    await typeText(field, text.slice(0, 4));
+
+    // Asked first; Escape keeps racing and gives the focus back to the button.
+    const guestGiveUp = guest.getByRole("button", { name: "Abandonner la course" });
+    await guestGiveUp.click();
+    await expect(guest.getByRole("heading", { name: "Abandonner la course ?" })).toBeFocused();
+    await expectNoAccessibilityViolation(guest);
+    await expectNoHorizontalScroll(guest);
+    await guest.keyboard.press("Escape");
+    await expect(guestGiveUp).toBeFocused();
+    await expect(field).toBeEnabled();
+
+    // The host gives up for good.
+    await host.getByRole("button", { name: "Give up the race" }).click();
+    await expect(host.getByRole("heading", { name: "Give up the race?" })).toBeFocused();
+    await expectNoAccessibilityViolation(host);
+    await host.getByRole("button", { name: "Yes, give up" }).click();
+    await expect(host.getByText("You gave up. You can follow the race to the end.")).toBeVisible();
+    await expect(host.getByLabel("Your typing")).toBeDisabled();
+    await expect(host.getByRole("button", { name: "Give up the race" })).toHaveCount(0);
+    // The others see it on the list, from the server.
+    await expect(guest.getByRole("region", { name: "Équipage en course" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("abandon");
+
+    await typeText(field, text.slice(4));
+    await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
+    await expect(guest.getByRole("table").getByRole("row").nth(2)).toContainText("abandon (volontaire)");
+    await expect(host.getByRole("table").getByRole("row").nth(2)).toContainText("abandoned (voluntary)");
+  });
+
+  test("an idle player is asked if they are still there after 60 s; the button or a keystroke clears it for everyone (D-17)", async ({ browser }) => {
+    test.setTimeout(150_000);
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", theme: "aube" });
+    const code = await openRoom(host);
+    await join(guest, code);
+    await host.getByRole("button", { name: "Start the race" }).click();
+    const text = await raceText(guest);
+    await expect(guest.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
+    // Nobody types for a minute.
+    const hostQuestion = host.getByRole("heading", { name: "Are you still there?" });
+    const guestQuestion = guest.getByRole("heading", { name: "Tu es toujours là ?" });
+    await expect(hostQuestion).toBeVisible({ timeout: 70_000 });
+    await expect(guestQuestion).toBeVisible({ timeout: 5_000 });
+    const guestOnHost = host.getByRole("region", { name: "Crew racing" }).getByRole("listitem").filter({ hasText: "Matelot" });
+    const hostOnGuest = guest.getByRole("region", { name: "Équipage en course" }).getByRole("listitem").filter({ hasText: "Capitaine" });
+    await expect(guestOnHost).toContainText("inactive");
+    await expect(hostOnGuest).toContainText("inactif");
+    await expectNoAccessibilityViolation(host);
+    await expectNoAccessibilityViolation(guest);
+
+    // The button for one, a keystroke for the other.
+    await host.getByRole("button", { name: "I'm here" }).click();
+    await expect(hostQuestion).toHaveCount(0);
+    await expect(hostOnGuest).not.toContainText("inactif");
+    await typeText(guest.getByLabel("Ta frappe"), text.slice(0, 1));
+    await expect(guestQuestion).toHaveCount(0);
+    await expect(guestOnHost).not.toContainText("inactive");
+  });
 });
