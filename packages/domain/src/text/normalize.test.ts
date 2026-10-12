@@ -1,0 +1,71 @@
+import { describe, expect, it } from "vitest";
+import { normalizePassage } from "./normalize";
+import { countWords, cutToWords } from "./words";
+
+const NBSP = String.fromCodePoint(0xa0);
+const NNBSP = String.fromCodePoint(0x202f);
+const SOFT_HYPHEN = String.fromCodePoint(0xad);
+const PRIME = String.fromCodePoint(0x2032);
+const ok = (source: string, language: "fr" | "en" = "fr"): string => {
+  const result = normalizePassage(source, language);
+  if (!result.ok) throw new Error(`refused: ${result.reason} ${result.character}`);
+  return result.text;
+};
+
+describe("normalizePassage (version 1)", () => {
+  it("makes spaces, apostrophes, quotes and ellipses typable, and reports what it changed", () => {
+    const result = normalizePassage(`C’est « la mer »${NBSP}! Il dit${NNBSP}: “oui”…`, "fr");
+    expect(result).toEqual({ ok: true, text: `C'est "la mer" ! Il dit : "oui"...`, changes: ["spaces", "apostrophes", "quotes", "ellipsis"] });
+  });
+
+  it("turns sentence dashes into a hyphen between spaces and keeps hyphens inside words", () => {
+    expect(ok("plans--not even the Spy-glass--could", "en")).toBe("plans - not even the Spy-glass - could");
+    expect(ok(`— Non, répondit-elle — sans hésiter.`)).toBe("- Non, répondit-elle - sans hésiter.");
+    expect(ok("a–b", "en")).toBe("a - b");
+    expect(countWords(ok("ham--plain", "en"))).toBe(2);
+  });
+
+  it("keeps one space before ; : ! ? in French and none in English", () => {
+    expect(ok("Riche? Oui!")).toBe("Riche ? Oui !");
+    expect(ok(`mers${NBSP}; ses courants`)).toBe("mers ; ses courants");
+    expect(ok("Riche ? Oui !", "en")).toBe("Riche? Oui!");
+  });
+
+  it("joins lines and collapses runs of spaces", () => {
+    expect(ok("  un\n\tdeux    trois  ")).toBe("un deux trois");
+  });
+
+  it("is idempotent", () => {
+    for (const source of [`C’est « la mer »${NBSP}!`, "plans--not even", "Riche? Oui!", "Alice “said”… — no."]) {
+      for (const language of ["fr", "en"] as const) {
+        const first = normalizePassage(source, language);
+        if (first.ok) expect(normalizePassage(first.text, language)).toEqual({ ok: true, text: first.text, changes: [] });
+      }
+    }
+  });
+
+  it("refuses invisible characters and primes with their position in the source", () => {
+    expect(normalizePassage(`ab${SOFT_HYPHEN}c`, "fr")).toEqual({ ok: false, reason: "REFUSED_CHARACTER", character: SOFT_HYPHEN, position: 2 });
+    expect(normalizePassage(`l${PRIME}eau`, "fr")).toMatchObject({ ok: false, reason: "REFUSED_CHARACTER", position: 1 });
+  });
+
+  it("refuses untypable characters with their position, œ included until P-4", () => {
+    expect(normalizePassage("son œil", "fr")).toEqual({ ok: false, reason: "UNTYPABLE_CHARACTER", character: "œ", position: 4 });
+    expect(normalizePassage("idiоt", "en")).toMatchObject({ ok: false, reason: "UNTYPABLE_CHARACTER", position: 3 });
+    expect(normalizePassage("café", "en")).toMatchObject({ ok: false, reason: "UNTYPABLE_CHARACTER", character: "é" });
+    expect(normalizePassage("   ", "fr")).toMatchObject({ ok: false, reason: "EMPTY" });
+  });
+});
+
+describe("countWords and cutToWords (D-10)", () => {
+  it("counts tokens holding a letter or a digit, not punctuation alone", () => {
+    expect(countWords("Il dit : oui ! 1866 - fin.")).toBe(5);
+    expect(countWords("")).toBe(0);
+  });
+
+  it("cuts after the Nth word and keeps the punctuation that follows it", () => {
+    expect(cutToWords("la mer ; le port ! le vent", 2)).toBe("la mer ;");
+    expect(cutToWords("la mer ; le port ! le vent", 4)).toBe("la mer ; le port !");
+    expect(() => cutToWords("la mer", 3)).toThrow(RangeError);
+  });
+});
