@@ -62,7 +62,7 @@ export const createRace: CreateRace = (input) => {
   }
   const now = asInstant(input.now);
   const startsAt = asInstant(now + COUNTDOWN_MS);
-  // Every deadline the reducer derives stays a valid instant.
+  // The time-limit deadline stays a valid instant; the presence deadlines are compared as numbers.
   asInstant(startsAt + (input.timeLimit ?? 0));
   const text = toGraphemes(input.text);
   const entrants = input.participants.map(({ entrantId, kind }): EntrantState => {
@@ -80,6 +80,8 @@ export const createRace: CreateRace = (input) => {
       missedKeys: {},
       ackSeq: 0,
       status: "racing",
+      lastActivityAt: startsAt,
+      inactive: false,
     };
   });
   return {

@@ -25,6 +25,8 @@ function runner(entrantId: EntrantId, overrides: Partial<EntrantState> = {}): En
     missedKeys: {},
     ackSeq: 0,
     status: "racing",
+    lastActivityAt: at(0),
+    inactive: false,
     ...overrides,
   };
 }
@@ -58,8 +60,8 @@ describe("toRaceBroadcast (F-04.1)", () => {
       timeLimit: 60_000,
       entrants: [
         // 2 correct inserts over 12 s: 2 × 12 000 ÷ 12 000.
-        { entrantId: ALICE, kind: "human", status: "racing", position: 2, length: 5, netWpm: 2 },
-        { entrantId: BOB, kind: "bot", status: "racing", position: 0, length: 5, netWpm: 0 },
+        { entrantId: ALICE, kind: "human", status: "racing", position: 2, length: 5, netWpm: 2, inactive: false },
+        { entrantId: BOB, kind: "bot", status: "racing", position: 0, length: 5, netWpm: 0, inactive: false },
       ],
     });
   });
