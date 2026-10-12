@@ -27,7 +27,7 @@ describe("parseServerEnv", () => {
       secureCookies: false,
       trustedProxyHops: 0,
       fixtureRaceTexts: false,
-      races: "closed",
+      racesSwitch: "closed",
     });
   });
 
@@ -41,7 +41,7 @@ describe("parseServerEnv", () => {
       secureCookies: true,
       trustedProxyHops: 1,
       fixtureRaceTexts: false,
-      races: "closed",
+      racesSwitch: "closed",
     });
   });
 
@@ -57,12 +57,12 @@ describe("parseServerEnv", () => {
   });
 
   it("closes new races unless RACES_ENABLED is exactly true, and still starts with any other value", () => {
-    expect(parseServerEnv(production).races).toBe("closed");
-    expect(parseServerEnv({ ...production, RACES_ENABLED: "" }).races).toBe("closed");
-    expect(parseServerEnv({ ...production, RACES_ENABLED: "false" }).races).toBe("closed");
-    expect(parseServerEnv({ ...production, RACES_ENABLED: "true" }).races).toBe("open");
+    expect(parseServerEnv(production).racesSwitch).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "" }).racesSwitch).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "false" }).racesSwitch).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "true" }).racesSwitch).toBe("open");
     for (const value of ["TRUE", "1", "yes", "hunter2"]) {
-      expect(parseServerEnv({ ...production, RACES_ENABLED: value }).races).toBe("invalid");
+      expect(parseServerEnv({ ...production, RACES_ENABLED: value }).racesSwitch).toBe("invalid");
     }
   });
 

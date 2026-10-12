@@ -83,7 +83,7 @@ export type ServerEnv = {
   /** Races run the short test fixtures (RACE_FIXTURE_TEXTS=allowed) instead of the chosen texts (race-texts.ts). */
   readonly fixtureRaceTexts: boolean;
   /** Whether new races may start (RACES_ENABLED, races-switch.ts); never which texts they run. */
-  readonly races: RacesSwitch;
+  readonly racesSwitch: RacesSwitch;
 };
 
 /** Validates the environment at start-up. Error messages name variables, never their values. */
@@ -106,7 +106,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     secureCookies: appOrigin.startsWith("https:"),
     trustedProxyHops: TRUSTED_PROXY_HOPS ?? 0,
     fixtureRaceTexts: RACE_FIXTURE_TEXTS === "allowed",
-    races: racesSwitchOf(RACES_ENABLED),
+    racesSwitch: racesSwitchOf(RACES_ENABLED),
   };
 }
 

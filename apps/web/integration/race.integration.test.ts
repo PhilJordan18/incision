@@ -347,7 +347,8 @@ describe("an integrated race (F-04.0)", () => {
     ]);
     expect(g.received.some((message) => message.event === "race:reveal")).toBe(false);
     // A race finished before still reads the same for its entrants (HIST-02).
-    expect(finished).toBeDefined();
+    // Set by the first test of this file (the file runs in order; `-t` alone cannot run this one).
+    expect(finished, "the first test's finished race").toBeDefined();
     const page = await fetch(`${d.origin}/races/${finished?.raceId}`, { headers: { cookie: finished?.cookie ?? "", "accept-language": "fr" } });
     expect(page.status).toBe(200);
     expect(await page.text()).toContain(finished?.guestName);

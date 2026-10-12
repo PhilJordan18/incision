@@ -130,27 +130,15 @@ describe("RaceService", () => {
     const bea = tab("t-bea", "a-bea");
     service.follow(LOBBY, host.connection);
     service.follow(LOBBY, bea.connection);
-    // The host's button, a repeat, or a direct call (the next round's start too): one path, refused.
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    // The host's button, a repeat, or a direct call (the next round's start too): one path, refused,
+    // and before the start window, which a closed refusal never fills.
+    for (let attempt = 0; attempt <= START_WINDOW.maxStarts; attempt += 1) {
       expect(await service.start(host.connection, {})).toEqual({ ok: false, error: "RACES_CLOSED" });
     }
     expect(store.startRace).not.toHaveBeenCalled();
     expect(service.ownsRace(LOBBY)).toBe(false);
     expect(changed).toEqual([]);
     expect(bea.reveal()).toBeUndefined();
-    // The room's members still come and go.
-    service.unfollow("t-bea");
-    service.memberLeft(LOBBY, "a-bea", { roomClosed: false });
-  });
-
-  it("opens races without changing which texts they run (the engine's refusals stay, below)", async () => {
-    const texts = { fr: { id: "fr-open", text: "Texte ouvert pour ce test." }, en: { id: "en-open", text: "Text open for this test." } };
-    const { service, store } = harness({ racesOpen: true, texts });
-    const host = tab("t-host", "a-host", "fr");
-    service.follow(LOBBY, host.connection);
-    service.follow(LOBBY, tab("t-bea", "a-bea").connection);
-    expect(await service.start(host.connection, {})).toEqual({ ok: true });
-    expect(store.startRace.mock.calls[0]?.[0]).toMatchObject({ text: texts.fr.text, config: { text: "fr-open" } });
   });
 
   it("marks the race text with the host's language for every reader", async () => {

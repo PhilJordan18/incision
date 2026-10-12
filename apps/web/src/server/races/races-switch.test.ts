@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { racesSwitchNotice, racesSwitchOf } from "./races-switch";
+import { racesOpenOf, racesSwitchNotice, racesSwitchOf } from "./races-switch";
 
 describe("RACES_ENABLED", () => {
   it("opens new races with the exact value true only", () => {
@@ -9,6 +9,13 @@ describe("RACES_ENABLED", () => {
     for (const value of ["TRUE", "True", " true", "true ", "1", "yes", "on", "enabled", "allowed"]) {
       expect(racesSwitchOf(value)).toBe("invalid");
     }
+  });
+
+  it("lets races start for the open switch only: an invalid value keeps them closed", () => {
+    expect(racesOpenOf("open")).toBe(true);
+    expect(racesOpenOf("closed")).toBe(false);
+    expect(racesOpenOf("invalid")).toBe(false);
+    expect(racesOpenOf(racesSwitchOf("TRUE"))).toBe(false);
   });
 
   it("says at start-up whether races may start, and warns about an invalid value without showing it", () => {

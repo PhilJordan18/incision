@@ -26,7 +26,7 @@ import { authenticateHandshake } from "./src/server/realtime/socket-session";
 import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
 import { processOwnerId } from "./src/server/races/process-owner";
 import { RaceService, serverClock } from "./src/server/races/race-service";
-import { racesSwitchNotice } from "./src/server/races/races-switch";
+import { racesOpenOf, racesSwitchNotice } from "./src/server/races/races-switch";
 import { FIXTURE_RACE_TEXTS, RACE_TEXTS } from "./src/server/races/race-texts";
 import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
 
@@ -84,7 +84,7 @@ async function main(): Promise<void> {
     // The chosen texts, unless a test build asks for the short fixtures.
     texts: env.fixtureRaceTexts ? FIXTURE_RACE_TEXTS : RACE_TEXTS,
     // Whether races may start at all; never which texts they run (the fixtures stay local only).
-    racesOpen: env.races === "open",
+    racesOpen: racesOpenOf(env.racesSwitch),
     log: (message) => console.log(message),
     logError: (message) => console.error(message),
   });
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
       ? "[races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the chosen texts"
       : `[races] race texts: ${RACE_TEXTS.fr.id}, ${RACE_TEXTS.en.id}`,
   );
-  const racesNotice = racesSwitchNotice(env.races);
+  const racesNotice = racesSwitchNotice(env.racesSwitch);
   (racesNotice.level === "warn" ? console.warn : console.log)(racesNotice.message);
   // A departure committed by a server action ends the leaver's race, or the race if the room closed.
   // It runs inside that action: a failure here must not turn the committed departure into an error.
