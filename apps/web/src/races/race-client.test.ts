@@ -40,4 +40,18 @@ describe("RaceClient", () => {
     client.reveal(reveal(NEXT));
     expect(client.getState().abandonReason).toBeUndefined();
   });
+
+  it("takes why its entrant abandoned from a batch's answer too", async () => {
+    const client = new RaceClient({ now: () => 10_000, schedule: () => () => undefined });
+    client.reveal({ ...reveal(RACE), serverNow: 10_000 });
+    client.self(selfState(RACE, "racing"));
+    // The batch came after an inactivity deadline: refused, with the entrant's terminal state.
+    client.attach({
+      sendBatch: async () => ({ ok: true, result: { outcome: "refused", seq: 1, reason: "ENTRANT_TERMINAL" }, self: selfState(RACE, "abandoned", "inactivity") }),
+      connected: () => true,
+    });
+    client.type({ type: "insert", grapheme: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(client.getState()).toMatchObject({ abandonReason: "inactivity", typing: { status: "abandoned" } });
+  });
 });
