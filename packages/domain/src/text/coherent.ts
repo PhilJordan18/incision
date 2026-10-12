@@ -55,9 +55,22 @@ export function applyPassageOptions(text: string, options: TextOptions): string 
 const CLOSER: Readonly<Record<string, string>> = { "(": ")", '"': '"' };
 
 /**
- * Removes number tokens. A run of numbers joined by dashes ("1914 - 1918", "1 000") goes as one
- * unit; marks it opens and closes go with it; a closer it opened that sits in the next punctuation
- * token goes too; its other closing and end marks move onto the previous word.
+ * Whether a run of numbers goes on from `token` to the number `next`: "1 000", "1914 - 1918" and
+ * "1, 2, 3" are one run. A run never crosses a quote or a parenthesis, which would leave its partner
+ * alone, nor a mark other than a comma, which would join two sentences.
+ */
+const runContinues = (token: string, next: string | undefined): boolean =>
+  next !== undefined && HAS_DIGIT.test(next) && !LEADING_OPENERS.test(next) && /^,?$/u.test(token.match(TRAILING_MARKS)?.[0] ?? "");
+
+/** Whether a kept token already ends with a mark, closing quotes and parentheses aside. */
+const endsWithMark = (token: string | undefined): boolean => token !== undefined && /[.,;:!?]$/u.test(token.replace(/[)"]+$/u, ""));
+
+/**
+ * Removes number tokens. A run of numbers ("1914 - 1918", "1 000") goes as one unit; marks it opens
+ * and closes go with it; a closer it opened that sits in the next punctuation token goes too. Its
+ * other closing and end marks move onto the previous word, an end mark only when the text there has
+ * none yet; a mark standing alone after it (French "1918 !") follows the same rule. A dash left with
+ * nothing on one side goes: at the start, or as the second dash of an emptied pair.
  */
 function withoutNumbers(tokens: readonly string[]): string[] {
   const source = [...tokens];
@@ -73,8 +86,11 @@ function withoutNumbers(tokens: readonly string[]): string[] {
       continue;
     }
     let end = index;
-    while (HAS_DIGIT.test(source[end + 1] ?? "") || (source[end + 1] === "-" && HAS_DIGIT.test(source[end + 2] ?? ""))) {
-      end += 1;
+    while (true) {
+      const current = source[end] ?? "";
+      if (runContinues(current, source[end + 1])) end += 1;
+      else if (source[end + 1] === "-" && runContinues(current, source[end + 2])) end += 2;
+      else break;
     }
     let openers = source[index]?.match(LEADING_OPENERS)?.[0] ?? "";
     let trailing = source[end]?.match(TRAILING_MARKS)?.[0] ?? "";
@@ -102,16 +118,31 @@ function withoutNumbers(tokens: readonly string[]): string[] {
     if (trailing !== "" && previous !== -1) {
       const word = kept[previous] ?? "";
       const closers = trailing.replace(/[^)"]/gu, "");
-      const ends = /[.,;:!?]$/u.test(word.replace(/[)"]+$/u, "")) ? "" : trailing.replace(/[)"]/gu, "");
+      const ends = endsWithMark(word) || endsWithMark(kept.at(-1)) ? "" : trailing.replace(/[)"]/gu, "");
       kept[previous] = word + ends + closers;
+    }
+    let after = end + 1;
+    for (; /^[.,;:!?]+$/u.test(source[after] ?? ""); after += 1) {
+      if (kept.length === 0 || endsWithMark(kept.at(-1))) source[after] = "";
+    }
+    if (source[after] === "-" && (kept.length === 0 || kept.at(-1) === "-")) {
+      source[after] = "";
+      if (kept.at(-1) === "-") kept.pop();
     }
     index = end + 1;
   }
   return kept;
 }
 
-/** Throws unless each passage is normalised and ids are unique: only a bug can produce one that is not. */
+/** Corpora already checked. Only frozen ones are remembered: a corpus that can change is checked again. */
+const CHECKED = new WeakSet<readonly Passage[]>();
+
+/**
+ * Throws unless each passage is normalised and ids are unique: only a bug can produce one that is
+ * not. A frozen corpus of frozen passages is checked once.
+ */
 export function checkPassages(passages: readonly Passage[]): void {
+  if (CHECKED.has(passages)) return;
   const ids = new Set<string>();
   for (const passage of passages) {
     const normalised = normalizePassage(passage.text, passage.language);
@@ -123,6 +154,7 @@ export function checkPassages(passages: readonly Passage[]): void {
     }
     ids.add(passage.id);
   }
+  if (Object.isFrozen(passages) && passages.every((passage) => Object.isFrozen(passage))) CHECKED.add(passages);
 }
 
 /** The passage's text for these settings, cut to N words, or undefined when it cannot serve them. */

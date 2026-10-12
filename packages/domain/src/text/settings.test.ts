@@ -77,6 +77,9 @@ describe("textSettingsRefusal", () => {
     expect(() => textSettingsRefusal(random(), oneTokenSentences)).toThrow(RangeError);
     const halfPair = { ...COMPLEXITY_CRITERIA, hard: { ...COMPLEXITY_CRITERIA.hard, marks: [".", "("] as const } };
     expect(() => textSettingsRefusal(random(), halfPair)).toThrow(RangeError);
+    // 200 words of 30 letters cannot fit MAX_TEXT_GRAPHEMES: the criteria are refused before any draw.
+    const tooLong = { ...COMPLEXITY_CRITERIA, hard: { ...COMPLEXITY_CRITERIA.hard, maxLetters: 30 } };
+    expect(() => textSettingsRefusal(random(), tooLong)).toThrow(RangeError);
     expect(() => textSettingsRefusal({ ...coherent(), language: "es" } as unknown as CoherentTextSettings)).toThrow(RangeError);
   });
 });

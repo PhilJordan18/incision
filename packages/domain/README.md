@@ -275,11 +275,13 @@ Stored values are bounded, so database columns can be sized from these constants
   A cut ends after its Nth word, with the closing punctuation that directly follows (a closing
   quote included); never on a lone dash or an opening mark. Measures leave tokens with a digit
   ("1866", "1er") out of M1 to M3.
-- **Coherent mode.** The options apply to the normalised passage first (numbers, punctuation,
+- **Coherent mode.** A frozen corpus of frozen passages is checked once; any other is checked on
+  every call. The options apply to the normalised passage first (numbers, punctuation,
   capitals, accents, in that order), then the text is cut after its Nth word from the passage's
   start. Nothing is invented, rewritten or joined from distant passages. With numbers off, a run
-  of numbers ("1914 - 1918", "1 000") goes whole, with the quotes or parentheses it opens and
-  closes, so the marks stay balanced.
+  of numbers ("1914 - 1918", "1 000", "1, 2, 3") goes whole, with the quotes or parentheses it
+  opens and closes. A run stops at a quote, a parenthesis or an end mark, so the marks stay
+  balanced and no two sentences merge.
 - **Random mode.** The pool removes the exclusions first, then applies the band, the accents
   policy (words without diacritics when accents are off, never misspelled), the excluded
   characters, and leaves out œ and æ. Two words are the same when they are spelled the same ("la"
@@ -290,17 +292,19 @@ Stored values are bounded, so database columns can be sized from these constants
   word, no word holds more letters than the richest one, each included end mark needs a sentence
   and each quote or parenthesis a word of its own. These proofs hold under the documented rules
   (about one number in ten tokens, Q-4; a sentence starts with a word, Q-2). The draw is then a
-  deterministic, bounded search (`COVER_ATTEMPTS`, `ARRANGE_ATTEMPTS`, `DRAWS_PER_SLOT`, and a
-  work budget, `COVER_WORK_BUDGET`, counted in word visits rather than time). It redraws the
-  words covering the included letters, abandons a cover as soon as it outgrows the word slots,
-  places the cover and the drawn words so that no word repeats and no forbidden pair touches,
-  then inserts the numbers; no word is deleted afterwards. When it ends without a text it answers
-  `TEXT_SEARCH_EXHAUSTED`, which proves nothing. On a synthetic list of 60,000 words, a 200-word
-  text takes about 0.2 s, and a search that fails ends in about 0.25 s.
+  deterministic, bounded search. It redraws the words covering the included letters (at most
+  `COVER_ATTEMPTS` covers, within `COVER_WORK_BUDGET` steps, counted rather than timed), abandons
+  a cover as soon as it outgrows the word slots, then places the cover and the drawn words so
+  that no word repeats and no forbidden pair touches (at most `ARRANGE_ATTEMPTS` arrangements per
+  cover and `DRAWS_PER_SLOT` draws per slot, so 16 × 16 × 200 × 32 neighbour checks at worst),
+  and inserts the numbers; no word is deleted afterwards. When it ends without a text it answers
+  `TEXT_SEARCH_EXHAUSTED`, which proves nothing. The letters each pool word holds are computed
+  once per call. On synthetic lists of 60,000 words, the configuration check takes 0.1 to 0.2 s,
+  and a text or a failed search 0.15 to 0.3 s, words of 16 letters being the slowest case.
 - **Final checks.** `raceTextViolations` lists every guarantee the final text breaks: exactly N
   words, typable characters, no line break, the grapheme bound, each option's effect; in random
   mode, each word read from the list itself (band, exclusions, alphabet, accents), included and
-  excluded characters, repeats, pairs, numbers, marks and their spacing, a word at each sentence
+  excluded characters, repeats, pairs, numbers, marks in pairs and their spacing, a word at each sentence
   start, and capitals only there when every sentence end shows a mark. `generateRaceText` throws
   on any, since a broken guarantee is a bug. A rule never names a word of the text, since one may
   be an excluded word and the message reaches logs. `generateRaceText` returns the text with its

@@ -2,6 +2,7 @@
  * The host's text settings (CONF-02 to CONF-07, D-10, D-19) and the checks that need no data.
  * `textSettingsRefusal` runs in the browser as the host configures, and again on the server.
  */
+import { MAX_TEXT_GRAPHEMES } from "../race/limits";
 import { TEXT_LANGUAGES, type TextLanguage } from "../words/types";
 import { MAX_GRAPHEME_LENGTH, toGraphemes } from "./graphemes";
 import { DIGITS, HARD_TO_TYPE_LETTERS, MARKS, WORD_LETTERS, type Mark } from "./typable";
@@ -113,6 +114,17 @@ function characterSet(inputs: readonly string[], language: TextLanguage): Readon
   return new Set(inputs.map((input) => settingCharacter(input, language)).filter((character): character is string => character !== undefined));
 }
 
+/**
+ * The longest random text the criteria allow, in graphemes: every token at its longest with a space,
+ * then the marks. A sentence of `shortest` tokens at least carries an end mark and maybe a comma,
+ * the included inner marks and the fallback add four more, each of two graphemes at most (French
+ * " ;"), and two wrapped words add two graphemes each.
+ */
+function longestText(level: ComplexityCriteria, shortest: number): number {
+  const sentences = Math.ceil(MAX_TEXT_WORDS / shortest) + 3;
+  return MAX_TEXT_WORDS * (Math.max(level.maxLetters, String(level.maxNumber).length) + 1) + 2 * (2 * sentences + 4) + 4;
+}
+
 /** Throws unless the criteria can drive a bounded generation: only a bug can produce bad ones. */
 export function checkCriteria(criteria: Readonly<Record<Complexity, ComplexityCriteria>>): void {
   for (const complexity of COMPLEXITIES) {
@@ -124,7 +136,9 @@ export function checkCriteria(criteria: Readonly<Record<Complexity, ComplexityCr
       // Sentences of two tokens at least leave a gap for every inner mark a host may include.
       !Number.isInteger(shortest) || !Number.isInteger(longest) || shortest < 2 || longest < shortest ||
       level.maxNumber !== 10 ** digits - 1 || !level.marks.every((mark) => (MARKS as readonly string[]).includes(mark)) ||
-      level.marks.includes("(") !== level.marks.includes(")")
+      level.marks.includes("(") !== level.marks.includes(")") ||
+      // Every text the criteria allow fits the race's bound, so a draw never breaks it.
+      longestText(level, shortest) > MAX_TEXT_GRAPHEMES
     ) {
       throw new RangeError(`Invalid complexity criteria for ${complexity}`);
     }

@@ -110,6 +110,11 @@ describe("normalizePassage and cutToWords: confirmation findings", () => {
       ["a -- -- b", "a - b"],
       [`fin.${EM}${EM}Début`, "fin. - Début"],
       [`${EM} Oui, dit-il ${EM}`, "- Oui, dit-il -"],
+      [`a -${EM} b`, "a - b"],
+      [`a-${EM}b`, "a - b"],
+      [`a ${EM}- b`, "a - b"],
+      [`a - ${EM} b`, "a - b"],
+      ["a - - b", "a - b"],
     ];
     for (const [source, expected] of cases) {
       expect(ok(source)).toBe(expected);

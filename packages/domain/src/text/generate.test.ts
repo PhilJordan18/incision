@@ -215,6 +215,13 @@ describe("refusals: proven incompatibilities, then an exhausted search", () => {
     expect(generateRaceText({ settings: fewer, words, state: STATES[0] as RandomState }).ok).toBe(true);
   });
 
+  it("counts a letter once per word, however often the word repeats it", () => {
+    // Every pair of a to d shares a word, so two words are needed for the four; "aaaa" holds one letter, not four.
+    const criteria = { ...COMPLEXITY_CRITERIA, easy: { ...COMPLEXITY_CRITERIA.easy, maxNumber: 9 } };
+    const settings = randomSettings({ language: "en", wordCount: 10, complexity: "easy", include: [..."abcd012345678"] });
+    expect(raceTextRefusal({ settings, words: custom(["ab", "ac", "ad", "bc", "bd", "cd", "aaaa"]) }, criteria)).toBe("INCLUDED_CHARACTERS_DO_NOT_FIT");
+  });
+
   it("ends without a text, and without a proof, when no cover fits the slots", () => {
     // Each word holds "a" and two of b to i: three words never hold all nine letters, yet no count shows it.
     const triples = [..."bcdefghi"].flatMap((first, index, all) => all.slice(index + 1).map((second) => `a${first}${second}`));
@@ -438,6 +445,9 @@ describe("raceTextViolations: checks added after the reviews", () => {
     ["a capital away from a sentence start", "Star Map sea star zest 12 wave map star wave.", "capitals only at sentence starts"],
     ["a forbidden pair across a number", "Star map sea 12 ship zest wave map star wave.", "forbidden pair"],
     ["an English mark standing alone", "Star map sea star zest 12 wave map star wave !", "no space before"],
+    ["a parenthesis left open", "Star (map sea star zest 12 wave map star wave.", "in pairs"],
+    ["a parenthesis closed first", "Star map) sea (star zest 12 wave map star wave.", "in pairs"],
+    ["a lone quote", 'Star "map sea star zest 12 wave map star wave.', "in pairs"],
   ])("reports %s", (_label, candidate, rule) => {
     expect(raceTextViolations(candidate, sources).some((violation) => violation.includes(rule))).toBe(true);
   });

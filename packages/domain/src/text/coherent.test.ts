@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createRandom } from "../random/prng";
 import { applyPassageOptions, checkPassages, passageCut, type Passage } from "./coherent";
 import type { CoherentTextSettings } from "./settings";
 import { TEST_PASSAGES } from "./text.fixtures";
@@ -50,6 +51,16 @@ describe("checkPassages", () => {
     expect(() => checkPassages([{ ...(TEST_PASSAGES[0] as Passage), text: "C’est" }])).toThrow(RangeError);
     expect(() => checkPassages([TEST_PASSAGES[0] as Passage, TEST_PASSAGES[0] as Passage])).toThrow(RangeError);
   });
+
+  it("checks a corpus that can change again on every call, and a failing frozen one every time", () => {
+    const corpus: Passage[] = [{ ...(TEST_PASSAGES[0] as Passage) }];
+    checkPassages(corpus);
+    corpus.push({ ...(TEST_PASSAGES[1] as Passage), text: "C’est" });
+    expect(() => checkPassages(corpus)).toThrow(RangeError);
+    const frozen = Object.freeze([Object.freeze({ ...(TEST_PASSAGES[0] as Passage), text: "C’est" })]);
+    expect(() => checkPassages(frozen)).toThrow(RangeError);
+    expect(() => checkPassages(frozen)).toThrow(RangeError);
+  });
 });
 
 describe("applyPassageOptions: numbers off keeps the marks balanced", () => {
@@ -70,5 +81,57 @@ describe("applyPassageOptions: numbers off removes a run of numbers whole", () =
     expect(applyPassageOptions("Il paya (1 000) francs.", off)).toBe("Il paya francs.");
     expect(applyPassageOptions('Il cria "12 345 !" puis rien.', off)).toBe("Il cria ! puis rien.");
     expect(applyPassageOptions("La guerre de 1914 - 1918 fut longue.", off)).toBe("La guerre de fut longue.");
+  });
+
+  it("never crosses a quote, a parenthesis or a sentence end", () => {
+    expect(applyPassageOptions("En 1914 (1918 pour d'autres) la guerre.", off)).toBe("En (pour d'autres) la guerre.");
+    expect(applyPassageOptions("(Il 1491) 1837!", off)).toBe("(Il)!");
+    expect(applyPassageOptions("Il compta 1, 2, 3 (4) fois.", off)).toBe("Il compta fois.");
+    expect(applyPassageOptions("Il naquit en 1914. 1918 fut dure.", off)).toBe("Il naquit en. fut dure.");
+    expect(applyPassageOptions("Il naquit en 1802 (1803 selon certains) à Besançon.", off)).toBe("Il naquit en (selon certains) à Besançon.");
+    expect(applyPassageOptions("Ils étaient (au total 12) 13 jours en mer.", off)).toBe("Ils étaient (au total) jours en mer.");
+    expect(applyPassageOptions('Il dit en 1914 "1918 sera la fin" sans rire.', off)).toBe('Il dit en "sera la fin" sans rire.');
+  });
+
+  it("never doubles an end mark standing alone, nor leaves a dash with nothing on one side", () => {
+    expect(applyPassageOptions("Victoire ! 1918 ! La paix revient.", off)).toBe("Victoire ! La paix revient.");
+    expect(applyPassageOptions("Combien ? 3 ? Non, 4 ! Puis rien.", off)).toBe("Combien ? Non, Puis rien.");
+    expect(applyPassageOptions("Il cria 1918 ! puis rien.", off)).toBe("Il cria ! puis rien.");
+    expect(applyPassageOptions("Victoire ! 1918, la paix revient.", off)).toBe("Victoire ! la paix revient.");
+    expect(applyPassageOptions("La guerre - 1914 - commence ici.", off)).toBe("La guerre commence ici.");
+    expect(applyPassageOptions("1914 - La guerre commence ici.", off)).toBe("La guerre commence ici.");
+  });
+
+  it("keeps quotes and parentheses balanced over seeded passages", () => {
+    const random = createRandom([0x0bad_cafe, 0x1234_5678, 0x9abc_def0, 0x0fed_cba9]);
+    const pick = <T>(items: readonly T[]): T => items[random.index(items.length)] as T;
+    const balanced = (text: string): boolean => {
+      let depth = 0;
+      for (const character of text) {
+        depth += character === "(" ? 1 : character === ")" ? -1 : 0;
+        if (depth < 0) return false;
+      }
+      return depth === 0 && [...text].filter((character) => character === '"').length % 2 === 0;
+    };
+    // Groups of words and numbers, each maybe wrapped, with commas, end marks and dashes between them.
+    const group = (): string[] => {
+      const tokens = Array.from({ length: 1 + random.index(4) }, () => pick(["mer", "vent", "port", "12", "1 000", "1914 - 1918", "3,"]).split(" ")).flat();
+      const wrapper = pick(["", "", "(", '"']);
+      if (wrapper !== "") {
+        tokens[0] = wrapper + tokens[0];
+        tokens[tokens.length - 1] = `${tokens[tokens.length - 1]}${wrapper === "(" ? ")" : '"'}`;
+      }
+      return tokens;
+    };
+    for (let round = 0; round < 3_000; round += 1) {
+      const tokens = [...Array.from({ length: 1 + random.index(5) }, () => [...group(), pick(["", "", ",", ".", "!", "-"])]).flat().filter((token) => token !== "")];
+      // English attaches its marks; French keeps a space before "!".
+      const passage = `Il ${tokens.join(" ")}`.replace(round % 2 === 0 ? / ([,.!])/gu : / ([,.])/gu, "$1");
+      expect(balanced(passage)).toBe(true);
+      const result = applyPassageOptions(passage, off);
+      const resultTokens = result.split(" ");
+      const doubled = resultTokens.some((token, index) => index > 0 && /^[.!?]$/u.test(token) && /[.!?]["')]*$/u.test(resultTokens[index - 1] ?? ""));
+      expect({ passage, result, balanced: balanced(result), dashes: / - - /u.test(` ${result} `), doubled }).toEqual({ passage, result, balanced: true, dashes: false, doubled: false });
+    }
   });
 });

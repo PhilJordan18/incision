@@ -62,8 +62,14 @@ const isRandom = (sources: RaceTextSources): sources is RandomSources => sources
 
 type Proven = Exclude<RaceTextRefusal, "TEXT_SEARCH_EXHAUSTED">;
 
-/** The refusals that need no draw, with the random plan built once for the draw that follows. */
-function prepare(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>>): { readonly refusal?: Proven; readonly plan?: RandomPlan } {
+type Prepared = {
+  readonly refusal?: Proven;
+  readonly plan?: RandomPlan;
+  readonly compatible?: readonly { readonly passage: Passage; readonly cut: string }[];
+};
+
+/** The refusals that need no draw, with the random plan or the coherent cuts built once for the draw that follows. */
+function prepare(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>>): Prepared {
   const settingsRefusal = textSettingsRefusal(sources.settings, criteria);
   if (settingsRefusal !== undefined) return { refusal: settingsRefusal };
   if (isRandom(sources)) {
@@ -71,7 +77,12 @@ function prepare(sources: RaceTextSources, criteria: Readonly<Record<Complexity,
     return { refusal: randomContentRefusal(plan), plan };
   }
   checkPassages(sources.passages);
-  return sources.passages.some((passage) => passageCut(passage, sources.settings) !== undefined) ? {} : { refusal: "NO_COMPATIBLE_PASSAGE" };
+  const { settings } = sources;
+  const compatible = sources.passages.flatMap((passage) => {
+    const cut = passageCut(passage, settings);
+    return cut === undefined ? [] : [{ passage, cut }];
+  });
+  return compatible.length > 0 ? { compatible } : { refusal: "NO_COMPATIBLE_PASSAGE" };
 }
 
 /** Every refusal that needs no draw, in priority order; never a text. */
@@ -81,7 +92,7 @@ export function raceTextRefusal(sources: RaceTextSources, criteria: Readonly<Rec
 
 export function generateRaceText(input: RaceTextInput): RaceTextResult {
   const criteria = input.criteria ?? COMPLEXITY_CRITERIA;
-  const { refusal, plan } = prepare(input, criteria);
+  const { refusal, plan, compatible } = prepare(input, criteria);
   if (refusal !== undefined) return { ok: false, reason: refusal };
   const random = createRandom(input.state);
   const versions: RaceTextVersions = { generator: TEXT_GENERATOR_VERSION, criteria: CRITERIA_VERSION, normalization: NORMALIZATION_VERSION, prng: PRNG_VERSION };
@@ -100,10 +111,7 @@ export function generateRaceText(input: RaceTextInput): RaceTextResult {
     };
   }
   const { settings, passages } = input;
-  const compatible = passages.flatMap((passage) => {
-    const cut = passageCut(passage, settings);
-    return cut === undefined ? [] : [{ passage, cut }];
-  });
+  if (compatible === undefined) throw new RangeError("A coherent request always has its cuts");
   const chosen = compatible[random.index(compatible.length)];
   if (chosen === undefined) throw new RangeError("raceTextRefusal and the coherent draw disagree");
   assertValid(chosen.cut, { settings, passages }, criteria);
@@ -188,6 +196,13 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
     check(!rule(left, right), "no forbidden pair side by side");
   }
   check(!options.numbers || cores.some((core) => NUMBER.test(core)), "at least one number with numbers on");
+  // A drawn text wraps whole words, so its marks pair up; a passage cut may stop inside a pair.
+  let depth = 0;
+  for (const character of text) {
+    depth += character === "(" ? 1 : character === ")" ? -1 : 0;
+    if (depth < 0) break;
+  }
+  check(depth === 0 && [...text].filter((character) => character === '"').length % 2 === 0, "quotes and parentheses in pairs");
   const marks = availableMarks(settings, level);
   if (options.punctuation) {
     const used = [...text].filter((character) => MARK_SET.has(character));
