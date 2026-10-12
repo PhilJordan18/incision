@@ -72,12 +72,13 @@ export function parseWordListSource(source: string): WordList {
       entries.push({ word, zipf: centiZipf / 100 });
     }
   }
-  return { language, version, entries };
+  // Frozen: the engine caches per list object (folded forms, Zipf), which a change in place would make stale.
+  return Object.freeze({ language, version, entries: Object.freeze(entries.map((entry) => Object.freeze(entry))) });
 }
 
 export function parseExclusionSource(source: string): ExclusionList {
   const { language, version, lines } = header(source, "exclusions");
-  return { language, version, words: lines.map((line) => checkedWord(line, language, `exclusions ${language}`)) };
+  return Object.freeze({ language, version, words: Object.freeze(lines.map((line) => checkedWord(line, language, `exclusions ${language}`))) });
 }
 
 export function parsePairSource(source: string): ForbiddenPairList {
@@ -90,5 +91,5 @@ export function parsePairSource(source: string): ForbiddenPairList {
     }
     return [checkedWord(words[0] ?? "", language, `pairs ${language}`), checkedWord(words[1] ?? "", language, `pairs ${language}`)];
   });
-  return { language, version, pairs };
+  return Object.freeze({ language, version, pairs: Object.freeze(pairs.map((pair) => Object.freeze(pair))) });
 }

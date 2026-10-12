@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateRaceText, normalizePassage, raceTextRefusal, type RandomTextSettings, type RandomWords } from "../../../packages/domain/src/index";
+import { COMPLEXITY_CRITERIA, generateRaceText, normalizePassage, raceTextRefusal, type RandomTextSettings, type RandomWords } from "../../../packages/domain/src/index";
 
 /**
  * Cost of the engine's text generation at production size (F-02.5, security review): the engine's
@@ -42,6 +42,25 @@ describe("generator cost on a 60,000-word list", () => {
     // Generous bounds for slow CI machines; the measured values are reported in the PR.
     expect(refusalMs).toBeLessThan(500);
     expect(generationMs).toBeLessThan(1_500);
+  }, 60_000);
+
+  it("ends a search no count can refuse within its work budget", () => {
+    // Every word holds "a" and two of b to i, so three words never hold the nine letters, and no
+    // proof sees it: each cover is abandoned at its fourth word, until the budget is spent.
+    const triples = [..."bcdefghi"].flatMap((first, index, all) => all.slice(index + 1).map((second) => `a${first}${second}`));
+    const tail = [..."jklmnpqrstuvwxyz"];
+    const hard: string[] = [];
+    for (const one of tail) for (const two of tail) for (const three of tail) for (const triple of triples) hard.push(`${triple}${one}${two}${three}`);
+    const exhausting: RandomWords = { ...words, list: { language: "en", version: "synthetic", entries: hard.slice(0, 60_000).map((word) => ({ word, zipf: 5 })) }, exclusions: { language: "en", version: "synthetic", words: [] }, pairs: { language: "en", version: "synthetic", pairs: [] } };
+    const criteria = { ...COMPLEXITY_CRITERIA, hard: { ...COMPLEXITY_CRITERIA.hard, maxNumber: 9 } };
+    const failing: RandomTextSettings = { ...settings, language: "en", wordCount: 10, include: [..."abcdefghi0123456"] };
+    expect(raceTextRefusal({ settings: failing, words: exhausting }, criteria)).toBeUndefined();
+    generateRaceText({ settings: failing, words: exhausting, state: states[0] as [number, number, number, number], criteria });
+    const started = performance.now();
+    for (const state of states) expect(generateRaceText({ settings: failing, words: exhausting, state, criteria })).toEqual({ ok: false, reason: "TEXT_SEARCH_EXHAUSTED" });
+    const exhaustedMs = (performance.now() - started) / states.length;
+    console.info(`60k words: exhausted search ${exhaustedMs.toFixed(0)} ms per call`);
+    expect(exhaustedMs).toBeLessThan(1_500);
   }, 60_000);
 
   it("normalises long runs of spaces and marks in linear time", () => {

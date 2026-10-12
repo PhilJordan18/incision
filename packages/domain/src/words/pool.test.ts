@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWordPool, foldForExclusion, forbiddenPairRule } from "./pool";
+import { buildWordPool, foldedEntries, foldedWord, foldForExclusion, forbiddenPairRule } from "./pool";
 import type { ExclusionList, ForbiddenPairList, WordList } from "./types";
 
 const list = (...words: string[]): WordList => ({
@@ -92,5 +92,15 @@ describe("forbiddenPairRule", () => {
 
   it("forbids nothing for an empty list", () => {
     expect(forbiddenPairRule(pairs())("sale", "juif")).toBe(false);
+  });
+});
+
+describe("foldedEntries and foldedWord", () => {
+  it("fold each entry once per list, and any other word on demand", () => {
+    const words = list("Été", "mer");
+    expect(foldedEntries(words)).toEqual(["ete", "mer"]);
+    expect(foldedEntries(words)).toBe(foldedEntries(words));
+    expect(foldedWord(words, "Été")).toBe("ete");
+    expect(foldedWord(words, "Où")).toBe("ou");
   });
 });

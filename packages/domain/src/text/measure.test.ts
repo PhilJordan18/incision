@@ -75,4 +75,11 @@ describe("measureText: review findings", () => {
     const english: WordList = { language: "en", version: "t", entries: [{ word: "so", zipf: 6 }, { word: "i", zipf: 6.5 }, { word: "ran", zipf: 4.8 }] };
     expect(measureText("So I ran", english, 4)).toMatchObject({ rareWordShare: 0, unknownWords: [] });
   });
+
+  it("keeps English contractions of I in the vocabulary measure, and tokens with a digit out of M1 to M3", () => {
+    // "i'm" is rare in this list, so counting it shows that it was measured, not set aside as a name.
+    const english: WordList = { language: "en", version: "t", entries: [{ word: "so", zipf: 6 }, { word: "i'm", zipf: 3 }, { word: "here", zipf: 6 }] };
+    expect(measureText("So I'm here", english, 4)).toMatchObject({ rareWordShare: 100 / 3, unknownWords: [] });
+    expect(measureText("La 1er mer", list, 4)).toMatchObject({ measuredWords: 3, meanLetters: 2.5, rareWordShare: 0, unknownWords: [] });
+  });
 });

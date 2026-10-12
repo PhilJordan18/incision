@@ -14,7 +14,7 @@ export const MEASURED_WORDS = 200;
 export type TextMeasures = {
   readonly words: number;
   readonly measuredWords: number;
-  /** M1: mean letters per word holding letters (numbers aside). */
+  /** M1: mean letters per word holding letters (tokens with a digit aside). */
   readonly meanLetters: number;
   /** M2: percentage of those words longer than 9 letters. */
   readonly longWordShare: number;
@@ -56,12 +56,14 @@ export function measureText(text: string, list: WordList, commonZipf: number): T
     n += 1;
     const core = token.replace(LEADING_MARKS, "").replace(TRAILING_MARKS, "");
     const count = core.match(LETTER)?.length ?? 0;
-    if (count > 0) {
+    // A token with a digit ("1866", "1er") is a number, kept out of the letter and vocabulary measures.
+    if (count > 0 && !/\p{N}/u.test(core)) {
       lettered += 1;
       letters += count;
       long += count > 9 ? 1 : 0;
-      // A capital away from a sentence start marks a proper noun (English "I" aside), which leaves the vocabulary measure.
-      if (!(/^\p{Lu}/u.test(core) && !sentenceStart && core !== "I")) {
+      // A capital away from a sentence start marks a proper noun (English "I" and its contractions
+      // aside), which leaves the vocabulary measure.
+      if (!(/^\p{Lu}/u.test(core) && !sentenceStart && !/^I(?:'|$)/u.test(core))) {
         considered += 1;
         // Elisions are looked up the way wordfreq splits them ("l'eau" as "eau"); hyphenated words part by
         // part, without one-letter parts such as the euphonic t of "va-t-il".

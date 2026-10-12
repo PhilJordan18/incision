@@ -3,7 +3,7 @@
  * `textSettingsRefusal` runs in the browser as the host configures, and again on the server.
  */
 import { TEXT_LANGUAGES, type TextLanguage } from "../words/types";
-import { toGraphemes } from "./graphemes";
+import { MAX_GRAPHEME_LENGTH, toGraphemes } from "./graphemes";
 import { DIGITS, HARD_TO_TYPE_LETTERS, MARKS, WORD_LETTERS, type Mark } from "./typable";
 
 export const TEXT_KINDS = ["coherent", "random"] as const;
@@ -90,6 +90,7 @@ export const MAX_SETTING_CHARACTERS = 100;
  * æ, which random mode avoids for now: P-4).
  */
 export function settingCharacter(input: string, language: TextLanguage): string | undefined {
+  if (input.length > MAX_GRAPHEME_LENGTH) return undefined;
   const graphemes = toGraphemes(input);
   const character = graphemes.length === 1 ? (graphemes[0] ?? "").toLowerCase() : "";
   const letters = [...WORD_LETTERS[language]].filter((letter) => !HARD_TO_TYPE_LETTERS.includes(letter));
@@ -120,8 +121,10 @@ export function checkCriteria(criteria: Readonly<Record<Complexity, ComplexityCr
     const digits = String(level.maxNumber).length;
     if (
       !Number.isInteger(level.maxLetters) || level.maxLetters < 1 || !Number.isFinite(level.minZipf) ||
-      !Number.isInteger(shortest) || !Number.isInteger(longest) || shortest < 1 || longest < shortest ||
-      level.maxNumber !== 10 ** digits - 1 || !level.marks.every((mark) => (MARKS as readonly string[]).includes(mark))
+      // Sentences of two tokens at least leave a gap for every inner mark a host may include.
+      !Number.isInteger(shortest) || !Number.isInteger(longest) || shortest < 2 || longest < shortest ||
+      level.maxNumber !== 10 ** digits - 1 || !level.marks.every((mark) => (MARKS as readonly string[]).includes(mark)) ||
+      level.marks.includes("(") !== level.marks.includes(")")
     ) {
       throw new RangeError(`Invalid complexity criteria for ${complexity}`);
     }

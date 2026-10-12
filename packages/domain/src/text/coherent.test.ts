@@ -61,3 +61,14 @@ describe("applyPassageOptions: numbers off keeps the marks balanced", () => {
     expect(applyPassageOptions("la fin - 1866. Le jour", off)).toBe("la fin. - Le jour");
   });
 });
+
+describe("applyPassageOptions: numbers off removes a run of numbers whole", () => {
+  const off = { punctuation: true, numbers: false, capitals: true, accents: true };
+
+  it("takes the marks the numbers open and close with them", () => {
+    expect(applyPassageOptions("Jules Verne (1828 - 1905) est né.", off)).toBe("Jules Verne est né.");
+    expect(applyPassageOptions("Il paya (1 000) francs.", off)).toBe("Il paya francs.");
+    expect(applyPassageOptions('Il cria "12 345 !" puis rien.', off)).toBe("Il cria ! puis rien.");
+    expect(applyPassageOptions("La guerre de 1914 - 1918 fut longue.", off)).toBe("La guerre de fut longue.");
+  });
+});

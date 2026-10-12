@@ -272,31 +272,40 @@ Stored values are bounded, so database columns can be sized from these constants
   composition included. Invisible characters, primes and anything untypable (bidirectional
   controls, œ and æ until P-4) are refused with their position, never changed blindly.
 - **Words.** A word is a token holding a letter or a digit (D-10): a lone `?` or a dash is none.
-  A cut ends after its Nth word, with the closing punctuation that directly follows; never on a
-  lone dash or an opening mark.
+  A cut ends after its Nth word, with the closing punctuation that directly follows (a closing
+  quote included); never on a lone dash or an opening mark. Measures leave tokens with a digit
+  ("1866", "1er") out of M1 to M3.
 - **Coherent mode.** The options apply to the normalised passage first (numbers, punctuation,
   capitals, accents, in that order), then the text is cut after its Nth word from the passage's
-  start. Nothing is invented, rewritten or joined from distant passages.
+  start. Nothing is invented, rewritten or joined from distant passages. With numbers off, a run
+  of numbers ("1914 - 1918", "1 000") goes whole, with the quotes or parentheses it opens and
+  closes, so the marks stay balanced.
 - **Random mode.** The pool removes the exclusions first, then applies the band, the accents
   policy (words without diacritics when accents are off, never misspelled), the excluded
   characters, and leaves out œ and æ. Two words are the same when they are spelled the same ("la"
   and "là" differ, Q-7); forbidden pairs compare folded forms, and a number between two words
   does not separate them. Proven incompatibilities are refused before any draw:
-  `NO_COMPATIBLE_WORDS`, `INCLUDED_CHARACTER_UNAVAILABLE`, `INCLUDED_CHARACTERS_DO_NOT_FIT` (by
-  counting) and `FORBIDDEN_PAIRS_UNAVOIDABLE`; they hold under the documented number rule (about
-  one token in ten, Q-4). The draw is then a deterministic, bounded search (`COVER_ATTEMPTS`,
-  `ARRANGE_ATTEMPTS`, `DRAWS_PER_SLOT`) that redraws the words covering the included letters,
-  places them and the drawn words so that no word repeats and no forbidden pair touches, then
-  inserts the numbers; no word is deleted afterwards. When it ends without a text it answers
-  `TEXT_SEARCH_EXHAUSTED`, which proves nothing. The pool is built once per call from data
-  prepared once per list, so a 200-word text from 60,000 words takes about 0.2 s.
+  `NO_COMPATIBLE_WORDS`, `INCLUDED_CHARACTER_UNAVAILABLE`, `INCLUDED_CHARACTERS_DO_NOT_FIT` and
+  `FORBIDDEN_PAIRS_UNAVOIDABLE`. The fit is counted: letters no word holds together each need a
+  word, no word holds more letters than the richest one, each included end mark needs a sentence
+  and each quote or parenthesis a word of its own. These proofs hold under the documented rules
+  (about one number in ten tokens, Q-4; a sentence starts with a word, Q-2). The draw is then a
+  deterministic, bounded search (`COVER_ATTEMPTS`, `ARRANGE_ATTEMPTS`, `DRAWS_PER_SLOT`, and a
+  work budget, `COVER_WORK_BUDGET`, counted in word visits rather than time). It redraws the
+  words covering the included letters, abandons a cover as soon as it outgrows the word slots,
+  places the cover and the drawn words so that no word repeats and no forbidden pair touches,
+  then inserts the numbers; no word is deleted afterwards. When it ends without a text it answers
+  `TEXT_SEARCH_EXHAUSTED`, which proves nothing. On a synthetic list of 60,000 words, a 200-word
+  text takes about 0.2 s, and a search that fails ends in about 0.25 s.
 - **Final checks.** `raceTextViolations` lists every guarantee the final text breaks: exactly N
   words, typable characters, no line break, the grapheme bound, each option's effect; in random
   mode, each word read from the list itself (band, exclusions, alphabet, accents), included and
   excluded characters, repeats, pairs, numbers, marks and their spacing, a word at each sentence
   start, and capitals only there when every sentence end shows a mark. `generateRaceText` throws
-  on any, since a broken guarantee is a bug; the message never quotes a word of the text. It returns the text with its versions (generator, criteria,
-  normalisation, PRNG) and its provenance (list versions and pool size, or the passage id).
+  on any, since a broken guarantee is a bug. A rule never names a word of the text, since one may
+  be an excluded word and the message reaches logs. `generateRaceText` returns the text with its
+  versions (generator, criteria, normalisation, PRNG) and its provenance (list versions and pool
+  size, or the passage id).
 - **Seed.** The generator takes a `RandomState` drawn by the server with crypto for this text
   alone, kept private (Q-15).
 

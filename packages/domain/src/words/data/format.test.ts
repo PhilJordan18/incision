@@ -97,6 +97,13 @@ describe("parseExclusionSource and parsePairSource", () => {
     });
   });
 
+  it("freeze what they return, which the engine caches per object", () => {
+    const list = parseWordListSource(words("523 de la"));
+    const exclusions = parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions en v1\nfoo`);
+    const pairs = parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nsale juif`);
+    expect([list, list.entries, list.entries[0], exclusions, exclusions.words, pairs, pairs.pairs, pairs.pairs[0]].every((part) => Object.isFrozen(part))).toBe(true);
+  });
+
   it.each([
     ["an exclusion with a space", () => parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions fr v1\nmot interdit`)],
     ["an uppercase exclusion", () => parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions fr v1\nInterdit`)],

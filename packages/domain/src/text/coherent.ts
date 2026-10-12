@@ -52,24 +52,50 @@ export function applyPassageOptions(text: string, options: TextOptions): string 
   return result;
 }
 
+const CLOSER: Readonly<Record<string, string>> = { "(": ")", '"': '"' };
+
+/**
+ * Removes number tokens. A run of numbers joined by dashes ("1914 - 1918", "1 000") goes as one
+ * unit; marks it opens and closes go with it; a closer it opened that sits in the next punctuation
+ * token goes too; its other closing and end marks move onto the previous word.
+ */
 function withoutNumbers(tokens: readonly string[]): string[] {
+  const source = [...tokens];
   const kept: string[] = [];
   let pendingOpeners = "";
-  for (const token of tokens) {
+  let index = 0;
+  while (index < source.length) {
+    const token = source[index] ?? "";
     if (!HAS_DIGIT.test(token)) {
-      kept.push(isWordToken(token) ? pendingOpeners + token : token);
+      if (token !== "") kept.push(isWordToken(token) ? pendingOpeners + token : token);
       if (isWordToken(token)) pendingOpeners = "";
+      index += 1;
       continue;
     }
-    let openers = token.match(LEADING_OPENERS)?.[0] ?? "";
-    let trailing = token.match(TRAILING_MARKS)?.[0] ?? "";
-    // A mark the number both opens and closes goes with it.
+    let end = index;
+    while (HAS_DIGIT.test(source[end + 1] ?? "") || (source[end + 1] === "-" && HAS_DIGIT.test(source[end + 2] ?? ""))) {
+      end += 1;
+    }
+    let openers = source[index]?.match(LEADING_OPENERS)?.[0] ?? "";
+    let trailing = source[end]?.match(TRAILING_MARKS)?.[0] ?? "";
     for (const opener of [...openers]) {
-      const closer = opener === "(" ? ")" : '"';
+      const closer = CLOSER[opener] ?? "";
       if (trailing.includes(closer)) {
         trailing = trailing.replace(closer, "");
         openers = openers.replace(opener, "");
       }
+    }
+    const next = source[end + 1];
+    if (openers !== "" && next !== undefined && !isWordToken(next)) {
+      let rest = next;
+      for (const opener of [...openers]) {
+        const closer = CLOSER[opener] ?? "";
+        if (rest.includes(closer)) {
+          rest = rest.replace(closer, "");
+          openers = openers.replace(opener, "");
+        }
+      }
+      source[end + 1] = rest;
     }
     pendingOpeners += openers;
     const previous = kept.findLastIndex(isWordToken);
@@ -79,6 +105,7 @@ function withoutNumbers(tokens: readonly string[]): string[] {
       const ends = /[.,;:!?]$/u.test(word.replace(/[)"]+$/u, "")) ? "" : trailing.replace(/[)"]/gu, "");
       kept[previous] = word + ends + closers;
     }
+    index = end + 1;
   }
   return kept;
 }

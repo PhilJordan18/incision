@@ -73,6 +73,10 @@ describe("textSettingsRefusal", () => {
 
   it("throws on values only a bug can produce", () => {
     expect(() => textSettingsRefusal({ ...random(), complexity: "extreme" } as unknown as RandomTextSettings)).toThrow(RangeError);
+    const oneTokenSentences = { ...COMPLEXITY_CRITERIA, easy: { ...COMPLEXITY_CRITERIA.easy, sentenceTokens: [1, 4] as const } };
+    expect(() => textSettingsRefusal(random(), oneTokenSentences)).toThrow(RangeError);
+    const halfPair = { ...COMPLEXITY_CRITERIA, hard: { ...COMPLEXITY_CRITERIA.hard, marks: [".", "("] as const } };
+    expect(() => textSettingsRefusal(random(), halfPair)).toThrow(RangeError);
     expect(() => textSettingsRefusal({ ...coherent(), language: "es" } as unknown as CoherentTextSettings)).toThrow(RangeError);
   });
 });
@@ -82,6 +86,8 @@ describe("settingCharacter and availableMarks", () => {
     expect(settingCharacter("É", "fr")).toBe("é");
     expect(settingCharacter("é", "en")).toBeUndefined();
     expect(settingCharacter(";", "en")).toBe(";");
+    expect(settingCharacter("e".repeat(100_000), "fr")).toBeUndefined();
+    expect(settingCharacter(`e${String.fromCodePoint(0x301).repeat(40)}`, "fr")).toBeUndefined();
   });
 
   it("adds included marks to the complexity's and removes excluded ones, with their partner", () => {

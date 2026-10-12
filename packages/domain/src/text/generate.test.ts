@@ -205,6 +205,40 @@ describe("refusals: proven incompatibilities, then an exhausted search", () => {
     expect(raceTextRefusal({ settings: { ...settings, include: [..."acegikmoqs"] }, words })).toBeUndefined();
   });
 
+  it("counts letters that never share a word, each needing its own", () => {
+    // "abcd" holds four letters, but e to i stand in separate words: with a, six words at least, for five slots.
+    const words = custom(["abcd", "ee", "ff", "gg", "hh", "ii", "oo"]);
+    const settings = randomSettings({ language: "en", wordCount: 10, complexity: "easy", include: [..."0123456789abcdefghi"] });
+    expect(raceTextRefusal({ settings, words })).toBe("INCLUDED_CHARACTERS_DO_NOT_FIT");
+    const fewer = { ...settings, include: [..."0123456789abcdefgh"] };
+    expect(raceTextRefusal({ settings: fewer, words })).toBeUndefined();
+    expect(generateRaceText({ settings: fewer, words, state: STATES[0] as RandomState }).ok).toBe(true);
+  });
+
+  it("ends without a text, and without a proof, when no cover fits the slots", () => {
+    // Each word holds "a" and two of b to i: three words never hold all nine letters, yet no count shows it.
+    const triples = [..."bcdefghi"].flatMap((first, index, all) => all.slice(index + 1).map((second) => `a${first}${second}`));
+    const criteria = { ...COMPLEXITY_CRITERIA, easy: { ...COMPLEXITY_CRITERIA.easy, maxNumber: 9 } };
+    const settings = randomSettings({ language: "en", wordCount: 10, complexity: "easy", include: [..."abcdefghi0123456"] });
+    expect(raceTextRefusal({ settings, words: custom(triples) }, criteria)).toBeUndefined();
+    for (const state of STATES.slice(0, 5)) {
+      expect(generateRaceText({ settings, words: custom(triples), state, criteria })).toEqual({ ok: false, reason: "TEXT_SEARCH_EXHAUSTED" });
+    }
+    // One digit fewer frees a fourth slot, and a text exists.
+    expect(generateRaceText({ settings: { ...settings, include: [..."abcdefghi012345"] }, words: custom(triples), state: STATES[0] as RandomState, criteria }).ok).toBe(true);
+  });
+
+  it("abandons a greedy cover that outgrows the slots and tries others", () => {
+    // Greedy starts with "abcd" and needs three words; "abe" and "cdf" hold the six letters in two.
+    const criteria = { ...COMPLEXITY_CRITERIA, easy: { ...COMPLEXITY_CRITERIA.easy, maxNumber: 9 } };
+    const settings = randomSettings({ language: "en", wordCount: 10, complexity: "easy", include: [..."abcdef01234567"] });
+    const words = custom(["abcd", "abe", "cdf"]);
+    expect(raceTextRefusal({ settings, words }, criteria)).toBeUndefined();
+    const results = STATES.slice(0, 20).map((state) => generateRaceText({ settings, words, state, criteria }));
+    expect(results.every((result) => result.ok || result.reason === "TEXT_SEARCH_EXHAUSTED")).toBe(true);
+    expect(results.filter((result) => result.ok).length).toBeGreaterThan(10);
+  });
+
   it("refuses a pool whose words may never be neighbours, when numbers cannot separate them", () => {
     const settings = randomSettings({ language: "en", wordCount: 10, options: { ...ALL_ON, numbers: false } });
     expect(raceTextRefusal({ settings, words: custom(["sea", "ship"], [["sea", "ship"]]) })).toBe("FORBIDDEN_PAIRS_UNAVOIDABLE");
@@ -275,14 +309,14 @@ describe("raceTextViolations: each guarantee is checked on the final text", () =
     ["a line break", "Star map\nsea star zest 12 wave map star wave.", "no line break"],
     ["nine words", "Star map sea star zest 12 wave map star.", "exactly 10 words"],
     ["an untypable letter", "Stär map sea star zest 12 wave map star wave.", "typable"],
-    ["a word outside the list", "Star map sea star zest 12 wave map star moon.", "is in the list"],
+    ["a word outside the list", "Star map sea star zest 12 wave map star moon.", "words from the list"],
     ["a number opening a sentence", "Star map sea. 12 zest star wave map star wave.", "a word at each sentence start"],
     ["an excluded character", "Star map sea star zest 12 wave map star wave. k", "excluded"],
     ["a missing included character", "Star map sea star wave 12 wave map star wave.", "every included"],
     ["a word twice in a row", "Star map sea star zest 12 wave wave star map.", "twice"],
     ["a forbidden pair", "Star map sea ship zest 12 wave map star wave.", "forbidden pair"],
     ["no number", "Star map sea star zest wave map star wave sea.", "at least one number"],
-    ["a leading zero", "Star map sea star zest 012 wave map star wave.", "allowed number"],
+    ["a leading zero", "Star map sea star zest 012 wave map star wave.", "without a leading zero"],
     ["no mark", "Star map sea star zest 12 wave map star wave", "at least one mark"],
     ["a mark outside the set", "Star map sea star zest 12 wave map star wave;", "available set"],
     ["a lowercase sentence start", "Star map sea. star zest 12 wave map star wave.", "capital"],
@@ -293,7 +327,7 @@ describe("raceTextViolations: each guarantee is checked on the final text", () =
   it("reports what each option off forbids", () => {
     const off = { ...settings, include: [], exclude: [], options: { punctuation: false, numbers: false, capitals: false, accents: false } };
     const violations = raceTextViolations("Star map sea star zest 12 wave map star wave.", { settings: off, words });
-    expect(violations).toEqual(expect.arrayContaining([expect.stringContaining("no digit"), expect.stringContaining("no mark"), expect.stringContaining("no capital"), expect.stringContaining("allowed number")]));
+    expect(violations).toEqual(expect.arrayContaining([expect.stringContaining("no digit"), expect.stringContaining("no mark"), expect.stringContaining("no capital"), expect.stringContaining("numbers up to")]));
     const french: CoherentTextSettings = { kind: "coherent", language: "fr", wordCount: 10, complexity: "easy", options: off.options };
     expect(raceTextViolations("la mer est très calme et le vent souffle fort", { settings: french, passages: [] })).toEqual([expect.stringContaining("no diacritic")]);
   });
@@ -373,6 +407,19 @@ describe("review findings, kept as regressions", () => {
     expect(raceTextRefusal({ settings, words: WORDS.fr }, criteria)).toBe("INCLUDED_CHARACTERS_DO_NOT_FIT");
   });
 
+  it("refuses end marks, quotes or parentheses that need more words than the slots, with injected criteria", () => {
+    // One-digit numbers: each included digit takes a token, and the words left cannot hold the marks.
+    const criteria = { ...COMPLEXITY_CRITERIA, easy: { ...COMPLEXITY_CRITERIA.easy, maxNumber: 9 } };
+    const ends = (digits: string): RandomTextSettings => randomSettings({ complexity: "easy", wordCount: 10, include: [...digits, ".", "?", "!"] });
+    expect(raceTextRefusal({ settings: ends("01234567"), words: WORDS.fr }, criteria)).toBe("INCLUDED_CHARACTERS_DO_NOT_FIT");
+    const wrapped = (digits: string): RandomTextSettings => randomSettings({ complexity: "easy", wordCount: 10, include: [...digits, '"', ")"] });
+    expect(raceTextRefusal({ settings: wrapped("012345678"), words: WORDS.fr }, criteria)).toBe("INCLUDED_CHARACTERS_DO_NOT_FIT");
+    for (const state of STATES.slice(0, 20)) {
+      expect(text(generateRaceText({ settings: ends("0123456"), words: WORDS.fr, state, criteria }))).toMatch(/^(?=.*\.)(?=.*\?)(?=.*!)/u);
+      expect(text(generateRaceText({ settings: wrapped("01234567"), words: WORDS.fr, state, criteria }))).toMatch(/^(?=.*")(?=.*\()/u);
+    }
+  });
+
   it("throws on criteria or settings only a bug can produce", () => {
     const criteria = { ...COMPLEXITY_CRITERIA, easy: { ...COMPLEXITY_CRITERIA.easy, sentenceTokens: [0, 0] as const } };
     expect(() => raceTextRefusal({ settings: randomSettings({ complexity: "easy" }), words: WORDS.fr }, criteria)).toThrow(RangeError);
@@ -387,12 +434,19 @@ describe("raceTextViolations: checks added after the reviews", () => {
   const sources = { settings, words: { ...words, exclusions: { language: "en" as const, version: "custom", words: ["bad"] } } };
 
   it.each([
-    ["an excluded word", "Star map sea bad zest 12 wave map star wave.", "is not excluded"],
+    ["an excluded word", "Star map sea bad zest 12 wave map star wave.", "no excluded word"],
     ["a capital away from a sentence start", "Star Map sea star zest 12 wave map star wave.", "capitals only at sentence starts"],
     ["a forbidden pair across a number", "Star map sea 12 ship zest wave map star wave.", "forbidden pair"],
     ["an English mark standing alone", "Star map sea star zest 12 wave map star wave !", "no space before"],
   ])("reports %s", (_label, candidate, rule) => {
     expect(raceTextViolations(candidate, sources).some((violation) => violation.includes(rule))).toBe(true);
+  });
+
+  it("never names a word of the text, and reports each rule once", () => {
+    const violations = raceTextViolations("Star bad sea bad zest 12 moon map star wave.", sources);
+    expect(violations).toEqual(expect.arrayContaining(["no excluded word", expect.stringContaining("words from the list")]));
+    expect(violations.filter((violation) => violation === "no excluded word")).toHaveLength(1);
+    for (const word of ["bad", "moon", "zest"]) expect(violations.join(" ").toLowerCase()).not.toContain(word);
   });
 
   it("reports a French high mark attached to its word", () => {

@@ -18,16 +18,29 @@ export function foldForExclusion(word: string): string {
     .normalize("NFC");
 }
 
-/** Folded forms of a list's entries, computed once per list object: lists are immutable data. */
-const FOLDED = new WeakMap<WordList, readonly string[]>();
+/**
+ * Folded forms of a list's entries, computed once per list object. Lists are immutable data: the
+ * parsers freeze them, and a list changed in place after a first use would keep stale forms.
+ */
+const FOLDED = new WeakMap<WordList, { readonly byIndex: readonly string[]; readonly byWord: ReadonlyMap<string, string> }>();
 
-export function foldedEntries(list: WordList): readonly string[] {
+function folds(list: WordList): { readonly byIndex: readonly string[]; readonly byWord: ReadonlyMap<string, string> } {
   let folded = FOLDED.get(list);
   if (folded === undefined) {
-    folded = list.entries.map((entry) => foldForExclusion(entry.word));
+    const byIndex = list.entries.map((entry) => foldForExclusion(entry.word));
+    folded = { byIndex, byWord: new Map(list.entries.map((entry, index) => [entry.word, byIndex[index] ?? ""])) };
     FOLDED.set(list, folded);
   }
   return folded;
+}
+
+export function foldedEntries(list: WordList): readonly string[] {
+  return folds(list).byIndex;
+}
+
+/** The folded form of a word of the list, from the same cache. */
+export function foldedWord(list: WordList, word: string): string {
+  return folds(list).byWord.get(word) ?? foldForExclusion(word);
 }
 
 /**

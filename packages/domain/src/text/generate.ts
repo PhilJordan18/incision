@@ -134,12 +134,13 @@ function zipfOf(list: WordList): ReadonlyMap<string, number> {
  * Every guarantee the final text breaks, after all transformations; empty for a valid text. The
  * random checks read the list, the exclusions and the alphabet directly, never the pool, so a
  * faulty pool cannot vouch for itself. generateRaceText throws on any: a broken guarantee is a bug.
+ * A rule never names a word of the text: one may be an excluded word, and rules reach logs.
  */
 export function raceTextViolations(text: string, sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>> = COMPLEXITY_CRITERIA): readonly string[] {
   const { options, language, wordCount } = sources.settings;
-  const violations: string[] = [];
+  const violations = new Set<string>();
   const check = (holds: boolean, rule: string): void => {
-    if (!holds) violations.push(rule);
+    if (!holds) violations.add(rule);
   };
   const tokens = tokensOf(text);
   check(text === text.normalize("NFC") && !/\s{2}|^\s|\s$/u.test(text) && !/[^\S ]/u.test(text), "one plain space between tokens, NFC");
@@ -151,7 +152,7 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
   check(options.punctuation || (![...text].some((character) => MARK_SET.has(character)) && !tokens.some((token) => /^['-]|['-]$/u.test(token))), "no mark with punctuation off");
   check(options.capitals || text === text.toLowerCase(), "no capital with capitals off");
   check(options.accents || !/[^ -~]/u.test(text), "no diacritic with accents off");
-  if (!isRandom(sources)) return violations;
+  if (!isRandom(sources)) return [...violations];
 
   const { settings, words } = sources;
   const level = criteria[settings.complexity];
@@ -164,14 +165,14 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
   const cores = tokens.filter(isWordToken).map(coreOf);
   for (const core of cores) {
     if (NUMBER.test(core)) {
-      check(options.numbers && Number(core) <= level.maxNumber && !(core.length > 1 && core.startsWith("0")), `"${core}" is an allowed number`);
+      check(options.numbers && Number(core) <= level.maxNumber && !(core.length > 1 && core.startsWith("0")), `numbers up to ${level.maxNumber}, without a leading zero`);
       continue;
     }
-    check((zipf.get(core) ?? Number.NEGATIVE_INFINITY) >= level.minZipf, `"${core}" is in the list, at Zipf ${level.minZipf} or more`);
-    check([...core].length <= level.maxLetters, `"${core}" has at most ${level.maxLetters} letters`);
-    check(!excluded.has(foldForExclusion(core)), `"${core}" is not excluded`);
-    check(usesWordLetters(core, language) && ![...core].some((character) => HARD_TO_TYPE_LETTERS.includes(character) || excludedCharacters.includes(character)), `"${core}" uses allowed letters`);
-    check(options.accents || /^[a-z']+$/u.test(core), `"${core}" has no diacritic with accents off`);
+    check((zipf.get(core) ?? Number.NEGATIVE_INFINITY) >= level.minZipf, `words from the list, at Zipf ${level.minZipf} or more`);
+    check([...core].length <= level.maxLetters, `words of at most ${level.maxLetters} letters`);
+    check(!excluded.has(foldForExclusion(core)), "no excluded word");
+    check(usesWordLetters(core, language) && ![...core].some((character) => HARD_TO_TYPE_LETTERS.includes(character) || excludedCharacters.includes(character)), "words of allowed letters only");
+    check(options.accents || /^[a-z']+$/u.test(core), "no diacritic in a word with accents off");
   }
   check(!excludedCharacters.some((character) => lower.includes(character)), "no excluded character");
   check(characters(settings.include).every((character) => lower.includes(character)), "every included character");
@@ -206,13 +207,12 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
     const endsVisible = options.punctuation && marks.some((mark) => mark === "." || mark === "?" || mark === "!");
     check(!endsVisible || !tokens.some((token, index) => !startsSentence(index) && /\p{Lu}/u.test(token)), "capitals only at sentence starts");
   }
-  return violations;
+  return [...violations];
 }
 
 function assertValid(text: string, sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>>): void {
   const violations = raceTextViolations(text, sources, criteria);
   if (violations.length > 0) {
-    // Words stay out of the message: one may be an excluded word, and messages reach logs.
-    throw new RangeError(`Generated text breaks a guarantee: ${violations.map((violation) => violation.replace(/"[^"]*"/gu, "a word")).join("; ")}`);
+    throw new RangeError(`Generated text breaks a guarantee: ${violations.join("; ")}`);
   }
 }

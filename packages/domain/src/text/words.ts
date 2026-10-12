@@ -16,8 +16,11 @@ export function countWords(text: string): number {
   return tokensOf(text).filter(isWordToken).length;
 }
 
-/** Punctuation that closes what comes before it; a dash or an opening mark starts what follows. */
-const CLOSING = /^[.,;:!?)]+$/u;
+/**
+ * Punctuation that closes what comes before it, a closing quote included ("!\"" after « Oui ! »);
+ * a dash or an opening mark starts what follows.
+ */
+const CLOSING = /^(?=[^"]*[.,;:!?)])[.,;:!?)"]+$/u;
 
 /**
  * The text cut after its `count`th word, keeping the closing punctuation tokens that directly

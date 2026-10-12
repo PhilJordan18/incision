@@ -99,3 +99,26 @@ describe("normalizePassage: review findings", () => {
     expect(cutToWords("un deux ( trois", 2)).toBe("un deux");
   });
 });
+
+describe("normalizePassage and cutToWords: confirmation findings", () => {
+  const EM = String.fromCodePoint(0x2014);
+
+  it("turns a run of dashes into one spaced dash, and stays idempotent", () => {
+    const cases: readonly (readonly [string, string])[] = [
+      [`Mme de ${EM}${EM} arriva.`, "Mme de - arriva."],
+      [`a ${EM} ${EM} b`, "a - b"],
+      ["a -- -- b", "a - b"],
+      [`fin.${EM}${EM}Début`, "fin. - Début"],
+      [`${EM} Oui, dit-il ${EM}`, "- Oui, dit-il -"],
+    ];
+    for (const [source, expected] of cases) {
+      expect(ok(source)).toBe(expected);
+      expect(normalizePassage(expected, "fr")).toEqual({ ok: true, text: expected, changes: [] });
+    }
+  });
+
+  it("keeps a closing quote after the last word's mark, never an opening one", () => {
+    expect(cutToWords(ok("Il cria : « Oui ! » puis rien."), 3)).toBe('Il cria : "Oui !"');
+    expect(cutToWords('un deux " trois', 2)).toBe("un deux");
+  });
+});

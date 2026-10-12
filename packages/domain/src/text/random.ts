@@ -11,7 +11,7 @@
  * "sale 12 juif" is as forbidden as "sale juif".
  */
 import { shuffled, type Random } from "../random/prng";
-import { buildWordPool, foldedEntries, foldForExclusion } from "../words/pool";
+import { buildWordPool, foldedWord, foldForExclusion } from "../words/pool";
 import type { ExclusionList, ForbiddenPairList, WordList } from "../words/types";
 import { availableMarks, settingCharacter, type ComplexityCriteria, type RandomTextSettings } from "./settings";
 import { DIGITS, HARD_TO_TYPE_LETTERS, MARKS, usesWordLetters, type Mark } from "./typable";
@@ -20,10 +20,12 @@ export type RandomWords = { readonly list: WordList; readonly exclusions: Exclus
 
 export type RandomContentRefusal = "NO_COMPATIBLE_WORDS" | "INCLUDED_CHARACTER_UNAVAILABLE" | "INCLUDED_CHARACTERS_DO_NOT_FIT" | "FORBIDDEN_PAIRS_UNAVOIDABLE";
 
-/** Bounds of the search: greedy covers tried, arrangements per cover, and draws for one word slot. */
+/** Bounds of the search: covers tried, arrangements per cover, and draws for one word slot. */
 export const COVER_ATTEMPTS = 16;
 export const ARRANGE_ATTEMPTS = 16;
 export const DRAWS_PER_SLOT = 32;
+/** Word visits all the covers of one draw may spend; past it the search ends with TEXT_SEARCH_EXHAUSTED. */
+export const COVER_WORK_BUDGET = 1_000_000;
 
 const NO_DIACRITIC = /^[a-z']+$/u;
 const TERMINAL: readonly Mark[] = [".", "?", "!"];
@@ -47,6 +49,9 @@ export type RandomPlan = {
   readonly wordSlots: number;
   /** Pool words no other pool word may neighbour: they can only stand alone. */
   readonly isolated: ReadonlySet<string>;
+  /** Sentences the included end marks need, and words the included quotes and parentheses wrap. */
+  readonly sentencesNeeded: number;
+  readonly wrappersNeeded: number;
 };
 
 const pairKey = (first: string, second: string): string => (first < second ? first + SEPARATOR + second : second + SEPARATOR + first);
@@ -75,8 +80,6 @@ export function randomPlan(settings: RandomTextSettings, words: RandomWords, cri
     throw new RangeError(`Word data in another language than ${settings.language}`);
   }
   const { include, exclude } = charactersOf(settings);
-  const folded = foldedEntries(words.list);
-  const foldedOf = new Map(words.list.entries.map((entry, index) => [entry.word, folded[index] ?? ""]));
   // List words are NFC letters of an explicit alphabet: one code point is one grapheme.
   const entries = buildWordPool({
     list: words.list,
@@ -89,7 +92,8 @@ export function randomPlan(settings: RandomTextSettings, words: RandomWords, cri
       (settings.options.accents || NO_DIACRITIC.test(entry.word)),
   }).entries;
   const numbers = numberCount(settings, criteria, include);
-  const pool = entries.map((entry) => ({ word: entry.word, folded: foldedOf.get(entry.word) ?? foldForExclusion(entry.word) }));
+  const pool = entries.map((entry) => ({ word: entry.word, folded: foldedWord(words.list, entry.word) }));
+  const marks = settings.options.punctuation ? availableMarks(settings, criteria) : [];
   const forbidden = new Set(words.pairs.pairs.map(([first, second]) => pairKey(foldForExclusion(first), foldForExclusion(second))));
   return {
     pool,
@@ -100,6 +104,8 @@ export function randomPlan(settings: RandomTextSettings, words: RandomWords, cri
     numbers,
     wordSlots: settings.wordCount - numbers,
     isolated: isolatedWords(pool, forbidden),
+    sentencesNeeded: TERMINAL.filter((mark) => marks.includes(mark) && include.has(mark)).length,
+    wrappersNeeded: (marks.includes('"') && include.has('"') ? 1 : 0) + (marks.includes("(") && (include.has("(") || include.has(")")) ? 1 : 0),
   };
 }
 
@@ -123,59 +129,96 @@ function pairsUnavoidable(plan: RandomPlan): boolean {
 }
 
 /**
+ * Fewest words that can hold the included letters. Letters no pool word holds together each need
+ * their own word (a greedy set of such letters is a lower bound), and no word holds more letters
+ * than the richest one.
+ */
+function lettersLowerBound(plan: RandomPlan): number {
+  const count = plan.letters.length;
+  if (count === 0) return 0;
+  const together = Array.from({ length: count }, () => new Array<boolean>(count).fill(false));
+  let mostPerWord = 1;
+  for (const word of plan.pool) {
+    const held = plan.letters.flatMap((letter, index) => (word.word.includes(letter) ? [index] : []));
+    mostPerWord = Math.max(mostPerWord, held.length);
+    for (const first of held) for (const second of held) (together[first] as boolean[])[second] = true;
+  }
+  // Letters with the fewest companions first: the greedy set grows larger.
+  const companions = together.map((row) => row.filter(Boolean).length);
+  const order = Array.from({ length: count }, (_, index) => index).sort((a, b) => (companions[a] ?? 0) - (companions[b] ?? 0) || a - b);
+  const apart: number[] = [];
+  for (const candidate of order) {
+    if (apart.every((chosen) => !together[candidate]?.[chosen])) apart.push(candidate);
+  }
+  return Math.max(apart.length, Math.ceil(count / mostPerWord));
+}
+
+/**
  * Proven incompatibilities of the content, without drawing; undefined when a search may succeed.
- * The proofs hold under the documented number rule (about one token in ten, Q-4).
+ * The proofs hold under the documented rules: about one number in ten tokens (Q-4), a sentence
+ * starts with a word (Q-2), and a quote or parenthesis wraps one word of its own.
  */
 export function randomContentRefusal(plan: RandomPlan): RandomContentRefusal | undefined {
   if (plan.pool.length === 0) return "NO_COMPATIBLE_WORDS";
   if (plan.letters.some((letter) => !plan.pool.some((word) => word.word.includes(letter)))) return "INCLUDED_CHARACTER_UNAVAILABLE";
-  let mostPerWord = 0;
-  for (const word of plan.pool) {
-    mostPerWord = Math.max(mostPerWord, plan.letters.filter((letter) => word.word.includes(letter)).length);
-  }
-  if (plan.wordSlots < 1 || (plan.letters.length > 0 && Math.ceil(plan.letters.length / mostPerWord) > plan.wordSlots)) return "INCLUDED_CHARACTERS_DO_NOT_FIT";
+  if (Math.max(1, plan.sentencesNeeded, plan.wrappersNeeded, lettersLowerBound(plan)) > plan.wordSlots) return "INCLUDED_CHARACTERS_DO_NOT_FIT";
   if (pairsUnavoidable(plan)) return "FORBIDDEN_PAIRS_UNAVOIDABLE";
   return undefined;
 }
 
-/**
- * A seeded cover of the included letters; undefined if a letter cannot be covered. Greedy picks the
- * words adding the most letters; once greedy covers have failed, any word adding one will do, so a
- * word that suits no neighbour can be avoided.
- */
-function cover(plan: RandomPlan, greedy: boolean, random: Random): PoolWord[] | undefined {
+type Holder = { readonly word: PoolWord; readonly letters: readonly number[] };
+
+/** The placeable words holding included letters, with the indexes of those letters: built once per draw. */
+function holdersOf(plan: RandomPlan): readonly Holder[] {
   const placeable = plan.wordSlots < 2 ? plan.pool : plan.pool.filter((word) => !plan.isolated.has(word.word));
-  const holders = placeable
+  return placeable
     .map((word) => ({ word, letters: plan.letters.flatMap((letter, index) => (word.word.includes(letter) ? [index] : [])) }))
     .filter((candidate) => candidate.letters.length > 0);
+}
+
+/**
+ * A seeded cover of the included letters; undefined when a letter cannot be covered, when the cover
+ * needs more words than the slots, or when the work budget is spent (`work` counts word visits).
+ * Greedy picks the words adding the most letters; once greedy covers have failed, any word adding
+ * one will do, so a word that suits no neighbour can be avoided. A word that adds nothing is dropped
+ * for the rest of the cover.
+ */
+function cover(plan: RandomPlan, holders: readonly Holder[], greedy: boolean, random: Random, work: { visits: number }): PoolWord[] | undefined {
   const uncovered = plan.letters.map(() => true);
   let left = plan.letters.length;
   const chosen: PoolWord[] = [];
+  let active = holders;
   while (left > 0) {
+    if (chosen.length >= plan.wordSlots || work.visits >= COVER_WORK_BUDGET) return undefined;
+    work.visits += active.length;
     let best = 0;
-    let candidates: PoolWord[] = [];
-    for (const holder of holders) {
+    let candidates: Holder[] = [];
+    const useful: Holder[] = [];
+    for (const holder of active) {
       let gain = 0;
       for (const index of holder.letters) gain += uncovered[index] ? 1 : 0;
-      if (gain > 0 && !greedy) {
-        best = 1;
-        candidates.push(holder.word);
-      } else if (gain > best) {
+      if (gain === 0) continue;
+      useful.push(holder);
+      if (!greedy) continue;
+      if (gain > best) {
         best = gain;
-        candidates = [holder.word];
-      } else if (gain === best && gain > 0) {
-        candidates.push(holder.word);
+        candidates = [holder];
+      } else if (gain === best) {
+        candidates.push(holder);
       }
     }
-    if (best === 0) return undefined;
-    const pick = candidates[random.index(candidates.length)] as PoolWord;
-    chosen.push(pick);
-    plan.letters.forEach((letter, index) => {
-      if (uncovered[index] && pick.word.includes(letter)) {
+    active = useful;
+    if (useful.length === 0) return undefined;
+    // Without greed, any word adding a letter is a candidate.
+    const pool = greedy ? candidates : useful;
+    const pick = pool[random.index(pool.length)] as Holder;
+    chosen.push(pick.word);
+    for (const index of pick.letters) {
+      if (uncovered[index]) {
         uncovered[index] = false;
         left -= 1;
       }
-    });
+    }
   }
   return chosen;
 }
@@ -315,11 +358,12 @@ export type RandomDraw = { readonly ok: true; readonly text: string; readonly po
 
 /** One random text for a plan with no content refusal. The caller checks the invariants on the result. */
 export function drawRandomText(plan: RandomPlan, settings: RandomTextSettings, criteria: ComplexityCriteria, random: Random): RandomDraw {
-  for (let attempt = 0; attempt < COVER_ATTEMPTS; attempt += 1) {
+  const holders = holdersOf(plan);
+  const work = { visits: 0 };
+  for (let attempt = 0; attempt < COVER_ATTEMPTS && work.visits < COVER_WORK_BUDGET; attempt += 1) {
     // The cover is redrawn with each attempt, greedy for the first half: a cover word may suit no neighbour.
-    const covering = cover(plan, attempt < COVER_ATTEMPTS / 2, random);
-    if (covering === undefined) break;
-    if (covering.length > plan.wordSlots) continue;
+    const covering = cover(plan, holders, attempt < COVER_ATTEMPTS / 2, random, work);
+    if (covering === undefined) continue;
     const words = arrangeWords(plan, covering, random);
     if (words === undefined) continue;
     const tokens = withNumbers(words, drawNumbers(plan, String(criteria.maxNumber).length, random), random);
