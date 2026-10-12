@@ -44,10 +44,11 @@ async function openRoom(host: Page): Promise<string> {
   return host.url().split("/").at(-1) ?? "";
 }
 
+/** Joins the room `code` as `guest`, whose pages are in French or in English. */
 async function join(guest: Page, code: string): Promise<void> {
   await guest.goto(`/rooms/${code}`);
-  await guest.getByRole("button", { name: "Rejoindre la salle" }).click();
-  await expect(guest.getByText("[.En direct]")).toBeVisible();
+  await guest.getByRole("button", { name: /^(Rejoindre la salle|Join the room)$/ }).click();
+  await expect(guest.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
 }
 
 /** The room's crew, as the waiting room lists it. */
@@ -308,6 +309,8 @@ test.describe("the first complete race (F-04.0)", () => {
   });
 
   test("the host takes everyone present to the next round, a newcomer included, and races them again (F-04.7)", async ({ browser }) => {
+    // A whole race, a newcomer, axe at 360 px, then a second start: more than the default 30 s.
+    test.setTimeout(60_000);
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "fr-CA", width: 360, theme: "aube" });
     const { page: guest } = await signedIn(browser, "Matelot", { locale: "en-US" });
     const { page: leaver } = await signedIn(browser, "Mousse", { locale: "fr-CA" });
