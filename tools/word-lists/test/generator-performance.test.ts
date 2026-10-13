@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COMPLEXITY_CRITERIA, generateRaceText, normalizePassage, raceTextRefusal, type RandomTextSettings, type RandomWords } from "../../../packages/domain/src/index";
+import { applyPassageOptions, COMPLEXITY_CRITERIA, generateRaceText, normalizePassage, raceTextRefusal, type RandomTextSettings, type RandomWords } from "../../../packages/domain/src/index";
 import { WORD_LETTERS } from "../../../packages/domain/src/text/typable";
 
 /**
@@ -100,6 +100,13 @@ describe("generator cost on a 60,000-word list", () => {
     console.info(`60k words of 16 letters: raceTextRefusal ${refusalMs.toFixed(0)} ms, exhausted search ${exhaustedMs.toFixed(0)} ms, 200-word text ${textMs.toFixed(0)} ms`);
     expect(Math.max(refusalMs, exhaustedMs, textMs)).toBeLessThan(1_500);
   }, 60_000);
+
+  it("removes numbers in linear time, however many marks surround them", () => {
+    // Security review: each removed number used to scan back over every mark kept since the last word.
+    const started = performance.now();
+    applyPassageOptions(`Il fait beau ce matin.${" ( 1".repeat(50_000)}`, { punctuation: true, numbers: false, capitals: true, accents: true });
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
 
   it("normalises long runs of spaces and marks in linear time", () => {
     const started = performance.now();

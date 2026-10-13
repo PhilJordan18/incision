@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRandom } from "../random/prng";
-import { applyPassageOptions, checkPassages, passageCut, type Passage } from "./coherent";
+import { applyPassageOptions, checkPassages, MAX_PASSAGE_LENGTH, passageCut, type Passage } from "./coherent";
 import type { CoherentTextSettings } from "./settings";
 import { TEST_PASSAGES } from "./text.fixtures";
 import { countWords } from "./words";
@@ -57,6 +57,7 @@ describe("checkPassages", () => {
     checkPassages(corpus);
     corpus.push({ ...(TEST_PASSAGES[1] as Passage), text: "C’est" });
     expect(() => checkPassages(corpus)).toThrow(RangeError);
+    expect(() => checkPassages([{ ...(TEST_PASSAGES[0] as Passage), text: "mer ".repeat(MAX_PASSAGE_LENGTH / 4).concat("vent") }])).toThrow(RangeError);
     const frozen = Object.freeze([Object.freeze({ ...(TEST_PASSAGES[0] as Passage), text: "C’est" })]);
     expect(() => checkPassages(frozen)).toThrow(RangeError);
     expect(() => checkPassages(frozen)).toThrow(RangeError);

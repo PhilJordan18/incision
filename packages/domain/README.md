@@ -276,7 +276,8 @@ Stored values are bounded, so database columns can be sized from these constants
   quote included); never on a lone dash or an opening mark. Measures leave tokens with a digit
   ("1866", "1er") out of M1 to M3.
 - **Coherent mode.** A frozen corpus of frozen passages is checked once; any other is checked on
-  every call. The options apply to the normalised passage first (numbers, punctuation,
+  every call. A passage longer than `MAX_PASSAGE_LENGTH` (8,000 code units, far beyond the 200
+  words ever typed) is refused, which also bounds the work each call does per passage. The options apply to the normalised passage first (numbers, punctuation,
   capitals, accents, in that order), then the text is cut after its Nth word from the passage's
   start. Nothing is invented, rewritten or joined from distant passages. With numbers off, a run
   of numbers ("1914 - 1918", "1 000", "1, 2, 3") goes whole, with the quotes or parentheses it

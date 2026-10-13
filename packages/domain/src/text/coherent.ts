@@ -19,6 +19,12 @@ export type Passage = {
   readonly text: string;
 };
 
+/**
+ * Longest stored passage, in UTF-16 code units. Only its first 200 words are ever typed, so a longer
+ * one is a corpus bug; the bound also caps the work every coherent call does on each passage.
+ */
+export const MAX_PASSAGE_LENGTH = 2 * MAX_TEXT_GRAPHEMES;
+
 const MARK_SET: ReadonlySet<string> = new Set(MARKS);
 const HAS_DIGIT = /\p{N}/u;
 const LEADING_OPENERS = /^["(]+/u;
@@ -75,13 +81,18 @@ const endsWithMark = (token: string | undefined): boolean => token !== undefined
 function withoutNumbers(tokens: readonly string[]): string[] {
   const source = [...tokens];
   const kept: string[] = [];
+  // The last kept word, kept up to date so each number run finds it at once.
+  let lastWord = -1;
   let pendingOpeners = "";
   let index = 0;
   while (index < source.length) {
     const token = source[index] ?? "";
     if (!HAS_DIGIT.test(token)) {
       if (token !== "") kept.push(isWordToken(token) ? pendingOpeners + token : token);
-      if (isWordToken(token)) pendingOpeners = "";
+      if (isWordToken(token)) {
+        pendingOpeners = "";
+        lastWord = kept.length - 1;
+      }
       index += 1;
       continue;
     }
@@ -114,7 +125,7 @@ function withoutNumbers(tokens: readonly string[]): string[] {
       source[end + 1] = rest;
     }
     pendingOpeners += openers;
-    const previous = kept.findLastIndex(isWordToken);
+    const previous = lastWord;
     if (trailing !== "" && previous !== -1) {
       const word = kept[previous] ?? "";
       const closers = trailing.replace(/[^)"]/gu, "");
@@ -145,6 +156,9 @@ export function checkPassages(passages: readonly Passage[]): void {
   if (CHECKED.has(passages)) return;
   const ids = new Set<string>();
   for (const passage of passages) {
+    if (passage.text.length > MAX_PASSAGE_LENGTH) {
+      throw new RangeError(`Passage ${passage.id} is longer than MAX_PASSAGE_LENGTH`);
+    }
     const normalised = normalizePassage(passage.text, passage.language);
     if (!normalised.ok || normalised.text !== passage.text) {
       throw new RangeError(`Passage ${passage.id} is not a normalised, typable text`);
