@@ -146,7 +146,17 @@ export const fr = {
     },
     leave: "Quitter la salle",
     leaving: "Départ…",
-    hostLeaveNote: "Si tu quittes en tant qu’hôte, la salle se ferme pour tout le monde.",
+    hostLeaveNote: "Si tu quittes en tant qu’hôte, la salle se ferme pour tout le monde : une confirmation te le redemande.",
+    hostLeave: {
+      question: "Quitter et fermer la salle ?",
+      consequences: [
+        "Tu es l’hôte : en partant, tu fermes la salle pour tout le monde. Tous les membres la quittent, et elle n’accepte plus personne.",
+        "Les courses terminées restent lisibles par leurs coureurs, à l’adresse de leur fiche. Tu reviens à l’accueil.",
+      ],
+      racing: "La course en cours s’arrête pour tout le monde, sans résultats.",
+      confirm: "Oui, quitter et fermer",
+      cancel: "Rester dans la salle",
+    },
     hostActions: {
       label: "Actions de l’hôte",
       nextRound: "Prochaine manche",
@@ -154,7 +164,14 @@ export const fr = {
       nextRoundNote: "Tout le monde revient en salle d’attente, y compris les personnes arrivées pendant les résultats.",
       close: "Fermer la salle",
       closePending: "Fermeture…",
-      closeNote: "Fermer la salle fait partir tout le monde ; chaque course reste dans l’historique de ses coureurs.",
+      closeNote: "Fermer la salle fait partir tout le monde : une confirmation te le redemande.",
+      closeQuestion: "Fermer la salle pour tout le monde ?",
+      closeConsequences: [
+        "Tous les membres quittent la salle, et elle n’accepte plus personne.",
+        "Les courses terminées restent lisibles par leurs coureurs, à l’adresse de leur fiche.",
+      ],
+      closeConfirm: "Oui, fermer la salle",
+      closeCancel: "Garder la salle ouverte",
       errors: {
         NOT_IN_A_ROOM: "Tu n’es plus dans cette salle.",
         NOT_HOST: "Seul l’hôte peut le faire.",

@@ -17,10 +17,21 @@ type LeaveRoomFormProps = {
   readonly onLeaving?: () => void;
   /** Told when the server could not record the departure. */
   readonly onFailed?: () => void;
+  /** The submit button's look (a discreet button by default; the host's confirmation uses its own). */
+  readonly buttonClassName?: string;
 };
 
 /** Leaves the current room on the server, then goes to `returnTo` (home by default). */
-export function LeaveRoomForm({ label, pendingLabel, errors, returnTo = "/", describedBy, onLeaving, onFailed }: LeaveRoomFormProps) {
+export function LeaveRoomForm({
+  label,
+  pendingLabel,
+  errors,
+  returnTo = "/",
+  describedBy,
+  onLeaving,
+  onFailed,
+  buttonClassName = `${discreetButton} self-start`,
+}: LeaveRoomFormProps) {
   const [state, formAction] = useActionState<LeaveRoomState, FormData>(leaveRoomAction, {});
   useEffect(() => {
     if (state.error !== undefined) {
@@ -30,7 +41,7 @@ export function LeaveRoomForm({ label, pendingLabel, errors, returnTo = "/", des
   return (
     <form action={formAction} onSubmit={onLeaving} className="flex flex-col gap-3">
       <input type="hidden" name="returnTo" value={returnTo} />
-      <SubmitButton label={label} pendingLabel={pendingLabel} className={`${discreetButton} self-start`} describedBy={describedBy} />
+      <SubmitButton label={label} pendingLabel={pendingLabel} className={buttonClassName} describedBy={describedBy} />
       {state.error !== undefined && <FormAlert message={errors[state.error]} />}
     </form>
   );

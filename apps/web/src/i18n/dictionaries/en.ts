@@ -142,7 +142,17 @@ export const en: Dictionary = {
     },
     leave: "Leave the room",
     leaving: "Leaving…",
-    hostLeaveNote: "If you leave as the host, the room closes for everyone.",
+    hostLeaveNote: "If you leave as the host, the room closes for everyone: you will be asked to confirm.",
+    hostLeave: {
+      question: "Leave and close the room?",
+      consequences: [
+        "You are the host: leaving closes the room for everyone. Every member leaves it, and it admits nobody any more.",
+        "Finished races stay readable by their runners, at their page’s address. You go back to the home page.",
+      ],
+      racing: "The race in progress stops for everyone, without results.",
+      confirm: "Yes, leave and close",
+      cancel: "Stay in the room",
+    },
     hostActions: {
       label: "Host actions",
       nextRound: "Next round",
@@ -150,7 +160,14 @@ export const en: Dictionary = {
       nextRoundNote: "Everyone goes back to the waiting room, including anyone who joined during the results.",
       close: "Close the room",
       closePending: "Closing…",
-      closeNote: "Closing the room makes everyone leave; each race stays in its runners’ history.",
+      closeNote: "Closing the room makes everyone leave: you will be asked to confirm.",
+      closeQuestion: "Close the room for everyone?",
+      closeConsequences: [
+        "Every member leaves the room, and it admits nobody any more.",
+        "Finished races stay readable by their runners, at their page’s address.",
+      ],
+      closeConfirm: "Yes, close the room",
+      closeCancel: "Keep the room open",
       errors: {
         NOT_IN_A_ROOM: "You are no longer in this room.",
         NOT_HOST: "Only the host can do this.",

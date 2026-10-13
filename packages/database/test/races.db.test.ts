@@ -1106,17 +1106,17 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
   it("closes the room from the results or the waiting room, every member leaving, the race still readable", async () => {
     const { lobbyId, hostId, memberIds, race } = await afterResults();
     const bea = await accountOf(memberIds[0] ?? "");
-    expect(await closeRoom(db, { accountId: bea, code: "ABCDEF" })).toEqual({ ok: false, error: "NOT_HOST" });
+    expect(await closeRoom(db, { accountId: bea, code: code("ABCDEF") })).toEqual({ ok: false, error: "NOT_HOST" });
     const before = await lobbyOf(lobbyId);
-    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: true, lobbyId });
+    expect(await closeRoom(db, { accountId: hostId, code: code("ABCDEF") })).toEqual({ ok: true, lobbyId });
     // The pages keep the newest snapshot by revision: the closed one must win.
     expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "closed", revision: (before?.revision ?? 0) + 1 });
     expect((await pool.query("select 1 from lobby_members where lobby_id = $1 and left_at is null", [lobbyId])).rowCount).toBe(0);
     expect((await readRaceForEntrant(db, race.raceId, bea))?.entrants).toHaveLength(2);
-    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
+    expect(await closeRoom(db, { accountId: hostId, code: code("ABCDEF") })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
 
     const waiting = await room("BCDEFG");
-    expect(await closeRoom(db, { accountId: waiting.hostId, code: "BCDEFG" })).toEqual({ ok: true, lobbyId: waiting.lobbyId });
+    expect(await closeRoom(db, { accountId: waiting.hostId, code: code("BCDEFG") })).toEqual({ ok: true, lobbyId: waiting.lobbyId });
   });
 
   it("closes only the room the host's page shows, never the room the host is in since", async () => {
@@ -1130,7 +1130,7 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
     const newLobby = next.ok ? next.room.id : "";
     const before = await lobbyOf(newLobby);
     // The first tab, still showing the old room, asks to close it.
-    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
+    expect(await closeRoom(db, { accountId: hostId, code: code("ABCDEF") })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
     expect(await lobbyOf(newLobby)).toEqual(before);
     expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "closed" });
   });
@@ -1138,10 +1138,10 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
   it("does not close a room whose race counts down or runs: that is the host leaving (D-06)", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
     const { race } = await started(hostId);
-    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: false, error: "ROOM_RACING" });
+    expect(await closeRoom(db, { accountId: hostId, code: code("ABCDEF") })).toEqual({ ok: false, error: "ROOM_RACING" });
     expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "countdown" });
     await beginRacing(db, race);
-    expect(await closeRoom(db, { accountId: hostId, code: "ABCDEF" })).toEqual({ ok: false, error: "ROOM_RACING" });
+    expect(await closeRoom(db, { accountId: hostId, code: code("ABCDEF") })).toEqual({ ok: false, error: "ROOM_RACING" });
     expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "racing" });
   });
 
@@ -1162,7 +1162,7 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
     const first = await afterResults();
     const [next, closed] = await underRoomLock(first.lobbyId, [
       () => startNextRound(db, { accountId: first.hostId, raceId: first.race.raceId }),
-      () => closeRoom(db, { accountId: first.hostId, code: "ABCDEF" }),
+      () => closeRoom(db, { accountId: first.hostId, code: code("ABCDEF") }),
     ]);
     expect(next).toEqual({ ok: true, lobbyId: first.lobbyId, alreadyDone: false });
     expect(closed).toEqual({ ok: true, lobbyId: first.lobbyId });
@@ -1170,7 +1170,7 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
 
     const second = await afterResults(["Bea"], "BCDEFG");
     const [closedFirst, nextAfter] = await underRoomLock(second.lobbyId, [
-      () => closeRoom(db, { accountId: second.hostId, code: "BCDEFG" }),
+      () => closeRoom(db, { accountId: second.hostId, code: code("BCDEFG") }),
       () => startNextRound(db, { accountId: second.hostId, raceId: second.race.raceId }),
     ]);
     expect(closedFirst).toEqual({ ok: true, lobbyId: second.lobbyId });
@@ -1183,7 +1183,7 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
     const early = await account("Tôt");
     const [joined, closed] = await underRoomLock(first.lobbyId, [
       () => joinRoomByCode(db, { accountId: early, code: code("ABCDEF"), role: "participant" }),
-      () => closeRoom(db, { accountId: first.hostId, code: "ABCDEF" }),
+      () => closeRoom(db, { accountId: first.hostId, code: code("ABCDEF") }),
     ]);
     // Admitted before the closing, then gone with it.
     expect(joined).toMatchObject({ ok: true });
@@ -1193,7 +1193,7 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
     const second = await afterResults(["Bea"], "BCDEFG");
     const late = await account("Tard");
     const [closedFirst, refused] = await underRoomLock(second.lobbyId, [
-      () => closeRoom(db, { accountId: second.hostId, code: "BCDEFG" }),
+      () => closeRoom(db, { accountId: second.hostId, code: code("BCDEFG") }),
       () => joinRoomByCode(db, { accountId: late, code: code("BCDEFG"), role: "participant" }),
     ]);
     expect(closedFirst).toEqual({ ok: true, lobbyId: second.lobbyId });

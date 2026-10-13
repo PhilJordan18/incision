@@ -108,6 +108,12 @@ describe("closeRoomAction", () => {
     expect(closeRoom).toHaveBeenCalledWith(expect.anything(), { accountId: "alice", code: "ABCDEF" });
   });
 
+  it("closes the room by its canonical code, however the page wrote it", async () => {
+    closeRoom.mockResolvedValue({ ok: true, lobbyId: "L" });
+    expect(await close(" abcdef ")).toEqual({});
+    expect(closeRoom).toHaveBeenCalledWith(expect.anything(), { accountId: "alice", code: "ABCDEF" });
+  });
+
   it("ends the room's race state for its members, then tells the room's pages", async () => {
     closeRoom.mockResolvedValueOnce({ ok: true, lobbyId: "L" });
     expect(await close("ABCDEF")).toEqual({});
