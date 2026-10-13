@@ -20,9 +20,14 @@ describe("RACES_ENABLED", () => {
 
   it("says at start-up whether races may start, and warns about an invalid value without showing it", () => {
     expect(racesSwitchNotice("open")).toEqual({ level: "info", message: "[races] RACES_ENABLED=true: new races may start" });
-    expect(racesSwitchNotice("closed")).toMatchObject({ level: "info", message: expect.stringContaining("new races are closed") });
-    const invalid = racesSwitchNotice("invalid");
-    expect(invalid).toMatchObject({ level: "warn", message: expect.stringContaining("invalid value") });
-    expect(invalid.message).toContain("new races are closed");
+    // docs/DEPLOYMENT.md quotes these three lines exactly, for the Log stream.
+    expect(racesSwitchNotice("closed")).toEqual({
+      level: "info",
+      message: '[races] new races are closed (RACES_ENABLED is not "true"); rooms and stored results stay available',
+    });
+    expect(racesSwitchNotice("invalid")).toEqual({
+      level: "warn",
+      message: '[races] RACES_ENABLED has an invalid value; only "true" opens races: new races are closed',
+    });
   });
 });

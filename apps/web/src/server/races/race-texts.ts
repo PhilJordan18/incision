@@ -16,8 +16,9 @@ export type RaceText = {
 
 /**
  * The two fixed texts of the first complete race (F-04.0): short public-domain passages, one per
- * interface language, proposed under D-21 and under study. The text follows the host's interface
- * language at the start (D-19). No line break (Enter is reserved, D-16), and only characters a
+ * interface language, selected under Philippe's delegated policy (authentic passages, documented
+ * source and reuse, a maritime preference). The text follows the host's interface language at the
+ * start (D-19). No line break (Enter is reserved, D-16), and only characters a
  * French or English keyboard types directly.
  */
 export const RACE_TEXTS: Readonly<Record<Locale, RaceText>> = {

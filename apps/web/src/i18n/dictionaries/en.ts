@@ -166,7 +166,7 @@ export const en: Dictionary = {
   races: {
     start: "Start the race",
     starting: "Starting…",
-    startNote: "A 2-minute race on a public-domain passage, with mandatory correction: an error is fixed before moving on.",
+    startNote: "Maximum duration: 2 minutes, on a public-domain passage. Mandatory correction: a mistake blocks typing until you type the expected character.",
     startNeedsTwo: "The race needs at least 2 participants; spectators do not count.",
     startErrors: {
       INVALID_PAYLOAD: "The request was not understood. Reload the page.",
