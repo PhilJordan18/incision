@@ -76,17 +76,17 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
         consequences={t.closeConsequences}
         cancelLabel={t.closeCancel}
         busy={pending}
+        alert={alertFor("close")}
       >
         <form action={act}>
           <input type="hidden" name="intent" value="close" />
           <input type="hidden" name="code" value={code} />
-          <SubmitButton label={t.closeConfirm} pendingLabel={t.closePending} className={`${secondaryButton} self-start`} describedBy={consequencesId("close-room")} />
+          <SubmitButton label={t.closeConfirm} pendingLabel={t.closePending} className={secondaryButton} describedBy={consequencesId("close-room")} />
         </form>
       </ConfirmClosing>
       <p id="close-room-note" className="text-sm text-brume">
         {t.closeNote}
       </p>
-      {alertFor("close")}
     </div>
   );
   // On the results, the host's own group; in the waiting room, closing sits under the start alone.

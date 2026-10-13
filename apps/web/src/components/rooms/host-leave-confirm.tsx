@@ -13,12 +13,9 @@ type HostLeaveConfirmProps = {
   readonly id: string;
   /** The room the host would leave, and so close. */
   readonly code: string;
-  /** The button that asks first (« Quitter la salle », or a panel's own wording). */
+  /** The button that asks first (« Quitter la salle »). */
   readonly openLabel: string;
   readonly describedBy?: string;
-  /** Where the host goes once the room is closed, said among the consequences. */
-  readonly afterwards: string;
-  readonly returnTo?: string;
   /** A race counts down or runs in that room: it stops without results. */
   readonly racing?: boolean;
   readonly onLeaving?: () => void;
@@ -29,11 +26,11 @@ type HostLeaveConfirmProps = {
  * The host leaving closes the room for everyone (CP-06): wherever « Quitter » is offered to the
  * host, it asks first with the same consequences as « Fermer la salle » (decided on 12 October).
  */
-export function HostLeaveConfirm({ t, id, code, openLabel, describedBy, afterwards, returnTo, racing = false, onLeaving, onFailed }: HostLeaveConfirmProps) {
+export function HostLeaveConfirm({ t, id, code, openLabel, describedBy, racing = false, onLeaving, onFailed }: HostLeaveConfirmProps) {
   const [busy, setBusy] = useState(false);
-  // The heaviest consequence right after the closing itself.
-  const [closing, ...rest] = t.hostLeave.consequences;
-  const consequences = [...(closing === undefined ? [] : [closing]), ...(racing ? [t.hostLeave.racing] : []), ...rest, afterwards];
+  // The heaviest consequence right after the closing itself; the host then goes home.
+  const [closing, kept] = t.hostLeave.consequences;
+  const consequences = [closing, ...(racing ? [t.hostLeave.racing] : []), kept, t.hostLeave.backHome];
   return (
     <ConfirmClosing
       id={id}
@@ -48,7 +45,6 @@ export function HostLeaveConfirm({ t, id, code, openLabel, describedBy, afterwar
         label={t.hostLeave.confirm}
         pendingLabel={t.leaving}
         errors={t.changeErrors}
-        returnTo={returnTo}
         describedBy={consequencesId(id)}
         onLeaving={onLeaving}
         onFailed={onFailed}

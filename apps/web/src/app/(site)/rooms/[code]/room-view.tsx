@@ -413,7 +413,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   const leavingAbandons = !self.isHost && self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
   // The host's departure closes the room for everyone (CP-06): it asks first, as « Fermer la salle » does.
   const leave = (
-    <div className="flex flex-col gap-2">
+    <div className={`flex flex-col gap-2 ${self.isHost ? "" : "max-w-xs"}`}>
       {self.isHost ? (
         <HostLeaveConfirm
           t={t}
@@ -421,7 +421,6 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           code={snapshot.code}
           openLabel={t.leave}
           describedBy="host-leave-note"
-          afterwards={t.hostLeave.backHome}
           racing={racingView}
           onLeaving={onLeaving}
           onFailed={onLeaveFailed}

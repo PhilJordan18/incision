@@ -139,6 +139,9 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     // Bruno hosts his room: leaving it would close it, so the panel sends him to it, where leaving asks first.
     await expect(other.getByRole("button", { name: `Quitter la salle ${otherCode} et revenir ici` })).toHaveCount(0);
     await expect(other.getByText(`Tu es l’hôte de la salle ${otherCode} : la quitter la ferme pour tout le monde.`, { exact: false })).toBeVisible();
+    await other.goto("/rooms/new");
+    await expect(other.getByText(`Tu es déjà dans la salle ${otherCode}.`)).toBeVisible();
+    await expect(other.getByRole("button", { name: /Quitter/ })).toHaveCount(0);
     await other.getByRole("link", { name: "Aller à ma salle" }).click();
     await expect(other).toHaveURL(new RegExp(`/rooms/${otherCode}$`));
     await other.getByRole("button", { name: "Quitter la salle" }).click();
@@ -176,7 +179,20 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(leave).toBeFocused();
     await expect(crew(guest)).toHaveCount(2);
     await leave.click();
+    // While the departure is on its way, keeping the room is no longer offered (the button or Escape).
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await host.route(`**/rooms/${code}`, async (route) => {
+      if (route.request().method() === "POST") {
+        await held;
+      }
+      await route.continue();
+    });
     await host.getByRole("button", { name: "Oui, quitter et fermer" }).click();
+    await expect(host.getByRole("button", { name: "Rester dans la salle" })).toBeDisabled();
+    await host.keyboard.press("Escape");
+    await expect(host.getByRole("heading", { name: `Quitter et fermer la salle ${code} ?` })).toBeVisible();
+    release();
     await expect(host).toHaveURL(/\/$/);
     await expect(guest.getByRole("heading", { level: 1 })).toHaveText(/Salle fermée/i);
     await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();

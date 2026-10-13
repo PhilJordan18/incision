@@ -143,7 +143,7 @@ export const en: Dictionary = {
     leave: "Leave the room",
     leaving: "Leaving…",
     hostLeaveNote: "If you leave as the host, the room closes for everyone: you will have to confirm.",
-    hostGoToRoom: "You host room {code}: leaving it closes it for everyone. To do so, go to your room, where a confirmation will tell you what it does.",
+    hostGoToRoom: "You host room {code}: leaving it closes it for everyone. To leave it, go to your room: a confirmation will tell you what it does.",
     hostLeave: {
       question: "Leave and close room {code}?",
       consequences: [

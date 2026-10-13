@@ -18,6 +18,8 @@ type ConfirmClosingProps = {
   readonly busy?: boolean;
   /** The form whose submit button confirms (it closes the room on the server). */
   readonly children: ReactNode;
+  /** Why the confirmation failed, under its buttons. */
+  readonly alert?: ReactNode;
 };
 
 /** The consequences' id, for the confirming button's `aria-describedby`: whoever reaches it hears them. */
@@ -30,7 +32,7 @@ export function consequencesId(id: string): string {
  * « Fermer la salle » or leaves: the question takes the focus and spells out the consequences;
  * keeping the room open (the button or Escape) gives the focus back to the opener.
  */
-export function ConfirmClosing({ id, openLabel, describedBy, question, consequences, cancelLabel, busy = false, children }: ConfirmClosingProps) {
+export function ConfirmClosing({ id, openLabel, describedBy, question, consequences, cancelLabel, busy = false, children, alert }: ConfirmClosingProps) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -77,6 +79,7 @@ export function ConfirmClosing({ id, openLabel, describedBy, question, consequen
         </button>
         {children}
       </div>
+      {alert}
     </section>
   );
 }

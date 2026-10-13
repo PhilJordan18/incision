@@ -147,7 +147,7 @@ export const fr = {
     leave: "Quitter la salle",
     leaving: "Départ…",
     hostLeaveNote: "Si tu quittes en tant qu’hôte, la salle se ferme pour tout le monde : tu devras confirmer.",
-    hostGoToRoom: "Tu es l’hôte de la salle {code} : la quitter la ferme pour tout le monde. Pour le faire, va dans ta salle, où une confirmation t’en dira les conséquences.",
+    hostGoToRoom: "Tu es l’hôte de la salle {code} : la quitter la ferme pour tout le monde. Pour la quitter, va dans ta salle : une confirmation t’en dira les conséquences.",
     hostLeave: {
       question: "Quitter et fermer la salle {code} ?",
       consequences: [
