@@ -1,12 +1,13 @@
 "use client";
 
 import { unstable_rethrow, useRouter } from "next/navigation";
-import { type ReactNode, useActionState, useEffect } from "react";
+import { type ReactNode, useActionState, useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { FormAlert } from "@/components/ui/form-alert";
-import { primaryButton, secondaryButton } from "@/components/ui/styles";
+import { primaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
-import { closeRoomAction, type HostActionError, nextRoundAction } from "@/server/rooms/actions";
+import { type HostActionError, nextRoundAction } from "@/server/rooms/actions";
+import { CloseRoomForm } from "./close-room-form";
 import { ConfirmClosing, consequencesId } from "./confirm-closing";
 import { FIRST_VIEW, type HostRoundView, isStaleRefusal, nextHostRoundView } from "./host-round-view";
 
@@ -28,17 +29,18 @@ type HostRoundActionsProps = {
  */
 export function HostRoundActions({ t, code, raceId, secondary }: HostRoundActionsProps) {
   const router = useRouter();
-  const [view, act, pending] = useActionState<HostRoundView, FormData>(async (previous, formData) => {
+  const [view, act] = useActionState<HostRoundView, FormData>(async (previous, formData) => {
     let error: HostActionError | undefined;
     try {
-      ({ error } = formData.get("intent") === "close" ? await closeRoomAction(formData) : await nextRoundAction(formData));
+      ({ error } = await nextRoundAction(formData));
     } catch (thrown: unknown) {
       // Next's own signals (a redirect to sign in) go through; anything else did not reach the server.
       unstable_rethrow(thrown);
       error = "UNAVAILABLE";
     }
-    return nextHostRoundView(previous, error, formData.get("intent") === "close" ? "close" : "next");
+    return nextHostRoundView(previous, error, "next");
   }, FIRST_VIEW);
+  const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     if (isStaleRefusal(view.error)) {
@@ -46,15 +48,11 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
     }
   }, [view, router]);
 
-  // Next to the action that failed.
-  const alertFor = (intent: "next" | "close") =>
-    view.error !== undefined && view.intent === intent && <FormAlert key={view.attempt} message={t.errors[view.error]} />;
   const next =
     raceId === undefined ? null : (
       <>
         <div className="flex flex-wrap items-start gap-3">
           <form action={act}>
-            <input type="hidden" name="intent" value="next" />
             <input type="hidden" name="raceId" value={raceId} />
             <SubmitButton label={t.nextRound} pendingLabel={t.nextRoundPending} className={primaryButton} describedBy="next-round-note" />
           </form>
@@ -63,7 +61,7 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
         <p id="next-round-note" className="text-sm text-brume">
           {t.nextRoundNote}
         </p>
-        {alertFor("next")}
+        {view.error !== undefined && <FormAlert key={view.attempt} message={t.errors[view.error]} />}
       </>
     );
   const close = (
@@ -75,14 +73,9 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
         question={t.closeQuestion}
         consequences={t.closeConsequences}
         cancelLabel={t.closeCancel}
-        busy={pending}
-        alert={alertFor("close")}
+        busy={closing}
       >
-        <form action={act}>
-          <input type="hidden" name="intent" value="close" />
-          <input type="hidden" name="code" value={code} />
-          <SubmitButton label={t.closeConfirm} pendingLabel={t.closePending} className={secondaryButton} describedBy={consequencesId("close-room")} />
-        </form>
+        <CloseRoomForm t={t} code={code} describedBy={consequencesId("close-room")} onPendingChange={setClosing} />
       </ConfirmClosing>
       <p id="close-room-note" className="text-sm text-brume">
         {t.closeNote}
