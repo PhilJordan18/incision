@@ -7,7 +7,7 @@ import { FormAlert } from "@/components/ui/form-alert";
 import { primaryButton, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { closeRoomAction, type HostActionError, nextRoundAction } from "@/server/rooms/actions";
-import { ConfirmClosing } from "./confirm-closing";
+import { ConfirmClosing, consequencesId } from "./confirm-closing";
 import { FIRST_VIEW, type HostRoundView, isStaleRefusal, nextHostRoundView } from "./host-round-view";
 
 type HostRoundActionsProps = {
@@ -28,7 +28,7 @@ type HostRoundActionsProps = {
  */
 export function HostRoundActions({ t, code, raceId, secondary }: HostRoundActionsProps) {
   const router = useRouter();
-  const [view, act] = useActionState<HostRoundView, FormData>(async (previous, formData) => {
+  const [view, act, pending] = useActionState<HostRoundView, FormData>(async (previous, formData) => {
     let error: HostActionError | undefined;
     try {
       ({ error } = formData.get("intent") === "close" ? await closeRoomAction(formData) : await nextRoundAction(formData));
@@ -37,7 +37,7 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
       unstable_rethrow(thrown);
       error = "UNAVAILABLE";
     }
-    return nextHostRoundView(previous, error);
+    return nextHostRoundView(previous, error, formData.get("intent") === "close" ? "close" : "next");
   }, FIRST_VIEW);
 
   useEffect(() => {
@@ -46,6 +46,9 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
     }
   }, [view, router]);
 
+  // Next to the action that failed.
+  const alertFor = (intent: "next" | "close") =>
+    view.error !== undefined && view.intent === intent && <FormAlert key={view.attempt} message={t.errors[view.error]} />;
   const next =
     raceId === undefined ? null : (
       <>
@@ -60,6 +63,7 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
         <p id="next-round-note" className="text-sm text-brume">
           {t.nextRoundNote}
         </p>
+        {alertFor("next")}
       </>
     );
   const close = (
@@ -71,30 +75,29 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
         question={t.closeQuestion}
         consequences={t.closeConsequences}
         cancelLabel={t.closeCancel}
+        busy={pending}
       >
         <form action={act}>
           <input type="hidden" name="intent" value="close" />
           <input type="hidden" name="code" value={code} />
-          <SubmitButton label={t.closeConfirm} pendingLabel={t.closePending} className={secondaryButton} />
+          <SubmitButton label={t.closeConfirm} pendingLabel={t.closePending} className={`${secondaryButton} self-start`} describedBy={consequencesId("close-room")} />
         </form>
       </ConfirmClosing>
       <p id="close-room-note" className="text-sm text-brume">
         {t.closeNote}
       </p>
+      {alertFor("close")}
     </div>
   );
-  const alert = view.error !== undefined && <FormAlert key={view.attempt} message={t.errors[view.error]} />;
   // On the results, the host's own group; in the waiting room, closing sits under the start alone.
   return raceId !== undefined ? (
     <section aria-label={t.label} className="flex max-w-xl flex-col gap-3">
       {next}
       {close}
-      {alert}
     </section>
   ) : (
     <div className="flex max-w-xl flex-col gap-3">
       {close}
-      {alert}
     </div>
   );
 }

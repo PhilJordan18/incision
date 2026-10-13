@@ -1,13 +1,16 @@
 import type { HostActionError } from "@/server/rooms/actions";
 
-/** The latest answer of the host's actions only, numbered so the same refusal twice is announced twice. */
-export type HostRoundView = { readonly error?: HostActionError; readonly attempt: number };
+/**
+ * The latest answer of the host's actions only, numbered so the same refusal twice is announced
+ * twice, with the action it answered (its alert sits next to that action).
+ */
+export type HostRoundView = { readonly error?: HostActionError; readonly attempt: number; readonly intent?: "next" | "close" };
 
 export const FIRST_VIEW: HostRoundView = { attempt: 0 };
 
 /** The view after one more answer: its refusal, or none once an action went through. */
-export function nextHostRoundView(previous: HostRoundView, error: HostActionError | undefined): HostRoundView {
-  return { error, attempt: previous.attempt + 1 };
+export function nextHostRoundView(previous: HostRoundView, error: HostActionError | undefined, intent: "next" | "close"): HostRoundView {
+  return { error, attempt: previous.attempt + 1, intent };
 }
 
 /** Refusals meaning the page shows a room or a race that has moved on: the server's page says where it is. */

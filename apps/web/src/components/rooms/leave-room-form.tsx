@@ -19,6 +19,8 @@ type LeaveRoomFormProps = {
   readonly onFailed?: () => void;
   /** The submit button's look (a discreet button by default; the host's confirmation uses its own). */
   readonly buttonClassName?: string;
+  /** Told while the departure is on its way, and when it answered. */
+  readonly onPendingChange?: (pending: boolean) => void;
 };
 
 /** Leaves the current room on the server, then goes to `returnTo` (home by default). */
@@ -31,8 +33,12 @@ export function LeaveRoomForm({
   onLeaving,
   onFailed,
   buttonClassName = `${discreetButton} self-start`,
+  onPendingChange,
 }: LeaveRoomFormProps) {
-  const [state, formAction] = useActionState<LeaveRoomState, FormData>(leaveRoomAction, {});
+  const [state, formAction, pending] = useActionState<LeaveRoomState, FormData>(leaveRoomAction, {});
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
   useEffect(() => {
     if (state.error !== undefined) {
       onFailed?.();

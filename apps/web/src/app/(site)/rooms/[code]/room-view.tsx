@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { ConfirmClosing } from "@/components/rooms/confirm-closing";
+import { HostLeaveConfirm } from "@/components/rooms/host-leave-confirm";
 import { HostRoundActions } from "@/components/rooms/host-round-actions";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -412,27 +412,20 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   // During the race, leaving is an abandon (state-machines §3), said before the click.
   const leavingAbandons = !self.isHost && self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
   // The host's departure closes the room for everyone (CP-06): it asks first, as « Fermer la salle » does.
-  const racing = snapshot.phase === "countdown" || snapshot.phase === "racing";
   const leave = (
-    <div className={`flex flex-col gap-2 ${self.isHost ? "max-w-xl" : "max-w-xs"}`}>
+    <div className="flex flex-col gap-2">
       {self.isHost ? (
-        <ConfirmClosing
+        <HostLeaveConfirm
+          t={t}
           id="host-leave"
+          code={snapshot.code}
           openLabel={t.leave}
           describedBy="host-leave-note"
-          question={t.hostLeave.question}
-          consequences={racing ? [...t.hostLeave.consequences, t.hostLeave.racing] : t.hostLeave.consequences}
-          cancelLabel={t.hostLeave.cancel}
-        >
-          <LeaveRoomForm
-            label={t.hostLeave.confirm}
-            pendingLabel={t.leaving}
-            errors={t.changeErrors}
-            onLeaving={onLeaving}
-            onFailed={onLeaveFailed}
-            buttonClassName={secondaryButton}
-          />
-        </ConfirmClosing>
+          afterwards={t.hostLeave.backHome}
+          racing={racingView}
+          onLeaving={onLeaving}
+          onFailed={onLeaveFailed}
+        />
       ) : (
         <LeaveRoomForm
           label={t.leave}
@@ -444,12 +437,12 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         />
       )}
       {self.isHost && (
-        <p id="host-leave-note" className="text-sm text-brume">
+        <p id="host-leave-note" className="max-w-xs text-sm text-brume">
           {t.hostLeaveNote}
         </p>
       )}
       {leavingAbandons && (
-        <p id="race-leave-note" className="text-sm text-brume">
+        <p id="race-leave-note" className="max-w-xs text-sm text-brume">
           {t.raceLeaveNote}
         </p>
       )}

@@ -142,14 +142,16 @@ export const en: Dictionary = {
     },
     leave: "Leave the room",
     leaving: "Leaving…",
-    hostLeaveNote: "If you leave as the host, the room closes for everyone: you will be asked to confirm.",
+    hostLeaveNote: "If you leave as the host, the room closes for everyone: you will have to confirm.",
+    hostGoToRoom: "You host room {code}: leaving it closes it for everyone. To do so, go to your room, where a confirmation will tell you what it does.",
     hostLeave: {
-      question: "Leave and close the room?",
+      question: "Leave and close room {code}?",
       consequences: [
         "You are the host: leaving closes the room for everyone. Every member leaves it, and it admits nobody any more.",
-        "Finished races stay readable by their runners, at their page’s address. You go back to the home page.",
+        "Finished races stay readable by their runners, at their page’s address.",
       ],
       racing: "The race in progress stops for everyone, without results.",
+      backHome: "You go back to the home page.",
       confirm: "Yes, leave and close",
       cancel: "Stay in the room",
     },
@@ -160,7 +162,7 @@ export const en: Dictionary = {
       nextRoundNote: "Everyone goes back to the waiting room, including anyone who joined during the results.",
       close: "Close the room",
       closePending: "Closing…",
-      closeNote: "Closing the room makes everyone leave: you will be asked to confirm.",
+      closeNote: "Closing the room makes everyone leave: you will have to confirm.",
       closeQuestion: "Close the room for everyone?",
       closeConsequences: [
         "Every member leaves the room, and it admits nobody any more.",
