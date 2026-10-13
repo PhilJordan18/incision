@@ -137,6 +137,8 @@ describe("normalizePassage: idempotence over dashes, hyphens and marks", () => {
     expect(ok(`Quoi${EM}--?`)).toBe("Quoi - ?");
     expect(ok(`Il hésita ${EM} -; puis`)).toBe("Il hésita - ; puis");
     expect(ok(`Il hésita ${EM}--! puis`)).toBe("Il hésita - ! puis");
+    expect(ok(`a${EM}--b`)).toBe("a - b");
+    expect(ok(`a--${EM}--b`)).toBe("a - b");
   });
 
   it("gives a text that normalises to itself, over seeded strings", () => {
