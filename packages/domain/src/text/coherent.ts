@@ -28,7 +28,8 @@ export const MAX_PASSAGE_LENGTH = 2 * MAX_TEXT_GRAPHEMES;
 const MARK_SET: ReadonlySet<string> = new Set(MARKS);
 const HAS_DIGIT = /\p{N}/u;
 const LEADING_OPENERS = /^["(]+/u;
-const TRAILING_MARKS = /[.,;:!?)"]+$/u;
+// The lookbehinds keep these linear: a run of marks is scanned once, from its start only.
+const TRAILING_MARKS = /(?<![.,;:!?)"])[.,;:!?)"]+$/u;
 
 /**
  * The host's options applied to a normalised passage, in a fixed order:
@@ -46,7 +47,7 @@ export function applyPassageOptions(text: string, options: TextOptions): string 
     tokens = withoutNumbers(tokens);
   }
   if (!options.punctuation) {
-    tokens = tokens.map((token) => [...token].filter((character) => !MARK_SET.has(character)).join("").replace(/^['-]+|['-]+$/gu, "")).filter((token) => token !== "");
+    tokens = tokens.map((token) => [...token].filter((character) => !MARK_SET.has(character)).join("").replace(/^['-]+|(?<!['-])['-]+$/gu, "")).filter((token) => token !== "");
   }
   let result = tokens.join(" ");
   if (!options.capitals) {
@@ -69,26 +70,30 @@ const runContinues = (token: string, next: string | undefined): boolean =>
   next !== undefined && HAS_DIGIT.test(next) && !LEADING_OPENERS.test(next) && /^,?$/u.test(token.match(TRAILING_MARKS)?.[0] ?? "");
 
 /** Whether a kept token already ends with a mark, closing quotes and parentheses aside. */
-const endsWithMark = (token: string | undefined): boolean => token !== undefined && /[.,;:!?]$/u.test(token.replace(/[)"]+$/u, ""));
+const endsWithMark = (token: string | undefined): boolean => token !== undefined && /[.,;:!?]$/u.test(token.replace(/(?<![)"])[)"]+$/u, ""));
 
 /**
  * Removes number tokens. A run of numbers ("1914 - 1918", "1 000") goes as one unit; marks it opens
  * and closes go with it; a closer it opened that sits in the next punctuation token goes too. Its
- * other closing and end marks move onto the previous word, an end mark only when the text there has
- * none yet; a mark standing alone after it (French "1918 !") follows the same rule. A dash left with
- * nothing on one side goes: at the start, or as the second dash of an emptied pair.
+ * other closing and end marks move onto the previous word, an end mark only when the last token
+ * other than a dash has none yet; a mark standing alone after it (French "1918 !") follows the same
+ * rule. A dash left with nothing on one side goes: at the start, at the end, or as the second dash
+ * of an emptied pair.
  */
 function withoutNumbers(tokens: readonly string[]): string[] {
   const source = [...tokens];
   const kept: string[] = [];
-  // The last kept word, kept up to date so each number run finds it at once.
+  // The last kept word, and the last kept token other than a dash, kept up to date so each number
+  // run finds them at once. An end mark after a removed number is weighed against the second one.
   let lastWord = -1;
+  let lastSolid = -1;
   let pendingOpeners = "";
   let index = 0;
   while (index < source.length) {
     const token = source[index] ?? "";
     if (!HAS_DIGIT.test(token)) {
       if (token !== "") kept.push(isWordToken(token) ? pendingOpeners + token : token);
+      if (token !== "" && token !== "-") lastSolid = kept.length - 1;
       if (isWordToken(token)) {
         pendingOpeners = "";
         lastWord = kept.length - 1;
@@ -126,19 +131,25 @@ function withoutNumbers(tokens: readonly string[]): string[] {
     }
     pendingOpeners += openers;
     const previous = lastWord;
+    const before = kept[lastSolid];
     if (trailing !== "" && previous !== -1) {
       const word = kept[previous] ?? "";
       const closers = trailing.replace(/[^)"]/gu, "");
-      const ends = endsWithMark(word) || endsWithMark(kept.at(-1)) ? "" : trailing.replace(/[)"]/gu, "");
+      const ends = endsWithMark(word) || endsWithMark(before) ? "" : trailing.replace(/[)"]/gu, "");
       kept[previous] = word + ends + closers;
     }
     let after = end + 1;
     for (; /^[.,;:!?]+$/u.test(source[after] ?? ""); after += 1) {
-      if (kept.length === 0 || endsWithMark(kept.at(-1))) source[after] = "";
+      // Read again: the run's own end mark may just have been added there.
+      const last = kept[lastSolid];
+      if (last === undefined || endsWithMark(last)) source[after] = "";
     }
+    // A dash now between nothing and something goes: at the start, at the end, or doubled.
     if (source[after] === "-" && (kept.length === 0 || kept.at(-1) === "-")) {
       source[after] = "";
       if (kept.at(-1) === "-") kept.pop();
+    } else if (source[after] === undefined && kept.at(-1) === "-") {
+      kept.pop();
     }
     index = end + 1;
   }

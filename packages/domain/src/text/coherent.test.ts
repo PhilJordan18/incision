@@ -101,6 +101,13 @@ describe("applyPassageOptions: numbers off removes a run of numbers whole", () =
     expect(applyPassageOptions("Victoire ! 1918, la paix revient.", off)).toBe("Victoire ! la paix revient.");
     expect(applyPassageOptions("La guerre - 1914 - commence ici.", off)).toBe("La guerre commence ici.");
     expect(applyPassageOptions("1914 - La guerre commence ici.", off)).toBe("La guerre commence ici.");
+    expect(applyPassageOptions("La fin - 1866.", off)).toBe("La fin.");
+  });
+
+  it("weighs an end mark after a removed number against the token before the dash, in dialogue", () => {
+    expect(applyPassageOptions("- Combien ? - 12. - Merci.", off)).toBe("- Combien ? Merci.");
+    expect(applyPassageOptions("- Quelle année ? - 1918 ! - Bien.", off)).toBe("- Quelle année ? Bien.");
+    expect(applyPassageOptions("- 1918 ! - Bien.", off)).toBe("Bien.");
   });
 
   it("keeps quotes and parentheses balanced over seeded passages", () => {
@@ -125,7 +132,8 @@ describe("applyPassageOptions: numbers off removes a run of numbers whole", () =
       return tokens;
     };
     for (let round = 0; round < 3_000; round += 1) {
-      const tokens = [...Array.from({ length: 1 + random.index(5) }, () => [...group(), pick(["", "", ",", ".", "!", "-"])]).flat().filter((token) => token !== "")];
+      // Separators include the dialogue shape: an end mark, then a dash before the next group.
+      const tokens = [...Array.from({ length: 1 + random.index(5) }, () => [...group(), ...pick([[""], [""], [","], ["."], ["!"], ["-"], [".", "-"], ["!", "-"]])]).flat().filter((token) => token !== "")];
       // English attaches its marks; French keeps a space before "!".
       const passage = `Il ${tokens.join(" ")}`.replace(round % 2 === 0 ? / ([,.!])/gu : / ([,.])/gu, "$1");
       expect(balanced(passage)).toBe(true);

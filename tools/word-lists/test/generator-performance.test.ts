@@ -108,6 +108,16 @@ describe("generator cost on a 60,000-word list", () => {
     expect(performance.now() - started).toBeLessThan(1_000);
   });
 
+  it("reads long runs of marks inside one token in linear time", () => {
+    // Security review: trailing-run patterns used to rescan a run from each of its marks.
+    const off = { punctuation: true, numbers: false, capitals: true, accents: true };
+    const started = performance.now();
+    applyPassageOptions(`Il 1${")".repeat(50_000)}x fin.`, off);
+    applyPassageOptions(`Il a${")".repeat(50_000)}b 1. fin`, off);
+    applyPassageOptions(`Il a${"'-".repeat(25_000)}a fin.`, { ...off, punctuation: false });
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
   it("normalises long runs of spaces and marks in linear time", () => {
     const started = performance.now();
     normalizePassage(`a${" ".repeat(50_000)}b${"-".repeat(50_000)}c${" ;".repeat(20_000)}`, "fr");

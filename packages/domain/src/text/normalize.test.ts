@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createRandom } from "../random/prng";
 import { normalizePassage } from "./normalize";
 import { countWords, cutToWords } from "./words";
 
@@ -125,5 +126,29 @@ describe("normalizePassage and cutToWords: confirmation findings", () => {
   it("keeps a closing quote after the last word's mark, never an opening one", () => {
     expect(cutToWords(ok("Il cria : « Oui ! » puis rien."), 3)).toBe('Il cria : "Oui !"');
     expect(cutToWords('un deux " trois', 2)).toBe("un deux");
+  });
+});
+
+describe("normalizePassage: idempotence over dashes, hyphens and marks", () => {
+  const EM = String.fromCodePoint(0x2014);
+  const EN = String.fromCodePoint(0x2013);
+
+  it("merges dashes once French spacing has set a mark apart", () => {
+    expect(ok(`Quoi${EM}--?`)).toBe("Quoi - ?");
+    expect(ok(`Il hésita ${EM} -; puis`)).toBe("Il hésita - ; puis");
+    expect(ok(`Il hésita ${EM}--! puis`)).toBe("Il hésita - ! puis");
+  });
+
+  it("gives a text that normalises to itself, over seeded strings", () => {
+    const random = createRandom([0x5eed_0001, 0x2468_ace0, 0x1357_9bdf, 0x0f0f_0f0f]);
+    const pieces = ["Quoi", "puis", "mer", " ", " ", EM, EN, "-", "--", ";", "!", "?", ":", ",", ".", "«", "»", String.fromCodePoint(0xa0), "'"];
+    for (let round = 0; round < 5_000; round += 1) {
+      const source = `mer ${Array.from({ length: 1 + random.index(12) }, () => pieces[random.index(pieces.length)]).join("")} fin`;
+      for (const language of ["fr", "en"] as const) {
+        const first = normalizePassage(source, language);
+        if (!first.ok) continue;
+        expect({ source, language, again: normalizePassage(first.text, language) }).toEqual({ source, language, again: { ok: true, text: first.text, changes: [] } });
+      }
+    }
   });
 });

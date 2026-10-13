@@ -69,7 +69,7 @@ type Prepared = {
 };
 
 /** The refusals that need no draw, with the random plan or the coherent cuts built once for the draw that follows. */
-function prepare(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>>): Prepared {
+function prepare(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>>, cuts: boolean): Prepared {
   const settingsRefusal = textSettingsRefusal(sources.settings, criteria);
   if (settingsRefusal !== undefined) return { refusal: settingsRefusal };
   if (isRandom(sources)) {
@@ -78,6 +78,8 @@ function prepare(sources: RaceTextSources, criteria: Readonly<Record<Complexity,
   }
   checkPassages(sources.passages);
   const { settings } = sources;
+  // A refusal needs one compatible passage; a draw needs them all.
+  if (!cuts) return sources.passages.some((passage) => passageCut(passage, settings) !== undefined) ? {} : { refusal: "NO_COMPATIBLE_PASSAGE" };
   const compatible = sources.passages.flatMap((passage) => {
     const cut = passageCut(passage, settings);
     return cut === undefined ? [] : [{ passage, cut }];
@@ -87,12 +89,12 @@ function prepare(sources: RaceTextSources, criteria: Readonly<Record<Complexity,
 
 /** Every refusal that needs no draw, in priority order; never a text. */
 export function raceTextRefusal(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>> = COMPLEXITY_CRITERIA): Proven | undefined {
-  return prepare(sources, criteria).refusal;
+  return prepare(sources, criteria, false).refusal;
 }
 
 export function generateRaceText(input: RaceTextInput): RaceTextResult {
   const criteria = input.criteria ?? COMPLEXITY_CRITERIA;
-  const { refusal, plan, compatible } = prepare(input, criteria);
+  const { refusal, plan, compatible } = prepare(input, criteria, true);
   if (refusal !== undefined) return { ok: false, reason: refusal };
   const random = createRandom(input.state);
   const versions: RaceTextVersions = { generator: TEXT_GENERATOR_VERSION, criteria: CRITERIA_VERSION, normalization: NORMALIZATION_VERSION, prng: PRNG_VERSION };

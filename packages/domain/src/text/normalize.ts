@@ -44,8 +44,8 @@ const QUOTES = new RegExp(`[${chars(0x201c, 0x201d, 0x201e)}]`, "gu");
 const OPENING_GUILLEMET = new RegExp(`${chars(0xab)} ?`, "gu");
 const CLOSING_GUILLEMET = new RegExp(` ?${chars(0xbb)}`, "gu");
 const ELLIPSIS = new RegExp(chars(0x2026), "gu");
-/** A sentence dash, a hyphen glued to it included ("-—"). */
-const DASH = `-?(?:[${chars(0x2012, 0x2013, 0x2014, 0x2015)}]|-{2,})-?`;
+/** A sentence dash, the hyphens glued to it included ("-—", "—--"). */
+const DASH = `-*(?:[${chars(0x2012, 0x2013, 0x2014, 0x2015)}]|-{2,})-*`;
 /** A run of sentence dashes ("——", "— —", "-- --") is one dash. */
 const DASHES = new RegExp(` ?${DASH}(?: ?${DASH})* ?`, "gu");
 /** Dash tokens in a row, as "a - — b" leaves them, are one dash too. */
@@ -76,7 +76,6 @@ export function normalizePassage(source: string, language: TextLanguage): Passag
   step(ELLIPSIS, "...", "ellipsis");
   // A dash takes the spaces around it, so no run of spaces comes back; one at either end may.
   step(DASHES, " - ", "dashes");
-  step(DASH_TOKENS, "-", "dashes");
   step(HYPHENS, "-", "hyphens");
   step(/^ | $/gu, "", "spaces");
   if (language === "fr") {
@@ -85,6 +84,8 @@ export function normalizePassage(source: string, language: TextLanguage): Passag
   } else {
     step(/ ([;:!?])/gu, "$1", "spacing");
   }
+  // Last, once French spacing has set "-;" apart: dash tokens in a row are one dash.
+  step(DASH_TOKENS, "-", "dashes");
   if (text === "") {
     return { ok: false, reason: "EMPTY", character: "", position: 0 };
   }
