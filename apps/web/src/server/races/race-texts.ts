@@ -17,7 +17,8 @@ export type RaceText = {
 /**
  * The two fixed texts of the first complete race (F-04.0): short public-domain passages, one per
  * interface language, selected under Philippe's delegated policy (authentic passages, documented
- * source and reuse, a maritime preference). The text follows the host's interface language at the
+ * sources and reuse conditions, a maritime and pirate preference, sensitive exceptions escalated;
+ * docs/DEPLOYMENT.md, « Textes de course »). The text follows the host's interface language at the
  * start (D-19). No line break (Enter is reserved, D-16), and only characters a
  * French or English keyboard types directly.
  */
