@@ -3,6 +3,7 @@
 import { containsLineBreak, toGraphemes } from "@incision/domain";
 import { memo, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
+import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
@@ -24,11 +25,6 @@ type RaceViewProps = {
   readonly onAbandon: (raceId: string) => Promise<boolean>;
   /** The page's connection is lost and being restored. */
   readonly reconnecting: boolean;
-  /**
-   * The host's « Quitter la salle » during the race: under the field with the other questions, so
-   * that nothing above the text moves when its question opens (design rule 7).
-   */
-  readonly below?: ReactNode;
 };
 
 const TYPING_INPUT_ID = "race-typing";
@@ -49,7 +45,7 @@ export function focusTyping(fallback?: HTMLElement | null): void {
  * clock, then the text, the typing field and everyone's progress. What is typed shows at once
  * (the engine's prediction); progress, measures and results come from the server.
  */
-export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeControl, onPresent, onAbandon, reconnecting, below }: RaceViewProps) {
+export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeControl, onPresent, onAbandon, reconnecting }: RaceViewProps) {
   const state = useSyncExternalStore(race.subscribe, race.getState, race.getState);
   const now = useServerClock(race, state);
   const reveal = expectedRaceId === undefined || state.reveal?.raceId === expectedRaceId ? state.reveal : undefined;
@@ -58,12 +54,9 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
     // The room counts down or races, but no race reached this tab: it runs elsewhere (two
     // processes overlapping) or its process stopped; the room recovers it once its lease ends.
     return (
-      <div className="flex flex-col gap-6">
-        <p role="status" className="text-embrun">
-          {waitedLong ? t.elsewhere : t.preparing}
-        </p>
-        {below}
-      </div>
+      <p role="status" className="text-embrun">
+        {waitedLong ? t.elsewhere : t.preparing}
+      </p>
     );
   }
   const phase = state.progress?.phase ?? (now < reveal.startsAt ? "countdown" : "racing");
@@ -154,8 +147,6 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
               {t.confirming}
             </p>
           )}
-
-          {below}
         </div>
 
         <Track state={state} t={t} locale={locale} />
@@ -211,8 +202,8 @@ function StillThere({ t, onPresent }: { readonly t: Dictionary["races"]; readonl
  * COURSE-07: giving up takes a confirmation in the page; the server then makes it terminal.
  * The question takes the focus, "Keep racing" first; keeping racing (the button or Escape) gives
  * the focus back to the field. Once given up, the focus goes to the field's status line, which
- * says so; a refusal brings it back to the button. The design's warning card; giving up is the red
- * link (screen 12's destructive action), keeping racing the button.
+ * says so; a refusal brings it back to the button. Keeping racing is the button, giving up the red
+ * link (screen 12's destructive action).
  */
 function AbandonControl({ t, onAbandon }: { readonly t: Dictionary["races"]; readonly onAbandon: () => Promise<boolean> }) {
   const [step, setStep] = useState<"idle" | "confirming" | "sending" | "failed">("idle");
@@ -260,20 +251,15 @@ function AbandonControl({ t, onAbandon }: { readonly t: Dictionary["races"]; rea
   }
   const sending = step === "sending";
   return (
-    <section
-      aria-labelledby="abandon-question"
-      data-confirmation=""
-      className={`${card} flex max-w-xl flex-col gap-3 border-or`}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && !sending) {
+    <WarningQuestion
+      labelledBy="abandon-question"
+      warning={t.abandonWarning}
+      onEscape={() => {
+        if (!sending) {
           keepRacing();
         }
       }}
     >
-      <p className={`${monoLabel} text-or`}>
-        <span aria-hidden="true">⚠ </span>
-        {t.abandonWarning}
-      </p>
       <h2 id="abandon-question" ref={question} tabIndex={-1} className="font-display text-2xl font-extrabold uppercase outline-none">
         {t.abandonQuestion}
       </h2>
@@ -286,7 +272,7 @@ function AbandonControl({ t, onAbandon }: { readonly t: Dictionary["races"]; rea
           {sending ? t.abandoning : t.abandonConfirm}
         </button>
       </div>
-    </section>
+    </WarningQuestion>
   );
 }
 
@@ -366,7 +352,7 @@ function TypingZone({
   // The field takes the focus when typing opens: at "Go", or when this tab takes the input. Never
   // from a question being answered (giving up, the host's leave): a key meant for it would type.
   useEffect(() => {
-    if (enabled && document.activeElement?.closest("[data-confirmation]") == null) {
+    if (enabled && !focusIsInQuestion()) {
       input.current?.focus();
     }
   }, [enabled]);
@@ -425,8 +411,9 @@ function TypingZone({
   }, [race]);
 
   // A fault to correct only while this player types here: once the race is over for them (given
-  // up, finished, time up) or the field is blocked, the line says why, and the field is not in error.
-  const expected = block === undefined && ended === undefined && typing?.pendingError === true ? typing.target[typing.typed.length] : undefined;
+  // up, finished, time up, interrupted) or the field is blocked, the line says why, and neither the
+  // field nor the text is in error. An observing tab still sees the fault in the text, as it is.
+  const expected = enabled && typing?.pendingError === true ? typing.target[typing.typed.length] : undefined;
   const message =
     block === "observing"
       ? t.observing
@@ -445,7 +432,7 @@ function TypingZone({
                 : t.typingHint;
   return (
     <div className="flex flex-col gap-4">
-      <RaceText target={reveal?.text ?? []} typing={typing} label={t.textLabel} language={language} overlay={overlay} />
+      <RaceText target={reveal?.text ?? []} typing={typing} showFault={ended === undefined} label={t.textLabel} language={language} overlay={overlay} />
       <div className="flex flex-col gap-2">
         <label htmlFor={TYPING_INPUT_ID} className={monoLabel}>
           {t.typingLabel}
@@ -487,12 +474,15 @@ function TypingZone({
 const RaceText = memo(function RaceText({
   target,
   typing,
+  showFault = true,
   label,
   language,
   overlay,
 }: {
   readonly target: readonly string[];
   readonly typing: RaceClientState["typing"];
+  /** The fault still to correct, boxed; not once the race is over for this player. */
+  readonly showFault?: boolean;
   readonly label: string;
   readonly language: Locale;
   /** The countdown, over the faded text; the card keeps one height before and after. */
@@ -505,7 +495,7 @@ const RaceText = memo(function RaceText({
       <p lang={language} className={`course-texte break-words ${overlay === undefined ? "" : "opacity-40"}`}>
         {target.map((grapheme, index) => {
           const mark = typing?.marks[index];
-          const blocked = typing?.pendingError === true && index === typed;
+          const blocked = showFault && typing?.pendingError === true && index === typed;
           const className =
             index < typed ? (mark === "wrong" ? "course-erreur" : "course-juste") : blocked ? "course-bloque course-curseur" : index === typed && typing !== undefined ? "course-curseur" : "";
           return (

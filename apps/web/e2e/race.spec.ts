@@ -158,13 +158,21 @@ test.describe("the first complete race (F-04.0)", () => {
     const field = guest.getByLabel("Ta frappe");
     await expect(field).toBeEnabled({ timeout: 6_000 });
     await typeText(field, text.slice(0, 6));
+    // A fault left to correct in the first tab.
+    await typeText(field, text[6] === "#" ? "%" : "#");
+    await expect(field).toHaveAttribute("aria-invalid", "true");
 
+    // The watching tab shows the fault in the text, as it is, but its own field is not in error.
     const second = await context.newPage();
     await second.goto(`/rooms/${code}`);
-    await expect(second.getByText("Tu tapes dans un autre onglet ; celui-ci regarde.")).toBeVisible();
+    await expect(second.locator("#race-typing-status")).toHaveText("Tu tapes dans un autre onglet ; celui-ci regarde.");
+    await expect(second.locator(".course-texte .course-bloque")).toHaveCount(1);
     await expect(second.getByLabel("Ta frappe")).toBeDisabled();
+    await expect(second.getByLabel("Ta frappe")).toHaveAttribute("aria-invalid", "false");
+    // Taking the input takes the fault with it, to correct here.
     await second.getByRole("button", { name: "Taper dans cet onglet" }).click();
     await expect(second.getByLabel("Ta frappe")).toBeEnabled();
+    await expect(second.getByLabel("Ta frappe")).toHaveAttribute("aria-invalid", "true");
     await expect(guest.getByText("Tu tapes dans un autre onglet ; celui-ci regarde.")).toBeVisible();
     await typeText(second.getByLabel("Ta frappe"), text.slice(6, 10));
 
@@ -275,6 +283,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(host.locator("#race-typing-status")).toHaveText("You gave up. You can follow the race to the end.");
     await expect(hostField).toBeDisabled();
     await expect(hostField).toHaveAttribute("aria-invalid", "false");
+    await expect(host.locator(".course-texte .course-bloque")).toHaveCount(0);
     await expect(host.getByRole("button", { name: "Give up the race" })).toHaveCount(0);
     // The others see it on the list, from the server.
     await expect(guest.getByRole("region", { name: "Équipage en course" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("abandon");
@@ -309,8 +318,12 @@ test.describe("the first complete race (F-04.0)", () => {
     // At « Go » the field opens, but the focus stays on the question: keys meant for it never type.
     await expect(field).toBeEnabled({ timeout: 6_000 });
     await expect(question).toBeFocused();
-    await host.keyboard.type("abc");
-    await expect(host.locator(".course-juste, .course-erreur")).toHaveCount(0);
+    // The text's own first keys would advance the race if they reached the field: they do not.
+    await host.keyboard.type(((await text.textContent()) ?? "").slice(0, 3), { delay: 70 });
+    await expect(question).toBeFocused();
+    await expect(host.locator(".course-juste, .course-bloque")).toHaveCount(0);
+    await expect(field).toHaveAttribute("aria-invalid", "false");
+    await expect(host.locator("dt", { hasText: "Accuracy" }).locator("xpath=following-sibling::dd")).toHaveText("—");
     // The race goes on meanwhile, on the server's clock.
     const clock = host.locator("dt", { hasText: "Time" }).locator("xpath=following-sibling::dd");
     const shown = (await clock.textContent()) ?? "";
