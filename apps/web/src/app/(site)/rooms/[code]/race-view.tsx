@@ -252,17 +252,16 @@ function AbandonControl({ t, onAbandon }: { readonly t: Dictionary["races"]; rea
   const sending = step === "sending";
   return (
     <WarningQuestion
-      labelledBy="abandon-question"
+      id="abandon-question"
+      headingRef={question}
       warning={t.abandonWarning}
+      question={t.abandonQuestion}
       onEscape={() => {
         if (!sending) {
           keepRacing();
         }
       }}
     >
-      <h2 id="abandon-question" ref={question} tabIndex={-1} className="font-display text-2xl font-extrabold uppercase outline-none">
-        {t.abandonQuestion}
-      </h2>
       <p className="text-embrun">{t.abandonBody}</p>
       <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
         <button type="button" onClick={keepRacing} disabled={sending} className={secondaryButton}>

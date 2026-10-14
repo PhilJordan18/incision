@@ -18,7 +18,7 @@ export const discreetButton = `${BUTTON_BASE} h-[52px] border border-houle font-
  * answers line up.
  */
 export const destructiveLink =
-  "inline-flex h-[52px] items-center px-1 text-sm font-medium text-erreur underline underline-offset-[3px] transition-colors duration-200 ease-incision hover:decoration-2";
+  "inline-flex h-[52px] items-center px-1 text-sm text-erreur underline underline-offset-[3px] transition-colors duration-200 ease-incision hover:decoration-2";
 /** Provider buttons of the sign-in screen: surface, thin border. */
 export const surfaceButton = `${BUTTON_BASE} h-[52px] border border-houle bg-nuit font-semibold text-ecume hover:border-brume`;
 /** Round header controls (44 px), used on the site header. */

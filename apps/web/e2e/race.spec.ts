@@ -275,7 +275,8 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(hostField).toHaveAttribute("aria-invalid", "true");
     await host.getByRole("button", { name: "Give up the race" }).click();
     await expect(host.getByRole("heading", { name: "Give up the race?" })).toBeFocused();
-    await expect(host.getByText("Cannot be undone")).toBeVisible();
+    // The warning is heard with the question.
+    await expect(host.getByRole("heading", { name: "Give up the race?" })).toHaveAccessibleDescription("Cannot be undone");
     await expectNoAccessibilityViolation(host);
     await host.getByRole("button", { name: "Yes, give up" }).click();
     // The focus goes to the line that says it; the field is out of the race, not in error.
@@ -312,7 +313,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await leave.click();
     await expect(question).toBeFocused();
     await expect(host.getByRole("timer"), "the question opened before « Go »").toBeVisible();
-    await expect(host.getByText("Cannot be undone")).toBeVisible();
+    await expect(question).toHaveAccessibleDescription("Cannot be undone");
     expect(await pageTop(text)).toBe(textTop);
     expect(await pageTop(field)).toBe(fieldTop);
     // At « Go » the field opens, but the focus stays on the question: keys meant for it never type.

@@ -76,17 +76,16 @@ export function ConfirmClosing({
   }
   return (
     <WarningQuestion
-      labelledBy={`${id}-question`}
+      id={`${id}-question`}
+      headingRef={heading}
       warning={warning}
+      question={question}
       onEscape={() => {
         if (!busy) {
           setOpen(false);
         }
       }}
     >
-      <h2 id={`${id}-question`} ref={heading} tabIndex={-1} className="font-display text-2xl font-extrabold uppercase outline-none">
-        {question}
-      </h2>
       <div id={consequencesId(id)} className="flex flex-col gap-3">
         {consequences.map((line) => (
           <p key={line} className="text-embrun">
