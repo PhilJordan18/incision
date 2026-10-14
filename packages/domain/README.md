@@ -265,12 +265,15 @@ Stored values are bounded, so database columns can be sized from these constants
   only measures: the editorial appraisal of a passage (theme, suitability) is recorded with the
   corpus, never computed here.
 - **Two normalisations.** Dictionary words follow `src/words` (an explicit alphabet per language,
-  then folding for exclusions). Passages follow `normalizePassage` (version 1): special spaces,
-  typographic apostrophes and quotes, the ellipsis, sentence dashes to " - " with the words kept
-  apart, the typographic hyphens ‐ and ‑ inside a word to "-", French spacing before `; : ! ?`
-  (none before a ":" followed by a digit, as in 10:30). Every change is reported, Unicode
-  composition included. Invisible characters, primes and anything untypable (bidirectional
-  controls, œ and æ until P-4) are refused with their position, never changed blindly.
+  then folding for exclusions). Passages follow `normalizePassage` (version 2): special spaces,
+  typographic apostrophes and quotes, the ellipsis, the ligatures spelled out (œ to oe, æ to ae; Œ
+  and Æ to Oe and Ae before a lowercase letter, OE and AE otherwise: P-4), sentence dashes to " - "
+  with the words kept apart, the typographic hyphens ‐ and ‑ inside a word to "-", French spacing
+  before `; : ! ?` (none before a ":" followed by a digit, as in 10:30). Every change is reported,
+  Unicode composition included, and a normalised text normalises to itself. Invisible characters,
+  primes and anything untypable (bidirectional controls) are refused with their position, never
+  changed blindly. Version 1 refused œ and æ, so its texts are version 2 texts too: nothing stored is
+  renormalised, and a race keeps its text and its version.
 - **Words.** A word is a token holding a letter or a digit (D-10): a lone `?` or a dash is none.
   A cut ends after its Nth word, with the closing punctuation that directly follows (a closing
   quote included); never on a lone dash or an opening mark. Measures leave tokens with a digit
@@ -302,6 +305,13 @@ Stored values are bounded, so database columns can be sized from these constants
   `TEXT_SEARCH_EXHAUSTED`, which proves nothing. The letters each pool word holds are computed
   once per call. On synthetic lists of 60,000 words, the configuration check takes 0.1 to 0.2 s,
   and a text or a failed search 0.15 to 0.3 s, words of 16 letters being the slowest case.
+- **Diversity warning (Q-7).** `raceTextDiversity` gives the number of distinct words a random
+  text may draw from for these settings, and flags fewer than `LOW_DIVERSITY_POOL_SIZE` (50), so
+  the interface can warn the host that the words will repeat often (F-03.1). It is a provisional
+  indicator, never a refusal, and it proves nothing: an empty pool keeps its refusal
+  (`NO_COMPATIBLE_WORDS`), and proven incompatibilities and `TEXT_SEARCH_EXHAUSTED` stay apart. The
+  generator promises no even spread of the words, whatever the pool. It runs on the server, which
+  holds the lists.
 - **Final checks.** `raceTextViolations` lists every guarantee the final text breaks: exactly N
   words, typable characters, no line break, the grapheme bound, each option's effect; in random
   mode, each word read from the list itself (band, exclusions, alphabet, accents), included and
@@ -341,7 +351,7 @@ Stored values are bounded, so database columns can be sized from these constants
   - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4);
   - `buildWordPool`, `foldForExclusion` and `forbiddenPairRule`, with the data on the
     `./words` subpath (F-02.4);
-  - `textSettingsRefusal`, `raceTextRefusal`, `generateRaceText`, `raceTextViolations`,
+  - `textSettingsRefusal`, `raceTextRefusal`, `raceTextDiversity`, `generateRaceText`, `raceTextViolations`,
     `normalizePassage`, `countWords`, `cutToWords` and `measureText` (F-02.5, on fixtures).
 - **Changes.** A contract changes only through an engine pull request, announced before the
   integration that depends on it.

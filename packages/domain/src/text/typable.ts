@@ -13,9 +13,9 @@ export const WORD_LETTERS: Readonly<Record<TextLanguage, string>> = {
 };
 
 /**
- * Correct French letters that need more than one key on the class's keyboards (P-4): random mode
- * avoids words holding them, and passages holding them are refused at import until a rule is set.
- * Never replaced by "oe" or "ae", which would misspell the word.
+ * Correct French letters that need more than one key on the class's keyboards (P-4). Passages spell
+ * them out, a typographic adaptation (normalisation version 2). Random mode avoids the words holding
+ * them in this version: a dictionary word is never respelled "oe" or "ae".
  */
 export const HARD_TO_TYPE_LETTERS = "œæ";
 

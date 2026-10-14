@@ -5,7 +5,7 @@ import { asRandomState, createRandom, PRNG_VERSION, type RandomState } from "../
 import { asInstant } from "../time";
 import type { WordList } from "../words/types";
 import { passageCut, type Passage } from "./coherent";
-import { generateRaceText, raceTextRefusal, raceTextViolations, TEXT_GENERATOR_VERSION, type RaceTextResult } from "./generate";
+import { generateRaceText, LOW_DIVERSITY_POOL_SIZE, raceTextDiversity, raceTextRefusal, raceTextViolations, TEXT_GENERATOR_VERSION, type RaceTextResult } from "./generate";
 import { NORMALIZATION_VERSION } from "./normalize";
 import type { RandomWords } from "./random";
 import { COMPLEXITIES, COMPLEXITY_CRITERIA, CRITERIA_VERSION, type CoherentTextSettings, type RandomTextSettings, type TextOptions } from "./settings";
@@ -462,5 +462,37 @@ describe("raceTextViolations: checks added after the reviews", () => {
   it("reports a French high mark attached to its word", () => {
     const french = randomSettings({ wordCount: 3, options: ALL_ON });
     expect(raceTextViolations("Mer port; vent.", { settings: french, words: WORDS.fr }).some((violation) => violation.includes("a space before"))).toBe(true);
+  });
+});
+
+describe("raceTextDiversity: a warning below 50 distinct words (Q-7), never a refusal", () => {
+  const letter = (value: number): string => String.fromCharCode(97 + (value % 26));
+  const distinct = (count: number): string[] => Array.from({ length: count }, (_, index) => `w${letter(index)}${letter(Math.floor(index / 26))}`);
+  const settings = randomSettings({ language: "en", wordCount: 10, options: { ...ALL_ON, numbers: false } });
+
+  it("counts the distinct words of the pool and flags fewer than LOW_DIVERSITY_POOL_SIZE", () => {
+    expect(LOW_DIVERSITY_POOL_SIZE).toBe(50);
+    expect(raceTextDiversity({ settings, words: custom(distinct(49)) })).toEqual({ poolSize: 49, lowDiversity: true });
+    expect(raceTextDiversity({ settings, words: custom(distinct(50)) })).toEqual({ poolSize: 50, lowDiversity: false });
+    // The warning does not block: a small pool still draws a valid text.
+    expect(generateRaceText({ settings, words: custom(distinct(3)), state: STATES[0] as RandomState }).ok).toBe(true);
+    expect(raceTextRefusal({ settings, words: custom(distinct(3)) })).toBeUndefined();
+    // A hand-built list may repeat a word, which the parsers refuse: it counts once.
+    expect(raceTextDiversity({ settings, words: custom([...distinct(50), "waa"]) })).toEqual({ poolSize: 50, lowDiversity: false });
+  });
+
+  it("counts the pool after exclusions, band and excluded characters, as the draw does", () => {
+    const words = custom([...distinct(60), "zzzzzzzzzzzz"]);
+    expect(raceTextDiversity({ settings: { ...settings, complexity: "easy" }, words })?.poolSize).toBe(60);
+    // "a" is in the 26 words waa to wza, and in wab and wac: 28 of the 60 go.
+    expect(raceTextDiversity({ settings: { ...settings, exclude: ["a"] }, words })?.poolSize).toBe(32);
+  });
+
+  it("leaves an empty pool to its refusal, and says nothing for coherent or refused settings", () => {
+    const empty = { settings: { ...settings, exclude: ["w", "z"] }, words: custom(distinct(10)) };
+    expect(raceTextDiversity(empty)).toEqual({ poolSize: 0, lowDiversity: false });
+    expect(raceTextRefusal(empty)).toBe("NO_COMPATIBLE_WORDS");
+    expect(raceTextDiversity({ settings: coherentSettings(), passages: TEST_PASSAGES })).toBeUndefined();
+    expect(raceTextDiversity({ settings: { ...settings, wordCount: 5 }, words: custom(distinct(10)) })).toBeUndefined();
   });
 });
