@@ -152,6 +152,7 @@ export const en: Dictionary = {
       ],
       racing: "The race in progress stops for everyone, without results.",
       backHome: "You go back to the home page.",
+      warning: "Cannot be undone",
       confirm: "Yes, leave and close",
       cancel: "Stay in the room",
     },
@@ -163,6 +164,7 @@ export const en: Dictionary = {
       close: "Close the room",
       closePending: "Closing…",
       closeNote: "Closing the room makes everyone leave: you will have to confirm.",
+      closeWarning: "Cannot be undone",
       closeQuestion: "Close the room for everyone?",
       closeConsequences: [
         "Every member leaves the room, and it admits nobody any more.",
@@ -242,6 +244,7 @@ export const en: Dictionary = {
     present: "I’m here",
     presentFailed: "Your answer did not reach the server. Try again, or type.",
     abandon: "Give up the race",
+    abandonWarning: "Cannot be undone",
     abandonQuestion: "Give up the race?",
     abandonBody: "Your race stops here. It counts as abandoned, ranked by your progress.",
     abandonConfirm: "Yes, give up",

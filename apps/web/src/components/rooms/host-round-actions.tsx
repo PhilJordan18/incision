@@ -70,6 +70,7 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
         id="close-room"
         openLabel={t.close}
         describedBy="close-room-note"
+        warning={t.closeWarning}
         question={t.closeQuestion}
         consequences={t.closeConsequences}
         cancelLabel={t.closeCancel}

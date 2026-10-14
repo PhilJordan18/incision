@@ -39,7 +39,7 @@ import {
   roomWatchAckSchema,
   WATCH_LIMIT,
 } from "@/rooms/protocol";
-import { RaceView } from "./race-view";
+import { focusTyping, RaceView } from "./race-view";
 import { RoomCode } from "./room-code";
 import { StartRaceButton } from "./start-race-button";
 
@@ -422,6 +422,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           openLabel={t.leave}
           describedBy="host-leave-note"
           racing={racingView}
+          focusAfterKeeping={racingView ? focusTyping : undefined}
           onLeaving={onLeaving}
           onFailed={onLeaveFailed}
         />
@@ -456,11 +457,12 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   );
 
   if (snapshot.phase === "countdown" || snapshot.phase === "racing") {
+    // The host's leave asks a question: under the field, so that the text and the field never move.
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-start justify-between gap-6">
           {connectionLine}
-          {leave}
+          {!self.isHost && leave}
         </div>
         <h1 id={ROOM_HEADING_ID} tabIndex={-1} className="sr-only">
           {format(t.roomTitle, { code: snapshot.code })}
@@ -475,6 +477,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           onPresent={(raceId) => entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
           onAbandon={(raceId) => entrantActionRef.current(RACE_ABANDON_EVENT, raceId)}
           reconnecting={connection === "reconnecting"}
+          below={self.isHost ? leave : undefined}
         />
       </div>
     );
