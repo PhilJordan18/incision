@@ -25,6 +25,12 @@ type RaceViewProps = {
   readonly onAbandon: (raceId: string) => Promise<boolean>;
   /** The page's connection is lost and being restored. */
   readonly reconnecting: boolean;
+  /**
+   * The host's « Quitter la salle »: under the field, with the other questions, so that nothing
+   * above the text moves when its question opens (design rule 7). Kept in one place whether the
+   * race has reached this tab or not, so that an open question stays open when it does.
+   */
+  readonly below?: ReactNode;
 };
 
 const TYPING_INPUT_ID = "race-typing";
@@ -45,7 +51,7 @@ export function focusTyping(fallback?: HTMLElement | null): void {
  * clock, then the text, the typing field and everyone's progress. What is typed shows at once
  * (the engine's prediction); progress, measures and results come from the server.
  */
-export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeControl, onPresent, onAbandon, reconnecting }: RaceViewProps) {
+export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeControl, onPresent, onAbandon, reconnecting, below }: RaceViewProps) {
   const state = useSyncExternalStore(race.subscribe, race.getState, race.getState);
   const now = useServerClock(race, state);
   const reveal = expectedRaceId === undefined || state.reveal?.raceId === expectedRaceId ? state.reveal : undefined;
@@ -54,9 +60,14 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
     // The room counts down or races, but no race reached this tab: it runs elsewhere (two
     // processes overlapping) or its process stopped; the room recovers it once its lease ends.
     return (
-      <p role="status" className="text-embrun">
-        {waitedLong ? t.elsewhere : t.preparing}
-      </p>
+      <RaceLayout
+        main={
+          <p role="status" className="text-embrun">
+            {waitedLong ? t.elsewhere : t.preparing}
+          </p>
+        }
+        below={below}
+      />
     );
   }
   const phase = state.progress?.phase ?? (now < reveal.startsAt ? "countdown" : "racing");
@@ -75,29 +86,32 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
   const selfRacing = state.selfEntrantId !== null && (state.typing?.status ?? selfProgress?.status ?? "racing") === "racing";
   const inactive = selfRacing && selfProgress?.inactive === true;
   return (
-    <div className="flex flex-col gap-6">
-      <p className={`${monoLabel} flex flex-wrap gap-x-4 gap-y-1`}>
-        <span>
-          <span aria-hidden="true">[.</span>
-          {roomLabel}
-          <span aria-hidden="true">]</span>
-        </span>
-        {reveal.timeLimit !== null && (
-          <span>
-            <span aria-hidden="true">[.</span>
-            {format(t.timeLimit, { minutes: Math.round(reveal.timeLimit / 60_000) })}
-            <span aria-hidden="true">]</span>
-          </span>
-        )}
-      </p>
+    <RaceLayout
+      top={
+        <>
+          <p className={`${monoLabel} flex flex-wrap gap-x-4 gap-y-1`}>
+            <span>
+              <span aria-hidden="true">[.</span>
+              {roomLabel}
+              <span aria-hidden="true">]</span>
+            </span>
+            {reveal.timeLimit !== null && (
+              <span>
+                <span aria-hidden="true">[.</span>
+                {format(t.timeLimit, { minutes: Math.round(reveal.timeLimit / 60_000) })}
+                <span aria-hidden="true">]</span>
+              </span>
+            )}
+          </p>
 
-      {/* One live region from the reveal on: 3, 2, 1, then the start, announced once each. */}
-      <p aria-live="assertive" aria-atomic="true" className="sr-only">
-        {counting ? String(seconds) : t.countdownGo}
-      </p>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
-        <div className="flex min-w-0 flex-col gap-5">
+          {/* One live region from the reveal on: 3, 2, 1, then the start, announced once each. */}
+          <p aria-live="assertive" aria-atomic="true" className="sr-only">
+            {counting ? String(seconds) : t.countdownGo}
+          </p>
+        </>
+      }
+      main={
+        <>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Tile label={t.tiles.time} value={remaining === undefined ? "—" : formatClock(counting ? reveal.timeLimit ?? 0 : remaining)} />
             {state.selfEntrantId !== null && (
@@ -147,9 +161,29 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
               {t.confirming}
             </p>
           )}
-        </div>
+        </>
+      }
+      below={below}
+      track={<Track state={state} t={t} locale={locale} />}
+    />
+  );
+}
 
-        <Track state={state} t={t} locale={locale} />
+/**
+ * The race's page: the labels, then the field's column (what the player reads and types, then
+ * `below`) beside the crew's track. One component in every state, so that `below` keeps its place
+ * (and an open question its state) when the race reaches the tab.
+ */
+function RaceLayout({ top, main, below, track }: { readonly top?: ReactNode; readonly main: ReactNode; readonly below?: ReactNode; readonly track?: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-6">
+      {top}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+        <div className="flex min-w-0 flex-col gap-5">
+          {main}
+          {below}
+        </div>
+        {track}
       </div>
     </div>
   );
@@ -431,7 +465,7 @@ function TypingZone({
                 : t.typingHint;
   return (
     <div className="flex flex-col gap-4">
-      <RaceText target={reveal?.text ?? []} typing={typing} showFault={ended === undefined} label={t.textLabel} language={language} overlay={overlay} />
+      <RaceText target={reveal?.text ?? []} typing={typing} showFault={canType && ended === undefined} label={t.textLabel} language={language} overlay={overlay} />
       <div className="flex flex-col gap-2">
         <label htmlFor={TYPING_INPUT_ID} className={monoLabel}>
           {t.typingLabel}

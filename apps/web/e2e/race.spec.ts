@@ -339,6 +339,15 @@ test.describe("the first complete race (F-04.0)", () => {
     await typeText(field, ((await text.textContent()) ?? "").slice(0, 3));
     await expect(host.locator(".course-juste")).toHaveCount(3);
 
+    // Once the field no longer takes keys (the host gave up), keeping the room gives the focus to the opener.
+    await host.getByRole("button", { name: "Give up the race" }).click();
+    await host.getByRole("button", { name: "Yes, give up" }).click();
+    await expect(field).toBeDisabled();
+    await leave.click();
+    await expect(question).toBeFocused();
+    await host.keyboard.press("Escape");
+    await expect(leave).toBeFocused();
+
     // Confirmed: the race stops for everyone, without results, and the host goes home.
     await leave.click();
     await expect(question).toBeFocused();

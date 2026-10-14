@@ -457,8 +457,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   );
 
   if (snapshot.phase === "countdown" || snapshot.phase === "racing") {
-    // The host's leave asks a question: after the race view, so that the text and the field never
-    // move when it opens, and in one place whether the race has reached this tab or not.
+    // The host's leave asks a question: under the field, so that the text and the field never move.
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-start justify-between gap-6">
@@ -478,8 +477,8 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           onPresent={(raceId) => entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
           onAbandon={(raceId) => entrantActionRef.current(RACE_ABANDON_EVENT, raceId)}
           reconnecting={connection === "reconnecting"}
+          below={self.isHost ? leave : undefined}
         />
-        {self.isHost && leave}
       </div>
     );
   }
