@@ -82,6 +82,9 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await secondTab.goto(`/rooms/${code}`);
     await expect(crew(secondTab)).toHaveCount(2);
     await expect(crew(host)).toHaveCount(2);
+    // The crew above is the server's render. Only a tab that follows the room learns that its
+    // member left; one whose first watch arrives after the departure gets the join page instead.
+    await expect(secondTab.getByText("[.En direct]")).toBeVisible();
 
     // B leaves: A sees it at once; B's other tab says so and offers to come back.
     await guest.getByRole("button", { name: "Quitter la salle" }).click();

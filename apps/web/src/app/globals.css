@@ -6,6 +6,13 @@
    so the home page still fits without scrolling; taller screens keep the design's values. */
 @custom-variant short (@media (min-width: 64rem) and (max-height: 47.5rem));
 
+/* The race text's cursor (design `.course-curseur`) drawn without taking space, so the letters
+   never move as it passes (design rule 7); logged in D-15. */
+.course-curseur {
+  border-left: 0;
+  box-shadow: inset 2px 0 0 var(--color-ecume);
+}
+
 /* Elements for one theme only, e.g. the white wordmark on Abysse, the black one on Aube. */
 [data-theme="aube"] .only-abysse,
 :root:not([data-theme="aube"]) .only-aube {
