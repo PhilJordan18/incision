@@ -5,6 +5,7 @@ Livrable final prévu par l'énoncé (§8) : agents et outils, fichiers d'instru
 ## Agents et fichiers d'instructions
 
 - Je travaille avec Claude Code (session principale comme architecte et développeur, plus des sous-agents de revue) et Codex (cadrage des cartes et revues). J'écris les cartes, j'approuve chaque plan, je relis et je fusionne chaque pull request, et je décide de chaque étape vers la production.
+- Sélection déléguée des deux passages de la première course (F-04.0, 12 octobre 2026) : mes agents (Claude) ont recherché et proposé un passage par langue selon mes critères (passages authentiques du domaine public, sources et conditions de réutilisation documentées, préférence maritime et pirates, exceptions sensibles remontées), puis les ont intégrés avec leur provenance (révision Wikisource, eBook Project Gutenberg), leur licence et leurs adaptations de saisie, vérifiées par des tests et des revues. J'ai accepté cette sélection dans ce cadre, sans relire moi-même chaque source (D-21).
 - Instructions partagées : [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md), [.agents/](../.agents/) (flux de travail, rôles, skills), [.claude/](../.claude/) (adaptateurs pour Claude et garde-fous de permissions).
 
 ## Journal
