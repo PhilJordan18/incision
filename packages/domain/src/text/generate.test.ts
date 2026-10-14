@@ -492,6 +492,10 @@ describe("raceTextDiversity: a warning below 50 distinct words (Q-7), never a re
     const empty = { settings: { ...settings, exclude: ["w", "z"] }, words: custom(distinct(10)) };
     expect(raceTextDiversity(empty)).toEqual({ poolSize: 0, lowDiversity: false });
     expect(raceTextRefusal(empty)).toBe("NO_COMPATIBLE_WORDS");
+    // A content refusal and the warning are separate answers: the interface shows the refusal first.
+    const unavailable = { settings: { ...settings, include: ["z"] }, words: custom(distinct(10)) };
+    expect(raceTextRefusal(unavailable)).toBe("INCLUDED_CHARACTER_UNAVAILABLE");
+    expect(raceTextDiversity(unavailable)).toEqual({ poolSize: 10, lowDiversity: true });
     expect(raceTextDiversity({ settings: coherentSettings(), passages: TEST_PASSAGES })).toBeUndefined();
     expect(raceTextDiversity({ settings: { ...settings, wordCount: 5 }, words: custom(distinct(10)) })).toBeUndefined();
   });

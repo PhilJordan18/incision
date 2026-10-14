@@ -6,7 +6,7 @@
 import { MAX_TEXT_GRAPHEMES } from "../race/limits";
 import type { TextLanguage } from "../words/types";
 import { toGraphemes } from "./graphemes";
-import { normalizePassage } from "./normalize";
+import { normalizePassage, spellLigatures } from "./normalize";
 import type { CoherentTextSettings, Complexity, TextOptions } from "./settings";
 import { MARKS } from "./typable";
 import { countWords, cutToWords, isWordToken, tokensOf } from "./words";
@@ -39,7 +39,8 @@ const TRAILING_MARKS = /(?<![.,;:!?)"])[.,;:!?)"]+$/u;
  * - punctuation off: every mark goes, and a dash token with it; apostrophes and hyphens inside a
  *   word stay (they are spelling);
  * - capitals off: lowercase; on keeps the source case;
- * - accents off: diacritics stripped (the only possibility in a real text), œ and æ spelled out.
+ * - accents off: diacritics stripped (the only possibility in a real text). A passage holds no
+ *   ligature since normalisation version 2; one left would be spelled out by the same rule.
  */
 export function applyPassageOptions(text: string, options: TextOptions): string {
   let tokens = [...tokensOf(text)];
@@ -54,7 +55,7 @@ export function applyPassageOptions(text: string, options: TextOptions): string 
     result = result.toLowerCase();
   }
   if (!options.accents) {
-    result = result.normalize("NFD").replace(/\p{M}/gu, "").replace(/œ/gu, "oe").replace(/Œ/gu, "OE").replace(/æ/gu, "ae").replace(/Æ/gu, "AE").normalize("NFC");
+    result = spellLigatures(result).normalize("NFD").replace(/\p{M}/gu, "").normalize("NFC");
   }
   return result;
 }

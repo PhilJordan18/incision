@@ -66,6 +66,11 @@ const DASHES = new RegExp(` ?${DASH}(?: ?${DASH})* ?`, "gu");
 const DASH_TOKENS = /(?<![^ ])-(?: -)+(?![^ ])/gu;
 const HYPHENS = new RegExp(`(?<=\\p{L})[${chars(0x2010, 0x2011)}](?=\\p{L})`, "gu");
 
+/** The ligatures spelled out as version 2 does: the one rule for passages, options and measures (P-4). */
+export function spellLigatures(text: string): string {
+  return LIGATURES.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);
+}
+
 export function normalizePassage(source: string, language: TextLanguage): PassageNormalisation {
   const refused = [...source].findIndex((character) => REFUSED.has(character));
   if (refused !== -1) {
@@ -88,7 +93,9 @@ export function normalizePassage(source: string, language: TextLanguage): Passag
   step(OPENING_GUILLEMET, '"', "quotes");
   step(CLOSING_GUILLEMET, '"', "quotes");
   step(ELLIPSIS, "...", "ellipsis");
-  for (const [pattern, replacement] of LIGATURES) step(pattern, replacement, "ligatures");
+  const spelled = spellLigatures(text);
+  if (spelled !== text) changes.add("ligatures");
+  text = spelled;
   // A dash takes the spaces around it, so no run of spaces comes back; one at either end may.
   step(DASHES, " - ", "dashes");
   step(HYPHENS, "-", "hyphens");

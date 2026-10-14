@@ -23,6 +23,10 @@ describe("applyPassageOptions", () => {
     expect(applyPassageOptions(text, { ...all, punctuation: false })).toBe("Le 20 juillet 1866 l'équipage Nautilus 1er est à quai très-calme");
   });
 
+  it("spells a ligature out with the version 2 rule when accents are off", () => {
+    expect(applyPassageOptions("Œuvre, ŒUVRE et sœur", { ...all, accents: false })).toBe("Oeuvre, OEUVRE et soeur");
+  });
+
   it("capitals off lowercases; accents off strips diacritics", () => {
     expect(applyPassageOptions("À l'Île", { ...all, capitals: false })).toBe("à l'île");
     expect(applyPassageOptions("À l'Île, très-été", { ...all, accents: false })).toBe("A l'Ile, tres-ete");

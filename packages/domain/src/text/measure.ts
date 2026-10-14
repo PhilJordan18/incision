@@ -6,6 +6,7 @@
  */
 import type { WordList } from "../words/types";
 import type { Complexity } from "./settings";
+import { spellLigatures } from "./normalize";
 import { isWordToken, tokensOf } from "./words";
 
 /** A passage is measured on its first 200 words at most: no word after the 200th is ever typed. */
@@ -34,6 +35,12 @@ const TERMINAL_END = /[.!?]["')]*$/u;
 
 export function measureText(text: string, list: WordList, commonZipf: number): TextMeasures {
   const zipf = new Map(list.entries.map((entry) => [entry.word, entry.zipf]));
+  // Passages spell the ligatures out (normalisation version 2), the lists keep them: "coeur" is "cœur".
+  // When a list holds both spellings ("œuvre", "oeuvre"), the more frequent one counts.
+  for (const entry of list.entries) {
+    const spelled = spellLigatures(entry.word);
+    if (spelled !== entry.word) zipf.set(spelled, Math.max(zipf.get(spelled) ?? Number.NEGATIVE_INFINITY, entry.zipf));
+  }
   const tokens = tokensOf(text);
   const words = tokens.filter(isWordToken).length;
   const measured = cutTokens(tokens, Math.min(words, MEASURED_WORDS));

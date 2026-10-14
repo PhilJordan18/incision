@@ -277,7 +277,8 @@ Stored values are bounded, so database columns can be sized from these constants
 - **Words.** A word is a token holding a letter or a digit (D-10): a lone `?` or a dash is none.
   A cut ends after its Nth word, with the closing punctuation that directly follows (a closing
   quote included); never on a lone dash or an opening mark. Measures leave tokens with a digit
-  ("1866", "1er") out of M1 to M3.
+  ("1866", "1er") out of M1 to M3, and look a word spelled out from a ligature up under the list's
+  spelling ("coeur" as "cœur").
 - **Coherent mode.** A frozen corpus of frozen passages is checked once; any other is checked on
   every call. A passage longer than `MAX_PASSAGE_LENGTH` (8,000 code units, far beyond the 200
   words ever typed) is refused, which also bounds the work each call does per passage. The options apply to the normalised passage first (numbers, punctuation,

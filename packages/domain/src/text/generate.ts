@@ -104,8 +104,10 @@ export type RaceTextDiversity = { readonly poolSize: number; readonly lowDiversi
 
 /**
  * How many distinct words a random text may draw from, for the host's warning; undefined for
- * coherent settings and for settings textSettingsRefusal refuses. An empty pool is not a warning:
- * raceTextRefusal refuses it (NO_COMPATIBLE_WORDS). Server-side, since the lists are.
+ * coherent settings and for settings textSettingsRefusal refuses. It stays defined when
+ * raceTextRefusal refuses the content: the two answers are separate, and the interface shows a
+ * refusal first. An empty pool is never a warning: raceTextRefusal refuses it
+ * (NO_COMPATIBLE_WORDS). Server-side, since the lists are.
  */
 export function raceTextDiversity(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>> = COMPLEXITY_CRITERIA): RaceTextDiversity | undefined {
   if (!isRandom(sources) || textSettingsRefusal(sources.settings, criteria) !== undefined) return undefined;
