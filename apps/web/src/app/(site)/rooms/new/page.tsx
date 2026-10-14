@@ -31,22 +31,15 @@ export default async function NewRoomPage() {
             <Link href={`/rooms/${current.code}`} className={secondaryButton}>
               {t.rooms.goToMyRoom}
             </Link>
-            <LeaveRoomForm
-              label={format(t.rooms.leaveMyRoom, { code: current.code })}
-              pendingLabel={t.rooms.leaving}
-              errors={t.rooms.changeErrors}
-              returnTo="/rooms/new"
-              describedBy={current.isHost ? "host-leave-note" : undefined}
-            />
+            {/* The host leaves (and so closes) from the room itself, where it asks first with every consequence. */}
+            {!current.isHost && (
+              <LeaveRoomForm label={format(t.rooms.leaveMyRoom, { code: current.code })} pendingLabel={t.rooms.leaving} errors={t.rooms.changeErrors} returnTo="/rooms/new" />
+            )}
           </>
         }
       >
         <p>{format(t.rooms.alreadyInRoom, { code: current.code })}</p>
-        {current.isHost && (
-          <p id="host-leave-note" className="mt-2 text-sm text-brume">
-            {t.rooms.hostLeaveNote}
-          </p>
-        )}
+        {current.isHost && <p className="mt-2 text-sm text-brume">{format(t.rooms.hostGoToRoom, { code: current.code })}</p>}
       </StatePanel>
     );
   }

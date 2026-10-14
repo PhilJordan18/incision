@@ -59,6 +59,12 @@ npm run test:e2e -w @incision/web
 
 Playwright démarre le build de production par le serveur personnalisé sur le port 3200, avec une base jetable `incision_e2e` sur `db-test` qu'il supprime, migre et alimente avec le seed à chaque exécution (`E2E_DATABASE_URL` la remplace, localhost seulement). La première exécution peut exiger `npx playwright install chromium`. Les tests OAuth sont simulés : ils s'arrêtent à l'URL d'autorisation du fournisseur et ne se connectent jamais à GitHub ni à Discord.
 
+Les tests d'intégration de la course lancent eux aussi le build de production, en deux processus sur les ports 3301 et 3302, avec une base jetable `incision_e2e_integration` sur `db-test` (`INTEGRATION_DATABASE_URL` et `INTEGRATION_PORTS` les remplacent, localhost seulement). Ils pilotent les comptes par Socket.IO, sans navigateur, et durent environ une minute :
+
+```sh
+npm run test:integration -w @incision/web
+```
+
 ## 4. Ajouter les modules de l'application
 
 `packages/domain` (règles pures) et `packages/database` (schéma Drizzle, migrations, création de salle) existent déjà; `packages/contracts` sera créé avec les premiers événements temps réel partagés. Ajouter les dépendances avec `npm install --workspace=<path>` et garder des **versions stables verrouillées par `package-lock.json`**.
