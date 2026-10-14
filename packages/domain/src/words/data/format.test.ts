@@ -1,0 +1,118 @@
+import { describe, expect, it } from "vitest";
+import { parseExclusionSource, parsePairSource, parseWordListSource, WORD_DATA_SENTINEL } from "./format";
+
+const words = (body: string, head = `${WORD_DATA_SENTINEL} words fr v1`): string => `${head}\n${body}`;
+
+describe("parseWordListSource", () => {
+  it("reads the bins in order, Zipf to two decimals", () => {
+    expect(parseWordListSource(words("523 de la\n401 aujourd'hui cœur\n250 éléphant"))).toEqual({
+      language: "fr",
+      version: "v1",
+      entries: [
+        { word: "de", zipf: 5.23 },
+        { word: "la", zipf: 5.23 },
+        { word: "aujourd'hui", zipf: 4.01 },
+        { word: "cœur", zipf: 4.01 },
+        { word: "éléphant", zipf: 2.5 },
+      ],
+    });
+  });
+
+  it("accepts the bounds: Zipf 9 and 0, a 32-character version", () => {
+    expect(parseWordListSource(words("900 de\n0 la")).entries).toEqual([
+      { word: "de", zipf: 9 },
+      { word: "la", zipf: 0 },
+    ]);
+    expect(parseWordListSource(`${WORD_DATA_SENTINEL} words en ${"v".repeat(32)}\n500 of`).version).toHaveLength(32);
+  });
+
+  it("checks each language's own alphabet", () => {
+    expect(parseWordListSource(words("500 cœur sœur")).entries.map((entry) => entry.word)).toEqual(["cœur", "sœur"]);
+    expect(() => parseWordListSource(`${WORD_DATA_SENTINEL} words en v1\n500 café`)).toThrow(RangeError);
+    expect(() => parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions en v1\nidiоt`)).toThrow(RangeError);
+    expect(() => parsePairSource(`${WORD_DATA_SENTINEL} pairs en v1\nsun mооn`)).toThrow(RangeError);
+  });
+
+  it("names the line endings when a source uses CRLF", () => {
+    expect(() => parseWordListSource(`${WORD_DATA_SENTINEL} words fr v1\r\n500 de`)).toThrow(/LF line endings/);
+  });
+
+  it("accepts an empty list and a trailing newline", () => {
+    expect(parseWordListSource(`${WORD_DATA_SENTINEL} words en fixture-1\n`).entries).toEqual([]);
+  });
+
+  it.each([
+    ["no sentinel", "words fr v1\n500 de"],
+    ["another sentinel version", "incision-word-lists-data-v2 words fr v1\n500 de"],
+    ["the sentinel later in the source", `500 de\n${WORD_DATA_SENTINEL} words fr v1`],
+    ["another kind", `${WORD_DATA_SENTINEL} exclusions fr v1\n500 de`],
+    ["an unknown language", `${WORD_DATA_SENTINEL} words es v1\n500 de`],
+    ["a missing version", `${WORD_DATA_SENTINEL} words fr\n500 de`],
+    ["an uppercase version", `${WORD_DATA_SENTINEL} words fr V1\n500 de`],
+    ["a version with an underscore", `${WORD_DATA_SENTINEL} words fr v_1\n500 de`],
+    ["a version split in two", `${WORD_DATA_SENTINEL} words fr v 1\n500 de`],
+    ["an extra header field", `${WORD_DATA_SENTINEL} words fr v1 extra\n500 de`],
+    ["a 33-character version", `${WORD_DATA_SENTINEL} words fr ${"v".repeat(33)}\n500 de`],
+  ])("refuses %s", (_label, source) => {
+    expect(() => parseWordListSource(source)).toThrow(RangeError);
+  });
+
+  it.each([
+    ["ascending bins", "400 de\n500 la"],
+    ["a repeated bin", "500 de\n500 la"],
+    ["a bin above Zipf 9", "901 de"],
+    ["a decimal bin", "5.0 de"],
+    ["a negative bin", "-1 de"],
+    ["a bin without words", "500"],
+    ["a duplicate word", "500 de\n400 de"],
+    ["an uppercase word", "500 Maison"],
+    ["a decomposed accent", "500 été"],
+    ["a digit", "500 a4"],
+    ["a typographic apostrophe", "500 aujourd’hui"],
+    ["a leading apostrophe", "500 'tis"],
+    ["a doubled space", "500 de  la"],
+    ["a hyphen", "500 peut-être"],
+    ["a bin with a leading zero", "050 de"],
+    ["a ligature", "500 ﬁn"],
+    ["fullwidth letters", "500 ｃｏｎ"],
+    ["a Cyrillic lookalike", "500 idiоt"],
+    ["a dotless i", "500 ıdiot"],
+    ["a small capital", "500 ɪdiot"],
+    ["a Greek iota", "500 ιdiot"],
+  ])("refuses %s", (_label, body) => {
+    expect(() => parseWordListSource(words(body))).toThrow(RangeError);
+  });
+});
+
+describe("parseExclusionSource and parsePairSource", () => {
+  it("read one word or one pair per line", () => {
+    expect(parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions en v1\nfoo\nbar`)).toEqual({ language: "en", version: "v1", words: ["foo", "bar"] });
+    expect(parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nsale juif\nlune soleil`)).toEqual({
+      language: "fr",
+      version: "v1",
+      pairs: [
+        ["sale", "juif"],
+        ["lune", "soleil"],
+      ],
+    });
+  });
+
+  it("freeze what they return, which the engine caches per object", () => {
+    const list = parseWordListSource(words("523 de la"));
+    const exclusions = parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions en v1\nfoo`);
+    const pairs = parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nsale juif`);
+    expect([list, list.entries, list.entries[0], exclusions, exclusions.words, pairs, pairs.pairs, pairs.pairs[0]].every((part) => Object.isFrozen(part))).toBe(true);
+  });
+
+  it.each([
+    ["an exclusion with a space", () => parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions fr v1\nmot interdit`)],
+    ["an uppercase exclusion", () => parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions fr v1\nInterdit`)],
+    ["a words source read as exclusions", () => parseExclusionSource(`${WORD_DATA_SENTINEL} words fr v1\nmot`)],
+    ["a pair of three words", () => parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nun deux trois`)],
+    ["a single word as a pair", () => parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nseul`)],
+    ["a word paired with itself", () => parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nmot mot`)],
+    ["two words equal once folded", () => parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\ncote côte`)],
+  ])("refuse %s", (_label, parse) => {
+    expect(parse).toThrow(RangeError);
+  });
+});
