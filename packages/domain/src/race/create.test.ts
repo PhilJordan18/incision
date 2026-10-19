@@ -47,8 +47,8 @@ describe("createRace (F-04.1)", () => {
         clock: NOW,
         text: ["é", " ", "b"],
         entrants: [
-          { entrantId: "alice", kind: "human", target: ["é", " ", "b"], textVersion: 0, typed: [], pendingError: false, counters: { correctInserts: 0, totalInserts: 0 }, missedKeys: {}, ackSeq: 0, status: "racing" },
-          { entrantId: "bot-1", kind: "bot", target: ["é", " ", "b"], textVersion: 0, typed: [], pendingError: false, counters: { correctInserts: 0, totalInserts: 0 }, missedKeys: {}, ackSeq: 0, status: "racing" },
+          { entrantId: "alice", kind: "human", target: ["é", " ", "b"], textVersion: 0, typed: [], pendingError: false, counters: { correctInserts: 0, totalInserts: 0 }, missedKeys: {}, ackSeq: 0, status: "racing", lastActivityAt: NOW + COUNTDOWN_MS, inactive: false },
+          { entrantId: "bot-1", kind: "bot", target: ["é", " ", "b"], textVersion: 0, typed: [], pendingError: false, counters: { correctInserts: 0, totalInserts: 0 }, missedKeys: {}, ackSeq: 0, status: "racing", lastActivityAt: NOW + COUNTDOWN_MS, inactive: false },
         ],
       },
     });
