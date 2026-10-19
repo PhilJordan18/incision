@@ -269,12 +269,12 @@ Relevé du 19 octobre 2026 (F-00.2) :
 
 | Service | Mesure | Valeur | Limite |
 |---|---|---|---|
-| Azure | Coût réel d'octobre (App Service, Canada Central) | 16,06 $ CA | — |
-| Azure | Coût cumulé prévu au 15 décembre | 80,41 $ CA | crédit de 142 $ CA |
-| Azure | Coût cumulé prévu au 31 décembre | 98,34 $ CA | crédit de 142 $ CA |
-| Azure | Crédit restant | 126 $ CA, expiration le 3 octobre 2027 | — |
+| Azure | Coût réel d'octobre (App Service, Canada Central) | 16,06 $ | — |
+| Azure | Coût cumulé prévu au 15 décembre | 80,41 $ | crédit de 142 $ |
+| Azure | Coût cumulé prévu au 31 décembre | 98,34 $ | crédit de 142 $ |
+| Azure | Crédit restant | 126 $, expiration le 3 octobre 2027 | — |
 | Neon | Calcul depuis le 5 octobre | 0,95 CU-h | 100 h par mois |
 | Neon | Stockage | 0,03 Go | 1 Go |
 | Neon | Historique, transfert réseau | 0 Go | — |
 
-La prévision prolonge le rythme actuel (environ 1,15 $ CA par jour, cohérent avec B2) : il resterait 61,59 $ CA de crédit au 15 décembre et 43,66 $ CA au 31 décembre. Je garde B2 jusqu'au test de charge (F-08.1), puis je réévalue; B1 coûterait environ la moitié. Le health check vise `/api/health/live`, qui n'interroge pas Neon.
+La prévision prolonge le rythme actuel (environ 1,15 $ par jour, cohérent avec B2) : il resterait 61,59 $ de crédit au 15 décembre et 43,66 $ au 31 décembre. Je garde B2 jusqu'au test de charge (F-08.1), puis je réévalue; B1 coûterait environ la moitié. Le health check vise `/api/health/live`, qui n'interroge pas Neon.
