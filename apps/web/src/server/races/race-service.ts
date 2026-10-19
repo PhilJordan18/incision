@@ -11,7 +11,16 @@ import {
   type RaceState,
 } from "@incision/domain";
 import type { Locale } from "../../i18n/locale";
-import { parseKeystrokeBatch, type RaceBatchAck, type RaceControlAck, raceControlPayloadSchema, type RaceStartAck, raceStartPayloadSchema } from "../../races/protocol";
+import {
+  parseKeystrokeBatch,
+  type RaceBatchAck,
+  type RaceControlAck,
+  raceControlPayloadSchema,
+  type RaceEntrantActionAck,
+  raceEntrantActionPayloadSchema,
+  type RaceStartAck,
+  raceStartPayloadSchema,
+} from "../../races/protocol";
 import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
@@ -29,6 +38,8 @@ export const START_WINDOW = { maxStarts: 5, windowMs: 10_000 } as const;
 const BATCH_WINDOW_MS = 1_000;
 /** Control requests one account may make, whatever its number of sockets. */
 export const CONTROL_WINDOW = { maxRequests: 5, windowMs: 10_000 } as const;
+/** « Je suis là » and abandons one account may send, together, whatever its number of sockets. */
+export const ENTRANT_ACTION_WINDOW = { maxRequests: 5, windowMs: 10_000 } as const;
 
 export type RaceServiceOptions = {
   readonly ownerId: string;
@@ -78,6 +89,8 @@ export class RaceService {
   readonly #startTimes = new Map<string, number[]>();
   /** Account → its recent control requests: a change of control reaches all its tabs. */
   readonly #controlTimes = new Map<string, number[]>();
+  /** Account → its recent « Je suis là » and abandons. */
+  readonly #entrantActionTimes = new Map<string, number[]>();
   readonly #starting = new Set<string>();
 
   constructor(options: RaceServiceOptions) {
@@ -112,14 +125,18 @@ export class RaceService {
       return;
     }
     const tabs = this.#followers.get(lobbyId);
+    const leaving = tabs?.get(connectionId);
     tabs?.delete(connectionId);
     // Windows expire rather than being deleted with the last tab: a reconnection never resets one.
     this.#prune(this.#batchTimes, BATCH_WINDOW_MS);
     this.#prune(this.#controlTimes, CONTROL_WINDOW.windowMs);
+    this.#prune(this.#entrantActionTimes, ENTRANT_ACTION_WINDOW.windowMs);
     if (tabs?.size === 0) {
       this.#followers.delete(lobbyId);
     }
-    this.#registry.get(lobbyId)?.unfollow(connectionId);
+    if (leaving !== undefined) {
+      this.#registry.get(lobbyId)?.unfollow(connectionId, leaving.accountId);
+    }
   }
 
   /**
@@ -303,6 +320,36 @@ export class RaceService {
       return { ok: false, error: "NO_RACE" };
     }
     const answer = followed.runtime.takeControl(followed.connection);
+    return answer === "ok" ? { ok: true } : { ok: false, error: answer };
+  }
+
+  /** « Je suis là » (D-17), from a tab of the entrant. */
+  present(connection: RoomConnection, payload: unknown): RaceEntrantActionAck {
+    return this.#entrantAction(connection, payload, (runtime, followed) => runtime.present(followed));
+  }
+
+  /** The entrant gives the race up, confirmed in its page (COURSE-07). */
+  abandon(connection: RoomConnection, payload: unknown): RaceEntrantActionAck {
+    return this.#entrantAction(connection, payload, (runtime, followed) => runtime.abandon(followed));
+  }
+
+  #entrantAction(
+    connection: RoomConnection,
+    payload: unknown,
+    act: (runtime: RaceRuntime, followed: RoomConnection) => "ok" | "NOT_AN_ENTRANT" | "NO_RACE" | "SUSPENDED",
+  ): RaceEntrantActionAck {
+    const parsed = raceEntrantActionPayloadSchema.safeParse(payload);
+    if (!parsed.success) {
+      return { ok: false, error: "INVALID_PAYLOAD" };
+    }
+    if (!this.#withinWindow(this.#entrantActionTimes, connection.accountId, ENTRANT_ACTION_WINDOW.maxRequests, ENTRANT_ACTION_WINDOW.windowMs)) {
+      return { ok: false, error: "RATE_LIMITED" };
+    }
+    const followed = this.#followed(connection);
+    if (followed === undefined || followed.runtime.ownership.raceId !== parsed.data.raceId) {
+      return { ok: false, error: "NO_RACE" };
+    }
+    const answer = act(followed.runtime, followed.connection);
     return answer === "ok" ? { ok: true } : { ok: false, error: answer };
   }
 

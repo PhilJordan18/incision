@@ -21,6 +21,8 @@ export type RaceClientState = {
   /** The server's measures for this entrant (Appendix A, computed by the engine). */
   readonly measures?: RaceSelfPayload["measures"];
   readonly control?: RaceSelfPayload["control"];
+  /** Why this entrant abandoned, once it did (its own state from the server). */
+  readonly abandonReason?: RaceSelfPayload["abandonReason"];
   readonly typing?: TypingView;
   readonly block?: TypingBlock;
   /** The race ended and its results are being saved; nothing official yet. */
@@ -149,7 +151,9 @@ export class RaceClient {
     this.#state = {
       ...this.#state,
       ...change,
-      ...(session === undefined ? {} : { typing: session.view(), block: session.block, control: session.control, measures: session.measures }),
+      ...(session === undefined
+        ? {}
+        : { typing: session.view(), block: session.block, control: session.control, measures: session.measures, abandonReason: session.abandonReason }),
     };
     for (const listener of this.#listeners) {
       listener();

@@ -825,6 +825,25 @@ describe("transaction limits and isolation", () => {
 });
 
 describe("results read by an entrant (HIST-02)", () => {
+  it("says why an entrant abandoned: a lost connection and inactivity stay apart (D-06, D-17)", async () => {
+    const { hostId } = await room("ABCDEF", ["Bea", "Cyr"]);
+    const { race, entrants } = await started(hostId);
+    await beginRacing(db, race);
+    const [first, ...others] = resultsFor(entrants);
+    const reasons = ["disconnection", "inactivity"] as const;
+    const rows: RaceResultRow[] = [
+      ...(first === undefined ? [] : [first]),
+      ...others.map((row, index): RaceResultRow => ({ ...row, outcome: "abandoned", abandonmentReason: reasons[index] ?? "voluntary", position: 3 - index })),
+    ];
+    await finalizeRace(db, race, rows);
+    const view = await readRaceForEntrant(db, race.raceId, hostId);
+    expect(view?.entrants.map((entrant) => [entrant.result?.outcome, entrant.result?.abandonmentReason])).toEqual([
+      ["finished", null],
+      ["abandoned", "disconnection"],
+      ["abandoned", "inactivity"],
+    ]);
+  });
+
   it("shows a finished race to its entrants only, ranked, and the same nothing to anyone else", async () => {
     const { lobbyId, hostId, memberIds } = await room("ABCDEF", ["Bea"]);
     const { race, entrants } = await started(hostId);
@@ -838,7 +857,7 @@ describe("results read by an entrant (HIST-02)", () => {
       ["Hôte", true, 1],
       ["Bea", false, 2],
     ]);
-    expect(view?.entrants[0]?.result).toMatchObject({ outcome: "finished", elapsedMs: 10_000, netWpm: 20.4, accuracy: 94.44444444444444 });
+    expect(view?.entrants[0]?.result).toMatchObject({ outcome: "finished", abandonmentReason: null, elapsedMs: 10_000, netWpm: 20.4, accuracy: 94.44444444444444 });
     const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where id = $1", [memberIds[0]])).rows[0]?.account_id ?? "";
     expect((await readRaceForEntrant(db, race.raceId, bea))?.entrants.map((entrant) => entrant.isSelf)).toEqual([false, true]);
     const stranger = await account("Inconnu");

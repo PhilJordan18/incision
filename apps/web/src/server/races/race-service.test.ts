@@ -1,8 +1,8 @@
 import type { Interruption, RaceToCreate, StartRaceInput, StartRaceResult, Transition } from "@incision/database";
-import { COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState } from "@incision/domain";
+import { COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, RESUME_GRACE_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
-import { RACE_REVEAL_EVENT, type RaceRevealPayload } from "../../races/protocol";
-import { CONTROL_WINDOW, FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
+import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, type RaceProgressPayload, type RaceRevealPayload } from "../../races/protocol";
+import { CONTROL_WINDOW, ENTRANT_ACTION_WINDOW, FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
 import { FIXTURE_RACE_TEXTS } from "./race-texts";
 
 const START = 1_800_000_000_000;
@@ -230,6 +230,94 @@ describe("RaceService", () => {
     service.follow(LOBBY, pageTwoAgain);
     expect(service.keystrokes(pageTwoAgain, batch(1, "T"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
     expect(service.keystrokes(pageTwo, batch(2, "e"))).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+  });
+
+  it("hands « Je suis là » and abandons to the race of the tab's room, for that race only, within a window per account", async () => {
+    const { service, advance } = harness();
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    expect(service.present(bea.connection, { raceId: RACE })).toEqual({ ok: false, error: "NO_RACE" });
+    await service.start(host.connection, {});
+    advance(COUNTDOWN_MS);
+    expect(service.present(bea.connection, { raceId: RACE, extra: true })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
+    expect(service.present(bea.connection, { raceId: "2b3c4d5e-6f70-4182-a3b4-c5d6e7f80912" })).toEqual({ ok: false, error: "NO_RACE" });
+    expect(service.present(bea.connection, { raceId: RACE })).toEqual({ ok: true });
+    // A socket that does not follow the room (or another account on that socket id) gets nothing.
+    expect(service.abandon({ ...bea.connection, accountId: "a-host" }, { raceId: RACE })).toEqual({ ok: false, error: "NO_RACE" });
+    expect(service.abandon(bea.connection, { raceId: RACE })).toEqual({ ok: true });
+    // Bea has used 4: the request before the race and the wrong race count too; the invalid payload does not.
+    for (let index = 4; index < ENTRANT_ACTION_WINDOW.maxRequests; index += 1) {
+      expect(service.present(bea.connection, { raceId: RACE })).toEqual({ ok: true });
+    }
+    expect(service.present(bea.connection, { raceId: RACE })).toEqual({ ok: false, error: "RATE_LIMITED" });
+    advance(ENTRANT_ACTION_WINDOW.windowMs);
+    expect(service.present(bea.connection, { raceId: RACE })).toEqual({ ok: true });
+  });
+
+  it("keeps « Je suis là » a presence, never an abandon, and refuses a race id that is not a UUID", async () => {
+    const { service, advance } = harness();
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
+    const beaTwo = tab("t-bea-2", "a-bea");
+    for (const one of [host, bea, beaTwo]) {
+      service.follow(LOBBY, one.connection);
+    }
+    await service.start(host.connection, {});
+    advance(COUNTDOWN_MS);
+    expect(service.present(bea.connection, { raceId: "not-a-uuid" })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
+    expect(service.present(bea.connection, { raceId: RACE })).toEqual({ ok: true });
+    advance(1_000);
+    const progress = host.received.filter((message) => message.event === RACE_PROGRESS_EVENT).at(-1)?.payload as RaceProgressPayload | undefined;
+    expect(progress?.broadcast.entrants.find((one) => one.entrantId === "e-bea")).toMatchObject({ status: "racing" });
+    // One window for the account, whatever its number of sockets.
+    for (let index = 1; index < ENTRANT_ACTION_WINDOW.maxRequests; index += 1) {
+      service.present(index % 2 === 0 ? bea.connection : beaTwo.connection, { raceId: RACE });
+    }
+    expect(service.present(beaTwo.connection, { raceId: RACE })).toEqual({ ok: false, error: "RATE_LIMITED" });
+  });
+
+  it("resumes an entrant whose only tab comes back within the grace: it is still racing after it", async () => {
+    const { service, advance } = harness();
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    await service.start(host.connection, {});
+    advance(COUNTDOWN_MS);
+    service.unfollow("t-bea");
+    advance(10_000);
+    service.follow(LOBBY, tab("t-bea-back", "a-bea").connection);
+    for (let second = 0; second <= RESUME_GRACE_MS / 1_000; second += 1) {
+      advance(1_000);
+      for (let turn = 0; turn < 10; turn += 1) {
+        await Promise.resolve();
+      }
+    }
+    const progress = host.received.filter((message) => message.event === RACE_PROGRESS_EVENT).at(-1)?.payload as RaceProgressPayload | undefined;
+    expect(progress?.broadcast.entrants.find((one) => one.entrantId === "e-bea")).toMatchObject({ status: "racing" });
+  });
+
+  it("tells the race which account's tab left, so the loss of its last tab starts the grace", async () => {
+    const { service, advance } = harness();
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    await service.start(host.connection, {});
+    advance(COUNTDOWN_MS);
+    service.unfollow("t-bea");
+    // Second by second, letting the lease's renewals answer: past the grace, Bea abandons.
+    for (let second = 0; second <= RESUME_GRACE_MS / 1_000; second += 1) {
+      advance(1_000);
+      for (let turn = 0; turn < 10; turn += 1) {
+        await Promise.resolve();
+      }
+    }
+    const progress = host.received.filter((message) => message.event === RACE_PROGRESS_EVENT).at(-1)?.payload as RaceProgressPayload | undefined;
+    expect(progress?.broadcast.entrants.find((one) => one.entrantId === "e-bea")).toMatchObject({ status: "abandoned" });
+    expect(progress?.broadcast.entrants.find((one) => one.entrantId === "e-host")).toMatchObject({ status: "racing" });
   });
 
   it("keeps the batch window of an account whose every tab left and came back", async () => {

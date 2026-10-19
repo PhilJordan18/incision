@@ -1,9 +1,20 @@
 import type { Interruption, RaceOwnership, RaceResultRow, Transition } from "@incision/database";
-import { asDuration, asEntrantId, asInstant, asRaceId, COUNTDOWN_MS, createRace, type RaceState } from "@incision/domain";
+import {
+  asDuration,
+  asEntrantId,
+  asInstant,
+  asRaceId,
+  COUNTDOWN_MS,
+  createRace,
+  INACTIVITY_ABANDON_MS,
+  INACTIVITY_WARNING_MS,
+  type RaceState,
+  RESUME_GRACE_MS,
+} from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 
-// The real engine everywhere; one test makes its reducer throw, as an engine fault would.
-const engine = vi.hoisted(() => ({ failNext: false }));
+// The real engine everywhere; some tests make its reducer or a view throw, as an engine fault would.
+const engine = vi.hoisted(() => ({ failNext: false, failMeasures: false }));
 vi.mock("@incision/domain", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@incision/domain")>();
   return {
@@ -14,6 +25,13 @@ vi.mock("@incision/domain", async (importOriginal) => {
         throw new RangeError("engine fault");
       }
       return actual.reduceRace(...args);
+    },
+    toEntrantMeasures: (...args: Parameters<typeof actual.toEntrantMeasures>) => {
+      if (engine.failMeasures) {
+        engine.failMeasures = false;
+        throw new RangeError("view fault");
+      }
+      return actual.toEntrantMeasures(...args);
     },
   };
 });
@@ -236,7 +254,7 @@ describe("RaceRuntime", () => {
     await time.advance(COUNTDOWN_MS);
     runtime.keystrokes(alice.connection, batch(1, "a"));
     followers.splice(followers.indexOf(alice.connection), 1);
-    runtime.unfollow(alice.connection.id);
+    runtime.unfollow(alice.connection.id, alice.connection.accountId);
     const back = tab("tab-alice-new", ALICE.accountId);
     followers.push(back.connection);
     runtime.follow(back.connection);
@@ -276,7 +294,7 @@ describe("RaceRuntime", () => {
     runtime.follow(second.connection);
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
     followers.splice(followers.indexOf(alice.connection), 1);
-    runtime.unfollow(alice.connection.id);
+    runtime.unfollow(alice.connection.id, alice.connection.accountId);
     // A grace first: the closed page may come back.
     await time.advance(2_999);
     expect(second.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
@@ -295,9 +313,9 @@ describe("RaceRuntime", () => {
     await time.advance(COUNTDOWN_MS);
     // A blip closes both sockets; the other page reconnects first.
     followers.splice(followers.indexOf(typing.connection), 1);
-    runtime.unfollow(typing.connection.id);
+    runtime.unfollow(typing.connection.id, typing.connection.accountId);
     followers.splice(followers.indexOf(other.connection), 1);
-    runtime.unfollow(other.connection.id);
+    runtime.unfollow(other.connection.id, other.connection.accountId);
     const otherBack = tab("tab-page-2-again", ALICE.accountId, "page-2");
     followers.push(otherBack.connection);
     runtime.follow(otherBack.connection);
@@ -318,14 +336,14 @@ describe("RaceRuntime", () => {
     runtime.follow(older.connection);
     runtime.follow(newer.connection);
     followers.splice(followers.indexOf(alice.connection), 1);
-    runtime.unfollow(alice.connection.id);
+    runtime.unfollow(alice.connection.id, alice.connection.accountId);
     await time.advance(3_000);
     expect(newer.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
     expect(older.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("observing");
 
     // The newer tab closes; the older one takes the input on request during the grace.
     followers.splice(followers.indexOf(newer.connection), 1);
-    runtime.unfollow(newer.connection.id);
+    runtime.unfollow(newer.connection.id, newer.connection.accountId);
     runtime.takeControl(older.connection);
     const late = tab("tab-alice-late", ALICE.accountId);
     followers.push(late.connection);
@@ -341,7 +359,7 @@ describe("RaceRuntime", () => {
     runtime.start();
     await time.advance(COUNTDOWN_MS);
     followers.splice(followers.indexOf(alice.connection), 1);
-    runtime.unfollow(alice.connection.id);
+    runtime.unfollow(alice.connection.id, alice.connection.accountId);
     const other = tab("tab-other-page", ALICE.accountId, "page-9");
     followers.push(other.connection);
     runtime.follow(other.connection);
@@ -355,7 +373,7 @@ describe("RaceRuntime", () => {
     runtime.start();
     await time.advance(COUNTDOWN_MS);
     followers.splice(followers.indexOf(typing.connection), 1);
-    runtime.unfollow(typing.connection.id);
+    runtime.unfollow(typing.connection.id, typing.connection.accountId);
     const back = tab("tab-page-1-again", ALICE.accountId, "page-1");
     followers.push(back.connection);
     runtime.follow(back.connection);
@@ -393,7 +411,7 @@ describe("RaceRuntime", () => {
     followers.push(second.connection);
     runtime.follow(second.connection);
     followers.splice(followers.indexOf(alice.connection), 1);
-    runtime.unfollow(alice.connection.id);
+    runtime.unfollow(alice.connection.id, alice.connection.accountId);
     runtime.roomClosed();
     const before = second.received.length;
     await time.advance(5_000);
@@ -411,7 +429,7 @@ describe("RaceRuntime", () => {
     expect(typing.last<RaceSelfPayload>(RACE_SELF_EVENT)?.control).toBe("controlling");
     // A network blip on the typing page: its socket closes, then the page reconnects.
     followers.splice(followers.indexOf(typing.connection), 1);
-    runtime.unfollow(typing.connection.id);
+    runtime.unfollow(typing.connection.id, typing.connection.accountId);
     await time.advance(500);
     const back = tab("tab-page-1-again", ALICE.accountId, "page-1");
     followers.push(back.connection);
@@ -843,5 +861,259 @@ describe("RaceRuntime", () => {
       raced.runtime.start();
       expect(await raced.runtime.shutdown(raced.time.now() + 5_000)).toBe("finalised");
     });
+  });
+});
+
+describe("RaceRuntime: lost connections, inactivity and the confirmed abandon (F-04.6)", () => {
+  const entrant = (runtime: RaceRuntime, entrantId: string) => runtime.state.entrants.find((one) => one.entrantId === entrantId);
+  /** The entrant's last tab leaves, as the race service reports it: gone from the followers first. */
+  const leave = (runtime: RaceRuntime, followers: RaceConnection[], connection: RaceConnection) => {
+    followers.splice(followers.indexOf(connection), 1);
+    runtime.unfollow(connection.id, connection.accountId);
+  };
+
+  it("tells the engine when an entrant's last tab is gone, at the server's detection, and only then", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 1_000);
+    const second = tab("tab-alice-2", ALICE.accountId);
+    followers.push(second.connection);
+    runtime.follow(second.connection);
+    // One tab among two: control moves, the entrant is still connected.
+    leave(runtime, followers, alice.connection);
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBeUndefined();
+    await time.advance(2_000);
+    leave(runtime, followers, second.connection);
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBe(START + COUNTDOWN_MS + 3_000);
+    expect(entrant(runtime, "e-bob")?.disconnectedAt).toBeUndefined();
+  });
+
+  it("resumes an entrant whose tab follows again within the grace, before that tab's first batch", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    leave(runtime, followers, alice.connection);
+    // The grace includes its deadline (D-06).
+    await time.advance(RESUME_GRACE_MS);
+    const back = tab("tab-alice-back", ALICE.accountId);
+    followers.push(back.connection);
+    runtime.follow(back.connection);
+    expect(entrant(runtime, "e-alice")).toMatchObject({ status: "racing" });
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBeUndefined();
+    expect(runtime.keystrokes(back.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    await time.advance(RESUME_GRACE_MS + 1);
+    expect(entrant(runtime, "e-alice")?.status).toBe("racing");
+  });
+
+  it("abandons an entrant gone beyond the grace, dated at its deadline, and a late tab cannot bring it back", async () => {
+    const { runtime, time, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    leave(runtime, followers, alice.connection);
+    // Its own timer, from nextDeadline: nothing else happens meanwhile.
+    await time.advance(RESUME_GRACE_MS + 1);
+    expect(entrant(runtime, "e-alice")).toMatchObject({ status: "abandoned", abandonReason: "disconnection", endedAt: START + COUNTDOWN_MS + RESUME_GRACE_MS });
+    const late = tab("tab-alice-late", ALICE.accountId);
+    followers.push(late.connection);
+    runtime.follow(late.connection);
+    expect(entrant(runtime, "e-alice")?.status).toBe("abandoned");
+    expect(late.last<RaceSelfPayload>(RACE_SELF_EVENT)?.snapshot.status).toBe("abandoned");
+  });
+
+  it("starts the grace of an entrant that has no tab in the room at the start", async () => {
+    const { runtime, time, bob, followers } = setup();
+    followers.splice(followers.indexOf(bob.connection), 1);
+    runtime.start();
+    expect(entrant(runtime, "e-bob")?.disconnectedAt).toBe(START);
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBeUndefined();
+    await time.advance(COUNTDOWN_MS + RESUME_GRACE_MS);
+    expect(entrant(runtime, "e-bob")).toMatchObject({ status: "abandoned", abandonReason: "disconnection" });
+  });
+
+  it("shows an idle entrant inactive, lets « Je suis là » or a keystroke reset it, and abandons it at 120 s otherwise", async () => {
+    const { runtime, time, alice, bob, spectator } = setup({ state: created("abc", null) });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + INACTIVITY_WARNING_MS);
+    const progress = () => spectator.last<RaceProgressPayload>(RACE_PROGRESS_EVENT)?.broadcast.entrants.find((one) => one.entrantId === "e-alice");
+    await time.advance(250);
+    expect(progress()?.inactive).toBe(true);
+    expect(runtime.present(alice.connection)).toBe("ok");
+    await time.advance(250);
+    expect(progress()?.inactive).toBe(false);
+    expect(entrant(runtime, "e-alice")?.lastActivityAt).toBe(START + COUNTDOWN_MS + INACTIVITY_WARNING_MS + 250);
+    // Bob never reacts: an abandon for inactivity, dated at its deadline, while Alice still races.
+    await time.advance(INACTIVITY_ABANDON_MS - INACTIVITY_WARNING_MS);
+    expect(entrant(runtime, "e-bob")).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: START + COUNTDOWN_MS + INACTIVITY_ABANDON_MS });
+    expect(entrant(runtime, "e-alice")?.status).toBe("racing");
+    expect(runtime.keystrokes(alice.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(runtime.present(bob.connection)).toBe("ok");
+    expect(entrant(runtime, "e-bob")?.status).toBe("abandoned");
+  });
+
+  it("abandons on the entrant's confirmed request, from any of its tabs, and every tab learns it reliably", async () => {
+    const { runtime, time, alice, bob, spectator, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 500);
+    const second = tab("tab-alice-2", ALICE.accountId);
+    followers.push(second.connection);
+    runtime.follow(second.connection);
+    expect(runtime.abandon(second.connection)).toBe("ok");
+    expect(entrant(runtime, "e-alice")).toMatchObject({ status: "abandoned", abandonReason: "voluntary" });
+    for (const one of [alice, second]) {
+      const last = one.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1);
+      expect(last).toMatchObject({ volatile: false, payload: { snapshot: { status: "abandoned" } } });
+    }
+    expect(runtime.abandon(spectator.connection)).toBe("NOT_AN_ENTRANT");
+    expect(runtime.present(spectator.connection)).toBe("NOT_AN_ENTRANT");
+    // Again: the engine ignores it, and the answer stays the same.
+    expect(runtime.abandon(alice.connection)).toBe("ok");
+    expect(runtime.keystrokes(alice.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "refused", reason: "ENTRANT_TERMINAL" } });
+    expect(entrant(runtime, "e-bob")?.status).toBe("racing");
+    expect(bob.count(RACE_SELF_EVENT)).toBe(1);
+  });
+
+  it("tells an idle entrant's tabs, reliably and with the reason, when the engine abandons it at 120 s (D-17)", async () => {
+    const { runtime, time, bob, followers } = setup({ state: created("abc", null) });
+    const bobTwo = tab("tab-bob-2", BOB.accountId);
+    followers.push(bobTwo.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + INACTIVITY_ABANDON_MS + 1);
+    expect(entrant(runtime, "e-bob")).toMatchObject({ status: "abandoned", abandonReason: "inactivity" });
+    for (const one of [bob, bobTwo]) {
+      const last = one.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1);
+      expect(last).toMatchObject({ volatile: false, payload: { snapshot: { status: "abandoned" }, abandonReason: "inactivity" } });
+    }
+  });
+
+  it("never resumes a lost entrant when another account's tab follows the room", async () => {
+    const { runtime, time, bob, spectator, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    leave(runtime, followers, bob.connection);
+    const lostAt = entrant(runtime, "e-bob")?.disconnectedAt;
+    leave(runtime, followers, spectator.connection);
+    followers.push(spectator.connection);
+    runtime.follow(spectator.connection);
+    const aliceTwo = tab("tab-alice-2", ALICE.accountId);
+    followers.push(aliceTwo.connection);
+    runtime.follow(aliceTwo.connection);
+    expect(entrant(runtime, "e-bob")?.disconnectedAt).toBe(lostAt);
+    await time.advance(RESUME_GRACE_MS + 1);
+    expect(entrant(runtime, "e-bob")).toMatchObject({ status: "abandoned", abandonReason: "disconnection" });
+  });
+
+  it("still resumes a lost entrant that comes back after another account's tab followed the room", async () => {
+    const { runtime, time, bob, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    leave(runtime, followers, bob.connection);
+    const aliceTwo = tab("tab-alice-2", ALICE.accountId);
+    followers.push(aliceTwo.connection);
+    runtime.follow(aliceTwo.connection);
+    await time.advance(10_000);
+    const back = tab("tab-bob-back", BOB.accountId);
+    followers.push(back.connection);
+    runtime.follow(back.connection);
+    expect(entrant(runtime, "e-bob")?.disconnectedAt).toBeUndefined();
+    await time.advance(RESUME_GRACE_MS + 1);
+    expect(entrant(runtime, "e-bob")?.status).toBe("racing");
+  });
+
+  it("tells every tab of every entrant, reliably, when the time limit ends the race", async () => {
+    const { runtime, time, alice, bob, followers } = setup({ state: created("abc") });
+    const aliceTwo = tab("tab-alice-2", ALICE.accountId);
+    followers.push(aliceTwo.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 120_000);
+    for (const one of [alice, aliceTwo, bob]) {
+      const last = one.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1);
+      expect(last).toMatchObject({ volatile: false, payload: { snapshot: { status: "timedOut" } } });
+    }
+  });
+
+  it("tells the entrant's other tabs once, reliably, when its own batch finishes it", async () => {
+    const { runtime, time, alice, followers } = setup();
+    const aliceTwo = tab("tab-alice-2", ALICE.accountId);
+    followers.push(aliceTwo.connection);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    runtime.keystrokes(alice.connection, batch(1, "a"));
+    const before = aliceTwo.count(RACE_SELF_EVENT);
+    const answeredBefore = alice.count(RACE_SELF_EVENT);
+    expect(runtime.keystrokes(alice.connection, batch(2, "b"))).toMatchObject({ ok: true, self: { snapshot: { status: "finished" } } });
+    const told = aliceTwo.received.filter((message) => message.event === RACE_SELF_EVENT).slice(before);
+    expect(told).toHaveLength(1);
+    expect(told[0]).toMatchObject({ volatile: false, payload: { snapshot: { status: "finished" } } });
+    // The tab that sent the batch has its state in the answer, not twice.
+    expect(alice.count(RACE_SELF_EVENT)).toBe(answeredBefore);
+  });
+
+  it("tells the other tabs when a batch arrives after a deadline its timer has not handled yet", async () => {
+    let now = START;
+    const followers: RaceConnection[] = [];
+    const alice = tab("tab-alice", ALICE.accountId);
+    const aliceTwo = tab("tab-alice-2", ALICE.accountId);
+    followers.push(alice.connection, aliceTwo.connection, tab("tab-bob", BOB.accountId).connection);
+    const runtime = new RaceRuntime({
+      ownership,
+      state: created("abc"),
+      entrants: [ALICE, BOB],
+      language: "fr",
+      store: fakeStore(),
+      lease: fakeLease(),
+      now: () => now,
+      // Late timers: none fires in this test.
+      schedule: () => () => undefined,
+      followers: () => followers,
+      onSettled: vi.fn(),
+      log: vi.fn(),
+    });
+    runtime.start();
+    now = START + COUNTDOWN_MS + 120_000 + 5;
+    expect(runtime.keystrokes(alice.connection, batch(1, "a"))).toMatchObject({ ok: true, self: { snapshot: { status: "timedOut" } } });
+    const last = aliceTwo.received.filter((message) => message.event === RACE_SELF_EVENT).at(-1);
+    expect(last).toMatchObject({ volatile: false, payload: { snapshot: { status: "timedOut" } } });
+  });
+
+  it("lets a view that fails while telling the end interrupt the race, and saves nothing", async () => {
+    const { runtime, time, store, bob } = setup({ state: created("abc") });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS + 120_000 - 1);
+    const toldBob = bob.count(RACE_SELF_EVENT);
+    engine.failMeasures = true;
+    await time.advance(1);
+    await settle();
+    expect(store.interruptOwnRace).toHaveBeenCalledWith(ownership, "engine_error");
+    expect(store.finalizeRace).not.toHaveBeenCalled();
+    // The telling stopped with the failure: no entrant learns an end the interruption overrides.
+    expect(bob.count(RACE_SELF_EVENT)).toBe(toldBob);
+  });
+
+  it("tells nothing more to an entrant already terminal that asks to abandon again", async () => {
+    const { runtime, time, alice } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    expect(runtime.abandon(alice.connection)).toBe("ok");
+    const told = alice.count(RACE_SELF_EVENT);
+    expect(runtime.abandon(alice.connection)).toBe("ok");
+    expect(alice.count(RACE_SELF_EVENT)).toBe(told);
+    expect(alice.last<RaceSelfPayload>(RACE_SELF_EVENT)).toMatchObject({ snapshot: { status: "abandoned" }, abandonReason: "voluntary" });
+  });
+
+  it("takes neither « Je suis là » nor an abandon while the lease is suspended or once the race no longer runs here", async () => {
+    const { runtime, time, lease, alice, followers } = setup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    lease.set("suspended");
+    expect(runtime.present(alice.connection)).toBe("SUSPENDED");
+    expect(runtime.abandon(alice.connection)).toBe("SUSPENDED");
+    lease.set("held");
+    await runtime.shutdown();
+    expect(runtime.abandon(alice.connection)).toBe("NO_RACE");
+    // Closing every socket after a shutdown tells the engine nothing.
+    const revision = runtime.state.revision;
+    leave(runtime, followers, alice.connection);
+    expect(entrant(runtime, "e-alice")?.disconnectedAt).toBeUndefined();
+    expect(runtime.state.revision).toBe(revision);
   });
 });

@@ -91,6 +91,8 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId }: 
                   <td className="px-4 py-3 whitespace-nowrap text-embrun">
                     {result.outcome === "finished" ? "" : <span aria-hidden="true">· </span>}
                     {t.status[OUTCOME_STATUS[result.outcome]]}
+                    {/* A lost connection, inactivity and a choice stay apart (D-06, D-17). */}
+                    {result.abandonmentReason === null ? "" : ` (${t.abandonReasons[result.abandonmentReason]})`}
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{formatElapsed(result.elapsedMs, locale)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatWpm(result.netWpm, locale)}</td>

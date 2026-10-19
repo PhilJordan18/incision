@@ -13,7 +13,7 @@ const PAGE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 /**
  * A release counts for a reload that follows it, not for one long after (the tab went on to
  * other pages): longer than Socket.IO's detection of a lost connection (pingInterval +
- * pingTimeout, 45 s by default), so a reload during a network blip keeps it.
+ * pingTimeout, about 15 s since F-04.6), so a reload during a network blip keeps it.
  */
 const RELEASE_MAX_AGE_MS = 60_000;
 
