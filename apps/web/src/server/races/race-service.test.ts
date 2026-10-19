@@ -3,7 +3,7 @@ import { COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type Race
 import { describe, expect, it, vi } from "vitest";
 import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, type RaceProgressPayload, type RaceRevealPayload } from "../../races/protocol";
 import { CONTROL_WINDOW, ENTRANT_ACTION_WINDOW, FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
-import { FIXTURE_RACE_TEXTS } from "./race-texts";
+import { FIXTURE_RACE_TEXTS, type RaceText } from "./race-texts";
 
 const START = 1_800_000_000_000;
 const LOBBY = "lobby-1";
@@ -18,7 +18,8 @@ function harness(
     refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS";
     participants?: typeof PARTICIPANTS;
     renewed?: boolean;
-    texts?: Readonly<Record<"fr" | "en", string>> | null;
+    texts?: Readonly<Record<"fr" | "en", RaceText>>;
+    racesOpen?: boolean;
   } = {},
 ) {
   let now = START;
@@ -63,7 +64,8 @@ function harness(
     },
     onRoomChanged: (lobbyId) => changed.push(lobbyId),
     onRaceLost: (lobbyId) => lost.push(lobbyId),
-    texts: options.texts === null ? undefined : (options.texts ?? FIXTURE_RACE_TEXTS),
+    texts: options.texts ?? FIXTURE_RACE_TEXTS,
+    racesOpen: options.racesOpen ?? true,
     log: () => undefined,
   });
   const advance = (ms: number) => {
@@ -100,26 +102,43 @@ describe("RaceService", () => {
     service.follow(LOBBY, bea.connection);
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
     const input = store.startRace.mock.calls[0]?.[0];
-    expect(input).toMatchObject({ accountId: "a-host", ownerId: "owner-a", text: FIXTURE_RACE_TEXTS.en, rulesVersion: 1 });
+    expect(input).toMatchObject({ accountId: "a-host", ownerId: "owner-a", text: FIXTURE_RACE_TEXTS.en.text, rulesVersion: 1 });
     expect(input?.config).toEqual({ errorMode: "mandatory", timeLimitMs: 120_000, language: "en", text: "fixture" });
     expect(created[0]).toMatchObject({ phase: "countdown", errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimit: 120_000, startsAt: START + COUNTDOWN_MS });
     expect(service.ownsRace(LOBBY)).toBe(true);
     expect(changed).toEqual([LOBBY]);
     // The text reaches the room's tabs only now, never before the countdown (COURSE-03).
-    expect(bea.reveal()?.reveal.text.join("")).toBe(FIXTURE_RACE_TEXTS.en);
+    expect(bea.reveal()?.reveal.text.join("")).toBe(FIXTURE_RACE_TEXTS.en.text);
     expect(bea.reveal()?.selfEntrantId).toBe("e-bea");
   });
 
-  it("runs the texts it is given, never the fixtures in their place", async () => {
-    const texts = { fr: "Texte injecté pour ce test.", en: "Text injected for this test." };
+  it("runs the texts it is given, never the fixtures in their place, and records which one", async () => {
+    const texts = { fr: { id: "fr-injected", text: "Texte injecté pour ce test." }, en: { id: "en-injected", text: "Text injected for this test." } };
     const { service, store } = harness({ texts });
     const host = tab("t-host", "a-host", "fr");
     const bea = tab("t-bea", "a-bea", "en");
     service.follow(LOBBY, host.connection);
     service.follow(LOBBY, bea.connection);
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
-    expect(store.startRace.mock.calls[0]?.[0]).toMatchObject({ text: texts.fr });
-    expect(bea.reveal()?.reveal.text.join("")).toBe(texts.fr);
+    expect(store.startRace.mock.calls[0]?.[0]).toMatchObject({ text: texts.fr.text, config: { language: "fr", text: "fr-injected" } });
+    expect(bea.reveal()?.reveal.text.join("")).toBe(texts.fr.text);
+  });
+
+  it("refuses every start before the database while races are closed (RACES_ENABLED), and leaves the room as it was", async () => {
+    const { service, store, changed } = harness({ racesOpen: false });
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    // The host's button, a repeat, or a direct call (the next round's start too): one path, refused,
+    // and before the start window, which a closed refusal never fills.
+    for (let attempt = 0; attempt <= START_WINDOW.maxStarts; attempt += 1) {
+      expect(await service.start(host.connection, {})).toEqual({ ok: false, error: "RACES_CLOSED" });
+    }
+    expect(store.startRace).not.toHaveBeenCalled();
+    expect(service.ownsRace(LOBBY)).toBe(false);
+    expect(changed).toEqual([]);
+    expect(bea.reveal()).toBeUndefined();
   });
 
   it("marks the race text with the host's language for every reader", async () => {
@@ -131,15 +150,6 @@ describe("RaceService", () => {
     await service.start(host.connection, {});
     expect(bea.reveal()?.language).toBe("en");
     expect(host.reveal()?.language).toBe("en");
-  });
-
-  it("refuses every start, before the database, when no race text may run on this server", async () => {
-    const { service, store } = harness({ texts: null });
-    const host = tab("t-host", "a-host");
-    service.follow(LOBBY, host.connection);
-    expect(await service.start(host.connection, {})).toEqual({ ok: false, error: "RACES_UNAVAILABLE" });
-    expect(store.startRace).not.toHaveBeenCalled();
-    expect(service.ownsRace(LOBBY)).toBe(false);
   });
 
   it("passes the database's and the engine's refusals on, and runs nothing", async () => {
@@ -363,6 +373,7 @@ describe("RaceService", () => {
       },
       onRoomChanged: () => undefined,
       texts: FIXTURE_RACE_TEXTS,
+      racesOpen: true,
       log: () => undefined,
       logError: (message) => logged.push(message),
       leaseTiming: { leaseMs: 30_000, renewEveryMs: 1, safetyMarginMs: 5_000, retryEveryMs: 1, maxSuspensionMs: 60_000 },
@@ -423,7 +434,7 @@ describe("RaceService", () => {
     left.service.memberLeft(LOBBY, "a-bea", { roomClosed: false });
     expect(left.service.ownsRace(LOBBY)).toBe(true);
     // The host finishes the fixture text: the leaver is ranked as an abandon (state-machines §3).
-    const text = [...FIXTURE_RACE_TEXTS.fr];
+    const text = [...FIXTURE_RACE_TEXTS.fr.text];
     for (const [index, grapheme] of text.entries()) {
       left.advance(200);
       expect(left.service.keystrokes(host.connection, batch(index + 1, grapheme))).toMatchObject({ ok: true, result: { outcome: "applied" } });

@@ -204,7 +204,7 @@ export const en: Dictionary = {
   races: {
     start: "Start the race",
     starting: "Starting…",
-    startNote: "A 2-minute race on a test text, with mandatory correction: an error is fixed before moving on.",
+    startNote: "Maximum duration: 2 minutes, on a public-domain passage. Mandatory correction: a mistake blocks typing until you type the expected character.",
     startNeedsTwo: "The race needs at least 2 participants; spectators do not count.",
     startErrors: {
       INVALID_PAYLOAD: "The request was not understood. Reload the page.",
@@ -215,8 +215,8 @@ export const en: Dictionary = {
       NOT_ENOUGH_PARTICIPANTS: "The race needs at least 2 participants; spectators do not count.",
       NO_HUMAN_PARTICIPANT: "At least one participant must be a person.",
       RATE_LIMITED: "Wait a moment before starting again.",
+      RACES_CLOSED: "Races are temporarily closed on this site. The room stays open: try again later.",
       UNAVAILABLE: "The race could not start, the server is not answering. Try again.",
-      RACES_UNAVAILABLE: "Races are not open on this site yet.",
     },
     preparing: "Preparing the race…",
     countdownLabel: "Starting in",

@@ -24,6 +24,7 @@ import {
 import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
+import type { RaceText } from "./race-texts";
 
 /** A tab admitted into a room by the room channel, with the language its pages use. */
 export type RoomConnection = RaceConnection & { readonly locale: Locale };
@@ -54,11 +55,13 @@ export type RaceServiceOptions = {
   readonly schedule: Schedule;
   /** A room's race changed in the database (started, saved, interrupted): its members get a fresh snapshot. */
   readonly onRoomChanged: (lobbyId: string) => void;
+  /** The texts races run, per interface language (the host's at the start, D-19). */
+  readonly texts: Readonly<Record<Locale, RaceText>>;
   /**
-   * The texts races run, per interface language; undefined when none may run on this server
-   * (test fixtures in a production without RACE_FIXTURE_TEXTS=allowed): starts are refused.
+   * New races may start (RACES_ENABLED=true, races-switch.ts). Otherwise every start is refused
+   * here, before the database; races already running, rooms and results are not affected.
    */
-  readonly texts: Readonly<Record<Locale, string>> | undefined;
+  readonly racesOpen: boolean;
   /** A race of the room stopped here without a confirmed end (lost lease, unreachable database). */
   readonly onRaceLost?: (lobbyId: string) => void;
   readonly log: (message: string) => void;
@@ -151,8 +154,9 @@ export class RaceService {
     if (this.#registry.stopping) {
       return { ok: false, error: "UNAVAILABLE" };
     }
-    if (this.#options.texts === undefined) {
-      return { ok: false, error: "RACES_UNAVAILABLE" };
+    // The one way a race is created, the next round's start included: closed means none.
+    if (!this.#options.racesOpen) {
+      return { ok: false, error: "RACES_CLOSED" };
     }
     this.#prune(this.#startTimes, START_WINDOW.windowMs);
     if (!this.#withinWindow(this.#startTimes, connection.accountId, START_WINDOW.maxStarts, START_WINDOW.windowMs)) {
@@ -170,7 +174,7 @@ export class RaceService {
     }
   }
 
-  async #start(connection: RoomConnection, text: string): Promise<RaceStartAck> {
+  async #start(connection: RoomConnection, { id: textId, text }: RaceText): Promise<RaceStartAck> {
     const { store, ownerId } = this.#options;
     const timeLimit = asDuration(FIRST_RACE_SETTINGS.timeLimitMs);
     const acquiredAt = this.#options.monotonic();
@@ -180,7 +184,7 @@ export class RaceService {
         accountId: connection.accountId,
         ownerId,
         text,
-        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, language: connection.locale, text: "fixture" },
+        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, language: connection.locale, text: textId },
         rulesVersion: RULES_VERSION,
         // Under the room lock: a refusal changes nothing, an exception rolls the start back.
         create: ({ raceId, entrants }) =>

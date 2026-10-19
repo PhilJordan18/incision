@@ -23,7 +23,7 @@ npm ci
 npm run dev -w @incision/web
 ```
 
-Ouvrir `http://localhost:3000` pour vérifier l'écran initial. `npm run dev -w @incision/web` démarre le serveur personnalisé, qui sert Next.js et Socket.IO sur le même port et lit le `.env` à la racine. `http://localhost:3000/api/health` indique l'état de la base de données. La connexion exige la base de données (section 3) et les variables d'authentification de `.env` (section 3 bis).
+Ouvrir `http://localhost:3000` pour vérifier l'écran initial. `npm run dev -w @incision/web` démarre le serveur personnalisé, qui sert Next.js et Socket.IO sur le même port et lit le `.env` à la racine. `http://localhost:3000/api/health` indique l'état de la base de données. Les courses ne démarrent qu'avec `RACES_ENABLED=true` dans `.env` : un `.env` copié avant cette variable ne l'a pas (la copie de la section 3 n'écrase jamais), il faut alors y ajouter la ligne `RACES_ENABLED=true`. Sans elle, le bouton de départ répond que les courses sont fermées. La connexion exige la base de données (section 3) et les variables d'authentification de `.env` (section 3 bis).
 
 **Contrainte TypeScript stricte.** Le code du produit utilise `.ts`/`.tsx`; la configuration PostCSS est en JSON. `tsconfig.json` désactive `allowJs`. Les fichiers JavaScript des dépendances dans `node_modules` ne sont pas du code écrit pour ce projet.
 

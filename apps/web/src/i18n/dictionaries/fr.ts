@@ -208,7 +208,7 @@ export const fr = {
   races: {
     start: "Lancer la course",
     starting: "Lancement…",
-    startNote: "Course de 2 minutes sur un texte d’essai, en frappe bloquée : une erreur se corrige avant d’avancer.",
+    startNote: "Durée maximale : 2 minutes, sur un passage du domaine public. Correction obligatoire : une faute bloque la saisie jusqu’à ce que tu tapes le caractère attendu.",
     startNeedsTwo: "Il faut au moins 2 participants pour lancer la course ; les spectateurs ne comptent pas.",
     startErrors: {
       INVALID_PAYLOAD: "La demande n’a pas été comprise. Recharge la page.",
@@ -219,8 +219,8 @@ export const fr = {
       NOT_ENOUGH_PARTICIPANTS: "Il faut au moins 2 participants ; les spectateurs ne comptent pas.",
       NO_HUMAN_PARTICIPANT: "Il faut au moins une personne parmi les participants.",
       RATE_LIMITED: "Patiente un instant avant de relancer.",
+      RACES_CLOSED: "Les courses sont temporairement fermées sur ce site. La salle reste ouverte : réessaie plus tard.",
       UNAVAILABLE: "La course n’a pas pu démarrer, le serveur ne répond pas. Réessaie.",
-      RACES_UNAVAILABLE: "Les courses ne sont pas encore ouvertes sur ce site.",
     },
     preparing: "Préparation de la course…",
     countdownLabel: "Départ dans",
