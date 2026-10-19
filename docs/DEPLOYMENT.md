@@ -258,3 +258,23 @@ Logs : App Service → Log stream. Deux endpoints, tous deux sans détails inter
 ## Coûts
 
 B2 tourne sur le crédit Azure for Students : consulter Cost Management régulièrement et ne jamais convertir en abonnement payant. Neon reste sur le forfait gratuit : ses heures de calcul sont limitées par mois et, une fois qu'elles sont épuisées, le calcul est suspendu jusqu'à la période suivante; rien ne doit donc interroger la base de données à intervalle fixe (sonde de santé, keep-alive). La reprise des courses réveille Neon à chaque démarrage du processus : une application qui redémarre en boucle plus souvent que toutes les 5 minutes garderait le calcul éveillé. Surveiller la page d'utilisation.
+
+Où lire les chiffres :
+
+- **Crédit Azure** : portail Azure → Education → *Student offer details* (crédit disponible et date d'expiration). Le portail Azure Sponsorships ne connaît pas cette souscription.
+- **Prévision Azure** : Cost Management → Cost analysis, portée Azure for Students, vue *AccumulatedCosts*, période étendue jusqu'à la date voulue; le survol de la courbe donne le coût cumulé prévu à une date.
+- **Neon** : console Neon → Projects (usage de l'organisation depuis le début de la période) et Billing (limites du forfait). Les métriques peuvent avoir une heure de retard.
+
+Relevé du 19 octobre 2026 (F-00.2) :
+
+| Service | Mesure | Valeur | Limite |
+|---|---|---|---|
+| Azure | Coût réel d'octobre (App Service, Canada Central) | 16,06 $ CA | — |
+| Azure | Coût cumulé prévu au 15 décembre | 80,41 $ CA | crédit de 142 $ CA |
+| Azure | Coût cumulé prévu au 31 décembre | 98,34 $ CA | crédit de 142 $ CA |
+| Azure | Crédit restant | 126 $ CA, expiration le 3 octobre 2027 | — |
+| Neon | Calcul depuis le 5 octobre | 0,95 CU-h | 100 h par mois |
+| Neon | Stockage | 0,03 Go | 1 Go |
+| Neon | Historique, transfert réseau | 0 Go | — |
+
+La prévision prolonge le rythme actuel (environ 1,15 $ CA par jour, cohérent avec B2) : il resterait 61,59 $ CA de crédit au 15 décembre et 43,66 $ CA au 31 décembre. Je garde B2 jusqu'au test de charge (F-08.1), puis je réévalue; B1 coûterait environ la moitié. Le health check vise `/api/health/live`, qui n'interroge pas Neon.
