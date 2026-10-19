@@ -136,16 +136,27 @@ test.describe("rooms by code with live presence (CP-06)", () => {
 
     await other.goto(`/rooms/${code}`);
     await expect(other.getByText(`Tu es déjà dans la salle ${otherCode}.`)).toBeVisible();
-    // Bruno hosts his room: the button says what leaving does.
-    const leave = other.getByRole("button", { name: `Quitter la salle ${otherCode} et revenir ici` });
-    await expect(leave).toHaveAccessibleDescription("Si tu quittes en tant qu’hôte, la salle se ferme pour tout le monde.");
-    await leave.click();
-    await expect(other).toHaveURL(new RegExp(`/rooms/${code}$`));
+    // Bruno hosts his room: leaving it would close it, so the panel sends him to it, where leaving asks first.
+    await expect(other.getByRole("button", { name: `Quitter la salle ${otherCode} et revenir ici` })).toHaveCount(0);
+    await expect(other.getByText(`Tu es l’hôte de la salle ${otherCode} : la quitter la ferme pour tout le monde.`, { exact: false })).toBeVisible();
+    await other.goto("/rooms/new");
+    await expect(other.getByText(`Tu es déjà dans la salle ${otherCode}.`)).toBeVisible();
+    await expect(other.getByRole("button", { name: /Quitter/ })).toHaveCount(0);
+    await other.getByRole("link", { name: "Aller à ma salle" }).click();
+    await expect(other).toHaveURL(new RegExp(`/rooms/${otherCode}$`));
+    await other.getByRole("button", { name: "Quitter la salle" }).click();
+    await other.getByRole("button", { name: "Oui, quitter et fermer" }).click();
+    await expect(other).toHaveURL(/\/$/);
+    await other.goto(`/rooms/${code}`);
     await other.getByRole("button", { name: "Rejoindre la salle" }).click();
     await expect(crew(other)).toHaveCount(2);
 
+    // A member who does not host still leaves from the panel in one click: the room stays open.
     await other.goto("/rooms/new");
     await expect(other.getByText(`Tu es déjà dans la salle ${code}.`)).toBeVisible();
+    await other.getByRole("button", { name: `Quitter la salle ${code}` }).click();
+    await expect(other).toHaveURL(/\/rooms\/new$/);
+    await expect(crew(host)).toHaveCount(1);
   });
 
   test("closes the room for everyone when the host leaves, and says so to latecomers", async ({ browser }) => {
@@ -159,7 +170,30 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(crew(guest)).toHaveCount(2);
     await expect(crew(guest).filter({ hasText: bruno.displayName })).toContainText("spectateur");
 
-    await host.getByRole("button", { name: "Quitter la salle" }).click();
+    // The host's departure closes the room: it asks first, with the consequences; Escape keeps the room.
+    const leave = host.getByRole("button", { name: "Quitter la salle" });
+    await leave.click();
+    await expect(host.getByRole("heading", { name: `Quitter et fermer la salle ${code} ?` })).toBeFocused();
+    await expect(host.getByText("Tu es l’hôte : en partant, tu fermes la salle pour tout le monde.", { exact: false })).toBeVisible();
+    await host.keyboard.press("Escape");
+    await expect(leave).toBeFocused();
+    await expect(crew(guest)).toHaveCount(2);
+    await leave.click();
+    // While the departure is on its way, keeping the room is no longer offered (the button or Escape).
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await host.route(`**/rooms/${code}`, async (route) => {
+      if (route.request().method() === "POST") {
+        await held;
+      }
+      await route.continue();
+    });
+    await host.getByRole("button", { name: "Oui, quitter et fermer" }).click();
+    await expect(host.getByRole("button", { name: "Rester dans la salle" })).toBeDisabled();
+    await host.keyboard.press("Escape");
+    await expect(host.getByRole("heading", { name: `Quitter et fermer la salle ${code} ?` })).toBeVisible();
+    release();
+    await expect(host).toHaveURL(/\/$/);
     await expect(guest.getByRole("heading", { level: 1 })).toHaveText(/Salle fermée/i);
     await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();
 
@@ -193,6 +227,29 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Frooms%2FB7K4PQ$/);
   });
 
+  test("the host closes the waiting room only after confirming it; keeping it open changes nothing", async ({ browser }) => {
+    const host = await signedInPage(browser, alice);
+    const code = await createRoom(host);
+    const guest = await signedInPage(browser, bruno);
+    await guest.goto(`/rooms/${code}`);
+    await guest.getByRole("button", { name: "Rejoindre la salle" }).click();
+    await expect(crew(host)).toHaveCount(2);
+
+    const close = host.getByRole("button", { name: "Fermer la salle" });
+    await close.click();
+    await expect(host.getByRole("heading", { name: "Fermer la salle pour tout le monde ?" })).toBeFocused();
+    await expect(host.getByText("Tous les membres quittent la salle, et elle n’accepte plus personne.")).toBeVisible();
+    await host.getByRole("button", { name: "Garder la salle ouverte" }).click();
+    await expect(close).toBeFocused();
+    await expect(crew(guest)).toHaveCount(2);
+
+    await close.click();
+    await host.getByRole("button", { name: "Oui, fermer la salle" }).click();
+    await expect(host.getByText(`Tu as fermé la salle ${code} pour tout le monde.`)).toBeVisible();
+    await expect(host.getByRole("heading", { level: 1 })).toBeFocused();
+    await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();
+  });
+
   for (const theme of ["abysse", "aube"] as const) {
     test(`room pages have no WCAG A/AA violation and fit 360 px in ${theme}`, async ({ browser }) => {
       const host = await signedInPage(browser, alice, { theme, width: 360 });
@@ -202,6 +259,12 @@ test.describe("rooms by code with live presence (CP-06)", () => {
       const code = await createRoom(host);
       await expectNoAccessibilityViolation(host);
       await expectNoHorizontalScroll(host);
+      // The question before closing, too.
+      await host.getByRole("button", { name: "Fermer la salle" }).click();
+      await expect(host.getByRole("heading", { name: "Fermer la salle pour tout le monde ?" })).toBeVisible();
+      await expectNoAccessibilityViolation(host);
+      await expectNoHorizontalScroll(host);
+      await host.keyboard.press("Escape");
 
       const guest = await signedInPage(browser, bruno, { theme, width: 360 });
       await guest.goto(`/rooms/${code}`);

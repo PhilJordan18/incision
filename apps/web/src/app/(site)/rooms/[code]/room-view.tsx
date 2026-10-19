@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { HostLeaveConfirm } from "@/components/rooms/host-leave-confirm";
 import { HostRoundActions } from "@/components/rooms/host-round-actions";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -410,23 +411,37 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   const participants = snapshot.members.filter((member) => member.role === "participant").length;
   // During the race, leaving is an abandon (state-machines §3), said before the click.
   const leavingAbandons = !self.isHost && self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
+  // The host's departure closes the room for everyone (CP-06): it asks first, as « Fermer la salle » does.
   const leave = (
-    <div className="flex max-w-xs flex-col gap-2">
-      <LeaveRoomForm
-        label={t.leave}
-        pendingLabel={t.leaving}
-        errors={t.changeErrors}
-        describedBy={self.isHost ? "host-leave-note" : leavingAbandons ? "race-leave-note" : undefined}
-        onLeaving={onLeaving}
-        onFailed={onLeaveFailed}
-      />
+    <div className={`flex flex-col gap-2 ${self.isHost ? "" : "max-w-xs"}`}>
+      {self.isHost ? (
+        <HostLeaveConfirm
+          t={t}
+          id="host-leave"
+          code={snapshot.code}
+          openLabel={t.leave}
+          describedBy="host-leave-note"
+          racing={racingView}
+          onLeaving={onLeaving}
+          onFailed={onLeaveFailed}
+        />
+      ) : (
+        <LeaveRoomForm
+          label={t.leave}
+          pendingLabel={t.leaving}
+          errors={t.changeErrors}
+          describedBy={leavingAbandons ? "race-leave-note" : undefined}
+          onLeaving={onLeaving}
+          onFailed={onLeaveFailed}
+        />
+      )}
       {self.isHost && (
-        <p id="host-leave-note" className="text-sm text-brume">
+        <p id="host-leave-note" className="max-w-xs text-sm text-brume">
           {t.hostLeaveNote}
         </p>
       )}
       {leavingAbandons && (
-        <p id="race-leave-note" className="text-sm text-brume">
+        <p id="race-leave-note" className="max-w-xs text-sm text-brume">
           {t.raceLeaveNote}
         </p>
       )}
@@ -475,9 +490,13 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         {results !== undefined && results.raceId === snapshot.race?.raceId ? (
           results.panel
         ) : (
-          <p role="status" className="text-embrun">
-            {tRaces.confirming}
-          </p>
+          <>
+            <p role="status" className="text-embrun">
+              {tRaces.confirming}
+            </p>
+            {/* Until the results are read, the host can still close the room (the next round needs them). */}
+            {self.isHost && <HostRoundActions t={t.hostActions} code={snapshot.code} />}
+          </>
         )}
       </div>
     );

@@ -371,6 +371,9 @@ test.describe("the first complete race (F-04.0)", () => {
     await expectNoAccessibilityViolation(host);
 
     await host.getByRole("button", { name: "Close the room" }).click();
+    await expect(host.getByRole("heading", { name: "Close the room for everyone?" })).toBeFocused();
+    await expectNoAccessibilityViolation(host);
+    await host.getByRole("button", { name: "Yes, close the room" }).click();
     await expect(host.getByText(`You closed room ${code} for everyone.`)).toBeVisible();
     await expect(host.getByRole("heading", { name: /Room\s*closed/i })).toBeFocused();
     await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();

@@ -174,22 +174,20 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
               <Link href={`/rooms/${state.current.code}`} className={secondaryButton}>
                 {t.rooms.goToMyRoom}
               </Link>
-              <LeaveRoomForm
-                label={format(t.rooms.leaveAndJoin, { code: state.current.code })}
-                pendingLabel={t.rooms.leaving}
-                errors={t.rooms.changeErrors}
-                returnTo={`/rooms/${code}`}
-                describedBy={state.current.isHost ? "host-leave-note" : undefined}
-              />
+              {/* The host leaves (and so closes) from the room itself, where it asks first with every consequence. */}
+              {!state.current.isHost && (
+                <LeaveRoomForm
+                  label={format(t.rooms.leaveAndJoin, { code: state.current.code })}
+                  pendingLabel={t.rooms.leaving}
+                  errors={t.rooms.changeErrors}
+                  returnTo={`/rooms/${code}`}
+                />
+              )}
             </>
           }
         >
           <p>{format(t.rooms.alreadyInRoom, { code: state.current.code })}</p>
-          {state.current.isHost && (
-            <p id="host-leave-note" className="mt-2 text-sm text-brume">
-              {t.rooms.hostLeaveNote}
-            </p>
-          )}
+          {state.current.isHost && <p className="mt-2 text-sm text-brume">{format(t.rooms.hostGoToRoom, { code: state.current.code })}</p>}
         </StatePanel>
       );
     case "join":
