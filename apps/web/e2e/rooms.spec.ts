@@ -161,7 +161,7 @@ test.describe("rooms by code with live presence (CP-06)", () => {
 
     await host.getByRole("button", { name: "Quitter la salle" }).click();
     await expect(guest.getByRole("heading", { level: 1 })).toHaveText(/Salle fermée/i);
-    await expect(guest.getByText(`L’hôte a quitté la salle ${code} : elle est fermée pour tout le monde.`)).toBeVisible();
+    await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();
 
     // An old link to the room shows the closed state, without a join button.
     await guest.goto(`/rooms/${code}`);

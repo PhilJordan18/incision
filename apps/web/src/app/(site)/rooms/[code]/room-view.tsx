@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { HostRoundActions } from "@/components/rooms/host-round-actions";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatePanel } from "@/components/ui/state-panel";
@@ -313,6 +314,20 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     }
   }, [interruptedRaceId]);
 
+  // The next round replaces the results (F-04.7): a focus left on the gone button goes to the
+  // room's heading, never to the page.
+  const waitingAfterResults = useRef(snapshot.phase === "results");
+  useEffect(() => {
+    if (snapshot.phase === "results") {
+      waitingAfterResults.current = true;
+    } else if (snapshot.phase === "waiting" && waitingAfterResults.current) {
+      waitingAfterResults.current = false;
+      if (document.activeElement === null || document.activeElement === document.body) {
+        document.getElementById(ROOM_HEADING_ID)?.focus();
+      }
+    }
+  }, [snapshot.phase]);
+
   // The start button disappears with the waiting room: the focus goes to the room's heading
   // rather than to the page, until the typing field takes it at the start.
   const racingView = snapshot.phase === "countdown" || snapshot.phase === "racing";
@@ -351,6 +366,11 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   }, [copy]);
 
   const self = snapshot.members.find((member) => member.memberId === selfMemberId);
+  // Kept once the closed room lists nobody: the host who closed it reads that they did.
+  const [hosted, setHosted] = useState(self?.isHost ?? false);
+  if (self !== undefined && self.isHost !== hosted) {
+    setHosted(self.isHost);
+  }
   const closed = snapshot.phase === "closed";
   const shownEnding: Ending | "closed" | undefined = closed ? "closed" : (ending ?? (self === undefined ? "notMember" : undefined));
 
@@ -384,7 +404,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   }
 
   if (shownEnding !== undefined || self === undefined) {
-    return <RoomEnding ending={shownEnding ?? "notMember"} code={snapshot.code} t={t} />;
+    return <RoomEnding ending={shownEnding ?? "notMember"} code={snapshot.code} hosted={hosted} t={t} />;
   }
 
   const participants = snapshot.members.filter((member) => member.role === "participant").length;
@@ -494,6 +514,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       {self.isHost && (
         <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants} t={tRaces} />
       )}
+      {self.isHost && <HostRoundActions t={t.hostActions} code={snapshot.code} />}
 
       {connection === "reconnecting" && (
         <section aria-labelledby="reconnect-heading" className={`${card} flex max-w-xl flex-col gap-3 border-or`}>
@@ -562,7 +583,17 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
 }
 
 /** What replaces the waiting room once it no longer applies (screen 15). */
-function RoomEnding({ ending, code, t }: { readonly ending: Ending | "closed"; readonly code: string; readonly t: Dictionary["rooms"] }) {
+function RoomEnding({
+  ending,
+  code,
+  hosted,
+  t,
+}: {
+  readonly ending: Ending | "closed";
+  readonly code: string;
+  readonly hosted: boolean;
+  readonly t: Dictionary["rooms"];
+}) {
   const home = (
     <Link href="/" className={discreetButton}>
       {t.backHome}
@@ -585,7 +616,7 @@ function RoomEnding({ ending, code, t }: { readonly ending: Ending | "closed"; r
             </>
           }
         >
-          <p>{format(t.closed, { code })}</p>
+          <p>{format(hosted ? t.closedByYou : t.closed, { code })}</p>
         </StatePanel>
       );
     case "notMember":
