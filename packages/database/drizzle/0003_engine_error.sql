@@ -1,0 +1,2 @@
+ALTER TABLE "races" DROP CONSTRAINT "races_reason_known";--> statement-breakpoint
+ALTER TABLE "races" ADD CONSTRAINT "races_reason_known" CHECK ("races"."interruption_reason" in ('room_closed', 'server_stopped', 'owner_lost', 'save_failed', 'engine_error'));

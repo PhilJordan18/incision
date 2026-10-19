@@ -23,7 +23,7 @@ npm ci
 npm run dev -w @incision/web
 ```
 
-Ouvrir `http://localhost:3000` pour vérifier l'écran initial. `npm run dev -w @incision/web` démarre le serveur personnalisé, qui sert Next.js et Socket.IO sur le même port et lit le `.env` à la racine. `http://localhost:3000/api/health` indique l'état de la base de données. La connexion exige la base de données (section 3) et les variables d'authentification de `.env` (section 3 bis).
+Ouvrir `http://localhost:3000` pour vérifier l'écran initial. `npm run dev -w @incision/web` démarre le serveur personnalisé, qui sert Next.js et Socket.IO sur le même port et lit le `.env` à la racine. `http://localhost:3000/api/health` indique l'état de la base de données. Les courses ne démarrent qu'avec `RACES_ENABLED=true` dans `.env` : un `.env` copié avant cette variable ne l'a pas (la copie de la section 3 n'écrase jamais), il faut alors y ajouter la ligne `RACES_ENABLED=true`. Sans elle, le bouton de départ répond que les courses sont fermées. La connexion exige la base de données (section 3) et les variables d'authentification de `.env` (section 3 bis).
 
 **Contrainte TypeScript stricte.** Le code du produit utilise `.ts`/`.tsx`; la configuration PostCSS est en JSON. `tsconfig.json` désactive `allowJs`. Les fichiers JavaScript des dépendances dans `node_modules` ne sont pas du code écrit pour ce projet.
 
@@ -58,6 +58,12 @@ npm run test:e2e -w @incision/web
 ```
 
 Playwright démarre le build de production par le serveur personnalisé sur le port 3200, avec une base jetable `incision_e2e` sur `db-test` qu'il supprime, migre et alimente avec le seed à chaque exécution (`E2E_DATABASE_URL` la remplace, localhost seulement). La première exécution peut exiger `npx playwright install chromium`. Les tests OAuth sont simulés : ils s'arrêtent à l'URL d'autorisation du fournisseur et ne se connectent jamais à GitHub ni à Discord.
+
+Les tests d'intégration de la course lancent eux aussi le build de production, en deux processus sur les ports 3301 et 3302, avec une base jetable `incision_e2e_integration` sur `db-test` (`INTEGRATION_DATABASE_URL` et `INTEGRATION_PORTS` les remplacent, localhost seulement). Ils pilotent les comptes par Socket.IO, sans navigateur, et durent environ une minute :
+
+```sh
+npm run test:integration -w @incision/web
+```
 
 ## 4. Ajouter les modules de l'application
 

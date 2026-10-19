@@ -1,8 +1,9 @@
 import { AttemptLimiter } from "@/server/auth/attempt-limiter";
 
 /**
- * Room changes (create, join, leave) one account may make per minute. A person needs a
- * few; a loop would fill the database with rooms and flood a room's crew list.
+ * Room changes (create, join, leave, and the host's next round and closing) one account may make
+ * per minute, refused requests included. A person needs a few; a loop would fill the database
+ * with rooms and flood a room's crew list.
  */
 export const ROOM_CHANGE_LIMIT = { maxFailures: 10, windowMs: 60_000 } as const;
 
