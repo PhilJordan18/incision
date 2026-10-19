@@ -26,6 +26,7 @@ describe("parseServerEnv", () => {
       authSecret: undefined,
       secureCookies: false,
       trustedProxyHops: 0,
+      fixtureRaceTexts: true,
     });
   });
 
@@ -38,7 +39,17 @@ describe("parseServerEnv", () => {
       authSecret: production.AUTH_SECRET,
       secureCookies: true,
       trustedProxyHops: 1,
+      fixtureRaceTexts: false,
     });
+  });
+
+  it("runs the race text test fixtures in production only when told to, with the one accepted value", () => {
+    expect(parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: "allowed" }).fixtureRaceTexts).toBe(true);
+    expect(parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: "" }).fixtureRaceTexts).toBe(false);
+    expect(parseServerEnv({ NODE_ENV: "test" }).fixtureRaceTexts).toBe(true);
+    for (const value of ["true", "1", "yes", "ALLOWED"]) {
+      expect(() => parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: value })).toThrow(/RACE_FIXTURE_TEXTS: must be "allowed" or unset/);
+    }
   });
 
   it("keeps only the origin of APP_URL", () => {
@@ -128,11 +139,18 @@ describe("parseServerEnv", () => {
   it("never echoes a variable's value in the error", () => {
     let message = "";
     try {
-      parseServerEnv({ ...production, DATABASE_URL: "postgresql://user:hunter2@db.example/incision", APP_URL: "not a url hunter2", AUTH_SECRET: "hunter2" });
+      parseServerEnv({
+        ...production,
+        DATABASE_URL: "postgresql://user:hunter2@db.example/incision",
+        APP_URL: "not a url hunter2",
+        AUTH_SECRET: "hunter2",
+        RACE_FIXTURE_TEXTS: "hunter2",
+      });
     } catch (error: unknown) {
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toMatch(/APP_URL/);
+    expect(message).toMatch(/RACE_FIXTURE_TEXTS/);
     expect(message).not.toContain("hunter2");
   });
 });

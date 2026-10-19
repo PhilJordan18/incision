@@ -48,7 +48,7 @@ export type RaceLeaseOptions = {
 
 /**
  * The owner's view of a race's lease. Its guarantees (ADR-0004):
- * - the runtime asks `isAuthoritative()` before accepting a keystroke batch or broadcasting;
+ * - the runtime asks `isAuthoritative()` before accepting a keystroke batch or broadcasting progress;
  *   it is false as soon as the local deadline passes without a confirmed renewal;
  * - only a renewal confirmed by the database (same owner, same generation, race still active)
  *   brings a suspended lease back, and only up to what that renewal proves;

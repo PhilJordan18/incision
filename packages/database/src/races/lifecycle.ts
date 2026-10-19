@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { RoomPhase } from "@incision/domain";
 import { and, asc, count, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
 import type { Database } from "../client";
@@ -23,6 +24,9 @@ import { endedNow, interruption } from "./interruption";
 export const RACE_LEASE_MS = 30_000;
 const leaseEnd = sql`statement_timestamp() + make_interval(secs => ${RACE_LEASE_MS / 1000})`;
 
+/** An active race whose lease has passed on the database clock: another process may take it over. */
+const expiredActiveRace = and(inArray(races.state, ACTIVE_RACE_STATES), sql`${races.leaseExpiresAt} <= statement_timestamp()`);
+
 /**
  * The process running a race, the generation of its ownership and its room. It only ever comes
  * from the runtime that started the race, never from a client.
@@ -47,7 +51,13 @@ export type StartedEntrant = {
   readonly displayName: string;
 };
 
-export type StartRaceInput<Refusal extends string> = {
+/** The race as the engine is asked to create it, with the ids its rows will keep. */
+export type RaceToCreate = {
+  readonly raceId: string;
+  readonly entrants: readonly { readonly entrantId: string; readonly kind: "human" }[];
+};
+
+export type StartRaceInput<Refusal extends string, Created> = {
   /** The account asking to start, from its session: it must host the room it occupies. */
   readonly accountId: string;
   /** This process (ADR-0004). */
@@ -56,32 +66,38 @@ export type StartRaceInput<Refusal extends string> = {
   readonly config: Readonly<Record<string, unknown>>;
   readonly rulesVersion: number;
   /**
-   * The engine's start rule (`startRefusal`), applied to the participants read under the room
-   * lock; never a copy of it here.
+   * The engine's start (`createRace`, which applies `createRaceRefusal`: the start rule, then
+   * the text and the settings), on the participants read under the room lock, with the race
+   * and entrant ids the rows keep; never a copy of its rules here. A refusal changes nothing;
+   * an exception (a programming error, `RangeError`) rolls the start back. It runs under the
+   * room lock, inside the transaction and its 4 s idle limit: it must stay synchronous and pure
+   * (no I/O, nothing heavy), which its type enforces for promises.
    */
-  readonly refuseStart: (participants: readonly { readonly kind: "human" }[]) => Refusal | undefined;
+  readonly create: (race: RaceToCreate) => { readonly ok: false; readonly reason: Refusal } | { readonly ok: true; readonly race: Created };
 };
 
-export type StartRaceResult<Refusal extends string> =
+export type StartRaceResult<Refusal extends string, Created> =
   | {
       readonly ok: true;
       readonly race: RaceOwnership & { readonly roundNo: number; readonly countdownAt: Date; readonly leaseExpiresAt: Date };
       readonly entrants: readonly StartedEntrant[];
+      /** What `create` returned: the race in memory, committed with its rows. */
+      readonly created: Created;
     }
   | { readonly ok: false; readonly error: "NOT_IN_A_ROOM" | "NOT_HOST" | "ROOM_NOT_WAITING" | Refusal };
 
 /**
  * The host starts a race (COURSE-02/03): under the room lock, the room must be waiting and the
- * caller must still host it; the engine's rule decides on the participants (spectators never
- * race). One transaction freezes the text, the configuration and the entrants, takes the
- * lease, and moves the room to COUNTDOWN, which refuses every new admission (SALLE-09). A
- * second start finds the room in COUNTDOWN and changes nothing.
+ * caller must still host it; the engine creates the race from the participants (spectators
+ * never race), or refuses. One transaction freezes the text, the configuration and the
+ * entrants, takes the lease, and moves the room to COUNTDOWN, which refuses every new
+ * admission (SALLE-09). A second start finds the room in COUNTDOWN and changes nothing.
  */
-export async function startRace<Refusal extends string>(
+export async function startRace<Refusal extends string, Created>(
   db: Database,
-  input: StartRaceInput<Refusal>,
-): Promise<StartRaceResult<Refusal>> {
-  return boundedTransaction(db, async (tx): Promise<StartRaceResult<Refusal>> => {
+  input: StartRaceInput<Refusal, Created>,
+): Promise<StartRaceResult<Refusal, Created>> {
+  return boundedTransaction(db, async (tx): Promise<StartRaceResult<Refusal, Created>> => {
     const seen = await findActiveMembership(tx, input.accountId);
     if (seen === undefined) {
       return { ok: false, error: "NOT_IN_A_ROOM" };
@@ -107,16 +123,28 @@ export async function startRace<Refusal extends string>(
       .from(lobbyMembers)
       .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, "participant"), isNull(lobbyMembers.leftAt)))
       .orderBy(asc(lobbyMembers.joinedAt), asc(lobbyMembers.id));
+    // Ids drawn here, not by the database, so the engine creates the race with the ids the rows keep.
+    const raceId = randomUUID();
+    const entrants = participants.map(
+      (participant, index): StartedEntrant => ({
+        entrantId: randomUUID(),
+        memberId: participant.memberId,
+        accountId: participant.accountId,
+        ordinal: index + 1,
+        displayName: participant.displayName,
+      }),
+    );
     // Every member is an account today: guests and bots come with their own cards.
-    const refusal = input.refuseStart(participants.map(() => ({ kind: "human" as const })));
-    if (refusal !== undefined) {
-      return { ok: false, error: refusal };
+    const created = input.create({ raceId, entrants: entrants.map(({ entrantId }) => ({ entrantId, kind: "human" as const })) });
+    if (!created.ok) {
+      return { ok: false, error: created.reason };
     }
     const previous = firstRow(await tx.select({ value: max(races.roundNo) }).from(races).where(eq(races.lobbyId, lobby.id)));
     const race = firstRow(
       await tx
         .insert(races)
         .values({
+          id: raceId,
           lobbyId: lobby.id,
           roundNo: (previous.value ?? 0) + 1,
           rulesVersion: input.rulesVersion,
@@ -137,23 +165,19 @@ export async function startRace<Refusal extends string>(
     const inserted = await tx
       .insert(raceEntrants)
       .values(
-        participants.map((participant, index) => ({
+        entrants.map((entrant) => ({
+          id: entrant.entrantId,
           raceId: race.id,
-          memberId: participant.memberId,
-          accountId: participant.accountId,
-          ordinal: index + 1,
-          displayNameSnapshot: participant.displayName,
+          memberId: entrant.memberId,
+          accountId: entrant.accountId,
+          ordinal: entrant.ordinal,
+          displayNameSnapshot: entrant.displayName,
         })),
       )
-      .returning({ id: raceEntrants.id, ordinal: raceEntrants.ordinal });
-    const idByOrdinal = new Map(inserted.map((row) => [row.ordinal, row.id]));
-    const entrants = participants.map((participant, index): StartedEntrant => {
-      const entrantId = idByOrdinal.get(index + 1);
-      if (entrantId === undefined) {
-        throw new Error("An entrant was not created");
-      }
-      return { entrantId, memberId: participant.memberId, accountId: participant.accountId, ordinal: index + 1, displayName: participant.displayName };
-    });
+      .returning({ id: raceEntrants.id });
+    if (inserted.length !== entrants.length) {
+      throw new Error("Not every entrant was created");
+    }
     await tx
       .update(lobbies)
       .set({ phase: "countdown", currentRaceId: race.id, revision: sql`${lobbies.revision} + 1` })
@@ -170,6 +194,7 @@ export async function startRace<Refusal extends string>(
         leaseExpiresAt: race.leaseExpiresAt,
       },
       entrants,
+      created: created.race,
     };
   }, READ_COMMITTED);
 }
@@ -330,14 +355,15 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
 
 /**
  * The owner interrupts its own race, without results (D-06), and the room goes back to
- * WAITING: when its process stops (`server_stopped`), or when it gives up saving results after
- * its bounded attempts (`save_failed`). Nothing changes if the race already ended or was taken
+ * WAITING: when its process stops (`server_stopped`), when it gives up saving results after
+ * its bounded attempts (`save_failed`), or when the engine failed unexpectedly on this race
+ * (`engine_error`). Nothing changes if the race already ended or was taken
  * over; `resultsSaved` says that this owner's own finalisation ended it, results included.
  */
 export async function interruptOwnRace(
   db: Database,
   ownership: RaceOwnership,
-  reason: Extract<InterruptionReason, "server_stopped" | "save_failed">,
+  reason: Extract<InterruptionReason, "server_stopped" | "save_failed" | "engine_error">,
 ): Promise<Interruption> {
   return boundedTransaction(db, async (tx): Promise<Interruption> => {
     const phase = await lockRoom(tx, ownership);
@@ -364,14 +390,17 @@ export type LeaseRenewal = { readonly renewed: true; readonly expiresAt: Date } 
  * The owner extends its lease (ADR-0004). It fails for good once the race ended, was
  * interrupted or was taken over (another generation): the owner must then stop. A lease that
  * expired without a takeover is renewed: nobody else acted on the race. Touches the race row
- * only, never the room, so it cannot deadlock with a transition. A single statement: it waits
- * only for a transition of its own race, itself bounded on the server. Under a REPEATABLE READ
- * server default it may throw a serialisation failure, which the owner treats like an
- * unreachable database (it retries).
+ * only, never the room, so it cannot deadlock with a transition. Bounded on the server like
+ * every race transaction: a renewal stuck behind a lock ends with an error from PostgreSQL,
+ * which the owner treats like an unreachable database (it retries, and its local view of the
+ * lease never trusts an answer beyond what it proves). It sets READ COMMITTED itself, whatever
+ * the server's default.
  */
 export async function renewRaceLease(db: Database, ownership: RaceOwnership): Promise<LeaseRenewal> {
-  const [renewed] = await db.update(races).set({ leaseExpiresAt: leaseEnd }).where(ownedAndActive(ownership)).returning({ expiresAt: races.leaseExpiresAt });
-  return renewed === undefined ? { renewed: false } : { renewed: true, expiresAt: renewed.expiresAt };
+  return boundedTransaction(db, async (tx): Promise<LeaseRenewal> => {
+    const [renewed] = await tx.update(races).set({ leaseExpiresAt: leaseEnd }).where(ownedAndActive(ownership)).returning({ expiresAt: races.leaseExpiresAt });
+    return renewed === undefined ? { renewed: false } : { renewed: true, expiresAt: renewed.expiresAt };
+  }, READ_COMMITTED);
 }
 
 export type Recovery = {
@@ -397,7 +426,7 @@ export type Recovery = {
 export async function recoverAbandonedRaces(db: Database, scope: { readonly lobbyId?: string } = {}): Promise<Recovery> {
   // Nothing here waits for a row; the limits still bound a table lock (a migration).
   return boundedTransaction(db, async (tx): Promise<Recovery> => {
-    const expired = and(inArray(races.state, ACTIVE_RACE_STATES), sql`${races.leaseExpiresAt} <= statement_timestamp()`);
+    const expired = expiredActiveRace;
     const inScope = scope.lobbyId === undefined ? undefined : eq(lobbies.id, scope.lobbyId);
     const candidates = await tx
       .select({ lobbyId: lobbies.id, raceId: races.id })
@@ -450,3 +479,37 @@ export async function recoverAbandonedRaces(db: Database, scope: { readonly lobb
     return { rooms, orphans, remaining: left.value };
   }, READ_COMMITTED);
 }
+
+export type RoomRecovery =
+  | { readonly recovered: true }
+  /** `retryInMs`: the room's race is active and its lease runs this much longer (database clock). */
+  | { readonly recovered: false; readonly retryInMs?: number };
+
+/**
+ * Recovers the race of one room whose owner stopped renewing (ADR-0004), for a room someone
+ * opens or watches. One read first: only an active race with an expired lease leads to the
+ * recovery transaction. While the lease runs, it says how long it still runs, so the caller can
+ * look again once, then; nothing is recovered.
+ */
+export async function recoverRoomIfAbandoned(db: Database, lobbyId: string): Promise<RoomRecovery> {
+  const [race] = await db
+    .select({
+      expired: sql<boolean>`${races.leaseExpiresAt} <= statement_timestamp()`,
+      leaseLeftMs: sql<number>`greatest(0, ceil(extract(epoch from (${races.leaseExpiresAt} - statement_timestamp())) * 1000))::float8`,
+    })
+    .from(lobbies)
+    .innerJoin(races, eq(races.id, lobbies.currentRaceId))
+    .where(and(eq(lobbies.id, lobbyId), inArray(lobbies.phase, ACTIVE_RACE_STATES), inArray(races.state, ACTIVE_RACE_STATES)));
+  if (race === undefined) {
+    return { recovered: false };
+  }
+  if (!race.expired) {
+    return { recovered: false, retryInMs: race.leaseLeftMs };
+  }
+  const { rooms } = await recoverAbandonedRaces(db, { lobbyId });
+  // Not recovered although expired: another transaction held the room or the race. Look again soon.
+  return rooms.includes(lobbyId) ? { recovered: true } : { recovered: false, retryInMs: SKIPPED_RETRY_MS };
+}
+
+/** When an expired race could not be recovered because something else held it. */
+const SKIPPED_RETRY_MS = 2_000;

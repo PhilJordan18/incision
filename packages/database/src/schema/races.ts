@@ -35,7 +35,7 @@ export const raceOutcome = pgEnum("race_outcome", RACE_OUTCOMES);
  * later reason is one additive migration (an enum value cannot be used in the transaction
  * that adds it).
  */
-export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_lost", "save_failed"] as const;
+export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_lost", "save_failed", "engine_error"] as const;
 export type InterruptionReason = (typeof INTERRUPTION_REASONS)[number];
 
 /** The engine's reasons to abandon (`AbandonReason` in @incision/domain). */
@@ -65,7 +65,8 @@ export const races = pgTable(
     countdownAt: timestamp("countdown_at", { withTimezone: true }).notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
-    interruptionReason: text("interruption_reason"),
+    // Typed by the CHECK races_reason_known.
+    interruptionReason: text("interruption_reason").$type<InterruptionReason>(),
     /** The process that runs the race in memory (ADR-0004). */
     ownerId: uuid("owner_id").notNull(),
     /** Raised when another process takes the race over: the former owner's writes then miss. */
@@ -151,7 +152,8 @@ export const raceResults = pgTable(
     netWpm: doublePrecision("net_wpm").notNull(),
     rawWpm: doublePrecision("raw_wpm").notNull(),
     accuracy: doublePrecision().notNull(),
-    abandonmentReason: text("abandonment_reason"),
+    // Typed by the CHECK race_results_reason_known.
+    abandonmentReason: text("abandonment_reason").$type<AbandonmentReason>(),
   },
   (table) => [
     primaryKey({ name: "race_results_pk", columns: [table.raceId, table.entrantId] }),

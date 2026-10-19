@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { createServer, type Server as HttpServer } from "node:http";
-import type { ActiveMembership, RoomSnapshot } from "@incision/database";
+import type { ActiveMembership, RoomRecovery, RoomSnapshot } from "@incision/database";
 import type { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,12 +25,21 @@ let presence: RoomPresence;
 let registry: SessionRegistry;
 let findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
 let readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
+let recoverAbandonedRace: (lobbyId: string) => Promise<RoomRecovery>;
+const ownedRaces = new Set<string>();
+const raceFollows: { lobbyId: string; id: string; accountId: string; locale: string; pageId?: string }[] = [];
+const raceUnfollows: string[] = [];
+const raceFollowFails = { next: false };
 const memberships = new Map<string, ActiveMembership>();
 const snapshots = new Map<string, RoomSnapshot>();
 const clients: Socket[] = [];
 
 async function authenticate(cookie: string | undefined): Promise<HandshakeAuthentication> {
-  const accountId = cookie === undefined ? undefined : ACCOUNTS[cookie];
+  const session = cookie
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("session="));
+  const accountId = session === undefined ? undefined : ACCOUNTS[session];
   return accountId === undefined
     ? { kind: "anonymous" }
     : { kind: "authenticated", session: { accountId, sessionVersion: 1, expiresAt: Date.now() + 60_000 } };
@@ -74,6 +83,10 @@ beforeEach(async () => {
   });
   findActiveMembership = vi.fn(async (accountId: string) => memberships.get(accountId));
   readRoomSnapshot = vi.fn(async (lobbyId: string) => snapshots.get(lobbyId));
+  recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => ({ recovered: false }));
+  ownedRaces.clear();
+  raceFollows.length = 0;
+  raceUnfollows.length = 0;
   io = attachRealtimeServer(httpServer, { allowedOrigin: baseUrl, isProduction: true, authenticate, registry });
   registerRoomChannel(io, {
     allowedOrigin: baseUrl,
@@ -82,6 +95,24 @@ beforeEach(async () => {
     events,
     findActiveMembership: (accountId) => findActiveMembership(accountId),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
+    raceRecovery: { recover: (lobbyId) => recoverAbandonedRace(lobbyId), ownsRace: (lobbyId) => ownedRaces.has(lobbyId) },
+    recoveryTiming: { failedLookRetryMs: 50, maxFailedLooks: 3 },
+    races: {
+      follow: (lobbyId, connection) => {
+        if (raceFollowFails.next) {
+          raceFollowFails.next = false;
+          throw new Error("unexpected");
+        }
+        raceFollows.push({
+          lobbyId,
+          id: connection.id,
+          accountId: connection.accountId,
+          locale: connection.locale,
+          ...(connection.pageId === undefined ? {} : { pageId: connection.pageId }),
+        });
+      },
+      unfollow: (id) => void raceUnfollows.push(id),
+    },
   });
 });
 
@@ -114,11 +145,11 @@ afterEach(async () => {
   await io.close();
 });
 
-function open(cookie?: string): Promise<Socket> {
+function open(cookie?: string, headers: Record<string, string> = {}): Promise<Socket> {
   const client = connect(baseUrl, {
     reconnection: false,
     transports: ["websocket"],
-    extraHeaders: { origin: baseUrl, ...(cookie === undefined ? {} : { cookie }) },
+    extraHeaders: { origin: baseUrl, ...headers, ...(cookie === undefined ? {} : { cookie }) },
   });
   clients.push(client);
   return new Promise((resolve, reject) => {
@@ -391,5 +422,222 @@ describe("room channel", () => {
     snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), revision: 3 });
     events.emit("changed", "lobby-1");
     expect(await nothing).toBe("silent");
+  });
+});
+
+describe("recovery of an abandoned race when a member watches its room (ADR-0004)", () => {
+  function racing(lobbyId: string, revision = 2): void {
+    snapshots.set(lobbyId, { ...snapshotOf(lobbyId), phase: "racing", revision });
+  }
+
+  /** The room's race is recovered by the next call: the room goes back to WAITING. */
+  function recoveredNext(lobbyId: string): void {
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      snapshots.set(lobbyId, { ...snapshotOf(lobbyId), phase: "waiting", revision: snapshotOf(lobbyId).revision + 1 });
+      return { recovered: true };
+    });
+  }
+
+  it("recovers the race of a room in RACING that this process does not run, then tells every member", async () => {
+    racing("lobby-1");
+    const first = await open("session=alice");
+    await watch(first);
+    // A second socket of the same member: its watch alone triggers no broadcast.
+    recoveredNext("lobby-1");
+    const told = nextSnapshot(first, 1_000);
+    const second = await open("session=alice");
+    expect(await watch(second)).toMatchObject({ ok: true });
+    expect(recoverAbandonedRace).toHaveBeenCalledWith("lobby-1");
+    expect(await told).toMatchObject({ phase: "waiting", revision: 3 });
+  });
+
+  it("never touches a race this process runs, a room in another phase, a non-member's watch or a failed read", async () => {
+    racing("lobby-1");
+    ownedRaces.add("lobby-1");
+    const alice = await open("session=alice");
+    await watch(alice);
+    const clo = await open("session=clo");
+    await watch(clo, "BCDEFG");
+    racing("lobby-2");
+    // Clo's room again, but Clo is not a member of lobby-1.
+    expect(await watch(clo, "ABCDEF")).toMatchObject({ ok: false, error: "NOT_A_MEMBER" });
+    ownedRaces.clear();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    readRoomSnapshot = vi.fn(async () => {
+      throw new Error("connect ECONNREFUSED");
+    });
+    const bob = await open("session=bob");
+    expect(await watch(bob)).toMatchObject({ ok: false, error: "UNAVAILABLE" });
+    logged.mockRestore();
+    expect(recoverAbandonedRace).not.toHaveBeenCalled();
+  });
+
+  it("answers the watch even when the recovery fails, and logs it without detail", async () => {
+    racing("lobby-1");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      throw new Error("connect ECONNREFUSED");
+    });
+    const alice = await open("session=alice");
+    expect(await watch(alice)).toMatchObject({ ok: true, snapshot: { phase: "racing" } });
+    expect(logged).toHaveBeenCalledWith("[races] recovery on watch failed:", "connect ECONNREFUSED");
+    logged.mockRestore();
+  });
+
+  it("looks again once the lease has run out, while someone still follows the room", async () => {
+    racing("lobby-1");
+    recoverAbandonedRace = vi.fn(async (lobbyId: string): Promise<RoomRecovery> => {
+      // Next time, the lease has expired and the race is recovered.
+      recoveredNext(lobbyId);
+      return { recovered: false, retryInMs: 50 };
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    const told = await nextSnapshot(alice, 3_000);
+    expect(told).toMatchObject({ phase: "waiting", revision: 3 });
+  });
+
+  it("looks again while the database does not answer, then tells every member once it does", async () => {
+    racing("lobby-1");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    recoverAbandonedRace = vi.fn(async (lobbyId: string): Promise<RoomRecovery> => {
+      // The database is back for the next look, and the race is recovered then.
+      recoveredNext(lobbyId);
+      throw new Error("connect ECONNREFUSED");
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    expect(await nextSnapshot(alice, 2_000)).toMatchObject({ phase: "waiting", revision: 3 });
+    logged.mockRestore();
+  });
+
+  it("gives up looking after the bounded number of failures", async () => {
+    racing("lobby-1");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      throw new Error("connect ECONNREFUSED");
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    // 3 looks at most (the injected bound), then nothing more while the database stays down.
+    expect(recoverAbandonedRace).toHaveBeenCalledTimes(3);
+    // Another watch looks once, without starting the series again.
+    const again = await open("session=alice");
+    await watch(again);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(recoverAbandonedRace).toHaveBeenCalledTimes(4);
+    logged.mockRestore();
+  });
+
+  it("looks again a bounded number of times after a new loss in a room that had given up", async () => {
+    racing("lobby-1");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      throw new Error("connect ECONNREFUSED");
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(recoverAbandonedRace).toHaveBeenCalledTimes(3);
+    events.emit("raceLost", "lobby-1");
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(recoverAbandonedRace).toHaveBeenCalledTimes(6);
+    logged.mockRestore();
+  });
+
+  it("keeps the refresh of a loss asked while a look was pending, and ignores a loss in a room nobody follows", async () => {
+    racing("lobby-1");
+    let calls = 0;
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      calls += 1;
+      if (calls < 3) {
+        return { recovered: false, retryInMs: 50 };
+      }
+      // The race was saved meanwhile: nothing to recover, but the pages must learn it.
+      snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), phase: "results", revision: 5 });
+      return { recovered: false };
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    const told = nextSnapshot(alice, 3_000);
+    // The watch's look left a pending look without refresh; the loss asks for one.
+    events.emit("raceLost", "lobby-1");
+    expect(await told).toMatchObject({ phase: "results", revision: 5 });
+    expect(calls).toBe(3);
+    events.emit("raceLost", "lobby-2");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(recoverAbandonedRace).not.toHaveBeenCalledWith("lobby-2");
+  });
+
+  it("after a race stopped here without a confirmed end, sends the members what the database holds", async () => {
+    const alice = await open("session=alice");
+    await watch(alice);
+    // The race ended meanwhile (its results were saved): no active race to recover.
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => ({ recovered: false }));
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), phase: "results", revision: 5 });
+    const told = nextSnapshot(alice, 2_000);
+    events.emit("raceLost", "lobby-1");
+    expect(await told).toMatchObject({ phase: "results", revision: 5 });
+  });
+
+  it("does not look again once nobody follows the room", async () => {
+    racing("lobby-1");
+    let calls = 0;
+    recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => {
+      calls += 1;
+      return { recovered: false, retryInMs: 50 };
+    });
+    const alice = await open("session=alice");
+    await watch(alice);
+    alice.close();
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+    expect(calls).toBe(1);
+  });
+});
+
+describe("the races of the room", () => {
+  it("tells the races about a tab once its membership is checked, with its language, and when it closes", async () => {
+    const refused = await open("session=clo");
+    await watch(refused, "ABCDEF");
+    expect(raceFollows).toEqual([]);
+    const alice = await open("session=alice; locale=en");
+    await watch(alice);
+    expect(raceFollows).toEqual([{ lobbyId: "lobby-1", id: alice.id, accountId: ALICE, locale: "en" }]);
+    const id = alice.id;
+    alice.close();
+    await until(() => raceUnfollows.includes(id ?? ""));
+  });
+
+  it("passes the page id of the watch to the races, and refuses one that is not a UUID", async () => {
+    const pageId = "4b7f2c1e-3d5a-4e6f-8a9b-0c1d2e3f4a5b";
+    const alice = await open("session=alice");
+    expect(await alice.timeout(3_000).emitWithAck(ROOM_WATCH_EVENT, { code: "ABCDEF", pageId: "not-a-uuid" })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
+    expect(await alice.timeout(3_000).emitWithAck(ROOM_WATCH_EVENT, { code: "ABCDEF", pageId })).toMatchObject({ ok: true });
+    expect(raceFollows.at(-1)).toMatchObject({ id: alice.id, pageId });
+  });
+
+  it("answers the watch UNAVAILABLE, and keeps serving, when following the race fails unexpectedly", async () => {
+    raceFollowFails.next = true;
+    const alice = await open("session=alice");
+    expect(await watch(alice)).toEqual({ ok: false, error: "UNAVAILABLE" });
+    const bob = await open("session=bob");
+    expect(await watch(bob)).toMatchObject({ ok: true });
+  });
+
+  it("takes a tab's language from the browser when no choice was made", async () => {
+    const bob = await open("session=bob", { "accept-language": "en-CA,fr;q=0.5" });
+    await watch(bob);
+    expect(raceFollows[0]?.locale).toBe("en");
+  });
+
+  it("drops a tab from the races once its member left the room", async () => {
+    const bob = await open("session=bob");
+    await watch(bob);
+    const received = nextSnapshot(bob);
+    snapshots.set("lobby-1", { ...snapshotOf("lobby-1"), revision: 2, members: [member("member-a", ALICE, "Alice", true)] });
+    events.emit("changed", "lobby-1");
+    await received;
+    await until(() => raceUnfollows.includes(bob.id ?? ""));
   });
 });

@@ -10,13 +10,16 @@ import {
   finalizeRace,
   interruptOwnRace,
   type RaceResultRow,
+  type RaceToCreate,
   recoverAbandonedRaces,
+  recoverRoomIfAbandoned,
   renewRaceLease,
   startRace,
   type StartedEntrant,
 } from "../src/races/lifecycle";
+import { readRaceForEntrant, readRoomRaceForMember } from "../src/races/results";
 import { createRoomWithHost } from "../src/rooms/create-room";
-import { joinRoomByCode, leaveCurrentRoom } from "../src/rooms/membership";
+import { joinRoomByCode, leaveCurrentRoom, readRoomSnapshot } from "../src/rooms/membership";
 import { raceResults } from "../src/schema";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
@@ -48,10 +51,11 @@ const OWNER_A = "00000000-0000-4000-8000-00000000000a";
 const OWNER_B = "00000000-0000-4000-8000-00000000000b";
 
 /**
- * Stand-in for the engine's start rule in these transaction tests only: the real
- * `startRefusal` of @incision/domain is wired by the server (COURSE-02 evidence lives there).
+ * Stand-in for the engine's start in these transaction tests only: the real `createRace` of
+ * @incision/domain is wired by the server (COURSE-02 evidence lives there).
  */
-const atLeastTwo = (participants: readonly unknown[]) => (participants.length < 2 ? ("NOT_ENOUGH_PARTICIPANTS" as const) : undefined);
+const atLeastTwo = ({ entrants }: RaceToCreate) =>
+  entrants.length < 2 ? { ok: false as const, reason: "NOT_ENOUGH_PARTICIPANTS" as const } : { ok: true as const, race: entrants.length };
 
 async function account(displayName: string): Promise<string> {
   const result = await pool.query<{ id: string }>("insert into accounts (display_name) values ($1) returning id", [displayName]);
@@ -93,7 +97,7 @@ async function room(value: string, others: string[] = ["Bea"]): Promise<{ lobbyI
 }
 
 async function started(hostId: string, ownerId = OWNER_A) {
-  const result = await startRace(db, { accountId: hostId, ownerId, text: "La mer est calme.", config: { language: "fr" }, rulesVersion: 1, refuseStart: atLeastTwo });
+  const result = await startRace(db, { accountId: hostId, ownerId, text: "La mer est calme.", config: { language: "fr" }, rulesVersion: 1, create: atLeastTwo });
   if (!result.ok) {
     throw new Error(result.error);
   }
@@ -288,7 +292,7 @@ describe("startRace", () => {
     const { hostId } = await room("ABCDEF", ["Bea"]);
     const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where display_name = 'Bea'")).rows[0]!.account_id;
     const outsider = await account("Dehors");
-    const call = (accountId: string) => startRace(db, { accountId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, refuseStart: atLeastTwo });
+    const call = (accountId: string) => startRace(db, { accountId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo });
     expect(await call(bea)).toEqual({ ok: false, error: "NOT_HOST" });
     expect(await call(outsider)).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
     await started(hostId);
@@ -299,9 +303,47 @@ describe("startRace", () => {
     expect(await pool.query("select 1 from races where lobby_id = $1", [alone.lobbyId])).toMatchObject({ rowCount: 0 });
   });
 
+  it("has the engine create the race with the very ids its rows keep, and commits what it created", async () => {
+    const { hostId } = await room("ABCDEF", ["Bea"]);
+    const result = await startRace(db, {
+      accountId: hostId,
+      ownerId: OWNER_A,
+      text: "La mer est calme.",
+      config: {},
+      rulesVersion: 1,
+      create: (race) => ({ ok: true, race }),
+    });
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+    expect(result.created.raceId).toBe(result.race.raceId);
+    expect(result.created.entrants.map((entrant) => entrant.entrantId)).toEqual(result.entrants.map((entrant) => entrant.entrantId));
+    const stored = await pool.query<{ id: string }>("select id from race_entrants where race_id = $1 order by ordinal", [result.race.raceId]);
+    expect(stored.rows.map((row) => row.id)).toEqual(result.created.entrants.map((entrant) => entrant.entrantId));
+  });
+
+  it("rolls the start back when the engine throws, as for a programming error", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF", ["Bea"]);
+    const before = await lobbyOf(lobbyId);
+    const failing = () =>
+      startRace(db, {
+        accountId: hostId,
+        ownerId: OWNER_A,
+        text: "x",
+        config: {},
+        rulesVersion: 1,
+        create: () => {
+          throw new RangeError("Invalid instant");
+        },
+      });
+    await expect(failing()).rejects.toThrow(RangeError);
+    expect(await lobbyOf(lobbyId)).toEqual(before);
+    expect(Number((await pool.query<{ count: string }>("select count(*) from races")).rows[0]?.count)).toBe(0);
+  });
+
   it("creates one race when the host starts twice at the same moment", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
-    const call = () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, refuseStart: atLeastTwo });
+    const call = () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo });
     const [first, second] = await underRoomLock(lobbyId, [call, call]);
     expect([first.ok, second.ok].sort()).toEqual([false, true]);
     expect([first, second].find((result) => !result.ok)).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
@@ -314,7 +356,7 @@ describe("startRace", () => {
     const late = await account("Tard");
     const [joinedEarly, start, joinedLate] = await underRoomLock(lobbyId, [
       () => joinRoomByCode(db, { accountId: early, code: code("ABCDEF"), role: "participant" }),
-      () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, refuseStart: atLeastTwo }),
+      () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo }),
       () => joinRoomByCode(db, { accountId: late, code: code("ABCDEF"), role: "participant" }),
     ]);
     expect(joinedEarly).toMatchObject({ ok: true });
@@ -531,6 +573,29 @@ describe("ownership lease (ADR-0004)", () => {
     expect(await resultCount(race.raceId)).toBe(0);
   });
 
+  it("ends a renewal stuck behind a lock on the server, then renews once the lock is gone", async () => {
+    const appPool = new pg.Pool({ connectionString: database.url, max: 1, query_timeout: QUERY_TIMEOUT_MS });
+    try {
+      const app = createDatabase(appPool);
+      const { hostId } = await room("ABCDEF");
+      const { race } = await started(hostId);
+      const stuck = await holdRace(race.raceId);
+      const deadline = setTimeout(() => void stuck.commit(), 12_000);
+      const sent = performance.now();
+      try {
+        expect(await violationOf(() => renewRaceLease(app, race))).toBe("55P03");
+        // The server's 2 s lock limit, well before the client's 5 s timeout.
+        expect(performance.now() - sent).toBeLessThan(QUERY_TIMEOUT_MS);
+      } finally {
+        clearTimeout(deadline);
+        await stuck.commit();
+      }
+      expect((await renewRaceLease(app, race)).renewed).toBe(true);
+    } finally {
+      await appPool.end();
+    }
+  });
+
   it("is renewed after expiry when nobody took the race over", async () => {
     const { hostId } = await room("ABCDEF");
     const { race } = await started(hostId);
@@ -631,6 +696,29 @@ describe("ownership lease (ADR-0004)", () => {
     expect(await resultCount(two.race.raceId)).toBe(0);
   });
 
+  it("recovers a room's race on opening only once its lease has expired, and says how long it still runs", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF");
+    const { race } = await started(hostId);
+    const running = await recoverRoomIfAbandoned(db, lobbyId);
+    expect(running.recovered).toBe(false);
+    expect(running.recovered ? 0 : running.retryInMs).toBeGreaterThan(25_000);
+    expect(running.recovered ? 0 : running.retryInMs).toBeLessThanOrEqual(30_000);
+    expect(await raceOf(race.raceId)).toMatchObject({ state: "countdown", owner_epoch: 1 });
+    await expireLease(race.raceId);
+    // Another transaction holds the room: nothing is recovered now; look again shortly.
+    const held = await holdRoom(lobbyId);
+    try {
+      expect(await recoverRoomIfAbandoned(db, lobbyId)).toEqual({ recovered: false, retryInMs: 2_000 });
+    } finally {
+      await held.commit();
+    }
+    expect(await recoverRoomIfAbandoned(db, lobbyId)).toEqual({ recovered: true });
+    expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "waiting" });
+    expect(await raceOf(race.raceId)).toMatchObject({ state: "interrupted", interruption_reason: "owner_lost" });
+    // A waiting room: nothing to recover, nothing to wait for.
+    expect(await recoverRoomIfAbandoned(db, lobbyId)).toEqual({ recovered: false });
+  });
+
   it("recovers one room on demand, and leaves the others to their own owners", async () => {
     const target = await room("ABCDEF");
     const other = await room("BCDEFG");
@@ -674,6 +762,15 @@ describe("ownership lease (ADR-0004)", () => {
     expect(await interruptOwnRace(db, two.race, "save_failed")).toEqual(WON);
     expect(await raceOf(two.race.raceId)).toMatchObject({ state: "interrupted", interruption_reason: "save_failed" });
     expect(await resultCount(two.race.raceId)).toBe(0);
+
+    // The engine failed on this race only: it ends without results, the room waits again.
+    const failed = await room("CDEFGH");
+    const three = await started(failed.hostId);
+    await beginRacing(db, three.race);
+    expect(await interruptOwnRace(db, three.race, "engine_error")).toEqual(WON);
+    expect(await raceOf(three.race.raceId)).toMatchObject({ state: "interrupted", interruption_reason: "engine_error", owner_epoch: 2 });
+    expect(await lobbyOf(failed.lobbyId)).toMatchObject({ phase: "waiting" });
+    expect(await resultCount(three.race.raceId)).toBe(0);
   });
 });
 
@@ -724,6 +821,97 @@ describe("transaction limits and isolation", () => {
     } finally {
       await strictPool.end();
     }
+  });
+});
+
+describe("results read by an entrant (HIST-02)", () => {
+  it("shows a finished race to its entrants only, ranked, and the same nothing to anyone else", async () => {
+    const { lobbyId, hostId, memberIds } = await room("ABCDEF", ["Bea"]);
+    const { race, entrants } = await started(hostId);
+    await beginRacing(db, race);
+    await finalizeRace(db, race, resultsFor(entrants));
+    const view = await readRaceForEntrant(db, race.raceId, hostId);
+    expect(view).toMatchObject({ raceId: race.raceId, roundNo: 1, state: "finished", interruptionReason: null });
+    // Independent of the room (HIST-02): no room code in the history view.
+    expect(view).not.toHaveProperty("roomCode");
+    expect(view?.entrants.map((entrant) => [entrant.displayName, entrant.isSelf, entrant.result?.rank])).toEqual([
+      ["Hôte", true, 1],
+      ["Bea", false, 2],
+    ]);
+    expect(view?.entrants[0]?.result).toMatchObject({ outcome: "finished", elapsedMs: 10_000, netWpm: 20.4, accuracy: 94.44444444444444 });
+    const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where id = $1", [memberIds[0]])).rows[0]?.account_id ?? "";
+    expect((await readRaceForEntrant(db, race.raceId, bea))?.entrants.map((entrant) => entrant.isSelf)).toEqual([false, true]);
+    const stranger = await account("Inconnu");
+    expect(await readRaceForEntrant(db, race.raceId, stranger)).toBeUndefined();
+    expect(await readRaceForEntrant(db, "00000000-0000-4000-8000-000000000999", hostId)).toBeUndefined();
+    expect(await readRaceForEntrant(db, "not-a-race", hostId)).toBeUndefined();
+    // Still readable once the room is purged.
+    await pool.query("update lobbies set host_member_id = null where id = $1", [lobbyId]);
+    await pool.query("delete from lobbies where id = $1", [lobbyId]);
+    expect((await readRaceForEntrant(db, race.raceId, hostId))?.entrants).toHaveLength(2);
+  });
+
+  it("shows results only for a finished race", async () => {
+    const { hostId } = await room("ABCDEF");
+    const { race, entrants } = await started(hostId);
+    await beginRacing(db, race);
+    // As if read between the two statements of a finalisation: results already there, race still racing.
+    await pool.query(
+      "insert into race_results (race_id, entrant_id, outcome, rank, elapsed_ms, position, length, correct_inputs, total_inputs, net_wpm, raw_wpm, accuracy) values ($1, $2, 'finished', 1, 1000, 17, 17, 17, 17, 20, 20, 100)",
+      [race.raceId, entrants[0]?.entrantId],
+    );
+    const view = await readRaceForEntrant(db, race.raceId, hostId);
+    expect(view?.state).toBe("racing");
+    expect(view?.entrants.every((entrant) => entrant.result === undefined)).toBe(true);
+  });
+
+  it("shows an interrupted race without any result (D-06)", async () => {
+    const { hostId } = await room("ABCDEF");
+    const { race } = await started(hostId);
+    await interruptOwnRace(db, race, "server_stopped");
+    const view = await readRaceForEntrant(db, race.raceId, hostId);
+    expect(view).toMatchObject({ state: "interrupted", interruptionReason: "server_stopped" });
+    expect(view?.entrants.every((entrant) => entrant.result === undefined)).toBe(true);
+  });
+});
+
+describe("the room's race, read by its members", () => {
+  it("shows the room's current race to every active member, spectators included, and nothing to anyone else", async () => {
+    const { lobbyId, hostId, memberIds } = await room("ABCDEF", ["Bea"]);
+    const spectator = await account("Spectatrice");
+    await joinRoomByCode(db, { accountId: spectator, code: code("ABCDEF"), role: "spectator" });
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: "00000000-0000-4000-8000-000000000999", accountId: hostId })).toBeUndefined();
+    const { race, entrants } = await started(hostId);
+    await beginRacing(db, race);
+    await finalizeRace(db, race, resultsFor(entrants));
+    const seen = await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: spectator });
+    expect(seen).toMatchObject({ raceId: race.raceId, state: "finished" });
+    expect(seen?.entrants.map((entrant) => [entrant.displayName, entrant.isSelf, entrant.result?.rank])).toEqual([
+      ["Hôte", false, 1],
+      ["Bea", false, 2],
+    ]);
+    expect((await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: hostId }))?.entrants[0]?.isSelf).toBe(true);
+    // Neither a stranger nor a member who left reads it here; an entrant still has its history page.
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: await account("Inconnu") })).toBeUndefined();
+    const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where id = $1", [memberIds[0]])).rows[0]?.account_id ?? "";
+    await leaveCurrentRoom(db, bea);
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: bea })).toBeUndefined();
+    expect(await readRaceForEntrant(db, race.raceId, bea)).toBeDefined();
+    expect(await readRoomRaceForMember(db, { lobbyId: "not-a-room", raceId: race.raceId, accountId: hostId })).toBeUndefined();
+    // Another race than the room's current one (a new round started meanwhile) is not shown here.
+    expect(await readRoomRaceForMember(db, { lobbyId, raceId: "00000000-0000-4000-8000-000000000999", accountId: hostId })).toBeUndefined();
+  });
+
+  it("keeps the room's latest race in its snapshot, so members learn how it ended", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF");
+    expect(await readRoomSnapshot(db, lobbyId)).not.toHaveProperty("race");
+    const { race } = await started(hostId);
+    expect((await readRoomSnapshot(db, lobbyId))?.race).toEqual({ raceId: race.raceId, state: "countdown", interruptionReason: null });
+    await interruptOwnRace(db, race, "server_stopped");
+    const after = await readRoomSnapshot(db, lobbyId);
+    expect(after?.phase).toBe("waiting");
+    expect(after?.race).toEqual({ raceId: race.raceId, state: "interrupted", interruptionReason: "server_stopped" });
+    expect(after?.members).toHaveLength(2);
   });
 });
 
