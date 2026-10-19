@@ -15,6 +15,13 @@
       "when": 1791258156734,
       "tag": "0001_session_version",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791460337860,
+      "tag": "0002_races",
+      "breakpoints": true
     }
   ]
 }
