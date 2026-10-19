@@ -1,7 +1,10 @@
+import { describeDatabaseError, type RaceResultView, readRoomRaceForMember, type RoomSnapshot } from "@incision/database";
 import { parseRoomCode } from "@incision/domain";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
+import { RaceResults } from "@/components/races/race-results";
+import { HostRoundActions } from "@/components/rooms/host-round-actions";
 import { JoinCodeForm } from "@/components/rooms/join-code-form";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { StatePanel } from "@/components/ui/state-panel";
@@ -11,6 +14,7 @@ import { format } from "@/i18n/format";
 import { getRequestDictionary } from "@/i18n/server";
 import { publicSnapshot } from "@/rooms/public-snapshot";
 import { getAccountSession, requireAccountSession } from "@/server/auth/session";
+import { authDatabase } from "@/server/auth/store";
 import { JoinRoomForm } from "./join-room-form";
 import { loadRoomPage } from "./load-room";
 import { RoomView } from "./room-view";
@@ -18,7 +22,15 @@ import { RoomView } from "./room-view";
 export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): Promise<Metadata> {
   const [{ t }, { code }, session] = await Promise.all([getRequestDictionary(), params, getAccountSession()]);
   const parsed = parseRoomCode(code);
-  if (!parsed.ok || (session !== null && (await loadRoomPage(session.accountId, parsed.code)).kind === "unknown")) {
+  // A non-canonical code is redirected by the page: no lookup for it here, so a view counts once.
+  const state = parsed.ok && parsed.code === code && session !== null ? await loadRoomPage(session.accountId, parsed.code) : undefined;
+  if (state?.kind === "throttled") {
+    return { title: t.rooms.throttledHeadings[state.refusal], robots: { index: false } };
+  }
+  if (state?.kind === "unavailable") {
+    return { title: t.errorBoundary.title, robots: { index: false } };
+  }
+  if (!parsed.ok || state?.kind === "unknown") {
     // Answered with 200 (no notFound(), see apps/web/AGENTS.md): keep it out of indexes.
     return { title: t.rooms.unknownHeading, robots: { index: false } };
   }
@@ -44,17 +56,87 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
   }
   const code = parsed.code;
   const { accountId } = await requireAccountSession(`/rooms/${code}`);
-  const [{ t }, state] = await Promise.all([getRequestDictionary(), loadRoomPage(accountId, code)]);
+  const [{ t, locale }, state] = await Promise.all([getRequestDictionary(), loadRoomPage(accountId, code)]);
 
   switch (state.kind) {
     case "unknown":
       return <UnknownRoom t={t} code={code} />;
-    case "member":
-      // Presence comes with the socket; the first render shows nobody online yet. Keyed by
-      // member: a new membership of the same room starts a fresh view.
+    case "unavailable":
       return (
-        <RoomView key={state.memberId} initial={publicSnapshot(state.snapshot, new Set())} selfMemberId={state.memberId} t={t.rooms} />
+        <StatePanel
+          tone="error"
+          label={t.errorBoundary.label}
+          heading={{ bold: t.errorBoundary.title }}
+          actions={
+            <>
+              <Link href={`/rooms/${code}`} prefetch={false} className={secondaryButton}>
+                {t.errorBoundary.retry}
+              </Link>
+              <Link href="/" className={discreetButton}>
+                {t.errorBoundary.backHome}
+              </Link>
+            </>
+          }
+        >
+          <p role="alert">{t.errorBoundary.body}</p>
+        </StatePanel>
       );
+    case "throttled":
+      // The same panel whatever the code (the refusal depends on the address only): nothing
+      // about the code is said. Retrying reloads the address the student came with.
+      return (
+        <StatePanel
+          tone="warning"
+          label={t.rooms.unknownLabel}
+          heading={{ bold: t.rooms.throttledHeadings[state.refusal] }}
+          actions={
+            <>
+              <Link href={`/rooms/${code}`} prefetch={false} className={secondaryButton}>
+                {t.rooms.retry}
+              </Link>
+              <Link href="/" className={discreetButton}>
+                {t.rooms.backHome}
+              </Link>
+            </>
+          }
+        >
+          <p>{t.home.codeErrors[state.refusal]}</p>
+        </StatePanel>
+      );
+    case "member": {
+      // Presence comes with the socket; the first render shows nobody online yet. Keyed by
+      // member: a new membership of the same room starts a fresh view. A finished race's results
+      // are read from the database here, as stored.
+      const race = await finishedRaceOf(state.snapshot, accountId);
+      // The host leaving closes the room (CP-06): whoever hosts the results hosts the next round.
+      const hosts = state.snapshot.members.some((member) => member.memberId === state.memberId && member.isHost);
+      const results =
+        race === undefined
+          ? undefined
+          : {
+              raceId: race.raceId,
+              panel: (
+                <RaceResults
+                  race={race}
+                  t={t.races}
+                  locale={locale}
+                  linkToRace
+                  actions={hosts ? (openRace) => <HostRoundActions t={t.rooms.hostActions} code={state.snapshot.code} raceId={race.raceId} secondary={openRace} /> : undefined}
+                />
+              ),
+            };
+      return (
+        <RoomView
+          key={state.memberId}
+          initial={publicSnapshot(state.snapshot, new Set())}
+          selfMemberId={state.memberId}
+          t={t.rooms}
+          tRaces={t.races}
+          locale={locale}
+          results={results}
+        />
+      );
+    }
     case "notAdmitting": {
       const closed = state.phase === "closed";
       return (
@@ -92,26 +174,39 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
               <Link href={`/rooms/${state.current.code}`} className={secondaryButton}>
                 {t.rooms.goToMyRoom}
               </Link>
-              <LeaveRoomForm
-                label={format(t.rooms.leaveAndJoin, { code: state.current.code })}
-                pendingLabel={t.rooms.leaving}
-                errors={t.rooms.changeErrors}
-                returnTo={`/rooms/${code}`}
-                describedBy={state.current.isHost ? "host-leave-note" : undefined}
-              />
+              {/* The host leaves (and so closes) from the room itself, where it asks first with every consequence. */}
+              {!state.current.isHost && (
+                <LeaveRoomForm
+                  label={format(t.rooms.leaveAndJoin, { code: state.current.code })}
+                  pendingLabel={t.rooms.leaving}
+                  errors={t.rooms.changeErrors}
+                  returnTo={`/rooms/${code}`}
+                />
+              )}
             </>
           }
         >
           <p>{format(t.rooms.alreadyInRoom, { code: state.current.code })}</p>
-          {state.current.isHost && (
-            <p id="host-leave-note" className="mt-2 text-sm text-brume">
-              {t.rooms.hostLeaveNote}
-            </p>
-          )}
+          {state.current.isHost && <p className="mt-2 text-sm text-brume">{format(t.rooms.hostGoToRoom, { code: state.current.code })}</p>}
         </StatePanel>
       );
     case "join":
       return <JoinRoomForm code={code} t={t} />;
+  }
+}
+
+/** The room's finished race, for a member, when the room shows its results. */
+async function finishedRaceOf(snapshot: RoomSnapshot, accountId: string): Promise<RaceResultView | undefined> {
+  if (snapshot.phase !== "results" || snapshot.race?.state !== "finished") {
+    return undefined;
+  }
+  try {
+    return await readRoomRaceForMember(authDatabase(), { lobbyId: snapshot.lobbyId, raceId: snapshot.race.raceId, accountId });
+  } catch (error: unknown) {
+    unstable_rethrow(error);
+    // The page still renders; the results come with the next refresh.
+    console.error("[races] room results failed:", describeDatabaseError(error));
+    return undefined;
   }
 }
 

@@ -26,6 +26,8 @@ describe("parseServerEnv", () => {
       authSecret: undefined,
       secureCookies: false,
       trustedProxyHops: 0,
+      fixtureRaceTexts: false,
+      racesSwitch: "closed",
     });
   });
 
@@ -38,7 +40,43 @@ describe("parseServerEnv", () => {
       authSecret: production.AUTH_SECRET,
       secureCookies: true,
       trustedProxyHops: 1,
+      fixtureRaceTexts: false,
+      racesSwitch: "closed",
     });
+  });
+
+  it("runs the race text test fixtures only when told to, with the one accepted value, in any environment", () => {
+    const localProduction = { ...production, APP_URL: "http://localhost:8080", AUTH_URL: "http://localhost:8080" };
+    expect(parseServerEnv({ ...localProduction, RACE_FIXTURE_TEXTS: "allowed" }).fixtureRaceTexts).toBe(true);
+    expect(parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: "" }).fixtureRaceTexts).toBe(false);
+    expect(parseServerEnv({ NODE_ENV: "test" }).fixtureRaceTexts).toBe(false);
+    expect(parseServerEnv({ NODE_ENV: "test", RACE_FIXTURE_TEXTS: "allowed" }).fixtureRaceTexts).toBe(true);
+    for (const value of ["true", "1", "yes", "ALLOWED"]) {
+      expect(() => parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: value })).toThrow(/RACE_FIXTURE_TEXTS: must be "allowed" or unset/);
+    }
+  });
+
+  it("closes new races unless RACES_ENABLED is exactly true, and still starts with any other value", () => {
+    expect(parseServerEnv(production).racesSwitch).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "" }).racesSwitch).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "false" }).racesSwitch).toBe("closed");
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "true" }).racesSwitch).toBe("open");
+    for (const value of ["TRUE", "1", "yes", "hunter2"]) {
+      expect(parseServerEnv({ ...production, RACES_ENABLED: value }).racesSwitch).toBe("invalid");
+    }
+  });
+
+  it("never lets RACES_ENABLED open the test fixtures to a deployed site", () => {
+    expect(() => parseServerEnv({ ...production, RACES_ENABLED: "true", RACE_FIXTURE_TEXTS: "allowed" })).toThrow(/RACE_FIXTURE_TEXTS: is for local test builds only/);
+    expect(parseServerEnv({ ...production, RACES_ENABLED: "true" }).fixtureRaceTexts).toBe(false);
+  });
+
+  it("refuses to start a deployed production site on the test fixtures, whatever its host looks like", () => {
+    expect(() => parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: "allowed" })).toThrow(/RACE_FIXTURE_TEXTS: is for local test builds only/);
+    // Only the parsed host counts, exactly: a name that merely starts like a local one is remote.
+    for (const appUrl of ["https://localhost.evil.example", "https://localhost@evil.example", "https://127.0.0.1.nip.io", "https://localhost."]) {
+      expect(() => parseServerEnv({ ...production, APP_URL: appUrl, AUTH_URL: appUrl, RACE_FIXTURE_TEXTS: "allowed" })).toThrow(/RACE_FIXTURE_TEXTS: is for local test builds only/);
+    }
   });
 
   it("keeps only the origin of APP_URL", () => {
@@ -128,11 +166,18 @@ describe("parseServerEnv", () => {
   it("never echoes a variable's value in the error", () => {
     let message = "";
     try {
-      parseServerEnv({ ...production, DATABASE_URL: "postgresql://user:hunter2@db.example/incision", APP_URL: "not a url hunter2", AUTH_SECRET: "hunter2" });
+      parseServerEnv({
+        ...production,
+        DATABASE_URL: "postgresql://user:hunter2@db.example/incision",
+        APP_URL: "not a url hunter2",
+        AUTH_SECRET: "hunter2",
+        RACE_FIXTURE_TEXTS: "hunter2",
+      });
     } catch (error: unknown) {
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toMatch(/APP_URL/);
+    expect(message).toMatch(/RACE_FIXTURE_TEXTS/);
     expect(message).not.toContain("hunter2");
   });
 });

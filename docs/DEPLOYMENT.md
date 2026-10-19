@@ -33,10 +33,10 @@ Le pipeline n'est vert que si la production exécute le commit attendu, joint Ne
 | Configuration → Stack settings (onglet) → Startup command | `npm run start -w @incision/web` |
 | Configuration → Health check (onglet) → Path | `/api/health/live`, activé après le premier déploiement. **Jamais `/api/health`** : il interroge Neon, et une sonde chaque minute garderait l'instance de calcul gratuite de Neon éveillée en permanence et épuiserait son quota mensuel. |
 | Configuration → General settings | Always On, HTTPS only, TLS 1.3, **HTTP version 2.0** (sinon le frontal répond en HTTP/1.1 : Lighthouse estime la perte à 1,2 s sur mobile), FTP désactivé, authentification de base SCM activée (profil de publication) |
-| Environment variables → App settings | `APP_URL` (le domaine par défaut en `https://`), `DATABASE_URL` (URL poolée de Neon), `SCM_DO_BUILD_DURING_DEPLOYMENT=false` et, pour l'authentification, `AUTH_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `TRUSTED_PROXY_HOPS=1` (voir [Authentification](#authentification)). L'application ne lit jamais `DATABASE_URL_UNPOOLED` : une fois le secret GitHub ci-dessous en place, le retirer d'App Service. |
+| Environment variables → App settings | `APP_URL` (le domaine par défaut en `https://`), `DATABASE_URL` (URL poolée de Neon), `SCM_DO_BUILD_DURING_DEPLOYMENT=false` et, pour l'authentification, `AUTH_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `TRUSTED_PROXY_HOPS=1` (voir [Authentification](#authentification)). `RACES_ENABLED` reste absente tant que je n'ouvre pas les courses (voir « Ouvrir ou fermer les courses »). Comme tout App setting, elle survit aux déploiements et aux retours arrière : je vérifie sa valeur avant chaque promotion. L'application ne lit jamais `DATABASE_URL_UNPOOLED` : une fois le secret GitHub ci-dessous en place, le retirer d'App Service. |
 | Monitoring → App Service logs | Application logging : File System, rétention courte, pour que Log stream affiche la sortie de l'application |
 
-En production, le processus refuse de démarrer quand l'une de ces variables manque ou est vide, quand `AUTH_URL` diffère de `APP_URL`, quand `AUTH_SECRET` compte moins de 32 caractères, quand `APP_URL` n'est pas en HTTPS (une URL `localhost` est permise pour les builds de production locaux), ou quand une `DATABASE_URL` distante ne fixe pas `sslmode=verify-full` (ou `require`). Utiliser `verify-full` pour Neon. **Définir les variables d'authentification avant de promouvoir CP-04 vers `main`** : sinon la nouvelle version ne démarre pas et le smoke test échoue (la précédente a déjà été remplacée).
+En production, le processus refuse de démarrer quand l'une de ces variables manque ou est vide, quand `AUTH_URL` diffère de `APP_URL`, quand `AUTH_SECRET` compte moins de 32 caractères, quand `APP_URL` n'est pas en HTTPS (une URL `localhost` est permise pour les builds de production locaux), quand une `DATABASE_URL` distante ne fixe pas `sslmode=verify-full` (ou `require`), ou quand `RACE_FIXTURE_TEXTS=allowed` est posée avec un `APP_URL` qui n'est pas `localhost` (les textes de test ne servent qu'aux builds de test locaux). Utiliser `verify-full` pour Neon. **Définir les variables d'authentification avant de promouvoir CP-04 vers `main`** : sinon la nouvelle version ne démarre pas et le smoke test échoue (la précédente a déjà été remplacée).
 
 App Service fournit `PORT`. App Service sous Linux accepte les WebSockets; le smoke test le prouve à chaque déploiement.
 
@@ -67,6 +67,62 @@ Règles pour chaque changement de schéma (voir aussi [SETUP.md](SETUP.md)) :
 - Si une migration réussit mais que le déploiement échoue, l'application précédente continue de tourner sur le schéma additif; redéployer ou faire un revert comme dans [Rollback](#rollback).
 - Migrate s'exécute automatiquement à la promotion : créer une branche de sauvegarde Neon **avant** de promouvoir une migration risquée.
 
+## Connexions et transactions
+
+L'application passe par l'URL poolée de Neon (PgBouncer en mode transaction; Neon publie `pool_mode=transaction` et `query_wait_timeout=120`), avec un pool de 5 connexions dont le client abandonne une requête après 5 s.
+
+- **Aucune connexion n'est rendue au pool au milieu d'une transaction.** Une connexion est détruite au lieu d'être réutilisée dans cinq cas : une requête qui échoue côté client (délai dépassé, connexion coupée), une erreur de la connexion elle-même, une connexion rendue dans une transaction, une connexion rendue avec une requête en cours, et une connexion empruntée plus de 30 s. Fermer la connexion met fin à la session, et PostgreSQL annule la transaction dès que sa requête en cours se termine : au plus 3 s dans une transaction bornée (ci-dessous) si la fermeture arrive au serveur; sinon (coupure réseau), la limite d'inactivité termine la session, soit environ 7 s au plus. Sans cela, la requête suivante s'exécuterait dans la transaction abandonnée et pourrait la valider avec la sienne, et un BEGIN qui n'aboutit jamais garderait sa place dans le pool pour toujours.
+- **Une session terminée par le serveur ne fait jamais planter le processus**, même quand la connexion est empruntée sans requête en cours : chaque connexion garde son propre écouteur d'erreurs, devient seulement inutilisable, et le pool la jette.
+- **Chaque transaction de l'application borne ses attentes côté serveur**, pour elle seule (`boundedTransaction` applique `set_config(…, true)`, l'équivalent de `SET LOCAL`, le seul réglage sûr avec le pooling en mode transaction de Neon) : 2 s d'attente de verrou, 3 s par requête et 4 s d'inactivité dans une transaction, tous sous le délai de 5 s du client.
+- **PgBouncer** (d'après sa documentation et son code source, à confirmer sur Neon avec le script ci-dessous) : quand un client se déconnecte alors que sa connexion au serveur n'est pas libre (transaction ouverte ou requête en cours), PgBouncer ferme cette connexion au serveur, ce qui annule la transaction; quand le serveur met fin à une session, PgBouncer déconnecte le client.
+- **Effet visible** : rejoindre, créer ou quitter une salle derrière un verrou tenu plus de 2 s répond « indisponible » au bout d'environ 2 s au lieu d'attendre (environ 3 s pour une requête trop lente); Log stream montre alors `[rooms] join|create|leave failed: 55P03` (ou `57014`). Une première connexion GitHub ou Discord peut échouer de la même façon. En charge normale, un verrou de salle n'est tenu que quelques allers-retours vers Neon, bien en deçà de 2 s.
+- **Log stream** :
+  - `[database] client error: …` quand le serveur met fin à une session (redémarrage du calcul Neon, transaction inactive) : une ligne, parfois deux (le code `57P01` ou `25P03`, puis `Connection terminated unexpectedly`).
+  - `[database] client discarded: <raison>` quand une connexion est jetée : `query failed on the client (…)`, `released inside a transaction`, `released with a query in flight` ou `held longer than 30000 ms`. Après `query failed on the client`, l'action concernée journalise souvent `Client was closed and is not queryable` : c'est l'annulation tentée sur la connexion déjà jetée, pas une seconde panne.
+  - Quelques lignes après un incident réseau sont normales. Si `timeout exceeded when trying to connect` se répète alors que Neon répond, le pool est bloqué : redémarrer l'application (la santé `/api/health/live` ne touche pas la base et ne le détecte pas).
+
+**Vérifier à travers le pooler de Neon** : `packages/database/scripts/check-pooled-transactions.ts`, lancé depuis la racine du dépôt, passe par le vrai chemin de connexion. Il vérifie :
+- que les limites restent propres à leur transaction, sur la même session serveur ;
+- qu'une attente de verrou (55P03) et une requête lente (57014) se terminent côté serveur ;
+- qu'une transaction inactive est terminée (25P03) sans planter le processus ;
+- qu'un client rendu dans sa transaction, ou coupé pendant une requête, libère ses verrous ;
+- qu'après un dépassement du délai client, la requête suivante démarre une transaction neuve et que la session abandonnée se termine.
+
+Il ne lit ni n'écrit aucune table : il prend seulement des verrous consultatifs de transaction, dans un espace de clés distinct de celui du migrateur, attend et lit des réglages. Chaque vérification a sa propre limite de temps. Je le lance sur une branche Neon, jamais sur la production sans décision explicite, en tapant l'URL poolée de la branche à l'invite plutôt que sur la ligne de commande, puis je supprime la branche :
+
+```bash
+( printf 'URL poolée : ' >&2; read -rs POOLED_CHECK_URL && export POOLED_CHECK_URL && echo >&2 && npm run db:check-pooled -w @incision/database )
+```
+
+Chaque vérification affiche `PASS` ou `FAIL` avec ce qu'elle a mesuré; le script ne lit aucun fichier `.env` et n'affiche jamais l'URL, mais un échec de connexion peut nommer l'hôte ou le rôle Neon.
+
+**Vérification locale à travers PgBouncer** (9 octobre 2026) : `packages/database/test/pgbouncer/` lance un PostgreSQL 17.11 et un PgBouncer 1.26.0 isolés (image `edoburu/pgbouncer`, empreinte fixée dans `compose.yaml`; projet, réseau et ports à part, identifiants factices), en mode transaction avec les réglages que Neon publie. Résultats :
+
+- le script de vérification passe 7 sur 7 à travers ce PgBouncer ;
+- `test/pgbouncer.db.test.ts` (9 tests, ignorés sans ce montage) montre que :
+  - les limites restent propres à leur transaction ;
+  - les attentes de verrou (55P03) et les requêtes lentes (57014) se terminent côté serveur ;
+  - une transaction dont le client part est annulée aussitôt, car PgBouncer ferme sa connexion au serveur ;
+  - un BEGIN sans réponse libère sa place ;
+  - une coupure pendant une requête libère les verrous au plus 3 s après ;
+  - une session terminée par le serveur ne fait pas planter le processus ;
+  - aucune connexion n'attend dans PgBouncer ensuite ;
+- cas du « trou noir », où la fermeture du client n'arrive jamais : une transaction bornée est terminée par la limite d'inactivité, en 4 s environ. Sans les limites, ses verrous restent tenus au moins le temps observé (7 s), en pratique jusqu'à ce que TCP abandonne la connexion (de l'ordre du quart d'heure, voire de deux heures avec les réglages par défaut du système), car PgBouncer n'y met pas fin avec ses réglages par défaut.
+
+Ce montage s'approche du pooler de Neon sans l'être. Neon ne publie qu'une partie de sa configuration. Surtout, l'application ne s'y connecte pas directement à PgBouncer : l'hôte `-pooler` mène au proxy de Neon, qui reçoit en premier la fermeture d'une connexion, ou sa perte. Seule une vérification sur une branche Neon confirmerait son comportement exact.
+
+```bash
+docker compose -f packages/database/test/pgbouncer/compose.yaml up -d --wait
+```
+
+```bash
+PGBOUNCER_TEST_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:6451/incision_pgb PGBOUNCER_DIRECT_URL=postgresql://incision_pgb:pgbouncer_test_only@localhost:5451/incision_pgb npm run test:db -w @incision/database -- test/pgbouncer.db.test.ts
+```
+
+```bash
+docker compose -f packages/database/test/pgbouncer/compose.yaml down -v
+```
+
 ## Authentification
 
 Auth.js v5 avec des sessions JWT ([ADR-0003](adr/0003-authentication.md)). Seulement les **noms** des variables; les valeurs vivent dans App Service et dans le `.env` local, jamais dans le dépôt ni dans une conversation.
@@ -77,7 +133,7 @@ Auth.js v5 avec des sessions JWT ([ADR-0003](adr/0003-authentication.md)). Seule
 | `AUTH_SECRET` | 32 octets aléatoires : `openssl rand -base64 32` | Un par environnement. Le changer déconnecte tout le monde (pas de liste de rotation au checkpoint). Socket.IO déchiffre le même cookie avec lui. |
 | `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | application OAuth GitHub de production | GitHub permet une seule URL de callback par application OAuth : une application pour la production, une autre pour le développement local. |
 | `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET` | application Discord | Une seule application peut lister les deux URL de redirection. |
-| `TRUSTED_PROXY_HOPS` | `1` | Le frontal d'Azure ajoute l'adresse du client à `X-Forwarded-For`; seule cette dernière entrée est jugée fiable, celles qu'un client écrit sont ignorées. `0` en local. Garder `1` sauf si un autre proxy (par exemple Front Door) est ajouté : avec `0`, tous les visiteurs partagent l'adresse du frontal, donc 100 connexions échouées suspendent la connexion locale pour tout le monde; avec `2`, l'entrée écrite par un client est jugée fiable et la limite par adresse peut être contournée. |
+| `TRUSTED_PROXY_HOPS` | `1` | Le frontal d'Azure ajoute l'adresse du client à `X-Forwarded-For`; seule cette dernière entrée est jugée fiable, celles qu'un client écrit sont ignorées. Les limites de connexion et de codes de salle en dépendent. `0` en local. Les tests E2E tournent avec `1` : les requêtes sans `X-Forwarded-For` gardent l'adresse TCP (le bouclage), et seule `e2e/code-limit.spec.ts` passe par un proxy de test qui joue le frontal. Garder `1` sauf si un autre proxy (par exemple Front Door) est ajouté : avec `0`, tous les visiteurs partagent l'adresse du frontal, donc 100 connexions échouées suspendent la connexion locale pour tout le monde, et 10 codes de salle ratés en une minute bloquent la recherche par code pour tout le monde; avec `2`, l'entrée écrite par un client est jugée fiable et la limite par adresse peut être contournée. |
 
 URL de callback exactes à enregistrer :
 
@@ -98,14 +154,46 @@ Permissions : GitHub ne demande **aucun scope** (profil public seulement), Disco
 
 Les salles par code (CP-06) n'exigent aucune nouvelle variable ni migration. La présence vit dans la mémoire du processus, comme le registre des sessions : une seule instance App Service (ADR-0001); une mise à l'échelle horizontale répartirait les salles entre plusieurs instances.
 
-**Limites** (en mémoire, remises à zéro par un redémarrage) : un socket peut envoyer 5 événements `room:watch` par 10 secondes, un à la fois, et au-delà il est déconnecté; un compte a au plus 2 suivis (watches) en cours sur l'ensemble de ses sockets, pour que ni un socket ni plusieurs sockets d'un même compte ne puissent épuiser le pool de 5 connexions à la base de données. Un compte peut créer, rejoindre ou quitter une salle 10 fois par minute. Les diffusions font une seule lecture à la fois par salle et ignorent les salles que personne ne suit.
+**Limites** (en mémoire, remises à zéro par un redémarrage) : un socket peut envoyer 5 événements `room:watch` par 10 secondes, un à la fois, et au-delà il est déconnecté; un compte a au plus 2 suivis (watches) en cours sur l'ensemble de ses sockets, pour que ni un socket ni plusieurs sockets d'un même compte ne puissent épuiser le pool de 5 connexions à la base de données. Un compte peut créer, rejoindre ou quitter une salle 10 fois par minute. Une adresse peut faire au plus 10 essais de code ratés (code inconnu, salle privée ou fermée) par minute glissante; les admissions et les codes valides ne comptent pas. Les recherches par code passent par une file : au plus 1 à la fois par adresse et 2 pour tout le serveur, 30 demandes en attente par adresse et 100 au total, 5 s d'attente au plus; 10 000 adresses retenues au plus. Les diffusions font une seule lecture à la fois par salle et ignorent les salles que personne ne suit.
 
 **Risques résiduels, acceptés au checkpoint :**
 
-- Deviner des codes (SALLE-10 non réalisée) : un compte connecté peut essayer des codes; les salles privées répondent exactement comme des codes inconnus. Avec 31⁶ codes et une vingtaine de salles ouvertes, tomber sur une salle demande des millions de requêtes.
-- Les handshakes des sockets ne sont pas limités par compte (chacun lit `session_version` une fois) : de nombreux comptes, ou un flot de handshakes, partagent quand même l'unique pool de 5 connexions de la seule instance, comme le font les simples requêtes HTTP.
+- Limite des codes (SALLE-10) :
+  - Un seul budget par adresse, risque accepté pour l'instant : une classe derrière l'adresse de son école le partage. Dix codes ratés en une minute, par des fautes de frappe ou par un seul élève, bloquent la recherche par code pour toute la classe pendant au plus une minute; chacun garde l'accès à sa propre salle.
+  - Les recherches par code d'une même adresse passent une à la fois, avec 5 s d'attente au plus, et au plus 30 attendent : au-delà d'environ 31 demandes simultanées, les suivantes reçoivent « Trop de demandes » tout de suite. En local, 30 comptes qui cliquent en même temps depuis la même adresse sont tous admis (test E2E); le temps d'une admission en production reste à mesurer (5 s d'attente gardées en attendant cette mesure). Si une classe entière arrive en même temps et que chaque admission est lente (base de données éloignée ou qui se réveille), les derniers élèves peuvent recevoir « Trop de demandes »; ils réessaient, sans rien dépenser du budget ni de leurs changements de salle.
+  - Les codes valides ne dépensent rien : quelques adresses qui rouvrent sans arrêt la page d'une salle ouverte peuvent remplir la file commune (2 recherches en cours, 100 en attente), et les autres reçoivent « Trop de demandes » pendant ce temps. Ce n'est pas plus coûteux qu'un simple flot de requêtes, qui occupait déjà le pool avant cette limite : cette limite n'est pas une protection complète contre le déni de service.
+  - Dix mille adresses actives à la fois remplissent la mémoire de la limite : une nouvelle adresse reçoit alors « Trop de demandes » plutôt que d'être admise sans contrôle.
+  - Les compteurs vivent dans la mémoire du processus : un redémarrage ou un déploiement les remet à zéro, et deux processus qui se chevauchent un instant ont chacun leur budget.
+  - L'adresse dépend du format de `X-Forwarded-For` derrière Azure, que les tests reproduisent sans le prouver : voir la vérification à deux réseaux ci-dessous.
+- Les handshakes des sockets ne sont pas limités par compte (chacun lit `session_version` une fois) : de nombreux comptes, ou un flot de handshakes, partagent quand même l'unique pool de 5 connexions de la seule instance, comme le font les simples requêtes HTTP. Pendant une panne de la base, chaque page ouverte retente son handshake (refusé `UNAVAILABLE`) après 1, 2, 5 puis toutes les 10 s, à ±50 % près pour que les pages d'une classe ne frappent pas ensemble.
 - Les salles fermées et les membres partis restent dans la base de données (pas encore de purge) : environ 700 octets par salle; la limite par compte borne la croissance.
 - Un membre qui se déconnecte reste dans la salle, affiché hors ligne, jusqu'à son retour ou au départ de l'hôte (l'expulsion viendra avec SALLE-07).
+
+## Courses
+
+La première course (F-04.0, migrations `0002_races` et `0003_engine_error`, qui arrivent ensemble en production) n'exige aucune nouvelle variable pour démarrer : sans `RACES_ENABLED`, elle arrive départs fermés, et `RACES_ENABLED=true` les ouvre ensuite.
+
+**Ouvrir ou fermer les courses (`RACES_ENABLED`).** Seule la valeur exacte `true` permet de lancer une nouvelle course. Absente, `false` ou toute autre valeur : le serveur refuse chaque départ avant la base de données (« Les courses sont temporairement fermées sur ce site. »), pour toutes les salles et toutes les manches, mais l'application démarre normalement et les salles, les départs des membres et les résultats déjà enregistrés restent accessibles. Une valeur invalide donne un avertissement au démarrage, sans la montrer. Le Log stream dit l'état au démarrage, par l'une de ces trois lignes exactement :
+
+- `[races] RACES_ENABLED=true: new races may start` (ouvertes) ;
+- `[races] new races are closed (RACES_ENABLED is not "true"); rooms and stored results stay available` (fermées) ;
+- `[races] RACES_ENABLED has an invalid value; only "true" opens races: new races are closed` (fermées, avertissement sur la sortie d'erreur).
+
+Cette variable n'ouvre que les départs : elle ne choisit jamais les textes, et les textes de test restent refusés sur l'App Service. Son état n'apparaît ni dans `/api/health` ni dans le smoke test. **Changer cette variable dans Azure redémarre l'application** : le site est indisponible quelques instants et les sockets se reconnectent ; les courses en cours s'arrêtent comme à tout redémarrage (D-06) : des résultats déjà figés sont enregistrés si possible, sinon la course est interrompue (`server_stopped` à l'arrêt, ou `owner_lost` quand le processus suivant la trouve à l'expiration de son bail, au démarrage ou à l'ouverture de la salle) ; aucune ne continue. Ce n'est donc pas un arrêt instantané et sans coupure. Ouvrir après une période fermée n'interrompt rien, puisqu'aucune course ne peut alors tourner. La prochaine promotion se fait départs fermés ; je les ouvre ensuite explicitement, après ma recette fonctionnelle et le contrôle de fermeture en production.
+
+**Textes de course.** Les deux passages du domaine public sont retenus selon ma politique de sélection déléguée (passages authentiques, sources et conditions de réutilisation documentées, préférence maritime et pirates, exceptions sensibles remontées). Leur provenance, leurs conditions de réutilisation et les critères éditoriaux doivent être validés avant toute publication des textes en production, même départs fermés. Une course tourne sur l'un d'eux (`apps/web/src/server/races/race-texts.ts`), selon la langue d'interface de l'hôte au départ (D-19) : Jules Verne en français, Robert Louis Stevenson en anglais, chacun avec sa source, sa licence et ses adaptations de saisie. Le serveur les nomme au démarrage dans le Log stream (`[races] race texts: fr-verne-vingt-mille-lieues-p1-ch14-pacifique, en-stevenson-treasure-island-ch07-map`), et chaque course enregistre l'identifiant du sien (`races.config_snapshot`, clé `text`). `RACE_FIXTURE_TEXTS=allowed` les remplace par deux courts textes de test, qui commencent par « Texte de test : » ou « Test text: » : seuls les builds de production locaux (E2E, intégration) le passent, et le serveur l'annonce par `[races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the chosen texts`. Je ne pose jamais cette variable sur l'App Service *incision* : avec son `APP_URL` en `https://`, le processus refuserait de démarrer; toute autre valeur que `allowed` l'empêche aussi. Une course vit dans la mémoire du processus qui l'a lancée; chaque course enregistre ce processus et un bail de 30 s sur l'horloge de la base de données ([ADR-0004](adr/0004-race-ownership-lease.md)). Pendant une course, le processus renouvelle ce bail toutes les 10 s (une petite transaction), et toutes les 2 s tant qu'un renouvellement échoue, pendant une minute au plus; sans course, rien n'interroge la base de données périodiquement.
+
+**Arrêt (SIGTERM).** Le processus refuse les nouveaux départs, puis termine chacune de ses courses en 5 s au plus : des résultats déjà figés ont une tentative d'enregistrement; sinon la course est interrompue (`server_stopped`); une course dont les résultats sont enregistrés n'est jamais interrompue. Il laisse ensuite 2 s aux diffusions vers les salles, ferme les sockets et sort; il sort de force après 10 s. Je suppose qu'App Service laisse au moins ces 10 s entre SIGTERM et l'arrêt forcé (environ 30 s selon des réponses publiques de Microsoft, pas la documentation officielle). À confirmer dans le Log stream après un redémarrage : `[server] SIGTERM received, closing`, puis `[races] stopped: …` s'il y avait une course. Sans ces lignes, le signal n'atteint pas node à travers la commande de démarrage, et chaque redémarrage laisse ses courses à leur bail (`owner_lost`). Si l'arrêt forcé vient plus tôt, ou si la base de données ne répond pas, les courses restent à leur bail : le processus suivant les interrompt (`owner_lost`) au démarrage, ou quand un membre rouvre la salle. Quand un processus arrête une course sans fin confirmée (bail perdu, base injoignable pendant l'enregistrement), il regarde la salle, tant que quelqu'un la suit, jusqu'à ce que la base tienne cette fin : à la fin du bail, puis environ toutes les 5 s tant que la base ne répond pas, 24 fois au plus pour chaque course ainsi arrêtée; les pages ouvertes reçoivent alors l'état de la base sans recharger (`[races] recovery on watch failed: …` à chaque essai manqué).
+
+**Limites des courses** (en mémoire) : au plus 10 lots de frappe par seconde et par joueur (tous ses onglets ensemble), un seul onglet qui tape par coureur, 5 départs par 10 secondes par socket et par compte, 3 demandes de prise de main par 10 secondes par socket et 5 par compte, 5 « Je suis là » ou abandons par 10 secondes par socket et par compte. Socket.IO envoie un ping toutes les 10 s et coupe une connexion restée muette 5 s de plus : une coupure réseau silencieuse est vue en 15 s environ, et le délai de reprise de 30 s d'un coureur part de là (D-06). En contrepartie, une connexion muette plus de 5 s (réseau instable, onglet suspendu par un téléphone) est coupée et se reconnecte : surveiller dans le Log stream le nombre de déconnexions « ping timeout » après la mise en production. Un message entrant Socket.IO de plus de 32 Ko coupe la connexion : un lot légitime fait quelques Ko, et le plus gros lot que le schéma accepte (caractères de 3 octets) environ 29 Ko.
+
+**Au démarrage**, le processus lance une seule transaction de reprise, sans retarder le serveur : elle interrompt, sans résultat, les courses dont le bail a expiré (un processus précédent arrêté pendant une course) et remet leur salle en attente. Une course dont le bail court encore, par exemple pendant le chevauchement de deux processus lors d'un déploiement, n'est jamais interrompue. La reprise n'attend jamais une salle ou une course qu'une autre transaction tient : elle la laisse pour plus tard. Si la base de données ne répond pas, ou si des courses restent pour plus tard, elle réessaie après 5, 15 puis 45 s, puis abandonne. Chaque démarrage du processus réveille donc Neon une fois; sans course en cours, rien d'autre n'interroge la base de données périodiquement.
+
+**Log stream** : une ligne `[races] boot recovery: … left for later` à chaque tentative, même quand il n'y a rien à reprendre; `[races] boot recovery failed: …, retrying` ou `…, giving up` en cas d'échec. Pendant les courses, notamment : `[races] stopped: n finalised, n interrupted, n left to their lease` à l'arrêt (s'il y avait au moins une course); `[races] lease renewal of <course> failed: …` au premier renouvellement manqué; `[races] ownership of <course> lost: …` quand un processus perd une course; `[races] write for <course> failed (attempt n): …` pour une écriture retentée; `[races] neither the results nor the interruption of <course> could be confirmed`; `[races] the engine failed on <course>: …` (course interrompue avec `engine_error`); `[races] start failed: …`; `[races] recovery on watch failed: …`. L'erreur y est décrite brièvement : le code SQL et les noms de contrainte ou de table, ou le message d'une erreur de connexion, qui peut nommer l'hôte ou le rôle Neon; jamais l'URL de connexion, les paramètres de la requête, un nom d'affichage ni le texte de la course.
+
+**Restaurer la base de données** à un état antérieur à `0002` exige aussi de redéployer un artefact antérieur à `0002` : le code de cette version lit la nouvelle colonne `lobbies.current_race_id`, et quitter une salle échouerait. Un état entre `0002` et `0003` n'existe pas en production (les deux arrivent ensemble); s'il existait, une interruption `engine_error` y serait refusée et la course reviendrait à son bail.
+
+**Retour à une version sans courses** (l'artefact de production d'avant F-04.0) : le schéma reste en `0003`, que cette version supporte. Les courses en cours au moment du retour sont interrompues (`server_stopped`) si SIGTERM arrive à temps; sinon leur salle reste en décompte ou en course, sans rien pour la reprendre, car l'ancienne version n'a ni reprise au démarrage ni reprise à l'ouverture. Les nouveaux membres y sont refusés (SALLE-09), les membres peuvent partir, et le départ de l'hôte ferme la salle. Une salle restée aux résultats ne revient pas en attente, sauf par sa fermeture. La version suivante avec courses interrompt ces courses au démarrage (`owner_lost`), sans inventer de résultat (D-06).
 
 ## Comptes de démonstration
 
@@ -136,6 +224,24 @@ Le Health check sur `/api/health/live` échoue jusqu'à ce premier déploiement 
 npm run smoke -w @incision/web -- https://<default-domain> --database up
 ```
 
+**Après la promotion qui livre la limite des codes (SALLE-10)**, vérifier à la main, depuis deux réseaux :
+
+1. Réseau A (par exemple un téléphone en données cellulaires), connecté : ouvrir 10 codes de salle inconnus; le onzième affiche « Trop d'essais ».
+2. Depuis le réseau A encore, la même requête avec des en-têtes `X-Forwarded-For` et `x-incision-client-address` inventés reste refusée.
+3. Un second appareil sur le réseau A, connecté avec l'autre compte de démonstration : un code inconnu affiche aussi « Trop d'essais » (le budget est partagé par le réseau).
+4. Réseau B (par exemple le Wi-Fi de la maison) : un code inconnu affiche toujours « Code introuvable ».
+
+Si le réseau B est bloqué par les échecs du réseau A, toutes les requêtes partagent une seule adresse : redéployer l'artefact précédent (section Rollback, aucune migration en jeu) et corriger le nombre de proxys de confiance. Si, à l'étape 2, la requête aux en-têtes inventés n'est plus refusée, des en-têtes écrits par le client changent l'adresse comptée et la limite se contourne : corriger `TRUSTED_PROXY_HOPS` dans les paramètres d'App Service; un rollback n'y change rien.
+
+**Promotion qui livre la première course : avant, puis départs fermés, puis ouverture.** La validation des textes (étape 1) est notée dans la PR de promotion `dev` → `main`.
+
+1. Avant la promotion, la provenance, les conditions de réutilisation et les critères éditoriaux des deux passages sont validés, et `RACE_FIXTURE_TEXTS` et `RACES_ENABLED` sont absentes des App settings.
+2. Après la promotion, le Log stream (ouvert avant le déploiement : ces lignes ne s'écrivent qu'au démarrage) montre `[races] race texts: …` et la ligne « closed » ci-dessus ; un départ essayé par l'hôte, un second compte présent (le bouton exige deux participants), affiche « Les courses sont temporairement fermées… », et `select count(*) from races` reste à 0.
+3. Après ma recette fonctionnelle et ce contrôle de fermeture, j'ouvre : `RACES_ENABLED=true` dans les App settings (redémarrage), et le Log stream montre la ligne « open ».
+4. Après la première course, une requête en lecture seule sur Neon, `select config_snapshot->>'text' as text, count(*) from races group by 1`, ne rend que les deux identifiants, jamais `fixture`.
+
+Une panne de base de données sur la page d'une salle affiche l'état « Avarie » avec une réponse 200 : elle apparaît dans le Log stream (`[rooms] room page failed`), pas dans les erreurs 5xx d'App Service.
+
 Logs : App Service → Log stream. Deux endpoints, tous deux sans détails internes :
 
 - `/api/health/live` : vivacité (liveness) pour Azure, `status` et `commit`, ne touche jamais la base de données.
@@ -145,9 +251,30 @@ Logs : App Service → Log stream. Deux endpoints, tous deux sans détails inter
 
 - **Application, le plus rapide :** dans Actions, ouvrir la dernière exécution *Deploy* réussie d'un bon commit et relancer ses jobs *deploy* et *smoke* : ils redéploient l'artefact de cette exécution. GitHub ne permet de relancer une exécution que pendant 30 jours, ce qui correspond aussi à la durée de conservation des artefacts. Relancer deploy ne relance pas migrate : la base de données reste sur le schéma le plus récent; ne revenir donc qu'à une version dont le code fonctionne encore avec ce schéma (jamais au-delà d'une migration qui a supprimé quelque chose). Ne rien pousser sur `main` avant que le correctif soit arrivé, sinon le mauvais commit est redéployé.
 - **Application, toujours possible :** faire un revert du changement fautif sur `dev` (PR), puis promouvoir `dev` vers `main`; le workflow Deploy livre l'arbre après le revert. Ne jamais faire de revert d'un commit qui contient une migration déjà appliquée : faire plutôt évoluer le schéma vers l'avant.
+- **Fermer les courses :** dans les App settings, retirer `RACES_ENABLED` ou lui donner `false`. L'application redémarre : les courses en cours sont interrompues (D-06), les salles et les résultats restent. Si le code lui-même est en cause, faire un revert de tout le changement sur `dev`, `RACES_ENABLED` compris : son commit de fusion, si sa PR ne porte que ce changement (`git revert -m 1`), sinon tous ses commits, du plus récent jusqu'à « run the two public-domain passages by default » compris. Un revert partiel donne des conflits. Puis promouvoir : la version d'avant refuse tout départ en production, tant que `RACE_FIXTURE_TEXTS` reste absente, sans migration en jeu.
 - **Base de données :** les migrations vont seulement vers l'avant et doivent rester compatibles avec la version précédente de l'application (ajouter d'abord, supprimer dans une version ultérieure). Avant une migration risquée, créer une branche Neon à partir de la branche par défaut (nommée `production` dans les projets Neon récents) comme sauvegarde. Neon Free peut aussi restaurer à l'intérieur d'une courte fenêtre d'historique (6 heures au moment d'écrire ces lignes); la vérifier avant de s'y fier.
 - **Fuite d'identifiants :** Overview d'App Service → *Reset publish profile*, puis mettre à jour le secret de l'environnement. Renouveler les mots de passe Neon depuis la console Neon et mettre à jour les paramètres d'application.
 
 ## Coûts
 
-B2 tourne sur le crédit Azure for Students : consulter Cost Management régulièrement et ne jamais convertir en abonnement payant. Neon reste sur le forfait gratuit : ses heures de calcul sont limitées par mois et, une fois qu'elles sont épuisées, le calcul est suspendu jusqu'à la période suivante; rien ne doit donc interroger la base de données à intervalle fixe (sonde de santé, keep-alive). Surveiller la page d'utilisation.
+B2 tourne sur le crédit Azure for Students : consulter Cost Management régulièrement et ne jamais convertir en abonnement payant. Neon reste sur le forfait gratuit : ses heures de calcul sont limitées par mois et, une fois qu'elles sont épuisées, le calcul est suspendu jusqu'à la période suivante; rien ne doit donc interroger la base de données à intervalle fixe (sonde de santé, keep-alive). La reprise des courses réveille Neon à chaque démarrage du processus : une application qui redémarre en boucle plus souvent que toutes les 5 minutes garderait le calcul éveillé. Surveiller la page d'utilisation.
+
+Où lire les chiffres :
+
+- **Crédit Azure** : portail Azure → Education → *Student offer details* (crédit disponible et date d'expiration). Le portail Azure Sponsorships ne connaît pas cette souscription.
+- **Prévision Azure** : Cost Management → Cost analysis, portée Azure for Students, vue *AccumulatedCosts*, période étendue jusqu'à la date voulue; le survol de la courbe donne le coût cumulé prévu à une date.
+- **Neon** : console Neon → Projects (usage de l'organisation depuis le début de la période) et Billing (limites du forfait). Les métriques peuvent avoir une heure de retard.
+
+Relevé du 19 octobre 2026 (F-00.2) :
+
+| Service | Mesure | Valeur | Limite |
+|---|---|---|---|
+| Azure | Coût réel d'octobre (App Service, Canada Central) | 16,06 $ | — |
+| Azure | Coût cumulé prévu au 15 décembre | 80,41 $ | crédit de 142 $ |
+| Azure | Coût cumulé prévu au 31 décembre | 98,34 $ | crédit de 142 $ |
+| Azure | Crédit restant | 126 $, expiration le 3 octobre 2027 | — |
+| Neon | Calcul depuis le 5 octobre | 0,95 CU-h | 100 h par mois |
+| Neon | Stockage | 0,03 Go | 1 Go |
+| Neon | Historique, transfert réseau | 0 Go | — |
+
+La prévision prolonge le rythme actuel (environ 1,15 $ par jour, cohérent avec B2) : il resterait 61,59 $ de crédit au 15 décembre et 43,66 $ au 31 décembre. Je garde B2 jusqu'au test de charge (F-08.1), puis je réévalue; B1 coûterait environ la moitié. Le health check vise `/api/health/live`, qui n'interroge pas Neon.

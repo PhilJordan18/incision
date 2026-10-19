@@ -1,14 +1,24 @@
 import { MEMBER_ROLES, ROOM_PHASES } from "@incision/domain";
 import { z } from "zod";
 
+/** The states of a race and the reasons it ended without results (`races`, ADR-0004, D-06). */
+export const RACE_STATES = ["countdown", "racing", "finished", "interrupted"] as const;
+export const INTERRUPTION_REASONS = ["room_closed", "server_stopped", "owner_lost", "save_failed", "engine_error"] as const;
+
 /**
  * Room presence over Socket.IO (CP-06), shared by the browser and the server. Every
  * payload is validated with these schemas at the boundary (TECH-07).
  */
 export const ROOM_WATCH_EVENT = "room:watch";
+/** A handshake refused because the session could not be checked now (the database did not answer): the page tries again. */
+export const HANDSHAKE_UNAVAILABLE = "UNAVAILABLE";
 export const ROOM_SNAPSHOT_EVENT = "room:snapshot";
 
-export const roomWatchPayloadSchema = z.object({ code: z.string().min(1).max(16) }).strict();
+/**
+ * `pageId`: drawn by the page once and kept across its socket's reconnections, so that a
+ * reconnected page takes its race input back from its own former socket (F-04.0).
+ */
+export const roomWatchPayloadSchema = z.object({ code: z.string().min(1).max(16), pageId: z.uuid().optional() }).strict();
 
 /**
  * `room:watch` events a socket may send per window. A page sends one per connection and a
@@ -32,6 +42,14 @@ export const roomSnapshotSchema = z.object({
       online: z.boolean(),
     }),
   ),
+  /** The room's current or latest race, as the database holds it: how it ended, after a reconnection too. */
+  race: z
+    .object({
+      raceId: z.string(),
+      state: z.enum(RACE_STATES),
+      interruptionReason: z.enum(INTERRUPTION_REASONS).nullable(),
+    })
+    .optional(),
 });
 export type PublicRoomSnapshot = z.infer<typeof roomSnapshotSchema>;
 

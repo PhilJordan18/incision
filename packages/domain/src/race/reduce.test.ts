@@ -1,0 +1,771 @@
+import { describe, expect, it } from "vitest";
+import { computeMeasures } from "../measures/compute";
+import { asEntrantId, asRaceId, type EntrantId } from "../ids";
+import { toGraphemes } from "../text/graphemes";
+import { asDuration, asInstant, MAX_INSTANT, type Instant } from "../time";
+import { createRace } from "./create";
+import { measuredElapsed } from "./elapsed";
+import { EXAMPLE_ENTRANT, EXAMPLE_RACE } from "./keystrokes.examples";
+import { RACE_EXAMPLES } from "./race.examples";
+import { reduceRace } from "./reduce";
+import type { EntrantState, InputEvent, RaceEvent, RaceOutput, RacePhase, RaceState } from "./types";
+import { toRaceBroadcast } from "./views";
+
+const ALICE = EXAMPLE_ENTRANT;
+const BOB = asEntrantId("bob");
+const at = (milliseconds: number): Instant => asInstant(1_000_000 + milliseconds);
+
+function runner(entrantId: EntrantId, overrides: Partial<EntrantState> = {}): EntrantState {
+  return {
+    entrantId,
+    kind: "human",
+    target: toGraphemes("ab"),
+    textVersion: 0,
+    typed: [],
+    pendingError: false,
+    counters: { correctInserts: 0, totalInserts: 0 },
+    missedKeys: {},
+    ackSeq: 0,
+    status: "racing",
+    lastActivityAt: at(0),
+    inactive: false,
+    ...overrides,
+  };
+}
+
+function race(overrides: Partial<RaceState> = {}): RaceState {
+  return {
+    raceId: EXAMPLE_RACE,
+    revision: 4,
+    phase: "racing",
+    errorMode: "free",
+    timeLimit: null,
+    countdownAt: at(-3_000),
+    startsAt: at(0),
+    clock: at(0),
+    text: toGraphemes("ab"),
+    entrants: [runner(ALICE), runner(BOB)],
+    ...overrides,
+  };
+}
+
+const insert = (grapheme: string): InputEvent => ({ type: "insert", grapheme });
+
+function keystrokes(entrantId: EntrantId, seq: number, events: readonly InputEvent[], sinceStart: number, raceId = EXAMPLE_RACE): RaceEvent {
+  return { type: "keystrokes", batch: { raceId, entrantId, seq, textVersion: 0, events }, now: at(sinceStart) };
+}
+
+const tick = (sinceStart: number): RaceEvent => ({ type: "tick", now: at(sinceStart) });
+const abandon = (entrantId: EntrantId, sinceStart: number): RaceEvent => ({ type: "abandon", entrantId, now: at(sinceStart) });
+const interrupt = (sinceStart: number): RaceEvent => ({ type: "interrupt", now: at(sinceStart) });
+
+/** A plain deep copy (these inputs hold only strings, numbers, arrays and records). */
+function copy<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/** Deeply frozen, so any mutation of an input throws. */
+function frozen<T>(value: T): T {
+  if (value !== null && typeof value === "object") {
+    for (const key of Object.keys(value)) {
+      frozen((value as Record<string, unknown>)[key]);
+    }
+    Object.freeze(value);
+  }
+  return value;
+}
+
+function entrantOf(output: RaceOutput, entrantId: EntrantId): EntrantState | undefined {
+  return output.state.entrants.find((entrant) => entrant.entrantId === entrantId);
+}
+
+const aliceDone = runner(ALICE, { typed: ["a", "b"], ackSeq: 1, status: "finished", endedAt: at(2_000), counters: { correctInserts: 2, totalInserts: 2 } });
+const bobHalfway = runner(BOB, { typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } });
+const thirtySeconds = asDuration(30_000);
+
+describe("reduceRace: the contract examples (F-04.1)", () => {
+  it.each(RACE_EXAMPLES.map((example) => [example.name, example] as const))("%s", (_name, example) => {
+    const state = frozen(copy(example.input.state));
+    const output = reduceRace(state, frozen(copy(example.input.event)));
+    const { expected } = example;
+    expect(output.state.phase).toBe(expected.phase);
+    expect(output.changed).toBe(expected.changed);
+    expect(output.state.revision).toBe(state.revision + (expected.changed ? 1 : 0));
+    if (expected.keystrokes !== undefined) {
+      expect(output.keystrokes).toMatchObject(expected.keystrokes);
+    }
+    expect(output.ignored).toBe(expected.ignored);
+    for (const [entrantId, status] of expected.statuses ?? []) {
+      expect(entrantOf(output, entrantId)?.status).toBe(status);
+    }
+    for (const [entrantId, inactive] of expected.inactive ?? []) {
+      expect(entrantOf(output, entrantId)?.inactive).toBe(inactive);
+    }
+    for (const [entrantId, reason, endedAt] of expected.abandons ?? []) {
+      expect(entrantOf(output, entrantId)).toMatchObject({ status: "abandoned", abandonReason: reason, endedAt });
+    }
+    // An absent ranking means the event produced no results.
+    expect(output.ended?.results.map((result) => result.entrantId)).toEqual(expected.ranking);
+    if (expected.endedAt !== undefined) {
+      expect(output.state.endedAt).toBe(expected.endedAt);
+    }
+    if (expected.endedAt !== undefined && expected.ranking !== undefined) {
+      expect(output.ended?.endedAt).toBe(expected.endedAt);
+    }
+    for (const [entrantId, elapsed] of expected.elapsed ?? []) {
+      expect(output.ended?.results.find((result) => result.entrantId === entrantId)?.elapsed).toBe(elapsed);
+    }
+    if (expected.nextDeadline !== undefined) {
+      expect(output.nextDeadline).toBe(expected.nextDeadline);
+    }
+    if (state.phase === "ended" || state.phase === "interrupted") {
+      expect(output.state).toBe(state);
+    }
+  });
+});
+
+describe("reduceRace: time and deadlines", () => {
+  it("handles an event earlier than the clock at the clock, which never moves back", () => {
+    const output = reduceRace(race({ clock: at(5_000) }), tick(4_000));
+    expect(output.state.clock).toBe(at(5_000));
+    expect(reduceRace(race({ clock: at(5_000) }), tick(6_000)).state.clock).toBe(at(6_000));
+  });
+
+  it("a finishing batch earlier than the clock finishes at the clock", () => {
+    const output = reduceRace(race({ clock: at(5_000) }), keystrokes(BOB, 1, [insert("a"), insert("b")], 4_000));
+    expect(entrantOf(output, BOB)).toMatchObject({ status: "finished", endedAt: at(5_000) });
+  });
+
+  it("an interrupt earlier than the clock interrupts at the clock", () => {
+    expect(reduceRace(race({ clock: at(5_000) }), interrupt(4_000)).state).toMatchObject({ phase: "interrupted", endedAt: at(5_000) });
+  });
+
+  it("an abandon earlier than the clock ends at the clock, not before", () => {
+    const output = reduceRace(race({ clock: at(5_000) }), abandon(BOB, 4_000));
+    expect(entrantOf(output, BOB)?.endedAt).toBe(at(5_000));
+  });
+
+  it("moves the clock without a revision when nothing public changes", () => {
+    const output = reduceRace(race(), tick(1_000));
+    expect(output).toMatchObject({ changed: false, state: { revision: 4, clock: at(1_000) } });
+  });
+
+  it("starts, then times out, in one late tick: one revision, results at the deadline", () => {
+    const state = race({ phase: "countdown", clock: at(-3_000), timeLimit: thirtySeconds });
+    const output = reduceRace(state, tick(45_000));
+    expect(output.changed).toBe(true);
+    expect(output.state).toMatchObject({ phase: "ended", endedAt: at(30_000), revision: 5, clock: at(45_000) });
+    expect(output.state.entrants.map((entrant) => [entrant.status, entrant.endedAt])).toEqual([
+      ["timedOut", at(30_000)],
+      ["timedOut", at(30_000)],
+    ]);
+    expect(output.ended?.results.map((result) => result.elapsed)).toEqual([thirtySeconds, thirtySeconds]);
+    expect(output.nextDeadline).toBeUndefined();
+  });
+
+  it("everyone gone during the countdown ends at startsAt, even with a time limit and a late tick", () => {
+    const gone = (entrantId: EntrantId, sinceStart: number): EntrantState => runner(entrantId, { status: "abandoned", abandonReason: "voluntary", endedAt: at(sinceStart) });
+    const state = race({ phase: "countdown", clock: at(-1_000), timeLimit: thirtySeconds, entrants: [gone(ALICE, -2_000), gone(BOB, -1_000)] });
+    const output = reduceRace(state, tick(60_000));
+    expect(output.state).toMatchObject({ phase: "ended", endedAt: at(0), revision: 5 });
+    expect(output.ended?.results.map((result) => [result.entrantId, result.elapsed, result.measures])).toEqual([
+      [ALICE, 0, { netWpm: 0, rawWpm: 0, accuracy: 0 }],
+      [BOB, 0, { netWpm: 0, rawWpm: 0, accuracy: 0 }],
+    ]);
+  });
+
+  it("never ends from the countdown, even when everyone is gone", () => {
+    const output = reduceRace(race({ phase: "countdown", clock: at(-3_000), entrants: [runner(ALICE, { status: "abandoned", abandonReason: "voluntary", endedAt: at(-2_500) }), runner(BOB)] }), abandon(BOB, -1));
+    expect(output).toMatchObject({ changed: true, nextDeadline: at(0), state: { phase: "countdown" } });
+    expect(output.ended).toBeUndefined();
+  });
+
+  it("accepts a finishing batch 1 ms before the time limit, and ends the race at that instant", () => {
+    const output = reduceRace(race({ timeLimit: thirtySeconds, entrants: [aliceDone, bobHalfway] }), keystrokes(BOB, 2, [insert("b")], 29_999));
+    expect(output.keystrokes).toMatchObject({ outcome: "applied" });
+    expect(output.state).toMatchObject({ phase: "ended", endedAt: at(29_999) });
+    expect(output.ended?.results.map((result) => [result.entrantId, result.status])).toEqual([
+      [ALICE, "finished"],
+      [BOB, "finished"],
+    ]);
+  });
+
+  it("gives the start, then the time limit, as the next deadline, then the inactive marker without a limit", () => {
+    expect(reduceRace(race({ phase: "countdown", clock: at(-3_000), timeLimit: thirtySeconds }), tick(-2_000)).nextDeadline).toBe(at(0));
+    expect(reduceRace(race({ timeLimit: thirtySeconds }), tick(1_000)).nextDeadline).toBe(at(30_000));
+    expect(reduceRace(race(), tick(1_000)).nextDeadline).toBe(at(60_000));
+    expect(reduceRace(race({ timeLimit: thirtySeconds }), tick(30_000)).nextDeadline).toBeUndefined();
+  });
+
+  it("refuses an event whose now is not a valid instant, a programming error", () => {
+    expect(() => reduceRace(race(), { type: "tick", now: 1.5 as Instant })).toThrow(RangeError);
+    expect(() => reduceRace(race({ phase: "ended", endedAt: at(0) }), { type: "tick", now: -1 as Instant })).toThrow(RangeError);
+  });
+});
+
+describe("reduceRace: events", () => {
+  it("checks the race before the entrant, on a final race too", () => {
+    for (const state of [race(), race({ phase: "ended", endedAt: at(0) })]) {
+      expect(reduceRace(state, keystrokes(asEntrantId("mallory"), 1, [insert("a")], 1_000, asRaceId("race-0"))).keystrokes).toEqual({ outcome: "refused", seq: 1, reason: "WRONG_RACE" });
+      expect(reduceRace(state, keystrokes(asEntrantId("mallory"), 1, [insert("a")], 1_000)).keystrokes).toEqual({ outcome: "refused", seq: 1, reason: "UNKNOWN_ENTRANT" });
+    }
+  });
+
+  it("answers a retry of the last batch with duplicate after the end, and changes nothing", () => {
+    const ended = race({ phase: "ended", endedAt: at(3_000), clock: at(3_000), entrants: [aliceDone, runner(BOB, { status: "finished", endedAt: at(3_000), ackSeq: 2 })] });
+    const output = reduceRace(ended, keystrokes(BOB, 2, [insert("b")], 4_000));
+    expect(output).toEqual({ state: ended, changed: false, keystrokes: { outcome: "duplicate", seq: 2, ackSeq: 2 } });
+    expect(output.state).toBe(ended);
+  });
+
+  it("applies a batch with no public change without a revision: a wrong insert in mandatory correction", () => {
+    const state = race({ errorMode: "mandatory" });
+    const output = reduceRace(state, keystrokes(BOB, 1, [insert("x")], 1_000));
+    expect(output.keystrokes).toMatchObject({ outcome: "applied", ackSeq: 1 });
+    expect(output.changed).toBe(false);
+    expect(output.state.revision).toBe(4);
+    expect(entrantOf(output, BOB)).toMatchObject({ pendingError: true, counters: { correctInserts: 0, totalInserts: 1 }, ackSeq: 1 });
+  });
+
+  it("moves the revision when the only public change is the net WPM, seen at the handled instant", () => {
+    // Free mode: a correct insert then its deletion leaves the position at 0, but 1 correct insert in 1 s shows 12 WPM.
+    const output = reduceRace(race(), keystrokes(BOB, 1, [insert("a"), { type: "deleteBackward" }], 1_000));
+    expect(output.keystrokes).toMatchObject({ outcome: "applied" });
+    expect(entrantOf(output, BOB)).toMatchObject({ typed: [], counters: { correctInserts: 1, totalInserts: 1 } });
+    expect(output).toMatchObject({ changed: true, state: { revision: 5 } });
+  });
+
+  it("checks plausibility from the race's start, not from the reveal (COURSE-06)", () => {
+    const wrong = Array.from({ length: 21 }, () => insert("x"));
+    const output = reduceRace(race({ errorMode: "mandatory" }), keystrokes(BOB, 1, wrong, 0));
+    expect(output.keystrokes).toMatchObject({ outcome: "refused", reason: "IMPLAUSIBLE" });
+    expect(output.changed).toBe(false);
+  });
+
+  it("records a confirmed abandon as voluntary, at the handled instant", () => {
+    const output = reduceRace(race(), abandon(BOB, 1_500));
+    expect(entrantOf(output, BOB)).toMatchObject({ status: "abandoned", abandonReason: "voluntary", endedAt: at(1_500) });
+    expect(output).toMatchObject({ changed: true, state: { revision: 5 } });
+  });
+
+  it("ignores an abandon: unknown entrant first, then race over, then entrant terminal", () => {
+    const ended = race({ phase: "ended", endedAt: at(3_000), clock: at(3_000), entrants: [aliceDone, runner(BOB, { status: "finished", endedAt: at(3_000) })] });
+    expect(reduceRace(ended, abandon(asEntrantId("mallory"), 4_000)).ignored).toBe("UNKNOWN_ENTRANT");
+    expect(reduceRace(ended, abandon(ALICE, 4_000)).ignored).toBe("RACE_OVER");
+    expect(reduceRace(race({ entrants: [aliceDone, runner(BOB)] }), abandon(ALICE, 4_000)).ignored).toBe("ENTRANT_TERMINAL");
+    expect(reduceRace(race({ phase: "interrupted", endedAt: at(0) }), abandon(BOB, 4_000)).ignored).toBe("RACE_OVER");
+  });
+
+  it("interrupts during the countdown, with no result and no further deadline", () => {
+    const output = reduceRace(race({ phase: "countdown", clock: at(-3_000) }), interrupt(-1_000));
+    expect(output).toMatchObject({ changed: true, state: { phase: "interrupted", endedAt: at(-1_000), revision: 5 } });
+    expect(output.ended).toBeUndefined();
+    expect(output.nextDeadline).toBeUndefined();
+    expect(output.state.entrants.map((entrant) => entrant.status)).toEqual(["racing", "racing"]);
+  });
+
+  it("an interrupt at the time limit comes too late: the race ends first and keeps its results (D-06)", () => {
+    const output = reduceRace(race({ timeLimit: thirtySeconds, entrants: [aliceDone, bobHalfway] }), interrupt(30_000));
+    expect(output.state).toMatchObject({ phase: "ended", endedAt: at(30_000) });
+    expect(output.ended?.results.map((result) => result.entrantId)).toEqual([ALICE, BOB]);
+  });
+
+  it("returns a final race as is for every event, clock included", () => {
+    for (const final of [race({ phase: "ended", endedAt: at(3_000), clock: at(3_000), entrants: [aliceDone, runner(BOB, { status: "finished", endedAt: at(3_000) })] }), race({ phase: "interrupted", endedAt: at(1_000), clock: at(1_000) })]) {
+      for (const event of [tick(9_000), interrupt(9_000), abandon(BOB, 9_000), keystrokes(BOB, 9, [insert("a")], 9_000)]) {
+        const output = reduceRace(final, event);
+        expect(output.state).toBe(final);
+        expect(output.changed).toBe(false);
+        expect(output.ended).toBeUndefined();
+        expect(output.nextDeadline).toBeUndefined();
+      }
+    }
+  });
+});
+
+describe("reduceRace: results", () => {
+  it("computes each result from the counters over the measured elapsed time, ranked by COURSE-10", () => {
+    const state = race({
+      timeLimit: thirtySeconds,
+      entrants: [
+        runner(ALICE, { typed: ["a", "x"], ackSeq: 3, status: "finished", endedAt: at(12_000), counters: { correctInserts: 1, totalInserts: 3 }, missedKeys: { b: 2 } }),
+        runner(BOB, { typed: ["a"], ackSeq: 1, status: "abandoned", abandonReason: "voluntary", endedAt: at(6_000), counters: { correctInserts: 1, totalInserts: 1 } }),
+        runner(asEntrantId("carol"), { kind: "bot", typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { b: 1 } }),
+      ],
+    });
+    const output = reduceRace(state, tick(31_000));
+    expect(output.ended).toEqual({
+      raceId: EXAMPLE_RACE,
+      endedAt: at(30_000),
+      results: [
+        { entrantId: ALICE, kind: "human", rank: 1, status: "finished", elapsed: 12_000, position: 2, length: 2, counters: { correctInserts: 1, totalInserts: 3 }, errors: 2, measures: computeMeasures({ correctInserts: 1, totalInserts: 3 }, asDuration(12_000)), missedKeys: { b: 2 } },
+        { entrantId: asEntrantId("carol"), kind: "bot", rank: 2, status: "timedOut", elapsed: 30_000, position: 1, length: 2, counters: { correctInserts: 1, totalInserts: 2 }, errors: 1, measures: computeMeasures({ correctInserts: 1, totalInserts: 2 }, thirtySeconds), missedKeys: { b: 1 } },
+        { entrantId: BOB, kind: "human", rank: 3, status: "abandoned", abandonReason: "voluntary", elapsed: 6_000, position: 1, length: 2, counters: { correctInserts: 1, totalInserts: 1 }, errors: 0, measures: computeMeasures({ correctInserts: 1, totalInserts: 1 }, asDuration(6_000)), missedKeys: {} },
+      ],
+    });
+  });
+
+  it("ranks finishers by arrival, not by id", () => {
+    const bobFirst = runner(BOB, { typed: ["a", "b"], ackSeq: 1, status: "finished", endedAt: at(1_000), counters: { correctInserts: 2, totalInserts: 2 } });
+    const output = reduceRace(race({ clock: at(1_000), entrants: [runner(ALICE), bobFirst] }), keystrokes(ALICE, 1, [insert("a"), insert("b")], 2_000));
+    expect(output.ended?.results.map((result) => [result.entrantId, result.rank])).toEqual([
+      [BOB, 1],
+      [ALICE, 2],
+    ]);
+  });
+
+  it("ranks time-outs, then abandons, by progress, not by id or accuracy", () => {
+    const target = toGraphemes("abc");
+    const carol = asEntrantId("carol");
+    const dave = asEntrantId("dave");
+    const state = race({
+      timeLimit: thirtySeconds,
+      text: target,
+      entrants: [
+        runner(ALICE, { target, typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } }),
+        runner(BOB, { target, typed: ["a", "x"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { b: 1 } }),
+        runner(carol, { target, typed: ["a"], ackSeq: 1, status: "abandoned", abandonReason: "voluntary", endedAt: at(9_000), counters: { correctInserts: 1, totalInserts: 1 } }),
+        runner(dave, { target, typed: ["x", "b"], ackSeq: 1, status: "abandoned", abandonReason: "voluntary", endedAt: at(8_000), counters: { correctInserts: 1, totalInserts: 2 }, missedKeys: { a: 1 } }),
+      ],
+    });
+    const output = reduceRace(state, tick(30_000));
+    expect(output.ended?.results.map((result) => [result.entrantId, result.status, result.position])).toEqual([
+      [BOB, "timedOut", 2],
+      [ALICE, "timedOut", 1],
+      [dave, "abandoned", 2],
+      [carol, "abandoned", 1],
+    ]);
+  });
+
+  it("breaks an exact tie by accuracy, computed from the counters, before the id", () => {
+    // Alice finished first in id order, at the same instant as Bob, with a lower accuracy (2 of 3).
+    const alice = runner(ALICE, { typed: ["a", "b"], ackSeq: 2, status: "finished", endedAt: at(2_000), counters: { correctInserts: 2, totalInserts: 3 }, missedKeys: { b: 1 } });
+    const output = reduceRace(race({ clock: at(2_000), entrants: [alice, runner(BOB)] }), keystrokes(BOB, 1, [insert("a"), insert("b")], 2_000));
+    expect(output.ended?.results.map((result) => [result.entrantId, result.measures.netWpm, result.measures.accuracy])).toEqual([
+      [BOB, 12, 100],
+      [ALICE, 12, (2 * 100) / 3],
+    ]);
+  });
+
+  it("produces the results exactly once over a whole race", () => {
+    const created = createRace({ raceId: EXAMPLE_RACE, text: "ab", errorMode: "free", timeLimit: null, participants: [{ entrantId: ALICE, kind: "human" }, { entrantId: BOB, kind: "bot" }], now: at(-3_000) });
+    if (!created.ok) {
+      throw new Error(created.reason);
+    }
+    const events = [tick(0), keystrokes(ALICE, 1, [insert("a"), insert("b")], 1_000), abandon(BOB, 2_000), tick(3_000), interrupt(4_000), keystrokes(ALICE, 1, [insert("a")], 5_000)];
+    let state = created.race;
+    const ends: RaceOutput["ended"][] = [];
+    for (const event of events) {
+      const output = reduceRace(state, event);
+      if (output.ended !== undefined) {
+        ends.push(output.ended);
+      }
+      state = output.state;
+    }
+    expect(ends.map((end) => end?.results.map((result) => [result.entrantId, result.rank]))).toEqual([
+      [
+        [ALICE, 1],
+        [BOB, 2],
+      ],
+    ]);
+    // The start, the finish and the end: three public changes.
+    expect(state).toMatchObject({ phase: "ended", endedAt: at(2_000), revision: 3 });
+  });
+});
+
+const lost = (entrantId: EntrantId, sinceStart: number): RaceEvent => ({ type: "connectionLost", entrantId, now: at(sinceStart) });
+const resumed = (entrantId: EntrantId, sinceStart: number): RaceEvent => ({ type: "connectionResumed", entrantId, now: at(sinceStart) });
+const present = (entrantId: EntrantId, sinceStart: number): RaceEvent => ({ type: "present", entrantId, now: at(sinceStart) });
+
+describe("reduceRace: grace and inactivity (F-04.6, D-06, D-17)", () => {
+  it("applies an abandon before the time limit even when another entrant's deadline falls after it", () => {
+    // Bob's grace (200 s) falls after the limit (150 s) and is listed first; Alice's inactivity (120 s) before it.
+    const state = race({ timeLimit: asDuration(150_000), clock: at(110_000), entrants: [runner(BOB, { lastActivityAt: at(110_000), disconnectedAt: at(170_000) }), runner(ALICE, { inactive: true })] });
+    const output = reduceRace(state, tick(300_000));
+    expect(entrantOf(output, ALICE)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: at(120_000) });
+    expect(entrantOf(output, BOB)).toMatchObject({ status: "timedOut", endedAt: at(150_000) });
+    expect(output.state).toMatchObject({ phase: "ended", endedAt: at(150_000) });
+  });
+
+  it("a deadline one millisecond before the time limit is not a tie: the abandon applies", () => {
+    const state = race({ timeLimit: asDuration(120_001), clock: at(119_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(119_000) })] });
+    const output = reduceRace(state, tick(120_001));
+    expect(entrantOf(output, ALICE)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: at(120_000) });
+    expect(entrantOf(output, BOB)).toMatchObject({ status: "timedOut", endedAt: at(120_001) });
+  });
+
+  it("« Je suis là » is activity but never ends a grace", () => {
+    const state = race({ clock: at(30_000), entrants: [runner(ALICE, { disconnectedAt: at(10_000), lastActivityAt: at(10_000) }), runner(BOB, { lastActivityAt: at(30_000) })] });
+    const here = reduceRace(state, present(ALICE, 30_000));
+    expect(entrantOf(here, ALICE)).toMatchObject({ lastActivityAt: at(30_000), disconnectedAt: at(10_000) });
+    expect(entrantOf(reduceRace(here.state, tick(40_001)), ALICE)).toMatchObject({ status: "abandoned", abandonReason: "disconnection", endedAt: at(40_000) });
+  });
+
+  it("publishes the marker only while racing, so the final view does not depend on when a timer fired", () => {
+    const state = race({ timeLimit: asDuration(90_000), clock: at(1_000), entrants: [runner(ALICE), runner(BOB, { lastActivityAt: at(1_000) })] });
+    const direct = reduceRace(state, tick(90_000)).state;
+    const marked = reduceRace(reduceRace(state, tick(60_000)).state, tick(90_000)).state;
+    expect(marked.entrants.find((entrant) => entrant.entrantId === ALICE)?.inactive).toBe(true);
+    const view = (race: RaceState): unknown => ({ ...toRaceBroadcast(race, at(95_000)), revision: 0 });
+    expect(view(marked)).toEqual(view(direct));
+    expect(toRaceBroadcast(marked, at(95_000)).entrants.map((entrant) => entrant.inactive)).toEqual([false, false]);
+  });
+
+  it("never throws near MAX_INSTANT: deadlines past it are left out", () => {
+    const created = createRace({ raceId: EXAMPLE_RACE, text: "ab", errorMode: "free", timeLimit: thirtySeconds, participants: [{ entrantId: ALICE, kind: "human" }, { entrantId: BOB, kind: "human" }], now: asInstant(MAX_INSTANT - 3_000 - 30_000) });
+    if (!created.ok) {
+      throw new Error(created.reason);
+    }
+    const started = reduceRace(created.race, { type: "tick", now: created.race.startsAt });
+    expect(started.state.phase).toBe("racing");
+    expect(started.nextDeadline).toBe(MAX_INSTANT);
+    expect(reduceRace(started.state, { type: "present", entrantId: ALICE, now: asInstant(MAX_INSTANT - 1_000) }).ignored).toBeUndefined();
+    const gone = reduceRace(started.state, { type: "connectionLost", entrantId: BOB, now: asInstant(MAX_INSTANT - 1_000) });
+    expect(gone.ignored).toBeUndefined();
+    expect(gone.nextDeadline).toBe(MAX_INSTANT);
+    // Without a time limit, every presence deadline lies past MAX_INSTANT: no next deadline at all.
+    const unlimited = createRace({ raceId: EXAMPLE_RACE, text: "ab", errorMode: "free", timeLimit: null, participants: [{ entrantId: ALICE, kind: "human" }, { entrantId: BOB, kind: "human" }], now: asInstant(MAX_INSTANT - 3_000 - 30_000) });
+    if (!unlimited.ok) {
+      throw new Error(unlimited.reason);
+    }
+    expect(reduceRace(unlimited.race, { type: "tick", now: unlimited.race.startsAt }).nextDeadline).toBeUndefined();
+  });
+
+  it("gives the grace's expiry as the next deadline when it comes first", () => {
+    const state = race({ clock: at(10_000), entrants: [runner(ALICE, { lastActivityAt: at(10_000) }), runner(BOB, { lastActivityAt: at(10_000) })] });
+    expect(reduceRace(state, lost(ALICE, 10_000)).nextDeadline).toBe(at(40_001));
+  });
+
+  it("a duplicate or a refused batch is not activity; a newly applied one is", () => {
+    const state = race({ clock: at(61_000), entrants: [runner(ALICE, { inactive: true, typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } }), runner(BOB, { lastActivityAt: at(61_000) })] });
+    const duplicate = reduceRace(state, keystrokes(ALICE, 1, [insert("a")], 62_000));
+    expect(duplicate.keystrokes).toMatchObject({ outcome: "duplicate" });
+    expect(entrantOf(duplicate, ALICE)).toMatchObject({ inactive: true, lastActivityAt: at(0) });
+    const refused = reduceRace(state, keystrokes(ALICE, 2, [insert("\n")], 62_000));
+    expect(refused.keystrokes).toMatchObject({ outcome: "refused", reason: "INVALID_INPUT" });
+    expect(entrantOf(refused, ALICE)).toMatchObject({ inactive: true, lastActivityAt: at(0) });
+    const applied = reduceRace(state, keystrokes(ALICE, 2, [{ type: "deleteBackward" }], 62_000));
+    expect(applied.keystrokes).toMatchObject({ outcome: "applied" });
+    expect(entrantOf(applied, ALICE)).toMatchObject({ inactive: false, lastActivityAt: at(62_000) });
+  });
+
+  it("ignores presence events in the documented order", () => {
+    const ended = race({ phase: "ended", endedAt: at(3_000), clock: at(3_000), entrants: [aliceDone, runner(BOB, { status: "finished", endedAt: at(3_000) })] });
+    expect(reduceRace(ended, lost(asEntrantId("mallory"), 4_000)).ignored).toBe("UNKNOWN_ENTRANT");
+    expect(reduceRace(ended, present(BOB, 4_000)).ignored).toBe("RACE_OVER");
+    expect(reduceRace(race({ entrants: [aliceDone, runner(BOB)] }), lost(ALICE, 4_000)).ignored).toBe("ENTRANT_TERMINAL");
+    expect(reduceRace(race({ entrants: [runner(ALICE), runner(BOB, { kind: "bot" })] }), present(BOB, 4_000)).ignored).toBe("BOT_ENTRANT");
+    expect(reduceRace(race({ entrants: [runner(ALICE), runner(BOB, { kind: "bot", status: "finished", endedAt: at(3_000), typed: ["a", "b"] })] }), present(BOB, 4_000)).ignored).toBe("ENTRANT_TERMINAL");
+    expect(reduceRace(race(), resumed(BOB, 4_000)).ignored).toBe("NOT_DISCONNECTED");
+    expect(reduceRace(race({ entrants: [runner(ALICE), runner(BOB, { disconnectedAt: at(1_000) })] }), lost(BOB, 4_000)).ignored).toBe("ALREADY_DISCONNECTED");
+  });
+
+  it("never changes a terminal entrant, the object included", () => {
+    const state = race({ entrants: [aliceDone, runner(BOB)] });
+    for (const event of [lost(ALICE, 4_000), resumed(ALICE, 4_000), present(ALICE, 4_000), tick(500_000)]) {
+      const output = reduceRace(state, event);
+      expect(entrantOf(output, ALICE)).toBe(aliceDone);
+    }
+  });
+
+  it("a « Je suis là » during the countdown keeps the activity at the start", () => {
+    const output = reduceRace(race({ phase: "countdown", clock: at(-3_000) }), present(BOB, -1_000));
+    expect(output.ignored).toBeUndefined();
+    expect(entrantOf(output, BOB)).toMatchObject({ lastActivityAt: at(0), inactive: false });
+  });
+
+  it("a batch alone does not end a grace: only the resumption does", () => {
+    const state = race({ clock: at(30_000), entrants: [runner(ALICE, { disconnectedAt: at(10_000), lastActivityAt: at(10_000) }), runner(BOB, { lastActivityAt: at(30_000) })] });
+    const typed = reduceRace(state, keystrokes(ALICE, 1, [insert("a")], 39_000));
+    expect(entrantOf(typed, ALICE)).toMatchObject({ disconnectedAt: at(10_000), lastActivityAt: at(39_000) });
+    expect(entrantOf(reduceRace(typed.state, tick(40_001)), ALICE)).toMatchObject({ status: "abandoned", abandonReason: "disconnection", endedAt: at(40_000) });
+  });
+
+  it("a new loss after a resumption starts a new grace from its own instant", () => {
+    let state = race({ clock: at(0), entrants: [runner(ALICE), runner(BOB)] });
+    for (const event of [lost(ALICE, 1_000), resumed(ALICE, 20_000), lost(ALICE, 25_000)]) {
+      state = reduceRace(state, event).state;
+    }
+    expect(entrantOf(reduceRace(state, tick(55_000)), ALICE)?.status).toBe("racing");
+    expect(entrantOf(reduceRace(state, tick(55_001)), ALICE)).toMatchObject({ status: "abandoned", endedAt: at(55_000) });
+  });
+
+  it("a loss during the countdown expires 30 s after its detection, in the race", () => {
+    const state = reduceRace(race({ phase: "countdown", clock: at(-3_000) }), lost(BOB, -2_000)).state;
+    expect(entrantOf(reduceRace(state, tick(28_000)), BOB)?.status).toBe("racing");
+    expect(entrantOf(reduceRace(state, tick(28_001)), BOB)).toMatchObject({ status: "abandoned", abandonReason: "disconnection", endedAt: at(28_000) });
+  });
+
+  it("ranks the abandons by progress whatever their reason, keeps the reason, and measures to the deadline", () => {
+    const target = toGraphemes("abc");
+    const carol = asEntrantId("carol");
+    const state = race({
+      text: target,
+      clock: at(50_000),
+      entrants: [
+        runner(ALICE, { target, typed: ["a"], ackSeq: 1, counters: { correctInserts: 1, totalInserts: 1 } }),
+        runner(BOB, { target, typed: ["a", "b"], ackSeq: 1, counters: { correctInserts: 2, totalInserts: 2 }, disconnectedAt: at(40_000), lastActivityAt: at(40_000) }),
+        runner(carol, { target, typed: ["a", "b", "c"], ackSeq: 1, status: "finished", endedAt: at(30_000), counters: { correctInserts: 3, totalInserts: 3 } }),
+      ],
+    });
+    const output = reduceRace(state, tick(200_000));
+    expect(output.ended?.results.map((result) => [result.entrantId, result.status, result.abandonReason, result.elapsed])).toEqual([
+      [carol, "finished", undefined, 30_000],
+      [BOB, "abandoned", "disconnection", 70_000],
+      [ALICE, "abandoned", "inactivity", 120_000],
+    ]);
+    expect(output.state.endedAt).toBe(at(120_000));
+  });
+});
+
+describe("reduceRace invariants with long pauses and presence events (F-04.6)", () => {
+  it("never abandons before a deadline, and marks inactivity exactly", { timeout: 30_000 }, () => {
+    const random = seeded(77);
+    const reached = new Set<string>();
+    const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)] as T;
+    for (let run = 0; run < 250; run += 1) {
+      const ids = Array.from({ length: 2 + Math.floor(random() * 3) }, (_, index) => asEntrantId(`e${index}`));
+      const created = createRace({
+        raceId: EXAMPLE_RACE,
+        text: "ab cd ef gh",
+        errorMode: random() < 0.5 ? "free" : "mandatory",
+        timeLimit: random() < 0.5 ? null : asDuration(Math.floor(30_000 + random() * 270_000)),
+        participants: ids.map((entrantId, index) => ({ entrantId, kind: index === 0 || random() < 0.7 ? "human" : "bot" })),
+        now: at(-3_000),
+      });
+      if (!created.ok) {
+        throw new Error(created.reason);
+      }
+      let state = created.race;
+      let now = -3_000;
+      let ends = 0;
+      for (let step = 0; step < 40 && ends === 0; step += 1) {
+        // Mostly short steps, some long pauses across the marker, the grace and the abandon.
+        now += random() < 0.2 ? Math.floor(25_000 + random() * 100_000) : Math.floor(random() * 4_000);
+        const entrant = pick(state.entrants);
+        const roll = random();
+        const event: RaceEvent =
+          roll < 0.2
+            ? tick(now)
+            : roll < 0.3
+              ? lost(entrant.entrantId, now)
+              : roll < 0.4
+                ? resumed(entrant.entrantId, now)
+                : roll < 0.5
+                  ? present(entrant.entrantId, now)
+                  : roll < 0.52
+                    ? abandon(entrant.entrantId, now)
+                    : keystrokes(entrant.entrantId, random() < 0.1 ? entrant.ackSeq : entrant.ackSeq + 1, [insert(random() < 0.8 ? (entrant.target[entrant.typed.length] ?? "a") : "x")], now);
+        const before = frozen(state);
+        const output = reduceRace(before, event);
+        const after = output.state;
+        if (output.ignored !== undefined) {
+          reached.add(`ignored ${output.ignored}`);
+        }
+        after.entrants.forEach((entrant, index) => {
+          const previous = before.entrants[index];
+          if (previous === undefined) {
+            throw new Error("entrants never change in number");
+          }
+          if (previous.status !== "racing") {
+            expect(entrant).toBe(previous);
+            return;
+          }
+          if (entrant.kind === "bot") {
+            expect(entrant.inactive).toBe(false);
+            expect(entrant.disconnectedAt).toBeUndefined();
+            expect(entrant.abandonReason === "inactivity" || entrant.abandonReason === "disconnection").toBe(false);
+          }
+          if (entrant.status === "abandoned" && entrant.abandonReason === "inactivity") {
+            reached.add("abandon inactivity");
+            expect(entrant.endedAt).toBe(previous.lastActivityAt + 120_000);
+            expect(after.clock).toBeGreaterThan(previous.lastActivityAt + 120_000);
+          }
+          if (entrant.status === "abandoned" && entrant.abandonReason === "disconnection") {
+            reached.add("abandon disconnection");
+            expect(previous.disconnectedAt).toBeDefined();
+            expect(entrant.endedAt).toBe((previous.disconnectedAt ?? 0) + 30_000);
+            expect(after.clock).toBeGreaterThan((previous.disconnectedAt ?? 0) + 30_000);
+          }
+          if (entrant.status === "timedOut" && after.timeLimit !== null) {
+            expect(entrant.endedAt).toBe(after.startsAt + after.timeLimit);
+          }
+          if (entrant.status === "racing" && entrant.kind === "human" && after.phase === "racing") {
+            // Never past a deadline while still racing.
+            expect(after.clock).toBeLessThanOrEqual(entrant.lastActivityAt + 120_000);
+            if (entrant.disconnectedAt !== undefined) {
+              expect(after.clock).toBeLessThanOrEqual(entrant.disconnectedAt + 30_000);
+            }
+            // The marker follows the rule exactly once the event is handled.
+            expect(entrant.inactive).toBe(after.clock >= entrant.lastActivityAt + 60_000);
+            if (entrant.inactive) {
+              reached.add("inactive marker");
+            }
+          }
+          if (entrant.endedAt !== undefined && after.timeLimit !== null) {
+            expect(entrant.endedAt).toBeLessThanOrEqual(after.startsAt + after.timeLimit);
+          }
+        });
+        if (output.ended !== undefined) {
+          ends += 1;
+          reached.add(after.entrants.some((candidate) => candidate.status === "timedOut") ? "end by time limit" : "end with everyone terminal");
+          expect(output.ended.results.map((result) => result.rank)).toEqual(output.ended.results.map((_, index) => index + 1));
+        }
+        state = after;
+      }
+      expect(ends).toBeLessThanOrEqual(1);
+    }
+    for (const outcome of ["abandon inactivity", "abandon disconnection", "inactive marker", "end by time limit", "end with everyone terminal", "ignored ALREADY_DISCONNECTED", "ignored NOT_DISCONNECTED", "ignored BOT_ENTRANT", "ignored ENTRANT_TERMINAL"]) {
+      expect([...reached]).toContain(outcome);
+    }
+  });
+});
+
+/** Small seeded generator (mulberry32), so the random scenarios replay identically. */
+function seeded(seed: number): () => number {
+  let value = seed >>> 0;
+  return () => {
+    value = (value + 0x6d2b79f5) >>> 0;
+    let t = value;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+const ALLOWED: Readonly<Record<RacePhase, readonly RacePhase[]>> = {
+  countdown: ["countdown", "racing", "ended", "interrupted"],
+  racing: ["racing", "ended", "interrupted"],
+  ended: ["ended"],
+  interrupted: ["interrupted"],
+};
+
+/** What everyone in the room sees at `probe`, apart from the revision, as JSON. */
+function publicView(state: RaceState, probe: Instant): string {
+  return JSON.stringify({ ...toRaceBroadcast(state, probe), revision: undefined });
+}
+
+describe("reduceRace invariants over seeded random events", () => {
+  it("holds over 300 races, and reaches every kind of end", { timeout: 30_000 }, () => {
+    const random = seeded(41);
+    const reached = new Set<string>();
+    const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)] as T;
+    for (let run = 0; run < 300; run += 1) {
+      const ids = Array.from({ length: 2 + Math.floor(random() * 3) }, (_, index) => asEntrantId(`e${index}`));
+      const created = createRace({
+        raceId: EXAMPLE_RACE,
+        text: "ab é",
+        errorMode: random() < 0.5 ? "free" : "mandatory",
+        timeLimit: random() < 0.5 ? null : thirtySeconds,
+        participants: ids.map((entrantId, index) => ({ entrantId, kind: index === 0 || random() < 0.5 ? "human" : "bot" })),
+        now: at(-3_000),
+      });
+      if (!created.ok) {
+        throw new Error(created.reason);
+      }
+      let state = created.race;
+      let now = -3_000;
+      let ends = 0;
+      for (let step = 0; step < 40; step += 1) {
+        now = Math.max(-3_000, now + Math.floor(random() * 3_000) - 400);
+        const roll = random();
+        let event: RaceEvent;
+        if (roll < 0.2) {
+          event = tick(now);
+        } else if (roll < 0.25) {
+          event = abandon(pick([...ids, asEntrantId("mallory")]), now);
+        } else if (roll < 0.26) {
+          event = interrupt(now);
+        } else {
+          const entrant = pick(state.entrants);
+          const seq = random() < 0.1 ? entrant.ackSeq : entrant.ackSeq + 1;
+          const events = Array.from({ length: 1 + Math.floor(random() * 3) }, (): InputEvent => {
+            if (random() < 0.15) {
+              return { type: "deleteBackward" };
+            }
+            return insert(random() < 0.7 ? (entrant.target[entrant.typed.length] ?? "a") : pick(["a", "b", "x", " "]));
+          });
+          const raceId = random() < 0.03 ? asRaceId("race-0") : EXAMPLE_RACE;
+          const entrantId = random() < 0.03 ? asEntrantId("mallory") : entrant.entrantId;
+          event = keystrokes(entrantId, seq, events, now, raceId);
+        }
+        const before = frozen(state);
+        const output = reduceRace(before, event);
+        const after = output.state;
+        const final = before.phase === "ended" || before.phase === "interrupted";
+        reached.add(`${before.phase}->${after.phase}`);
+        if (output.keystrokes !== undefined) {
+          reached.add(output.keystrokes.outcome === "refused" ? output.keystrokes.reason : output.keystrokes.outcome);
+        }
+        if (output.ignored !== undefined) {
+          reached.add(`ignored ${output.ignored}`);
+        }
+        if (event.now < before.clock) {
+          reached.add("time going back");
+        }
+        expect(ALLOWED[before.phase]).toContain(after.phase);
+        expect(output.keystrokes !== undefined).toBe(event.type === "keystrokes");
+        if (final) {
+          expect(after).toBe(before);
+          expect(output.changed).toBe(false);
+          expect(output.ended).toBeUndefined();
+          expect(output.nextDeadline).toBeUndefined();
+          continue;
+        }
+        expect(after.clock).toBe(Math.max(before.clock, event.now));
+        // The contract's definition, through JSON rather than the reducer's own comparison.
+        expect(output.changed).toBe(publicView(before, after.clock) !== publicView(after, after.clock));
+        expect(after.revision).toBe(before.revision + (output.changed ? 1 : 0));
+        if (after.phase === "ended" && before.phase === "countdown") {
+          expect(after.clock).toBeGreaterThanOrEqual(after.startsAt);
+        }
+        before.entrants.forEach((entrant, index) => {
+          // A terminal result is immutable (state machine §3).
+          if (entrant.status !== "racing") {
+            expect(after.entrants[index]).toBe(entrant);
+          }
+        });
+        // Recomputed independently: the start, the time limit, and each racing human's marker, abandon and grace.
+        const instants: number[] = [];
+        if (after.phase === "countdown") {
+          instants.push(after.startsAt);
+        }
+        if (after.phase === "countdown" || after.phase === "racing") {
+          if (after.timeLimit !== null) {
+            instants.push(after.startsAt + after.timeLimit);
+          }
+          for (const entrant of after.entrants.filter((candidate) => candidate.status === "racing" && candidate.kind === "human")) {
+            instants.push(...(entrant.inactive ? [] : [entrant.lastActivityAt + 60_000]), entrant.lastActivityAt + 120_001, ...(entrant.disconnectedAt === undefined ? [] : [entrant.disconnectedAt + 30_001]));
+          }
+        }
+        expect(output.nextDeadline).toBe(instants.length === 0 ? undefined : Math.min(...instants));
+        if (output.nextDeadline !== undefined) {
+          expect(output.nextDeadline).toBeGreaterThan(after.clock);
+        }
+        expect(output.ended !== undefined).toBe(after.phase === "ended");
+        if (output.ended !== undefined) {
+          ends += 1;
+          reached.add(after.entrants.some((entrant) => entrant.status === "timedOut") ? "end by time limit" : "end with everyone terminal");
+          const { results } = output.ended;
+          expect(output.ended.endedAt).toBe(after.endedAt);
+          expect(results.map((result) => result.rank)).toEqual(results.map((_, index) => index + 1));
+          expect(new Set(results.map((result) => result.entrantId))).toEqual(new Set(ids));
+          for (const result of results) {
+            const entrant = after.entrants.find((candidate) => candidate.entrantId === result.entrantId);
+            expect(entrant?.status).toBe(result.status);
+            expect(result.elapsed).toBe(measuredElapsed(after.startsAt, output.ended.endedAt, entrant?.endedAt));
+            expect(result.measures).toEqual(computeMeasures(result.counters, result.elapsed));
+          }
+          if (after.timeLimit !== null) {
+            expect(output.ended.endedAt).toBeLessThanOrEqual(after.startsAt + after.timeLimit);
+          }
+        }
+        state = after;
+      }
+      expect(ends).toBeLessThanOrEqual(1);
+    }
+    for (const outcome of ["countdown->racing", "countdown->interrupted", "racing->ended", "racing->interrupted", "ended->ended", "interrupted->interrupted", "end by time limit", "end with everyone terminal", "time going back", "applied", "duplicate", "NOT_RACING", "WRONG_RACE", "UNKNOWN_ENTRANT", "ignored UNKNOWN_ENTRANT", "ignored ENTRANT_TERMINAL", "ignored RACE_OVER"]) {
+      expect([...reached]).toContain(outcome);
+    }
+  });
+});
