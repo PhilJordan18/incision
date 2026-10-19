@@ -25,6 +25,13 @@ type SocketData = { session?: SocketSession };
 
 /** Bound on one incoming message: a socket that sends more is cut by Socket.IO. */
 export const MAX_MESSAGE_BYTES = 32 * 1024;
+/**
+ * How soon a connection lost without a word (a network cut, a sleeping laptop) is noticed: the
+ * server pings every PING_INTERVAL_MS and closes a socket that has not answered within
+ * PING_TIMEOUT_MS, so at most about 15 s after its last packet instead of Socket.IO's 45 s.
+ * A race's 30 s grace (D-06) counts from that detection.
+ */
+export const HEARTBEAT = { pingIntervalMs: 10_000, pingTimeoutMs: 5_000 } as const;
 type SessionSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
 export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOptions): Server {
@@ -33,6 +40,8 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
     serveClient: false,
     // The largest message a page sends is a keystroke batch of a few kilobytes; the default is 1 MB.
     maxHttpBufferSize: MAX_MESSAGE_BYTES,
+    pingInterval: HEARTBEAT.pingIntervalMs,
+    pingTimeout: HEARTBEAT.pingTimeoutMs,
     // Close upgrade requests nobody handles; in development Next's reload socket needs them open.
     destroyUpgrade: isProduction,
     allowRequest: (request, callback) => {

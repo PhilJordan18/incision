@@ -2,9 +2,9 @@ import { createServer, type Server as HttpServer } from "node:http";
 import type { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RACE_BATCH_EVENT, RACE_CONTROL_EVENT, RACE_START_EVENT } from "../../races/protocol";
+import { RACE_ABANDON_EVENT, RACE_BATCH_EVENT, RACE_CONTROL_EVENT, RACE_PRESENT_EVENT, RACE_START_EVENT } from "../../races/protocol";
 import type { RaceService } from "../races/race-service";
-import { CONTROL_LIMIT, connectionOf, handshakeLocale, registerRaceChannel, START_LIMIT } from "./race-channel";
+import { CONTROL_LIMIT, connectionOf, ENTRANT_ACTION_LIMIT, handshakeLocale, registerRaceChannel, START_LIMIT } from "./race-channel";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
 import type { HandshakeAuthentication } from "./socket-session";
@@ -21,6 +21,8 @@ const races = {
   start: vi.fn<RaceService["start"]>(async () => ({ ok: true })),
   keystrokes: vi.fn<RaceService["keystrokes"]>(() => ({ ok: false, error: "NO_RACE" })),
   takeControl: vi.fn<RaceService["takeControl"]>(() => ({ ok: true })),
+  present: vi.fn<RaceService["present"]>(() => ({ ok: true })),
+  abandon: vi.fn<RaceService["abandon"]>(() => ({ ok: true })),
 };
 
 async function authenticate(cookie: string | undefined): Promise<HandshakeAuthentication> {
@@ -66,9 +68,13 @@ describe("race channel", () => {
     expect(await ask(anonymous, RACE_START_EVENT, {})).toEqual({ ok: false, error: "UNAUTHORIZED" });
     expect(await ask(anonymous, RACE_BATCH_EVENT, {})).toEqual({ ok: false, error: "UNAUTHORIZED" });
     expect(await ask(anonymous, RACE_CONTROL_EVENT, { raceId: RACE })).toEqual({ ok: false, error: "UNAUTHORIZED" });
+    expect(await ask(anonymous, RACE_PRESENT_EVENT, { raceId: RACE })).toEqual({ ok: false, error: "UNAUTHORIZED" });
+    expect(await ask(anonymous, RACE_ABANDON_EVENT, { raceId: RACE })).toEqual({ ok: false, error: "UNAUTHORIZED" });
     expect(races.start).not.toHaveBeenCalled();
     expect(races.keystrokes).not.toHaveBeenCalled();
     expect(races.takeControl).not.toHaveBeenCalled();
+    expect(races.present).not.toHaveBeenCalled();
+    expect(races.abandon).not.toHaveBeenCalled();
   });
 
   it("starts for the session's account, with the tab's language, whatever the payload claims", async () => {
@@ -90,6 +96,29 @@ describe("race channel", () => {
     expect(races.keystrokes).toHaveBeenCalledOnce();
     expect(races.keystrokes.mock.calls[0]?.[0]).toMatchObject({ id: alice.id, accountId: ALICE });
     expect(await ask(alice, RACE_CONTROL_EVENT, { raceId: RACE })).toEqual({ ok: true });
+  });
+
+  it("takes « Je suis là » and abandons only from a tab that follows its room, for the session's account", async () => {
+    const alice = await open("session=alice");
+    expect(await ask(alice, RACE_PRESENT_EVENT, { raceId: RACE })).toEqual({ ok: false, error: "NO_RACE" });
+    expect(await ask(alice, RACE_ABANDON_EVENT, { raceId: RACE })).toEqual({ ok: false, error: "NO_RACE" });
+    expect(races.present).not.toHaveBeenCalled();
+    following.add(alice.id ?? "");
+    expect(await ask(alice, RACE_PRESENT_EVENT, { raceId: RACE, accountId: "someone-else" })).toEqual({ ok: true });
+    expect(races.present.mock.calls[0]?.[0]).toMatchObject({ id: alice.id, accountId: ALICE });
+    expect(await ask(alice, RACE_ABANDON_EVENT, { raceId: RACE })).toEqual({ ok: true });
+    expect(races.abandon.mock.calls[0]?.[0]).toMatchObject({ id: alice.id, accountId: ALICE });
+  });
+
+  it("answers a burst of « Je suis là » and abandons from one socket with RATE_LIMITED beyond their shared window", async () => {
+    const alice = await open("session=alice");
+    following.add(alice.id ?? "");
+    const answers = [];
+    for (let attempt = 0; attempt <= ENTRANT_ACTION_LIMIT.maxRequests; attempt += 1) {
+      answers.push(await ask(alice, attempt % 2 === 0 ? RACE_PRESENT_EVENT : RACE_ABANDON_EVENT, { raceId: RACE }));
+    }
+    expect(answers.at(-1)).toEqual({ ok: false, error: "RATE_LIMITED" });
+    expect(races.present.mock.calls.length + races.abandon.mock.calls.length).toBe(ENTRANT_ACTION_LIMIT.maxRequests);
   });
 
   it("answers a burst of starts from one socket with RATE_LIMITED beyond its window", async () => {

@@ -327,4 +327,25 @@ describe("TypingSession", () => {
     session.receive(self({ typed: TARGET, status: "finished", ackSeq: 1 }));
     expect(session.block).toBe("over");
   });
+
+  it("keeps why the entrant abandoned, from a pushed state or a batch's answer (D-06, D-17)", async () => {
+    const { session } = harness();
+    session.receive(self());
+    expect(session.abandonReason).toBeUndefined();
+    session.receive({ ...self({ status: "abandoned" }), abandonReason: "disconnection" });
+    expect(session.abandonReason).toBe("disconnection");
+
+    const other = harness();
+    other.session.receive(self());
+    other.session.type(insert("a"));
+    expect(other.sent).toHaveLength(1);
+    // The batch came after an inactivity deadline: refused, with the entrant's terminal state.
+    await other.answer(0, {
+      ok: true,
+      result: { outcome: "refused", seq: 1, reason: "ENTRANT_TERMINAL" },
+      self: { ...self({ status: "abandoned" }), abandonReason: "inactivity" },
+    });
+    expect(other.session.abandonReason).toBe("inactivity");
+    expect(other.session.block).toBe("over");
+  });
 });

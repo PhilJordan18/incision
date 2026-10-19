@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { HostLeaveConfirm } from "@/components/rooms/host-leave-confirm";
+import { HostRoundActions } from "@/components/rooms/host-round-actions";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatePanel } from "@/components/ui/state-panel";
@@ -12,14 +14,17 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
 import {
+  RACE_ABANDON_EVENT,
   RACE_BATCH_EVENT,
   RACE_CONFIRMING_EVENT,
   RACE_CONTROL_EVENT,
+  RACE_PRESENT_EVENT,
   RACE_PROGRESS_EVENT,
   RACE_REVEAL_EVENT,
   RACE_SELF_EVENT,
   RACE_START_EVENT,
   raceControlAckSchema,
+  raceEntrantActionAckSchema,
   type RaceStartAck,
   raceStartAckSchema,
 } from "@/races/protocol";
@@ -84,6 +89,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   );
   const startRef = useRef<() => Promise<RaceStartAck>>(async () => ({ ok: false, error: "UNAVAILABLE" }));
   const takeControlRef = useRef<(raceId: string) => void>(() => undefined);
+  const entrantActionRef = useRef<(event: typeof RACE_PRESENT_EVENT | typeof RACE_ABANDON_EVENT, raceId: string) => Promise<boolean>>(async () => false);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [ending, setEnding] = useState<Ending | undefined>(undefined);
   const [copy, setCopy] = useState<CopyFeedback>(undefined);
@@ -121,6 +127,19 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           .emitWithAck(RACE_CONTROL_EVENT, { raceId })
           .then((answer: unknown) => raceControlAckSchema.safeParse(answer))
           .catch(() => undefined);
+      }
+    };
+    // « Je suis là » and the confirmed abandon: the server's broadcast and this tab's state
+    // (race:self) show their effect; the answer only says whether the request went through.
+    entrantActionRef.current = async (event, raceId) => {
+      if (!socket.connected) {
+        return false;
+      }
+      try {
+        const answer = raceEntrantActionAckSchema.safeParse(await socket.timeout(5_000).emitWithAck(event, { raceId }));
+        return answer.success && answer.data.ok;
+      } catch {
+        return false;
       }
     };
     let attempt = 0;
@@ -296,6 +315,20 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     }
   }, [interruptedRaceId]);
 
+  // The next round replaces the results (F-04.7): a focus left on the gone button goes to the
+  // room's heading, never to the page.
+  const waitingAfterResults = useRef(snapshot.phase === "results");
+  useEffect(() => {
+    if (snapshot.phase === "results") {
+      waitingAfterResults.current = true;
+    } else if (snapshot.phase === "waiting" && waitingAfterResults.current) {
+      waitingAfterResults.current = false;
+      if (document.activeElement === null || document.activeElement === document.body) {
+        document.getElementById(ROOM_HEADING_ID)?.focus();
+      }
+    }
+  }, [snapshot.phase]);
+
   // The start button disappears with the waiting room: the focus goes to the room's heading
   // rather than to the page, until the typing field takes it at the start.
   const racingView = snapshot.phase === "countdown" || snapshot.phase === "racing";
@@ -334,6 +367,11 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   }, [copy]);
 
   const self = snapshot.members.find((member) => member.memberId === selfMemberId);
+  // Kept once the closed room lists nobody: the host who closed it reads that they did.
+  const [hosted, setHosted] = useState(self?.isHost ?? false);
+  if (self !== undefined && self.isHost !== hosted) {
+    setHosted(self.isHost);
+  }
   const closed = snapshot.phase === "closed";
   const shownEnding: Ending | "closed" | undefined = closed ? "closed" : (ending ?? (self === undefined ? "notMember" : undefined));
 
@@ -367,23 +405,44 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   }
 
   if (shownEnding !== undefined || self === undefined) {
-    return <RoomEnding ending={shownEnding ?? "notMember"} code={snapshot.code} t={t} />;
+    return <RoomEnding ending={shownEnding ?? "notMember"} code={snapshot.code} hosted={hosted} t={t} />;
   }
 
   const participants = snapshot.members.filter((member) => member.role === "participant").length;
+  // During the race, leaving is an abandon (state-machines §3), said before the click.
+  const leavingAbandons = !self.isHost && self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
+  // The host's departure closes the room for everyone (CP-06): it asks first, as « Fermer la salle » does.
   const leave = (
-    <div className="flex max-w-xs flex-col gap-2">
-      <LeaveRoomForm
-        label={t.leave}
-        pendingLabel={t.leaving}
-        errors={t.changeErrors}
-        describedBy={self.isHost ? "host-leave-note" : undefined}
-        onLeaving={onLeaving}
-        onFailed={onLeaveFailed}
-      />
+    <div className={`flex flex-col gap-2 ${self.isHost ? "" : "max-w-xs"}`}>
+      {self.isHost ? (
+        <HostLeaveConfirm
+          t={t}
+          id="host-leave"
+          code={snapshot.code}
+          openLabel={t.leave}
+          describedBy="host-leave-note"
+          racing={racingView}
+          onLeaving={onLeaving}
+          onFailed={onLeaveFailed}
+        />
+      ) : (
+        <LeaveRoomForm
+          label={t.leave}
+          pendingLabel={t.leaving}
+          errors={t.changeErrors}
+          describedBy={leavingAbandons ? "race-leave-note" : undefined}
+          onLeaving={onLeaving}
+          onFailed={onLeaveFailed}
+        />
+      )}
       {self.isHost && (
-        <p id="host-leave-note" className="text-sm text-brume">
+        <p id="host-leave-note" className="max-w-xs text-sm text-brume">
           {t.hostLeaveNote}
+        </p>
+      )}
+      {leavingAbandons && (
+        <p id="race-leave-note" className="max-w-xs text-sm text-brume">
+          {t.raceLeaveNote}
         </p>
       )}
     </div>
@@ -413,6 +472,9 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           roomLabel={format(t.roomTitle, { code: snapshot.code })}
           expectedRaceId={snapshot.race?.raceId}
           onTakeControl={(raceId) => takeControlRef.current(raceId)}
+          onPresent={(raceId) => entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
+          onAbandon={(raceId) => entrantActionRef.current(RACE_ABANDON_EVENT, raceId)}
+          reconnecting={connection === "reconnecting"}
         />
       </div>
     );
@@ -428,9 +490,13 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         {results !== undefined && results.raceId === snapshot.race?.raceId ? (
           results.panel
         ) : (
-          <p role="status" className="text-embrun">
-            {tRaces.confirming}
-          </p>
+          <>
+            <p role="status" className="text-embrun">
+              {tRaces.confirming}
+            </p>
+            {/* Until the results are read, the host can still close the room (the next round needs them). */}
+            {self.isHost && <HostRoundActions t={t.hostActions} code={snapshot.code} />}
+          </>
         )}
       </div>
     );
@@ -467,6 +533,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       {self.isHost && (
         <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants} t={tRaces} />
       )}
+      {self.isHost && <HostRoundActions t={t.hostActions} code={snapshot.code} />}
 
       {connection === "reconnecting" && (
         <section aria-labelledby="reconnect-heading" className={`${card} flex max-w-xl flex-col gap-3 border-or`}>
@@ -535,7 +602,17 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
 }
 
 /** What replaces the waiting room once it no longer applies (screen 15). */
-function RoomEnding({ ending, code, t }: { readonly ending: Ending | "closed"; readonly code: string; readonly t: Dictionary["rooms"] }) {
+function RoomEnding({
+  ending,
+  code,
+  hosted,
+  t,
+}: {
+  readonly ending: Ending | "closed";
+  readonly code: string;
+  readonly hosted: boolean;
+  readonly t: Dictionary["rooms"];
+}) {
   const home = (
     <Link href="/" className={discreetButton}>
       {t.backHome}
@@ -558,7 +635,7 @@ function RoomEnding({ ending, code, t }: { readonly ending: Ending | "closed"; r
             </>
           }
         >
-          <p>{format(t.closed, { code })}</p>
+          <p>{format(hosted ? t.closedByYou : t.closed, { code })}</p>
         </StatePanel>
       );
     case "notMember":

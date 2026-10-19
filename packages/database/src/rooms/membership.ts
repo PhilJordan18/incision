@@ -16,6 +16,7 @@ import { interruptRaceForClosedRoom } from "../races/interruption";
 import { firstRow } from "../rows";
 import { accounts, type InterruptionReason, lobbies, lobbyMembers, type RACE_STATES, races } from "../schema";
 import { boundedTransaction, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
+import { bumpRevision, closeLockedRoom } from "./room-writes";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
 export type ActiveMembership = {
@@ -251,14 +252,7 @@ export async function leaveCurrentRoom(db: Database, accountId: string): Promise
       await interruptRaceForClosedRoom(tx, lobby.currentRaceId);
     }
     if (closesRoom) {
-      await tx
-        .update(lobbyMembers)
-        .set({ leftAt: sql`statement_timestamp()` })
-        .where(and(eq(lobbyMembers.lobbyId, current.lobbyId), isNull(lobbyMembers.leftAt)));
-      await tx
-        .update(lobbies)
-        .set({ phase: "closed", closedAt: sql`statement_timestamp()` })
-        .where(eq(lobbies.id, current.lobbyId));
+      await closeLockedRoom(tx, current.lobbyId);
     } else {
       await tx
         .update(lobbyMembers)
@@ -268,11 +262,4 @@ export async function leaveCurrentRoom(db: Database, accountId: string): Promise
     await bumpRevision(tx, current.lobbyId);
     return { lobbyId: current.lobbyId, closed: closesRoom };
   }, READ_COMMITTED);
-}
-
-async function bumpRevision(tx: Transaction, lobbyId: string): Promise<void> {
-  await tx
-    .update(lobbies)
-    .set({ revision: sql`${lobbies.revision} + 1` })
-    .where(eq(lobbies.id, lobbyId));
 }

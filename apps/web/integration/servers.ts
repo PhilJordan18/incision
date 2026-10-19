@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import net from "node:net";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { isLocalDatabase } from "@incision/database";
@@ -127,8 +128,9 @@ export type Tab = {
   readonly ask: (event: string, payload: unknown) => Promise<unknown>;
 };
 
-export async function openTab(origin: string, cookie: string): Promise<Tab> {
-  const socket = io(origin, { transports: ["websocket"], reconnection: false, extraHeaders: { origin, cookie } });
+/** `via`: another address to reach the server through (a proxy), the page's origin unchanged. */
+export async function openTab(origin: string, cookie: string, via?: string): Promise<Tab> {
+  const socket = io(via ?? origin, { transports: ["websocket"], reconnection: false, extraHeaders: { origin, cookie } });
   const received: Tab["received"] = [];
   socket.onAny((event: string, payload: unknown) => received.push({ event, payload }));
   await new Promise<void>((resolve, reject) => {
@@ -159,5 +161,51 @@ export async function openTab(origin: string, cookie: string): Promise<Tab> {
         socket.on(event, listener);
       }),
     ask: (event, payload) => socket.timeout(10_000).emitWithAck(event, payload),
+  };
+}
+
+/**
+ * A TCP relay to a server that can go silent: `stall` drops every byte both ways from then on,
+ * the connections staying open, as a cut network or a sleeping laptop does. Nothing closes;
+ * only the server's heartbeat can tell.
+ */
+export type StallingProxy = { readonly port: number; readonly stall: () => void; readonly close: () => Promise<void> };
+
+export async function startStallingProxy(targetPort: number): Promise<StallingProxy> {
+  let stalled = false;
+  const sockets = new Set<net.Socket>();
+  const server = net.createServer((client) => {
+    const upstream = net.connect(targetPort, "127.0.0.1");
+    sockets.add(client);
+    sockets.add(upstream);
+    client.on("data", (chunk) => void (stalled || upstream.write(chunk)));
+    upstream.on("data", (chunk) => void (stalled || client.write(chunk)));
+    const end = () => {
+      client.destroy();
+      upstream.destroy();
+      sockets.delete(client);
+      sockets.delete(upstream);
+    };
+    for (const socket of [client, upstream]) {
+      socket.on("close", end);
+      socket.on("error", end);
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("expected a TCP address");
+  }
+  return {
+    port: address.port,
+    stall: () => {
+      stalled = true;
+    },
+    close: async () => {
+      for (const socket of sockets) {
+        socket.destroy();
+      }
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
   };
 }

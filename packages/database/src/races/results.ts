@@ -1,11 +1,13 @@
 import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { type InterruptionReason, lobbies, lobbyMembers, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
+import { type AbandonmentReason, type InterruptionReason, lobbies, lobbyMembers, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type EntrantResult = {
   readonly outcome: (typeof RACE_OUTCOMES)[number];
+  /** Why an abandon happened (voluntary, a lost connection, inactivity); null for the other outcomes. */
+  readonly abandonmentReason: AbandonmentReason | null;
   readonly rank: number;
   readonly elapsedMs: number;
   readonly position: number;
@@ -54,9 +56,9 @@ export async function readRaceForEntrant(db: Database, raceId: string, accountId
 
 /**
  * The race `raceId` of the room `lobbyId`, for any active member of that room, spectators
- * included: what the room shows once its race ended. Undefined when the account is not an
- * active member of that room, or when that race is no longer the room's current one (a new
- * round started between the caller's read and this one).
+ * included: what the room shows on its results. Undefined when the account is not an active
+ * member of that room, or when the room no longer shows that race's results (the host took it
+ * back to the waiting room, or a new round started, between the caller's read and this one).
  */
 export async function readRoomRaceForMember(
   db: Database,
@@ -72,7 +74,7 @@ export async function readRoomRaceForMember(
   const roomRace = db
     .select({ id: lobbies.id })
     .from(lobbies)
-    .where(and(eq(lobbies.id, lobbyId), eq(lobbies.currentRaceId, races.id), sql`exists (${member})`));
+    .where(and(eq(lobbies.id, lobbyId), eq(lobbies.phase, "results"), eq(lobbies.currentRaceId, races.id), sql`exists (${member})`));
   return readRaceView(db, accountId, sql`${races.id} = ${raceId} and exists (${roomRace})`);
 }
 
@@ -105,6 +107,7 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       // Null when the entrant has no result row (left join).
       result: {
         outcome: raceResults.outcome,
+        abandonmentReason: raceResults.abandonmentReason,
         rank: raceResults.rank,
         elapsedMs: raceResults.elapsedMs,
         position: raceResults.position,

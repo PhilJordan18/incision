@@ -7,7 +7,7 @@ import type { PublicRoomSnapshot } from "../src/rooms/protocol";
 import { RACE_TEXTS } from "../src/server/races/race-texts";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { account, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, type Tab } from "./servers";
+import { account, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, startStallingProxy, type StallingProxy, type Tab } from "./servers";
 
 /**
  * F-04.0 integration evidence, without a browser: real server processes (production build),
@@ -16,6 +16,7 @@ import { account, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type Ser
 const pool = { current: undefined as pg.Pool | undefined };
 const servers: ServerProcess[] = [];
 const tabs: Tab[] = [];
+const proxies: StallingProxy[] = [];
 
 function db() {
   if (pool.current === undefined) {
@@ -32,6 +33,9 @@ beforeAll(async () => {
 afterAll(async () => {
   for (const tab of tabs) {
     tab.socket.close();
+  }
+  for (const proxy of proxies) {
+    await proxy.close();
   }
   // Each process's output is kept with the test results (uploaded by CI on a failure).
   const logs = path.resolve(import.meta.dirname, "..", "test-results");
@@ -53,8 +57,8 @@ async function server(index: number): Promise<ServerProcess> {
   return started;
 }
 
-async function tab(origin: string, cookie: string): Promise<Tab> {
-  const opened = await openTab(origin, cookie);
+async function tab(origin: string, cookie: string, via?: string): Promise<Tab> {
+  const opened = await openTab(origin, cookie, via);
   tabs.push(opened);
   return opened;
 }
@@ -183,6 +187,48 @@ describe("an integrated race (F-04.0)", () => {
     expect(hidden).not.toContain("Invitée");
   }, 90_000);
 
+  it("notices a runner whose connection goes silent within about 15 s, keeps its place 30 s, then ranks it as abandoned (D-06)", async () => {
+    const a = servers[0] ?? (await server(0));
+    const host = await account("int-host-6", "Hôte six");
+    const guest = await account("int-guest-6", "Invité six");
+    const code = await room(host, [guest]);
+    const proxy = await startStallingProxy(Number(new URL(a.origin).port));
+    proxies.push(proxy);
+    const h = await tab(a.origin, host.cookie);
+    // The guest's only tab goes through a network that will go silent.
+    const g = await tab(a.origin, guest.cookie, `http://127.0.0.1:${proxy.port}`);
+    expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await g.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const raceId = reveal.reveal.raceId;
+    const guestEntrant = reveal.selfEntrantId;
+    await startsAt(reveal);
+    const text = reveal.reveal.text;
+    await typeAll(g, raceId, text.slice(0, 4));
+    const stalledAt = Date.now();
+    proxy.stall();
+    // Nothing closes: the heartbeat finds the loss (at most about 15 s), then the grace runs 30 s.
+    await h.next(
+      "race:progress",
+      (payload: RaceProgressPayload) => payload.broadcast.entrants.some((entrant) => entrant.entrantId === guestEntrant && entrant.status === "abandoned"),
+      60_000,
+    );
+    const elapsed = Date.now() - stalledAt;
+    expect(elapsed).toBeGreaterThanOrEqual(30_000);
+    expect(elapsed).toBeLessThan(30_000 + 15_000 + 2_000);
+    await typeAll(h, raceId, text);
+    await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "results", 15_000);
+    const rows = await query<{ display_name_snapshot: string; outcome: string; abandonment_reason: string | null; position: number }>(
+      "select e.display_name_snapshot, r.outcome, r.abandonment_reason, r.position from race_results r join race_entrants e on e.id = r.entrant_id where r.race_id = $1 order by r.rank",
+      [raceId],
+    );
+    expect(rows).toEqual([
+      { display_name_snapshot: "Hôte six", outcome: "finished", abandonment_reason: null, position: text.length },
+      { display_name_snapshot: "Invité six", outcome: "abandoned", abandonment_reason: "disconnection", position: 4 },
+    ]);
+  }, 90_000);
+
   it("gives the input to one tab of an entrant, moves it on request, and resumes a reconnected tab from the snapshot", async () => {
     const a = servers[0] ?? (await server(0));
     const host = await account("int-host-2", "Hôte deux");
@@ -239,7 +285,7 @@ describe("an integrated race (F-04.0)", () => {
     const h = await tab(a.origin, host.cookie);
     const g = await tab(a.origin, guest.cookie);
     await h.ask("room:watch", { code });
-    await g.ask("room:watch", { code });
+    await g.ask("room:watch", { code, pageId: FIRST_PAGE });
     expect(await h.ask("race:start", {})).toEqual({ ok: true });
     const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
     const raceId = reveal.reveal.raceId;
@@ -273,8 +319,16 @@ describe("an integrated race (F-04.0)", () => {
 
     // A wakes up: its lease is past, its renewal refused, and nothing it does counts any more.
     await sleep(3_000);
-    const late = (await g.ask("race:batch", { raceId, seq, textVersion: 0, events: [{ type: "insert", grapheme: "e" }] })) as RaceBatchAck;
-    expect(late.ok === false || late.result.outcome !== "applied").toBe(true);
+    // The guest's socket to A did not survive the freeze: without a ping for more than 15 s the
+    // client's own heartbeat closed it (F-04.6). The same page comes back to A at once and takes
+    // its input back (its page id): its late batch is never applied, and never NOT_CONTROLLING.
+    expect(g.socket.connected).toBe(false);
+    const back = await tab(a.origin, guest.cookie);
+    await back.ask("room:watch", { code, pageId: FIRST_PAGE });
+    const late = (await back.ask("race:batch", { raceId, seq, textVersion: 0, events: [{ type: "insert", grapheme: "e" }] })) as RaceBatchAck;
+    // Refused by the lease (SUSPENDED) while A still holds the race, or (NO_RACE) once A has let it
+    // go, which its log shows happens within the 3 s above.
+    expect(late.ok ? late.result.outcome : late.error).toMatch(/^(SUSPENDED|NO_RACE)$/);
     expect(await query("select 1 from race_results where race_id = $1", [raceId])).toEqual([]);
     expect((await query<{ state: string; owner_epoch: number }>("select state, owner_epoch from races where id = $1", [raceId]))[0]).toEqual({ state: "interrupted", owner_epoch: 2 });
     expect((await fetch(`${a.origin}/api/health/live`)).ok).toBe(true);
