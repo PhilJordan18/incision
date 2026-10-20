@@ -107,9 +107,9 @@
 | BOT-04 | Identification visuelle et application des bonus/malus | non fait | — | — | Aucun privilège de score pour un bot. |
 | BOT-05 | Déterminisme par graine et tests unitaires | partiel | packages/domain/src/bots/engine.ts; packages/domain/src/random/prng.ts | engine.test.ts : répétabilité, reprise JSON, borne sur 200 mots, 80 graines par niveau et mode | Moteur vérifié localement dans F-05.1; passage à complet après fusion vérifiée. Même graine, contexte autoritaire et séquence d'instants; aucune promesse de temps identique avec des retards serveur différents. |
 | BONUS-01 | Attribution aux retardataires aux seuils de 25/50/75 %, max. 3 | non fait | — | — | D-11 : derniers ex æquo ou écart strictement >25 points. |
-| BONUS-02 | Au moins 3 types, aide et ralentissement | non fait | — | — | Proposition : -3 mots, +3 mots et brouillard de 3 s; D-11. |
+| BONUS-02 | Au moins 3 types, aide et ralentissement | partiel | packages/domain/src/bonuses/effects.ts; packages/domain/src/bonuses/effects.md | bonuses/effects.test.ts : suppression protégée, ajout au meneur actif, brouillard non cumulable de 3 s | F-06.1 tranche B : primitives pures seulement. Restent la consommation atomique des bonus, le branchement serveur, le rendu du brouillard et son effet sur les bots. Aucun bonus jouable n'est prouvé par cette tranche. |
 | BONUS-03 | Annonce visuelle de l'activation et de la cible | non fait | — | — | Pas seulement une annonce sonore. |
-| BONUS-04 | Progression/MPM cohérents si la longueur est modifiée | non fait | — | — | Cible effective, seules les frappes réelles comptées; D-09/D-11. |
+| BONUS-04 | Progression/MPM cohérents si la longueur est modifiée | partiel | packages/domain/src/bonuses/effects.ts | bonuses/effects.test.ts : mesures inchangées, resynchronisation de textVersion, arrivée avec la longueur effective via le réducteur existant | Compteurs et saisie préservés; seul le texte effectif change. Restent l'intégration atomique et le parcours réel avec activation. |
 
 ## Résultats et historique
 
