@@ -1,7 +1,7 @@
 import type { RaceId } from "../ids";
 import { measuredElapsed } from "./elapsed";
 import { MAX_BATCH_EVENTS, maxPlausibleInserts } from "./limits";
-import { isFinished, normalizedEvents, typeEvents } from "./typing-fold";
+import { isFinished, normalizedEvents, typeEventsWithProgress } from "./typing-fold";
 import type {
   ApplyKeystrokes,
   EntrantKeystrokeRefusal,
@@ -48,7 +48,7 @@ export const applyKeystrokes: ApplyKeystrokes = (entrant, batch, context) => {
   if (events === undefined) {
     return refused(entrant, batch, "INVALID_INPUT");
   }
-  const typing = typeEvents(entrant, events, context.errorMode);
+  const { typing, furthestPosition } = typeEventsWithProgress(entrant, events, context.errorMode);
   // COURSE-06: the entrant's applied inserts, counted from the start, must stay plausible.
   if (typing.counters.totalInserts > maxPlausibleInserts(measuredElapsed(context.startsAt, context.now))) {
     return refused(entrant, batch, "IMPLAUSIBLE");
@@ -60,7 +60,7 @@ export const applyKeystrokes: ApplyKeystrokes = (entrant, batch, context) => {
     ackSeq: seq,
     ...(finished ? { status: "finished", endedAt: context.now } : {}),
   };
-  return { entrant: next, result: { outcome: "applied", seq, ackSeq: seq, textVersion: entrant.textVersion } };
+  return { entrant: next, furthestPosition, result: { outcome: "applied", seq, ackSeq: seq, textVersion: entrant.textVersion } };
 };
 
 /** The authoritative snapshot of one entrant, or undefined for an entrant the race does not know. */
