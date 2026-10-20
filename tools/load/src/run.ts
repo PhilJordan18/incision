@@ -28,7 +28,7 @@ async function main() {
   admin.on("error", abort);
   process.once("SIGINT", abort);
   process.once("SIGTERM", abort);
-  const deadline = setTimeout(abort, 180_000);
+  const deadline = setTimeout(abort, 180_000).unref();
   let created = false;
   let connected = false;
   let server: Awaited<ReturnType<typeof start>> | undefined;
@@ -156,7 +156,7 @@ async function main() {
   const output = path.resolve(import.meta.dirname, "../results");
   await mkdir(output, { recursive: true });
   const file = path.join(output, `${name}.json`);
-  await writeFile(file, `${JSON.stringify({ ...report, cleanupErrors }, null, 2)}\n`, { flag: "wx" });
+  await writeFile(file, `${JSON.stringify({ ...report, passed: !failed && cleanupErrors.length === 0, cleanupErrors }, null, 2)}\n`, { flag: "wx" });
   console.log(`Load report: ${file}`);
   if (failed || cleanupErrors.length > 0) process.exitCode = 1;
 }
