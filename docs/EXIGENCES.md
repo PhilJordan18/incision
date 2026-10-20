@@ -101,11 +101,11 @@
 
 | ID | Attendu (résumé) | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
 |---|---|---|---|---|---|
-| BOT-01 | Cinq niveaux aux paramètres documentés | non fait | — | — | Profils initiaux décrits dans ARCHITECTURE, moteur absent. |
-| BOT-02 | Vitesse variable, hésitations et difficulté | non fait | — | — | Simulation à graine; aucune cadence constante. |
-| BOT-03 | Erreurs, coût de correction, respect du mode | non fait | — | — | Même moteur métier que les humains. |
+| BOT-01 | Cinq niveaux aux paramètres documentés | partiel | packages/domain/src/bots/profiles.ts; packages/domain/src/bots/README.md | engine.test.ts : calibration des cinq niveaux, 80 graines par mode | Moteur pur F-05.1, valeurs contrôlées avec les mesures réelles; intégration serveur et affichage à faire dans #59. Titres pirates approuvés, traduction et affichage différés. |
+| BOT-02 | Vitesse variable, hésitations et difficulté | partiel | packages/domain/src/bots/engine.ts | engine.test.ts : intervalles variables, ralentissement sur mot difficile, appel tardif | Heuristique locale de frappe sans dépendance aux listes; intégration aux courses à faire dans #59. |
+| BOT-03 | Erreurs, coût de correction, respect du mode | partiel | packages/domain/src/bots/engine.ts | engine.test.ts : simulations via reduceRace, correction obligatoire et erreur finale libre | Aucune écriture directe de progression/score; une correction garantie après une erreur obligatoire. Adaptateur serveur à faire dans #59. |
 | BOT-04 | Identification visuelle et application des bonus/malus | non fait | — | — | Aucun privilège de score pour un bot. |
-| BOT-05 | Déterminisme par graine et tests unitaires | non fait | — | — | Graine et horloge injectées, tests de répétabilité prévus. |
+| BOT-05 | Déterminisme par graine et tests unitaires | partiel | packages/domain/src/bots/engine.ts; packages/domain/src/random/prng.ts | engine.test.ts : répétabilité, reprise JSON, borne sur 200 mots, 80 graines par niveau et mode | Moteur vérifié localement dans F-05.1; passage à complet après fusion vérifiée. Même graine, contexte autoritaire et séquence d'instants; aucune promesse de temps identique avec des retards serveur différents. |
 | BONUS-01 | Attribution aux retardataires aux seuils de 25/50/75 %, max. 3 | non fait | — | — | D-11 : derniers ex æquo ou écart strictement >25 points. |
 | BONUS-02 | Au moins 3 types, aide et ralentissement | non fait | — | — | Proposition : -3 mots, +3 mots et brouillard de 3 s; D-11. |
 | BONUS-03 | Annonce visuelle de l'activation et de la cible | non fait | — | — | Pas seulement une annonce sonore. |

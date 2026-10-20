@@ -1,3 +1,5 @@
+export * from "./bots/engine";
+export * from "./bots/profiles";
 export * from "./identity/display-name";
 export * from "./identity/initial-display-name";
 export * from "./identity/login";
