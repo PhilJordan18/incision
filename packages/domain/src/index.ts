@@ -35,3 +35,5 @@ export * from "./time";
 export * from "./words/pool";
 export * from "./words/types";
 export * from "./bonuses/effects";
+export * from "./bonuses/coordinator";
+export * from "./bonuses/coordinator-types";
