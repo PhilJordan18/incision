@@ -34,6 +34,7 @@ export * from "./text/words";
 export * from "./time";
 export * from "./words/pool";
 export * from "./words/types";
-export * from "./bonuses/effects";
+export { applyBonusEffect, bonusFogActive, BONUS_FOG_MS, type BonusFog, type BonusEffect,
+  type BonusEffectRefusal, type BonusEffectResult, type BonusEffectInput } from "./bonuses/effects";
 export * from "./bonuses/coordinator";
 export * from "./bonuses/coordinator-types";

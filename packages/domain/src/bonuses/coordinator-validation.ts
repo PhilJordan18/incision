@@ -1,4 +1,4 @@
-import { MAX_ENTRANT_INSERTS, MAX_TEXT_GRAPHEMES } from "../race/limits";
+import { MAX_ENTRANT_INSERTS, MAX_TEXT_GRAPHEMES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "../race/limits";
 import type { RaceState } from "../race/types";
 import { singleGrapheme } from "../text/graphemes";
 import { MAX_INSTANT } from "../time";
@@ -50,14 +50,21 @@ function valid(state: BonusRaceState): boolean {
 }
 
 function validRace(race: RaceState): boolean {
+  // Repeated letters in 30 long targets need one segmentation per distinct value, not per position.
+  // This cache belongs to this pure call; it never trusts a previous mutable state object.
+  const checked = new Map<string, boolean>();
+  const graphemeValid = (part: string): boolean => {
+    if (!checked.has(part)) checked.set(part, singleGrapheme(part) === part);
+    return checked.get(part) === true;
+  };
   if (!safe(race.clock, MAX_INSTANT) || !safe(race.startsAt, MAX_INSTANT) || !safe(race.countdownAt, race.startsAt) ||
     !safe(race.revision) || !["free", "mandatory"].includes(race.errorMode) ||
-    (race.timeLimit !== null && (!safe(race.timeLimit, 600_000) || race.timeLimit < 30_000 || race.startsAt + race.timeLimit > MAX_INSTANT)) ||
+    (race.timeLimit !== null && (!safe(race.timeLimit, TIME_LIMIT_MAX_MS) || race.timeLimit < TIME_LIMIT_MIN_MS || race.startsAt + race.timeLimit > MAX_INSTANT)) ||
     (race.endedAt !== undefined && !safe(race.endedAt, race.clock))) return false;
   if (new Set(race.entrants.map((entrant) => entrant.entrantId)).size !== race.entrants.length) return false;
   return race.entrants.every((entrant) => entrant.target.length > 0 && entrant.target.length <= MAX_TEXT_GRAPHEMES &&
-    entrant.target.every((part) => singleGrapheme(part) === part) && entrant.typed.length <= entrant.target.length &&
-    entrant.typed.every((part) => singleGrapheme(part) === part) && safe(entrant.textVersion) && safe(entrant.ackSeq) &&
+    entrant.target.every(graphemeValid) && entrant.typed.length <= entrant.target.length &&
+    entrant.typed.every(graphemeValid) && safe(entrant.textVersion) && safe(entrant.ackSeq) &&
     ["racing", "finished", "timedOut", "abandoned"].includes(entrant.status) &&
     (entrant.status !== "racing" || entrant.typed.length < entrant.target.length) &&
     (entrant.status !== "finished" || entrant.typed.length === entrant.target.length) &&
