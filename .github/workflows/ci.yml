@@ -84,6 +84,30 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Release archive installs and ships no local tool
+        # The deploy job's packaging, on Linux: its npm ci --omit=dev must succeed with the tools/*
+        # workspaces absent from the stage, and the archive must hold no tool nor tool dependency.
+        run: |
+          scripts/package-release.sh "$GITHUB_SHA" "$RUNNER_TEMP/release-check.zip"
+          listing="$(unzip -Z1 "$RUNNER_TEMP/release-check.zip")"
+          # Never pass on an empty or truncated listing: the app and its runtime must be there.
+          for required in apps/web/server.ts apps/web/.next/BUILD_ID node_modules/next/package.json; do
+            if ! grep -qxF "$required" <<< "$listing"; then
+              echo "::error::The release archive lacks $required."
+              exit 1
+            fi
+          done
+          # grep exits 1 when nothing matches; any other failure must not read as a clean archive.
+          if found="$(grep -E '^tools/|(^|/)node_modules/@msgpack/|(^|/)node_modules/@incision/word-lists(/|$)' <<< "$listing")"; then
+            echo "$found"
+            echo "::error::The release archive ships a local tool or one of its dependencies."
+            exit 1
+          elif [ $? -ne 1 ]; then
+            echo "::error::grep failed while checking the release archive."
+            exit 1
+          fi
+          rm "$RUNNER_TEMP/release-check.zip"
+
       - name: Integration tests (server processes, F-04.0)
         # Two processes of the production build on their own database of the service container:
         # a full race over Socket.IO, tabs and reconnection, a lost ownership, a stop during a race.

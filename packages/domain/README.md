@@ -43,6 +43,12 @@ re-implement one. A missing rule is added here, not copied there.
   "\r\n") or any other mandatory break of Unicode. `containsLineBreak` is exported so the
   interface can filter Enter with the same rule, and the text pipeline can turn line breaks into
   spaces before a race.
+- **Randomness** (`src/random/prng.ts`). Seeded, never drawn here: the server draws a
+  `RandomState` (four uint32, not all zero) with crypto and passes it in. `createRandom` runs
+  xoshiro128** 1.1 (Blackman and Vigna, public domain), local to one pure call. `state()` resumes
+  the exact sequence, so a stored state and `PRNG_VERSION` reproduce a draw. `index` is unbiased by
+  rejection; `shuffled` is Fisher–Yates on a copy. Never for codes, tokens
+  or anything secret: room codes keep crypto (D-01).
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
 ## Keystroke protocol (`src/race/types.ts`)
@@ -257,6 +263,26 @@ Stored values are bounded, so database columns can be sized from these constants
 | Elapsed time | ≤ `MAX_DURATION_MS` (the instant range, about 4.1 × 10¹² ms): 64-bit integer column, exact |
 | Ranks | exactly 1 to n, each once |
 
+## Words for random texts (`src/words/`, F-02.4)
+
+- **Data, server only.** The lists, the exclusions (P-2) and the forbidden pairs come from the
+  subpath `@incision/domain/words`, never from `index.ts`, which exports only the types and the
+  pure functions. Today they are hand-written fixtures (`WORD_DATA_NOTICE`). The reviewed lists
+  replace them once their packaging, licences and attributions have been reviewed.
+- **Leak detection.** Each list is one template literal opening with `WORD_DATA_SENTINEL`, so no
+  bundler can keep the words and drop the marker. `tools/word-lists` fails when a client asset
+  holds the sentinel or a fingerprint word, and checks that the sentinel lives only under
+  `src/words/data/`, imported from nowhere else in the engine. That check covers the client assets
+  in `.next/static`, not the RSC payloads of prerendered pages; the rule for F-02.5 is that the
+  lists are never passed as props to client components.
+- **`buildWordPool`** applies the exclusions first and always, on exact folded forms
+  (`foldForExclusion`: compatibility forms unified, no accents, œ and æ spelled out, straight
+  apostrophes, lowercase). Excluding
+  "con" never removes "conte". An `accept` filter (a level, letters without accents…) runs after.
+- **`forbiddenPairRule`** says whether two words may not follow each other, in either order. A word
+  of a pair stays drawable alone. The generator (F-02.5) will apply it with a bounded,
+  deterministic search and a typed refusal, never by deleting a word after drawing.
+
 ## Contracts and examples
 
 - **Types first.** Functions that are not implemented yet exist only as types, so there is never a
@@ -280,6 +306,9 @@ Stored values are bounded, so database columns can be sized from these constants
   - `toGraphemes`, `singleGrapheme` and `containsLineBreak`;
   - `measuredElapsed`;
   - the time and id validators, and `compareIds`;
-  - `maxPlausibleInserts`.
+  - `maxPlausibleInserts`;
+  - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4);
+  - `buildWordPool`, `foldForExclusion` and `forbiddenPairRule`, with the data on the
+    `./words` subpath (F-02.4).
 - **Changes.** A contract changes only through an engine pull request, announced before the
   integration that depends on it.
