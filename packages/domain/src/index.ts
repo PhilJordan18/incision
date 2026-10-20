@@ -17,7 +17,16 @@ export * from "./race/views";
 export * from "./random/prng";
 export * from "./rooms/room-admission";
 export * from "./rooms/room-code";
+export * from "./text/coherent";
+export * from "./text/generate";
 export * from "./text/graphemes";
+export * from "./text/measure";
+export * from "./text/normalize";
+// The draw itself stays internal: generateRaceText always checks its result.
+export { ARRANGE_ATTEMPTS, COVER_ATTEMPTS, COVER_WORK_BUDGET, DRAWS_PER_SLOT, type RandomContentRefusal, type RandomWords } from "./text/random";
+export * from "./text/settings";
+export * from "./text/typable";
+export * from "./text/words";
 export * from "./time";
 export * from "./words/pool";
 export * from "./words/types";

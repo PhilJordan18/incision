@@ -9,6 +9,7 @@
  *   exclusions: one word per line
  *   pairs:      "<word> <word>" per line
  */
+import { usesWordLetters } from "../../text/typable";
 import { foldForExclusion } from "../pool";
 import { TEXT_LANGUAGES, type ExclusionList, type ForbiddenPairList, type TextLanguage, type WordEntry, type WordList } from "../types";
 
@@ -17,14 +18,18 @@ export const WORD_DATA_SENTINEL = "incision-word-lists-data-v1";
 
 type Kind = "words" | "exclusions" | "pairs";
 
-/** Lowercase letters, with at most an apostrophe between two letters ("aujourd'hui"); NFKC-stable, so NFC too. */
+/** Lowercase letters, with at most an apostrophe between two letters ("aujourd'hui"); NFKC-stable, so NFC too. The language's own alphabet is checked too. */
 const WORD = /^\p{Ll}+(?:'\p{Ll}+)*$/u;
 const VERSION = /^[a-z0-9][a-z0-9.-]{0,31}$/;
 
-function checkedWord(word: string, where: string): string {
+function checkedWord(word: string, language: TextLanguage, where: string): string {
   // NFKC also refuses ligatures ("ﬁ") and fullwidth letters, which no keyboard types as one key.
   if (!WORD.test(word) || word.normalize("NFKC") !== word) {
     throw new RangeError(`${where}: "${word}" is not an NFKC lowercase word`);
+  }
+  // An explicit alphabet: a lookalike from another script ("idiоt" with a Cyrillic о) is refused.
+  if (!usesWordLetters(word, language)) {
+    throw new RangeError(`${where}: "${word}" uses a letter outside the ${language} alphabet`);
   }
   return word;
 }
@@ -60,19 +65,20 @@ export function parseWordListSource(source: string): WordList {
     }
     previous = centiZipf;
     for (const word of words) {
-      if (seen.has(checkedWord(word, `words ${language}`))) {
+      if (seen.has(checkedWord(word, language, `words ${language}`))) {
         throw new RangeError(`words ${language}: "${word}" appears twice`);
       }
       seen.add(word);
       entries.push({ word, zipf: centiZipf / 100 });
     }
   }
-  return { language, version, entries };
+  // Frozen: the engine caches per list object (folded forms, Zipf), which a change in place would make stale.
+  return Object.freeze({ language, version, entries: Object.freeze(entries.map((entry) => Object.freeze(entry))) });
 }
 
 export function parseExclusionSource(source: string): ExclusionList {
   const { language, version, lines } = header(source, "exclusions");
-  return { language, version, words: lines.map((line) => checkedWord(line, `exclusions ${language}`)) };
+  return Object.freeze({ language, version, words: Object.freeze(lines.map((line) => checkedWord(line, language, `exclusions ${language}`))) });
 }
 
 export function parsePairSource(source: string): ForbiddenPairList {
@@ -83,7 +89,7 @@ export function parsePairSource(source: string): ForbiddenPairList {
     if (words.length !== 2 || foldForExclusion(words[0] ?? "") === foldForExclusion(words[1] ?? "")) {
       throw new RangeError(`pairs ${language}: "${line}" is not two different words`);
     }
-    return [checkedWord(words[0] ?? "", `pairs ${language}`), checkedWord(words[1] ?? "", `pairs ${language}`)];
+    return [checkedWord(words[0] ?? "", language, `pairs ${language}`), checkedWord(words[1] ?? "", language, `pairs ${language}`)];
   });
-  return { language, version, pairs };
+  return Object.freeze({ language, version, pairs: Object.freeze(pairs.map((pair) => Object.freeze(pair))) });
 }

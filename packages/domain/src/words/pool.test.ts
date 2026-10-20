@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWordPool, foldForExclusion, forbiddenPairRule } from "./pool";
+import { buildWordPool, foldedEntries, foldedWord, foldForExclusion, forbiddenPairRule } from "./pool";
 import type { ExclusionList, ForbiddenPairList, WordList } from "./types";
 
 const list = (...words: string[]): WordList => ({
@@ -21,6 +21,8 @@ describe("foldForExclusion", () => {
     ["aujourd‘hui", "aujourd'hui"],
     ["ﬁn", "fin"],
     ["ｃｏｎ", "con"],
+    ["idi\u200dot", "idiot"],
+    ["idi\u00adot", "idiot"],
     ["maison", "maison"],
   ])("folds %s to %s", (word, folded) => {
     expect(foldForExclusion(word)).toBe(folded);
@@ -48,7 +50,7 @@ describe("buildWordPool", () => {
     expect(pool.entries.map((entry) => entry.word)).toEqual(["maison"]);
   });
 
-  it("may return an empty pool, which the generator will refuse before any draw (F-02.5)", () => {
+  it("may return an empty pool, which the generator refuses before any draw (F-02.5)", () => {
     expect(buildWordPool({ list: list("seul"), exclusions: exclusions("seul") }).entries).toEqual([]);
   });
 
@@ -90,5 +92,15 @@ describe("forbiddenPairRule", () => {
 
   it("forbids nothing for an empty list", () => {
     expect(forbiddenPairRule(pairs())("sale", "juif")).toBe(false);
+  });
+});
+
+describe("foldedEntries and foldedWord", () => {
+  it("fold each entry once per list, and any other word on demand", () => {
+    const words = list("Été", "mer");
+    expect(foldedEntries(words)).toEqual(["ete", "mer"]);
+    expect(foldedEntries(words)).toBe(foldedEntries(words));
+    expect(foldedWord(words, "Été")).toBe("ete");
+    expect(foldedWord(words, "Où")).toBe("ou");
   });
 });

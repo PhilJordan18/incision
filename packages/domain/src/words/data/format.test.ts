@@ -26,6 +26,13 @@ describe("parseWordListSource", () => {
     expect(parseWordListSource(`${WORD_DATA_SENTINEL} words en ${"v".repeat(32)}\n500 of`).version).toHaveLength(32);
   });
 
+  it("checks each language's own alphabet", () => {
+    expect(parseWordListSource(words("500 cœur sœur")).entries.map((entry) => entry.word)).toEqual(["cœur", "sœur"]);
+    expect(() => parseWordListSource(`${WORD_DATA_SENTINEL} words en v1\n500 café`)).toThrow(RangeError);
+    expect(() => parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions en v1\nidiоt`)).toThrow(RangeError);
+    expect(() => parsePairSource(`${WORD_DATA_SENTINEL} pairs en v1\nsun mооn`)).toThrow(RangeError);
+  });
+
   it("names the line endings when a source uses CRLF", () => {
     expect(() => parseWordListSource(`${WORD_DATA_SENTINEL} words fr v1\r\n500 de`)).toThrow(/LF line endings/);
   });
@@ -68,6 +75,10 @@ describe("parseWordListSource", () => {
     ["a bin with a leading zero", "050 de"],
     ["a ligature", "500 ﬁn"],
     ["fullwidth letters", "500 ｃｏｎ"],
+    ["a Cyrillic lookalike", "500 idiоt"],
+    ["a dotless i", "500 ıdiot"],
+    ["a small capital", "500 ɪdiot"],
+    ["a Greek iota", "500 ιdiot"],
   ])("refuses %s", (_label, body) => {
     expect(() => parseWordListSource(words(body))).toThrow(RangeError);
   });
@@ -84,6 +95,13 @@ describe("parseExclusionSource and parsePairSource", () => {
         ["lune", "soleil"],
       ],
     });
+  });
+
+  it("freeze what they return, which the engine caches per object", () => {
+    const list = parseWordListSource(words("523 de la"));
+    const exclusions = parseExclusionSource(`${WORD_DATA_SENTINEL} exclusions en v1\nfoo`);
+    const pairs = parsePairSource(`${WORD_DATA_SENTINEL} pairs fr v1\nsale juif`);
+    expect([list, list.entries, list.entries[0], exclusions, exclusions.words, pairs, pairs.pairs, pairs.pairs[0]].every((part) => Object.isFrozen(part))).toBe(true);
   });
 
   it.each([

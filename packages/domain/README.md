@@ -48,7 +48,9 @@ re-implement one. A missing rule is added here, not copied there.
   xoshiro128** 1.1 (Blackman and Vigna, public domain), local to one pure call. `state()` resumes
   the exact sequence, so a stored state and `PRNG_VERSION` reproduce a draw. `index` is unbiased by
   rejection; `shuffled` is Fisher–Yates on a copy. Never for codes, tokens
-  or anything secret: room codes keep crypto (D-01).
+  or anything secret: room codes keep crypto (D-01). A state stays on the server, never in a
+  client payload or a log, and each purpose (a text, a bot, the bonuses) draws its own fresh state:
+  xoshiro is invertible, so a few outputs reveal the state that produced them.
 - **Refusals** are typed codes, never sentences: the interface translates them (I18N-01).
 
 ## Keystroke protocol (`src/race/types.ts`)
@@ -276,12 +278,74 @@ Stored values are bounded, so database columns can be sized from these constants
   in `.next/static`, not the RSC payloads of prerendered pages; the rule for F-02.5 is that the
   lists are never passed as props to client components.
 - **`buildWordPool`** applies the exclusions first and always, on exact folded forms
-  (`foldForExclusion`: compatibility forms unified, no accents, œ and æ spelled out, straight
-  apostrophes, lowercase). Excluding
+  (`foldForExclusion`: compatibility forms unified, invisible characters removed, no accents, œ and
+  æ spelled out, straight apostrophes, lowercase). Excluding
   "con" never removes "conte". An `accept` filter (a level, letters without accents…) runs after.
 - **`forbiddenPairRule`** says whether two words may not follow each other, in either order. A word
-  of a pair stays drawable alone. The generator (F-02.5) will apply it with a bounded,
-  deterministic search and a typed refusal, never by deleting a word after drawing.
+  of a pair stays drawable alone. The generator (F-02.5) applies it with a bounded, deterministic
+  search and a typed refusal, never by deleting a word after drawing.
+
+## Race texts (`src/text/`, F-02.5)
+
+- **Settings.** `TextSettings` is coherent or random (CONF-02 to CONF-07, D-10, D-19): a language,
+  10 to 200 words, a complexity, and four options (punctuation, numbers, capitals, accents).
+  Random settings add the characters to include or exclude; coherent settings cannot express them.
+  `textSettingsRefusal` needs no data, so the interface runs it as the host configures.
+- **Complexity.** `COMPLEXITY_CRITERIA` holds the starting values (letters, Zipf, marks, largest
+  number, sentence length), versioned by `CRITERIA_VERSION`. They stay parameters until they are
+  calibrated on the real lists (P-1). `measureText` gives a passage's measures M1 to M4;
+  `classifyMeasures` turns them into a level with thresholds the caller provides. The measures are
+  only measures: the editorial appraisal of a passage (theme, suitability) is recorded with the
+  corpus, never computed here.
+- **Two normalisations.** Dictionary words follow `src/words` (an explicit alphabet per language,
+  then folding for exclusions). Passages follow `normalizePassage` (version 1): special spaces,
+  typographic apostrophes and quotes, the ellipsis, sentence dashes to " - " with the words kept
+  apart, the typographic hyphens ‐ and ‑ inside a word to "-", French spacing before `; : ! ?`
+  (none before a ":" followed by a digit, as in 10:30). Every change is reported, Unicode
+  composition included. Invisible characters, primes and anything untypable (bidirectional
+  controls, œ and æ until P-4) are refused with their position, never changed blindly.
+- **Words.** A word is a token holding a letter or a digit (D-10): a lone `?` or a dash is none.
+  A cut ends after its Nth word, with the closing punctuation that directly follows (a closing
+  quote included); never on a lone dash or an opening mark. Measures leave tokens with a digit
+  ("1866", "1er") out of M1 to M3.
+- **Coherent mode.** A frozen corpus of frozen passages is checked once; any other is checked on
+  every call. A passage longer than `MAX_PASSAGE_LENGTH` (8,000 code units, far beyond the 200
+  words ever typed) is refused, which also bounds the work each call does per passage. The options apply to the normalised passage first (numbers, punctuation,
+  capitals, accents, in that order), then the text is cut after its Nth word from the passage's
+  start. Nothing is invented, rewritten or joined from distant passages. With numbers off, a run
+  of numbers ("1914 - 1918", "1 000", "1, 2, 3") goes whole, with the quotes or parentheses it
+  opens and closes. A run stops at a quote, a parenthesis or an end mark, so the marks stay
+  balanced and no two sentences merge.
+- **Random mode.** The pool removes the exclusions first, then applies the band, the accents
+  policy (words without diacritics when accents are off, never misspelled), the excluded
+  characters, and leaves out œ and æ. Two words are the same when they are spelled the same ("la"
+  and "là" differ, Q-7); forbidden pairs compare folded forms, and a number between two words
+  does not separate them. Proven incompatibilities are refused before any draw:
+  `NO_COMPATIBLE_WORDS`, `INCLUDED_CHARACTER_UNAVAILABLE`, `INCLUDED_CHARACTERS_DO_NOT_FIT` and
+  `FORBIDDEN_PAIRS_UNAVOIDABLE`. The fit is counted: letters no word holds together each need a
+  word, no word holds more letters than the richest one, each included end mark needs a sentence
+  and each quote or parenthesis a word of its own. These proofs hold under the documented rules
+  (about one number in ten tokens, Q-4; a sentence starts with a word, Q-2). The draw is then a
+  deterministic, bounded search. It redraws the words covering the included letters (at most
+  `COVER_ATTEMPTS` covers, within `COVER_WORK_BUDGET` steps, counted rather than timed), abandons
+  a cover as soon as it outgrows the word slots, then places the cover and the drawn words so
+  that no word repeats and no forbidden pair touches (at most `ARRANGE_ATTEMPTS` arrangements per
+  cover and `DRAWS_PER_SLOT` draws per slot, so 16 × 16 × 200 × 32 neighbour checks at worst),
+  and inserts the numbers; no word is deleted afterwards. When it ends without a text it answers
+  `TEXT_SEARCH_EXHAUSTED`, which proves nothing. The letters each pool word holds are computed
+  once per call. On synthetic lists of 60,000 words, the configuration check takes 0.1 to 0.2 s,
+  and a text or a failed search 0.15 to 0.3 s, words of 16 letters being the slowest case.
+- **Final checks.** `raceTextViolations` lists every guarantee the final text breaks: exactly N
+  words, typable characters, no line break, the grapheme bound, each option's effect; in random
+  mode, each word read from the list itself (band, exclusions, alphabet, accents), included and
+  excluded characters, repeats, pairs, numbers, marks in pairs and their spacing, a word at each sentence
+  start, and capitals only there when every sentence end shows a mark. `generateRaceText` throws
+  on any, since a broken guarantee is a bug. A rule never names a word of the text, since one may
+  be an excluded word and the message reaches logs. `generateRaceText` returns the text with its
+  versions (generator, criteria, normalisation, PRNG) and its provenance (list versions and pool
+  size, or the passage id).
+- **Seed.** The generator takes a `RandomState` drawn by the server with crypto for this text
+  alone, kept private (Q-15).
 
 ## Contracts and examples
 
@@ -309,6 +373,8 @@ Stored values are bounded, so database columns can be sized from these constants
   - `maxPlausibleInserts`;
   - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4);
   - `buildWordPool`, `foldForExclusion` and `forbiddenPairRule`, with the data on the
-    `./words` subpath (F-02.4).
+    `./words` subpath (F-02.4);
+  - `textSettingsRefusal`, `raceTextRefusal`, `generateRaceText`, `raceTextViolations`,
+    `normalizePassage`, `countWords`, `cutToWords` and `measureText` (F-02.5, on fixtures).
 - **Changes.** A contract changes only through an engine pull request, announced before the
   integration that depends on it.
