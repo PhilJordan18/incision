@@ -81,7 +81,7 @@ async function main() {
     server = await start({ port: settings.port, database: url.toString(), secret }, controller.signal);
     stage = "socket connections and room watch";
     for (let i = 0; i < accounts.length; i++) {
-      const client = new Client({ origin: server.origin, cookie: accounts[i]!.cookie, spectator: i >= settings.runners }, controller.signal);
+      const client = new Client({ origin: server.origin, cookie: accounts[i]!.cookie, spectator: i >= settings.runners, expectedRunners: settings.runners }, controller.signal);
       clients.push(client);
       await client.connect();
       const ack = roomWatchAckSchema.parse(await client.ask("room:watch", { code: room.room.code }));

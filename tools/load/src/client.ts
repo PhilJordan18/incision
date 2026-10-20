@@ -22,7 +22,7 @@ export class Client {
   private closing = false;
   private latestRevision = -1;
 
-  constructor(input: { origin: string; cookie: string; spectator: boolean }, readonly signal: AbortSignal) {
+  constructor(input: { origin: string; cookie: string; spectator: boolean; expectedRunners?: number }, readonly signal: AbortSignal) {
     if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(input.origin)) throw new Error("Non-local client target");
     this.socket = io(input.origin, {
       autoConnect: false, transports: ["websocket"], reconnection: false,
@@ -30,13 +30,20 @@ export class Client {
     });
     this.socket.on("race:reveal", (payload: unknown) => {
       const parsed = raceRevealPayloadSchema.safeParse(payload);
-      if (!parsed.success || (parsed.data.selfEntrantId === null) !== input.spectator) this.errors++;
+      if (!parsed.success || (parsed.data.selfEntrantId === null) !== input.spectator ||
+          parsed.data.entrants.length !== (input.expectedRunners ?? 30) ||
+          new Set(parsed.data.entrants.map((entrant) => entrant.entrantId)).size !== parsed.data.entrants.length) this.errors++;
       else this.reveal = parsed.data;
     });
     this.socket.on("race:progress", (payload: unknown) => {
       const parsed = raceProgressPayloadSchema.safeParse(payload);
       if (!parsed.success) { this.errors++; return; }
       const broadcast = parsed.data.broadcast;
+      if (broadcast.entrants.length !== (input.expectedRunners ?? 30) ||
+          new Set(broadcast.entrants.map((entrant) => entrant.entrantId)).size !== broadcast.entrants.length) {
+        this.errors++;
+        return;
+      }
       if (broadcast.revision < this.latestRevision) { this.errors++; return; }
       this.latestRevision = broadcast.revision;
       const now = performance.now();

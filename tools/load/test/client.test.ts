@@ -50,6 +50,17 @@ describe("load client", () => {
     client.close();
     expect(client.disconnects).toBe(1);
   });
+  it("rejects incomplete or duplicated race rosters", () => {
+    const client = new Client({ origin: "http://127.0.0.1:3420", cookie: "fixture", spectator: false, expectedRunners: 2 }, new AbortController().signal);
+    const socket = stub.sockets[0] as EventEmitter;
+    socket.emit("race:reveal", reveal());
+    socket.emit("race:reveal", { ...reveal(), entrants: [reveal().entrants[0], reveal().entrants[0]] });
+    expect(client.errors).toBe(2);
+    expect(client.reveal).toBeUndefined();
+    socket.emit("race:reveal", { ...reveal(), entrants: [reveal().entrants[0], { entrantId: "second", displayName: "Second" }] });
+    expect(client.reveal).toBeDefined();
+    client.close();
+  });
   it("sends actual inserts and counts only applied acknowledgements", async () => {
     const client = new Client({ origin: "http://127.0.0.1:3420", cookie: "fixture", spectator: false }, new AbortController().signal);
     client.reveal = reveal();
