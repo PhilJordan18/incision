@@ -141,6 +141,24 @@ describe("bot scheduling and authoritative integration", () => {
     }
   });
 
+  it("resynchronises a version-only change when the next grapheme stays the same", () => {
+    const { race, bot } = setup("abc");
+    const current = context(race);
+    const plan = stepBot(bot, race.startsAt, current);
+    for (const target of [["a", "b"], ["a", "b", "c", "d", "e"]]) {
+      const changed = { ...current, entrant: { ...current.entrant, target, textVersion: 1 } };
+      const reset = stepBot(plan.bot, plan.nextAt!, changed);
+      expect(reset.batch).toBeUndefined();
+      expect(reset.bot.plan?.textVersion).toBe(1);
+      expect(reset.bot.plan?.expected).toBe("a");
+      expect(reset.nextAt).toBeGreaterThan(plan.nextAt!);
+      const emitted = stepBot(reset.bot, reset.nextAt!, changed);
+      const updatedRace = { ...race, entrants: race.entrants.map((entrant) => entrant.entrantId === BOT ? changed.entrant : entrant) };
+      const applied = reduceRace(updatedRace, { type: "keystrokes", batch: emitted.batch!, now: reset.nextAt! });
+      expect(context(applied.state).entrant.ackSeq).toBe(1);
+    }
+  });
+
   it("handles a huge late call in one event, and never backdates the next event", () => {
     const { race, bot } = setup("a".repeat(200));
     const plan = stepBot(bot, race.startsAt, context(race));
