@@ -360,6 +360,11 @@ Stored values are bounded, so database columns can be sized from these constants
 
 ## Contracts and examples
 
+- **Bonus awards (F-06.1, slice A).** `createBonusAwards` and `awardBonuses` implement the
+  deterministic 25/50/75% milestone grants, not their activation/effects. The private state,
+  exact progress comparisons, seeded selection and integration ordering are documented in
+  [the award contract](src/bonuses/README.md). No runtime calls them yet.
+
 - **Types first.** Functions that are not implemented yet exist only as types, so there is never a
   stub to call. Every function of the first race path is implemented; later cards add theirs the
   same way.
