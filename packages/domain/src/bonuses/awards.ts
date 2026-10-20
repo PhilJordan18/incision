@@ -44,7 +44,7 @@ export function awardBonuses(state: BonusAwardsState, snapshot: BonusAwardsSnaps
   );
   if (!leader) return { ok: true, state: next, grants: [] };
   const crossed = BONUS_MILESTONES.filter((milestone) => !state.milestones.includes(milestone) &&
-    BigInt(leader.position) * 100n >= BigInt(leader.length) * BigInt(milestone));
+    BigInt(leader.position) * BigInt(100) >= BigInt(leader.length) * BigInt(milestone));
   if (crossed.length === 0) return { ok: true, state: next, grants: [] };
 
   const last = active.reduce<BonusProgress | undefined>(
@@ -69,11 +69,11 @@ export function awardBonuses(state: BonusAwardsState, snapshot: BonusAwardsSnaps
 
 function compareProgress(left: BonusProgress, right: BonusProgress): number {
   const difference = BigInt(left.position) * BigInt(right.length) - BigInt(right.position) * BigInt(left.length);
-  return difference === 0n ? 0 : difference > 0n ? 1 : -1;
+  return difference === BigInt(0) ? 0 : difference > BigInt(0) ? 1 : -1;
 }
 
 /** Strictly greater than 25 percentage points. Products remain exact near JS's safe integer limit. */
 function farBehind(entrant: BonusProgress, leader: BonusProgress): boolean {
   const gap = BigInt(leader.position) * BigInt(entrant.length) - BigInt(entrant.position) * BigInt(leader.length);
-  return gap * 100n > 25n * BigInt(leader.length) * BigInt(entrant.length);
+  return gap * BigInt(100) > BigInt(25) * BigInt(leader.length) * BigInt(entrant.length);
 }
