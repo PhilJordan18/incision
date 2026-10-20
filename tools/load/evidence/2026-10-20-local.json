@@ -1,0 +1,1210 @@
+{
+  "timestamp": "2026-10-20T11:20:58.012Z",
+  "sha": "93d5199fda970d1c0cbcaca102c07e3d4bd3b4b7",
+  "dirty": false,
+  "node": "v24.13.0",
+  "machine": {
+    "platform": "darwin",
+    "arch": "x64",
+    "cpus": 12,
+    "cpu": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+    "memoryGiB": 16,
+    "loadBefore": [
+      9.63427734375,
+      9.99853515625,
+      10.40625
+    ]
+  },
+  "runners": 30,
+  "spectators": 20,
+  "fixtureSetup": "Synthetic accounts and signed local sessions; real DB membership functions, not HTTP sign-in/admission load",
+  "scenario": "One full fixed public-domain FR race, mandatory correction, correct inserts, one per 125–153 ms plus ACK delay",
+  "visualSmoothness": "NOT_CHECKED",
+  "productionCapacity": "NOT_CHECKED",
+  "passed": true,
+  "coverage": {
+    "runners": 30,
+    "spectators": 20,
+    "finished": 30,
+    "stored": 30,
+    "observing": 20,
+    "acknowledged": 11910,
+    "expected": 11910,
+    "errors": 0,
+    "disconnects": 0
+  },
+  "buildId": "jQhNysdlIKn0vbvC9n02N",
+  "durationMs": 69837.49557500001,
+  "loadAfter": [
+    5.7001953125,
+    8.7373046875,
+    9.896484375
+  ],
+  "batchAckRttMs": {
+    "count": 11910,
+    "median": 0.8792990000001737,
+    "p95": 1.707760999997845,
+    "p99": 5.133749000000535,
+    "max": 17.77488699999958
+  },
+  "spectatorBroadcastGapMs": {
+    "count": 4900,
+    "median": 250.40276299999823,
+    "p95": 252.15639800000645,
+    "p99": 256.1387130000003,
+    "max": 347.99277900000016
+  },
+  "clients": [
+    {
+      "index": 0,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8903099999988626,
+        "p95": 1.4733699999997043,
+        "p99": 6.645547000000079,
+        "max": 17.77488699999958
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.42129700000078,
+        "p95": 251.4840719999993,
+        "p99": 252.22598700000526,
+        "max": 325.02882400000817
+      }
+    },
+    {
+      "index": 1,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8951889999952982,
+        "p95": 1.917477000002691,
+        "p99": 5.843300999993517,
+        "max": 16.41602000000057
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.40896599999542,
+        "p95": 251.48748900000646,
+        "p99": 252.55963399999746,
+        "max": 325.0652950000076
+      }
+    },
+    {
+      "index": 2,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8856529999975464,
+        "p95": 1.6914170000018203,
+        "p99": 5.804430999998658,
+        "max": 12.170225000001665
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.42958999999973,
+        "p95": 251.51338400000532,
+        "p99": 252.58797499999855,
+        "max": 325.1127310000011
+      }
+    },
+    {
+      "index": 3,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8833860000013374,
+        "p95": 2.3811659999992116,
+        "p99": 5.951560999998037,
+        "max": 12.439438000001246
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.44039699999848,
+        "p95": 251.5068459999893,
+        "p99": 252.63610899999912,
+        "max": 325.12223199999426
+      }
+    },
+    {
+      "index": 4,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.9307279999993625,
+        "p95": 1.8159639999939827,
+        "p99": 7.06844799999817,
+        "max": 8.750959000000876
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4271579999986,
+        "p95": 251.50924400000076,
+        "p99": 252.64770599999974,
+        "max": 325.3405460000067
+      }
+    },
+    {
+      "index": 5,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.9320369999986724,
+        "p95": 1.73418899999524,
+        "p99": 5.313930000003893,
+        "max": 16.089238000000478
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4218480000054,
+        "p95": 251.54120499999408,
+        "p99": 252.64902299999812,
+        "max": 325.30444700000226
+      }
+    },
+    {
+      "index": 6,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.9329899999938789,
+        "p95": 1.9348699999973178,
+        "p99": 8.524725000002945,
+        "max": 11.475180000001274
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4241570000013,
+        "p95": 251.5899389999995,
+        "p99": 252.65461399999913,
+        "max": 325.2748309999879
+      }
+    },
+    {
+      "index": 7,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.9143190000031609,
+        "p95": 1.608473000000231,
+        "p99": 4.682003000001714,
+        "max": 7.86452200000349
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.40767999999662,
+        "p95": 251.62691199999972,
+        "p99": 253.1027409999988,
+        "max": 325.30453999999736
+      }
+    },
+    {
+      "index": 8,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.9480550000007497,
+        "p95": 1.7512629999982892,
+        "p99": 5.614348000002792,
+        "max": 12.46837499999674
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39945499999885,
+        "p95": 251.63438000000133,
+        "p99": 253.19311000000016,
+        "max": 325.2917879999877
+      }
+    },
+    {
+      "index": 9,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.9432330000126967,
+        "p95": 1.8368399999963003,
+        "p99": 6.1361589999996795,
+        "max": 7.811565999996674
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.3793779999978,
+        "p95": 251.59842899999967,
+        "p99": 253.7226559999981,
+        "max": 325.2997299999988
+      }
+    },
+    {
+      "index": 10,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8782670000000508,
+        "p95": 1.6681070000049658,
+        "p99": 5.032692000000679,
+        "max": 11.059585000002699
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39014999999927,
+        "p95": 251.57458000000042,
+        "p99": 253.76958399999785,
+        "max": 325.30027999999584
+      }
+    },
+    {
+      "index": 11,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8856579999992391,
+        "p95": 2.0817710000046645,
+        "p99": 5.319604000000254,
+        "max": 11.580729000001156
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39998400000331,
+        "p95": 251.57753700000467,
+        "p99": 253.80677200000355,
+        "max": 325.17195200000424
+      }
+    },
+    {
+      "index": 12,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8446509999994305,
+        "p95": 1.6001209999994899,
+        "p99": 4.221385000004375,
+        "max": 11.68493799999851
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.3991279999973,
+        "p95": 251.5630799999999,
+        "p99": 253.80985699999292,
+        "max": 324.976542000004
+      }
+    },
+    {
+      "index": 13,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8634120000060648,
+        "p95": 1.9668770000134828,
+        "p99": 5.201369999995222,
+        "max": 12.525144999999611
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39977699999872,
+        "p95": 251.60544300000038,
+        "p99": 253.87755499999912,
+        "max": 325.040525000004
+      }
+    },
+    {
+      "index": 14,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8474310000019614,
+        "p95": 1.7710430000006454,
+        "p99": 4.404172999995353,
+        "max": 7.5575149999931455
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4186669999981,
+        "p95": 251.6974579999951,
+        "p99": 253.80031599999347,
+        "max": 325.0704890000052
+      }
+    },
+    {
+      "index": 15,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8311329999996815,
+        "p95": 1.2568879999998899,
+        "p99": 4.556773000003886,
+        "max": 5.899149999997462
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4235500000068,
+        "p95": 251.717561999998,
+        "p99": 253.80039899999974,
+        "max": 325.11260599999514
+      }
+    },
+    {
+      "index": 16,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8395590000000084,
+        "p95": 1.4561010000034003,
+        "p99": 5.53929799999969,
+        "max": 11.102248000002874
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.41870600000038,
+        "p95": 251.72963300000265,
+        "p99": 253.78061700000399,
+        "max": 325.13088399999833
+      }
+    },
+    {
+      "index": 17,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8527409999987867,
+        "p95": 2.08429199999955,
+        "p99": 4.803389999997307,
+        "max": 11.788570999997319
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.40618499999982,
+        "p95": 251.7384480000037,
+        "p99": 253.81485000000248,
+        "max": 325.15171000000555
+      }
+    },
+    {
+      "index": 18,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8906180000012682,
+        "p95": 1.9312500000014552,
+        "p99": 4.98589300000458,
+        "max": 12.569651999998314
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.41224599999987,
+        "p95": 251.747249,
+        "p99": 254.0219919999945,
+        "max": 325.1389949999866
+      }
+    },
+    {
+      "index": 19,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.904194999995525,
+        "p95": 1.7193239999978687,
+        "p99": 4.3541519999998854,
+        "max": 12.245577999994566
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.3961990000007,
+        "p95": 251.752041000007,
+        "p99": 254.22845699999743,
+        "max": 325.09396800000104
+      }
+    },
+    {
+      "index": 20,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8586909999939962,
+        "p95": 1.4603939999942668,
+        "p99": 4.684552999999141,
+        "max": 13.931252000002132
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.3931520000042,
+        "p95": 251.7572680000012,
+        "p99": 254.25219800000195,
+        "max": 325.05814599999576
+      }
+    },
+    {
+      "index": 21,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8883409999980358,
+        "p95": 1.6686320000007981,
+        "p99": 5.2879160000011325,
+        "max": 11.161370999994688
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.3900530000028,
+        "p95": 251.81628400000045,
+        "p99": 254.30666499999643,
+        "max": 325.05648799998744
+      }
+    },
+    {
+      "index": 22,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.904686000001675,
+        "p95": 1.5727650000007998,
+        "p99": 5.458314999996219,
+        "max": 11.895838999997068
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4063640000022,
+        "p95": 251.81641699999818,
+        "p99": 254.34467500000028,
+        "max": 325.12340300000506
+      }
+    },
+    {
+      "index": 23,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8583709999948042,
+        "p95": 1.309863000000405,
+        "p99": 3.274358000002394,
+        "max": 5.722139999998035
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.40954700000293,
+        "p95": 251.8186370000003,
+        "p99": 254.42053700000542,
+        "max": 325.1591320000007
+      }
+    },
+    {
+      "index": 24,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8592290000015055,
+        "p95": 1.8760149999980058,
+        "p99": 5.750656000000163,
+        "max": 12.281876999993983
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.41354699999647,
+        "p95": 251.82058300000062,
+        "p99": 254.4889420000036,
+        "max": 325.1611919999996
+      }
+    },
+    {
+      "index": 25,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.913248000000749,
+        "p95": 1.5875159999995958,
+        "p99": 5.253564000006008,
+        "max": 15.88038299999971
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.40922500000306,
+        "p95": 251.82019200000286,
+        "p99": 254.5479320000013,
+        "max": 325.2075990000012
+      }
+    },
+    {
+      "index": 26,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8859149999989313,
+        "p95": 1.8281350000033854,
+        "p99": 5.539125999999669,
+        "max": 11.372308999998495
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4086559999996,
+        "p95": 251.82078199999887,
+        "p99": 254.5731569999989,
+        "max": 324.8046080000058
+      }
+    },
+    {
+      "index": 27,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8520539999990433,
+        "p95": 1.4706749999968451,
+        "p99": 4.676547000002756,
+        "max": 6.708814999999959
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.38944499999343,
+        "p95": 251.89206399999966,
+        "p99": 254.66563600000518,
+        "max": 324.8680500000046
+      }
+    },
+    {
+      "index": 28,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.8681020000003628,
+        "p95": 1.554427000000942,
+        "p99": 4.72789400000147,
+        "max": 12.370478999997431
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.38811300000089,
+        "p95": 251.89407400000346,
+        "p99": 254.70726399999694,
+        "max": 324.8655940000026
+      }
+    },
+    {
+      "index": 29,
+      "role": "runner",
+      "acknowledged": 397,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 397,
+        "median": 0.9360129999986384,
+        "p95": 1.6660800000026939,
+        "p99": 5.753855000002659,
+        "max": 7.725635999995575
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.37654699999985,
+        "p95": 251.90088000000105,
+        "p99": 254.80646699999852,
+        "max": 324.8288259999972
+      }
+    },
+    {
+      "index": 30,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.38482599999406,
+        "p95": 251.95013499999914,
+        "p99": 254.79621499999848,
+        "max": 324.76950199999555
+      }
+    },
+    {
+      "index": 31,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39742200000182,
+        "p95": 251.95471499999985,
+        "p99": 254.78947699999844,
+        "max": 324.74983000000066
+      }
+    },
+    {
+      "index": 32,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4033119999949,
+        "p95": 251.9555450000007,
+        "p99": 254.78271100000347,
+        "max": 324.7473489999975
+      }
+    },
+    {
+      "index": 33,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.38944999999512,
+        "p95": 251.9737610000011,
+        "p99": 254.76397999999972,
+        "max": 324.748087999993
+      }
+    },
+    {
+      "index": 34,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39143899999908,
+        "p95": 252.02253699999892,
+        "p99": 255.79471600000397,
+        "max": 334.3073130000048
+      }
+    },
+    {
+      "index": 35,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.3889049999998,
+        "p95": 252.03530899999896,
+        "p99": 255.8472780000011,
+        "max": 346.69255800000246
+      }
+    },
+    {
+      "index": 36,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.38921099999425,
+        "p95": 252.04224799999793,
+        "p99": 256.1387130000003,
+        "max": 346.9664320000011
+      }
+    },
+    {
+      "index": 37,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39364700000442,
+        "p95": 252.05297399999836,
+        "p99": 257.06125599999723,
+        "max": 347.18737499999406
+      }
+    },
+    {
+      "index": 38,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.3939520000058,
+        "p95": 252.08431100000053,
+        "p99": 257.1637039999987,
+        "max": 347.2213469999988
+      }
+    },
+    {
+      "index": 39,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39562400000432,
+        "p95": 252.1037869999982,
+        "p99": 257.2122030000028,
+        "max": 347.5754880000022
+      }
+    },
+    {
+      "index": 40,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.39576400000078,
+        "p95": 252.11758000000555,
+        "p99": 257.2230100000015,
+        "max": 347.5936849999998
+      }
+    },
+    {
+      "index": 41,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4082019999987,
+        "p95": 252.14687199999753,
+        "p99": 257.17831899999874,
+        "max": 347.71596500000305
+      }
+    },
+    {
+      "index": 42,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.41317799999888,
+        "p95": 252.1678350000002,
+        "p99": 257.1646819999987,
+        "max": 347.74020899999596
+      }
+    },
+    {
+      "index": 43,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.3988540000064,
+        "p95": 252.2270770000032,
+        "p99": 257.2229180000031,
+        "max": 347.78541499999847
+      }
+    },
+    {
+      "index": 44,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4101840000003,
+        "p95": 252.2356790000049,
+        "p99": 257.2690920000023,
+        "max": 347.78015199999936
+      }
+    },
+    {
+      "index": 45,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.4253310000022,
+        "p95": 252.2606620000006,
+        "p99": 257.28006599999935,
+        "max": 347.81824300000153
+      }
+    },
+    {
+      "index": 46,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.41145600000164,
+        "p95": 252.27603200000158,
+        "p99": 257.24789600000076,
+        "max": 347.88310400000046
+      }
+    },
+    {
+      "index": 47,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.41948099999718,
+        "p95": 252.31908500000281,
+        "p99": 257.07639500000005,
+        "max": 347.96521400000347
+      }
+    },
+    {
+      "index": 48,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.41864599999826,
+        "p95": 252.33553599999868,
+        "p99": 257.22703099999853,
+        "max": 347.99277900000016
+      }
+    },
+    {
+      "index": 49,
+      "role": "spectator",
+      "acknowledged": 0,
+      "progressCount": 246,
+      "terminal": true,
+      "errors": 0,
+      "disconnects": 0,
+      "batchAckRttMs": {
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "racingBroadcastGapMs": {
+        "count": 245,
+        "median": 250.41709700000138,
+        "p95": 252.33543699999973,
+        "p99": 257.5202909999971,
+        "max": 347.97063499999786
+      }
+    }
+  ],
+  "cleanupErrors": []
+}
