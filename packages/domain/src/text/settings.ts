@@ -88,7 +88,7 @@ export const MAX_SETTING_CHARACTERS = 100;
 /**
  * A character the host may include or exclude: one letter of the language, a digit or a mark,
  * lowercased. Returns undefined for anything else (two graphemes, a space, "ß" in French, and œ or
- * æ, which random mode avoids for now: P-4).
+ * æ, which random mode avoids in this version: P-4).
  */
 export function settingCharacter(input: string, language: TextLanguage): string | undefined {
   if (input.length > MAX_GRAPHEME_LENGTH) return undefined;

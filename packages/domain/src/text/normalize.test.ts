@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRandom } from "../random/prng";
-import { normalizePassage } from "./normalize";
+import { NORMALIZATION_VERSION, normalizePassage } from "./normalize";
 import { countWords, cutToWords } from "./words";
 
 const NBSP = String.fromCodePoint(0xa0);
@@ -13,7 +13,7 @@ const ok = (source: string, language: "fr" | "en" = "fr"): string => {
   return result.text;
 };
 
-describe("normalizePassage (version 1)", () => {
+describe("normalizePassage", () => {
   it("makes spaces, apostrophes, quotes and ellipses typable, and reports what it changed", () => {
     const result = normalizePassage(`C’est « la mer »${NBSP}! Il dit${NNBSP}: “oui”…`, "fr");
     expect(result).toEqual({ ok: true, text: `C'est "la mer" ! Il dit : "oui"...`, changes: ["spaces", "apostrophes", "quotes", "ellipsis"] });
@@ -50,8 +50,14 @@ describe("normalizePassage (version 1)", () => {
     expect(normalizePassage(`l${PRIME}eau`, "fr")).toMatchObject({ ok: false, reason: "REFUSED_CHARACTER", position: 1 });
   });
 
-  it("refuses untypable characters with their position, œ included until P-4", () => {
-    expect(normalizePassage("son œil", "fr")).toEqual({ ok: false, reason: "UNTYPABLE_CHARACTER", character: "œ", position: 4 });
+  it("spells the ligatures out (P-4, version 2), title case before a lowercase letter", () => {
+    expect(normalizePassage("son œil, sa sœur", "fr")).toEqual({ ok: true, text: "son oeil, sa soeur", changes: ["ligatures"] });
+    expect(ok("Œuvre et ŒUVRE ; Æsope et ÆSOPE ; Œ !")).toBe("Oeuvre et OEUVRE ; Aesope et AESOPE ; OE !");
+    expect(ok("Cæsar's manœuvre.", "en")).toBe("Caesar's manoeuvre.");
+    expect(NORMALIZATION_VERSION).toBe(2);
+  });
+
+  it("refuses untypable characters with their position", () => {
     expect(normalizePassage("idiоt", "en")).toMatchObject({ ok: false, reason: "UNTYPABLE_CHARACTER", position: 3 });
     expect(normalizePassage("café", "en")).toMatchObject({ ok: false, reason: "UNTYPABLE_CHARACTER", character: "é" });
     expect(normalizePassage("   ", "fr")).toMatchObject({ ok: false, reason: "EMPTY" });
@@ -143,7 +149,7 @@ describe("normalizePassage: idempotence over dashes, hyphens and marks", () => {
 
   it("gives a text that normalises to itself, over seeded strings", () => {
     const random = createRandom([0x5eed_0001, 0x2468_ace0, 0x1357_9bdf, 0x0f0f_0f0f]);
-    const pieces = ["Quoi", "puis", "mer", " ", " ", EM, EN, "-", "--", ";", "!", "?", ":", ",", ".", "«", "»", String.fromCodePoint(0xa0), "'"];
+    const pieces = ["Quoi", "puis", "mer", " ", " ", EM, EN, "-", "--", ";", "!", "?", ":", ",", ".", "«", "»", String.fromCodePoint(0xa0), "'", "œ", "Œ", "æ", "Æ", "Œuvre"];
     for (let round = 0; round < 5_000; round += 1) {
       const source = `mer ${Array.from({ length: 1 + random.index(12) }, () => pieces[random.index(pieces.length)]).join("")} fin`;
       for (const language of ["fr", "en"] as const) {

@@ -76,6 +76,16 @@ describe("measureText: review findings", () => {
     expect(measureText("So I ran", english, 4)).toMatchObject({ rareWordShare: 0, unknownWords: [] });
   });
 
+  it("looks up a word spelled out from a ligature under the list's spelling (P-4)", () => {
+    const french: WordList = { language: "fr", version: "t", entries: [{ word: "le", zipf: 7 }, { word: "cœur", zipf: 5.3 }, { word: "bat", zipf: 4.5 }, { word: "fort", zipf: 5 }] };
+    expect(measureText("Le coeur bat fort", french, 4)).toMatchObject({ rareWordShare: 0, unknownWords: [] });
+    expect(measureText("Le cœur bat fort", french, 4)).toMatchObject({ rareWordShare: 0, unknownWords: [] });
+    // Both spellings in a list: the more frequent one counts, in either order.
+    const both = (ligature: number, spelled: number): WordList => ({ language: "fr", version: "t", entries: [{ word: "œuvre", zipf: ligature }, { word: "oeuvre", zipf: spelled }] });
+    expect(measureText("oeuvre", both(5, 3), 4).rareWordShare).toBe(0);
+    expect(measureText("oeuvre", both(3, 5), 4).rareWordShare).toBe(0);
+  });
+
   it("keeps English contractions of I in the vocabulary measure, and tokens with a digit out of M1 to M3", () => {
     // "i'm" is rare in this list, so counting it shows that it was measured, not set aside as a name.
     const english: WordList = { language: "en", version: "t", entries: [{ word: "so", zipf: 6 }, { word: "i'm", zipf: 3 }, { word: "here", zipf: 6 }] };

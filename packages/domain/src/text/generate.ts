@@ -92,6 +92,29 @@ export function raceTextRefusal(sources: RaceTextSources, criteria: Readonly<Rec
   return prepare(sources, criteria, false).refusal;
 }
 
+/**
+ * Below this many distinct words, the interface warns the host that a random text will repeat its
+ * words often (Q-7, F-03.1). A provisional diversity indicator, to calibrate with the real lists
+ * (P-1): it proves neither that a text is impossible nor that it is unsafe, and the generator
+ * promises no even spread of the words, whatever the pool.
+ */
+export const LOW_DIVERSITY_POOL_SIZE = 50;
+
+export type RaceTextDiversity = { readonly poolSize: number; readonly lowDiversity: boolean };
+
+/**
+ * How many distinct words a random text may draw from, for the host's warning; undefined for
+ * coherent settings and for settings textSettingsRefusal refuses. It stays defined when
+ * raceTextRefusal refuses the content: the two answers are separate, and the interface shows a
+ * refusal first. An empty pool is never a warning: raceTextRefusal refuses it
+ * (NO_COMPATIBLE_WORDS). Server-side, since the lists are.
+ */
+export function raceTextDiversity(sources: RaceTextSources, criteria: Readonly<Record<Complexity, ComplexityCriteria>> = COMPLEXITY_CRITERIA): RaceTextDiversity | undefined {
+  if (!isRandom(sources) || textSettingsRefusal(sources.settings, criteria) !== undefined) return undefined;
+  const poolSize = new Set(randomPlan(sources.settings, sources.words, criteria[sources.settings.complexity]).pool.map((word) => word.word)).size;
+  return { poolSize, lowDiversity: poolSize > 0 && poolSize < LOW_DIVERSITY_POOL_SIZE };
+}
+
 export function generateRaceText(input: RaceTextInput): RaceTextResult {
   const criteria = input.criteria ?? COMPLEXITY_CRITERIA;
   const { refusal, plan, compatible } = prepare(input, criteria, true);
