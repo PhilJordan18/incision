@@ -90,6 +90,28 @@ test.describe("home (screen 01, JOIN-01)", () => {
   });
 });
 
+test.describe("unknown URL (apps/web/AGENTS.md)", () => {
+  // The rule against notFound() in pages relies on this: app/not-found.tsx is rendered by
+  // the server, with the theme, unlike Next's bare error document (`__next_error__`).
+  test("answers 404 with the not-found page rendered by the server, readable without JavaScript", async ({ browser, request, baseURL }) => {
+    const response = await request.get("/this-page-does-not-exist", { headers: { cookie: "theme=aube" } });
+    expect(response.status()).toBe(404);
+    const html = await response.text();
+    expect(html).not.toContain("__next_error__");
+    expect(html).toMatch(/<html[^>]*\sdata-theme-choice="aube"/);
+
+    const context = await browser.newContext({ javaScriptEnabled: false, locale: "fr-CA" });
+    await context.addCookies([{ name: "theme", value: "aube", url: baseURL ?? "" }]);
+    const page = await context.newPage();
+    await page.goto("/this-page-does-not-exist");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "aube");
+    await expect(page.getByText("Erreur 404")).toBeVisible();
+    await expect(page.getByText("Cette page n’existe pas ou n’est plus disponible.")).toBeVisible();
+    await expect(page).toHaveTitle("Page introuvable · Incision");
+    await context.close();
+  });
+});
+
 test.describe("layout and accessibility (DES-06, A11Y)", () => {
   for (const theme of ["abysse", "aube"] as const) {
     test(`has no WCAG A/AA violation on the public pages in ${theme}`, async ({ page, context, baseURL }) => {
