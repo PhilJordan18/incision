@@ -135,10 +135,11 @@ function shorten(entrant: EntrantState, protectedPosition: number): BonusEffectR
   const total = countWords(text);
   // At zero typing protect the first word. On a space protect that exact expected space, too.
   // A mandatory error protects the expected grapheme although it was not accepted.
-  const protectedLength = Math.max(protectedPosition, entrant.typed.length + 1);
+  const protectedLength = protectedPosition;
   for (let removed = Math.min(3, total - 1); removed >= 1; removed -= 1) {
     const candidate = cutToWords(text, total - removed);
     const target = toGraphemes(candidate);
+    // Strictly longer than typed preserves the expected grapheme even at zero typing/on a space.
     if (target.length < protectedLength || target.length <= entrant.typed.length || !balanced(candidate)) continue;
     if (!entrant.target.slice(0, protectedLength).every((part, index) => target[index] === part)) continue;
     // cutToWords always retains a whole word: a protected prefix cannot be cut mid-word.
