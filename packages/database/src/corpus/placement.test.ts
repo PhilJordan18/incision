@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CORPUS_FOLDER } from "./files";
+import { DELIVERY_PASSAGE_IDS } from "./import";
 
 /**
  * Philippe's decision 3 of October 21: the corpus files are import input only. Nothing in the
@@ -10,6 +11,15 @@ import { CORPUS_FOLDER } from "./files";
  */
 const PACKAGE = path.join(import.meta.dirname, "..", "..");
 const ROOT = path.join(PACKAGE, "..", "..");
+
+describe("the delivery passages", () => {
+  it("are the ones F-04.0 ships in race-texts.ts, so the import keeps requiring the right ids", () => {
+    const raceTexts = readFileSync(path.join(ROOT, "apps", "web", "src", "server", "races", "race-texts.ts"), "utf8");
+    for (const id of DELIVERY_PASSAGE_IDS) {
+      expect(raceTexts, id).toContain(`id: "${id}"`);
+    }
+  });
+});
 
 describe("where the corpus files live", () => {
   it("outside every folder the release archive copies from a package", () => {

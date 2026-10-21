@@ -8,6 +8,10 @@ import { importCorpus } from "../src/corpus/import";
 import { isLocalDatabase } from "../src/local-database";
 import { describeDatabaseError } from "../src/pool";
 
+/** JSON, with C1 controls and invisible format characters escaped too: nothing a file holds acts on the terminal. */
+const printable = (value: unknown): string =>
+  JSON.stringify(value).replace(/[\u007f-\u009f\p{Cf}]/gu, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+
 // Usage: npm run db:import:corpus -w @incision/database -- --version <version> [--folder <corpus folder>]
 // Imports packages/database/corpus/<version>/ into the LOCAL database and activates it (F-02.3a).
 // Local only: a remote (production) import is a separate, authorised process (docs/DEPLOYMENT.md).
@@ -33,7 +37,7 @@ async function main(): Promise<void> {
   const checked = checkCorpus(await readCorpusVersion(values.version, values.folder));
   if (!checked.ok) {
     // As JSON: a refusal quotes the files, whose text must never reach the terminal as control codes.
-    throw new Error(`corpus ${values.version} refused: ${JSON.stringify(checked.refusal)}`);
+    throw new Error(`corpus ${values.version} refused: ${printable(checked.refusal)}`);
   }
   if (checked.corpus.version !== values.version) {
     throw new Error(`the files of folder ${values.version} say version ${checked.corpus.version}`);
@@ -44,7 +48,7 @@ async function main(): Promise<void> {
   try {
     const result = await importCorpus(createDatabase(client), checked.corpus);
     if (!result.ok) {
-      throw new Error(`corpus ${values.version} refused: ${JSON.stringify(result.refusal)}`);
+      throw new Error(`corpus ${values.version} refused: ${printable(result.refusal)}`);
     }
     const { outcome, active, retained, spare, compatibleWithDefaults, newPassages, keptPassages, retiredPassages } = result.report;
     // Re-importing an older version never reactivates it: going back means importing a new version.
