@@ -1,5 +1,6 @@
 import { isLocalDatabase, usesVerifiedTls } from "@incision/database";
 import { z } from "zod";
+import { type RacesSwitch, racesSwitchOf } from "./races/races-switch";
 
 /** Variables without which production must not start (docs/DEPLOYMENT.md lists them). */
 const REQUIRED_IN_PRODUCTION = [
@@ -34,8 +35,10 @@ const serverEnvSchema = z
     AUTH_DISCORD_SECRET: nonEmpty.optional(),
     /** Reverse proxies in front of the app whose X-Forwarded-For entry is trusted: 1 on App Service. */
     TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(2).optional(),
-    /** `allowed`: a production build may run the race text test fixtures (local builds, a test deployment). */
+    /** `allowed`: races run the short test fixtures instead of the chosen texts (local test builds). */
     RACE_FIXTURE_TEXTS: z.literal("allowed", { error: 'must be "allowed" or unset' }).optional(),
+    /** Only `true` lets new races start; any other value closes them without stopping the start-up. */
+    RACES_ENABLED: z.string().optional(),
   })
   .superRefine((env, context) => {
     const problem = (path: string, message: string) => context.addIssue({ code: "custom", path: [path], message });
@@ -56,6 +59,10 @@ const serverEnvSchema = z
     if (env.APP_URL !== undefined && !isHttpsOrLocal(env.APP_URL)) {
       problem("APP_URL", "must use HTTPS in production");
     }
+    // The short test texts never reach a deployed site: only a local production build (E2E, integration) runs them.
+    if (env.RACE_FIXTURE_TEXTS === "allowed" && !isLocalUrl(env.APP_URL)) {
+      problem("RACE_FIXTURE_TEXTS", "is for local test builds only (APP_URL on localhost)");
+    }
     // Without verified TLS, pg would send the password in clear text or trust any certificate.
     if (env.DATABASE_URL !== undefined && !isLocalDatabase(env.DATABASE_URL) && !usesVerifiedTls(env.DATABASE_URL)) {
       problem("DATABASE_URL", "must use verified TLS (sslmode=verify-full) in production");
@@ -73,11 +80,10 @@ export type ServerEnv = {
   /** HTTPS public URL: Auth.js then names its cookies `__Secure-…` (also the JWT key salt). */
   readonly secureCookies: boolean;
   readonly trustedProxyHops: number;
-  /**
-   * The race texts are test fixtures (race-texts.ts): they run outside production, and in
-   * production only with RACE_FIXTURE_TEXTS=allowed. Otherwise race starts are refused.
-   */
+  /** Races run the short test fixtures (RACE_FIXTURE_TEXTS=allowed) instead of the chosen texts (race-texts.ts). */
   readonly fixtureRaceTexts: boolean;
+  /** Whether new races may start (RACES_ENABLED, races-switch.ts); never which texts they run. */
+  readonly racesSwitch: RacesSwitch;
 };
 
 /** Validates the environment at start-up. Error messages name variables, never their values. */
@@ -89,7 +95,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     const problems = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
     throw new Error(`Invalid server environment: ${problems.join("; ")}`);
   }
-  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS, RACE_FIXTURE_TEXTS } = result.data;
+  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS, RACE_FIXTURE_TEXTS, RACES_ENABLED } = result.data;
   const appOrigin = new URL(APP_URL ?? `http://localhost:${PORT}`).origin;
   return {
     isProduction: NODE_ENV === "production",
@@ -99,13 +105,19 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     authSecret: AUTH_SECRET,
     secureCookies: appOrigin.startsWith("https:"),
     trustedProxyHops: TRUSTED_PROXY_HOPS ?? 0,
-    fixtureRaceTexts: NODE_ENV !== "production" || RACE_FIXTURE_TEXTS === "allowed",
+    fixtureRaceTexts: RACE_FIXTURE_TEXTS === "allowed",
+    racesSwitch: racesSwitchOf(RACES_ENABLED),
   };
 }
 
 function isPublicRoot(authUrl: string, appOrigin: string): boolean {
   const url = URL.parse(authUrl);
   return url !== null && url.origin === appOrigin && url.pathname === "/" && url.search === "" && url.hash === "";
+}
+
+function isLocalUrl(appUrl: string | undefined): boolean {
+  const url = appUrl === undefined ? null : URL.parse(appUrl);
+  return url !== null && LOCAL_HOSTNAMES.has(url.hostname);
 }
 
 function isHttpsOrLocal(appUrl: string): boolean {

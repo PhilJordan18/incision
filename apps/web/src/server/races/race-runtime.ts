@@ -10,13 +10,19 @@ import {
   type RaceEvent,
   type RaceOutput,
   type RaceState,
-  reduceRace,
+  reduceBonusRace,
+  availableBonusGrants,
+  type BonusRaceState,
+  type BonusRaceEvent,
+  type BonusRaceOutput,
+  type BonusContent,
   toEntrantMeasures,
   toEntrantSnapshot,
   toRaceBroadcast,
   toRaceReveal,
 } from "@incision/domain";
 import type { Locale } from "../../i18n/locale";
+import { RACE_BONUS_ANNOUNCEMENT_EVENT, RACE_BONUS_SELF_EVENT, type BonusActivationPayload, type BonusActivationAck, type BonusSelf } from "../../races/bonus-protocol";
 import type { KeystrokeBatchPayload, RaceBatchAck, RaceProgressPayload, RaceRevealPayload, RaceSelfPayload } from "../../races/protocol";
 import { RACE_CONFIRMING_EVENT, RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, RACE_SELF_EVENT } from "../../races/protocol";
 import type { LeaseState, Schedule } from "./race-lease";
@@ -63,7 +69,9 @@ export type LeaseView = {
 
 export type RaceRuntimeOptions = {
   readonly ownership: RaceOwnership;
-  readonly state: RaceState;
+  readonly state: BonusRaceState;
+  /** Trusted, pure approved-content provider; absent means append is unavailable, never a fallback. */
+  readonly bonusContent?: BonusContent;
   readonly entrants: readonly RaceEntrant[];
   /** The language of the race's text (the host's at the start, D-19), for the pages to mark it. */
   readonly language: Locale;
@@ -121,7 +129,8 @@ export class RaceRuntime implements OwnedRace {
   readonly #options: RaceRuntimeOptions;
   readonly #timing: RuntimeTiming;
   readonly #entrants: ReadonlyMap<string, RaceEntrant>;
-  #state: RaceState;
+  #bonus: BonusRaceState;
+  get #state(): RaceState { return this.#bonus.race; }
   #stage: Stage = "running";
   /** Frozen at the end and sent unchanged by every attempt, until one is confirmed. */
   #results: readonly RaceResultRow[] | undefined;
@@ -146,7 +155,7 @@ export class RaceRuntime implements OwnedRace {
   constructor(options: RaceRuntimeOptions) {
     this.#options = options;
     this.ownership = options.ownership;
-    this.#state = options.state;
+    this.#bonus = options.state;
     this.#timing = { ...TIMING, ...options.timing };
     this.#entrants = new Map(options.entrants.map((entrant) => [entrant.entrantId, entrant]));
   }
@@ -206,6 +215,7 @@ export class RaceRuntime implements OwnedRace {
     connection.emit(RACE_PROGRESS_EVENT, progress);
     if (self !== undefined) {
       connection.emit(RACE_SELF_EVENT, self);
+      connection.emit(RACE_BONUS_SELF_EVENT, this.#bonusSelf(entrant!.entrantId));
     }
     if (this.#stage === "saving") {
       connection.emit(RACE_CONFIRMING_EVENT, { raceId: this.ownership.raceId });
@@ -333,6 +343,27 @@ export class RaceRuntime implements OwnedRace {
     return { ok: true, result: output.keystrokes, self };
   }
 
+  /** Authenticated controlling tab only; one synchronous coordinator transition, no SQL or await. */
+  activateBonus(connection: RaceConnection, payload: BonusActivationPayload): BonusActivationAck {
+    const entrant = this.#entrantOf(connection.accountId);
+    if (entrant === undefined) return { ok: false, error: "NOT_AN_ENTRANT" };
+    if ((this.#stage !== "running" && this.#stage !== "saving") || payload.raceId !== this.ownership.raceId) return { ok: false, error: "NO_RACE" };
+    if (this.#control.get(entrant.entrantId)?.connectionId !== connection.id) return { ok: false, error: "NOT_CONTROLLING" };
+    if (!this.#options.lease.isAuthoritative()) return { ok: false, error: "SUSPENDED" };
+    const output = this.#applyBonus({ type: "activate", raceId: asRaceId(payload.raceId), entrantId: asEntrantId(entrant.entrantId),
+      milestone: payload.milestone, seq: payload.seq, now: this.#now() });
+    if (output?.activation === undefined) return { ok: false, error: "NO_RACE" };
+    return { ok: true, result: output.activation, self: this.#bonusSelf(entrant.entrantId) };
+  }
+
+  #bonusSelf(entrantId: string): BonusSelf {
+    const fog = this.#bonus.fog.find((item) => item.entrantId === entrantId);
+    return { raceId: this.ownership.raceId, revision: this.#bonus.revision, enabled: this.#bonus.awards.enabled,
+      ackSeq: this.#bonus.cursors.find((item) => item.entrantId === entrantId)?.seq ?? 0,
+      grants: availableBonusGrants(this.#bonus, asEntrantId(entrantId)).map(({ milestone, kind }) => ({ milestone, kind })),
+      fog: fog === undefined ? null : { startsAt: fog.startsAt, expiresAt: fog.expiresAt } };
+  }
+
   /**
    * « Je suis là » (D-17), from any tab of the entrant: activity for the engine. Like a batch,
    * only while this process can prove it owns the race.
@@ -413,6 +444,10 @@ export class RaceRuntime implements OwnedRace {
     } else if (state === "held" && this.#stage === "running") {
       // Broadcasts held back while the lease was suspended go out now.
       this.#scheduleProgress();
+      for (const entrant of this.#entrants.values()) {
+        this.#sendSelf(entrant.entrantId, { volatile: false });
+        for (const connection of this.#connectionsOf(entrant.accountId)) connection.emit(RACE_BONUS_SELF_EVENT, this.#bonusSelf(entrant.entrantId));
+      }
     }
   }
 
@@ -511,18 +546,26 @@ export class RaceRuntime implements OwnedRace {
    * whose request this is, which gets its state in its answer.
    */
   #apply(event: RaceEvent, answered?: string): RaceOutput | undefined {
-    if (this.#stage !== "running" && !(this.#stage === "saving" && event.type === "keystrokes")) {
+    return this.#applyBonus(event, answered)?.raceOutput;
+  }
+
+  #applyBonus(event: BonusRaceEvent, answered?: string): BonusRaceOutput | undefined {
+    if (this.#stage !== "running" && !(this.#stage === "saving" && (event.type === "keystrokes" || event.type === "activate"))) {
       return undefined;
     }
-    let output: RaceOutput;
+    let bonusOutput: BonusRaceOutput;
     try {
-      output = reduceRace(this.#state, event);
+      const reduced = reduceBonusRace(this.#bonus, event, this.#options.bonusContent);
+      if (!reduced.ok) throw new RangeError(reduced.reason);
+      bonusOutput = reduced;
     } catch (error: unknown) {
       this.#engineFailed(error);
       return undefined;
     }
     const before = this.#state;
-    this.#state = output.state;
+    const beforeBonus = this.#bonus;
+    this.#bonus = bonusOutput.state;
+    const output = bonusOutput.raceOutput;
     if (before.phase === "countdown" && output.state.phase !== "countdown") {
       this.#writeBegin();
     }
@@ -531,15 +574,32 @@ export class RaceRuntime implements OwnedRace {
       // A view failed while telling it (`engine_error`): that interruption decides, nothing else.
       return undefined;
     }
-    if (output.changed) {
+    if (beforeBonus.revision !== this.#bonus.revision) {
       this.#scheduleProgress();
+    }
+    // Effects may change text without changing the legacy race revision. Publish private
+    // recovery state reliably; inventories and seeds never go to room followers at large.
+    if (this.#options.lease.isAuthoritative()) {
+      for (const entrant of this.#entrants.values()) {
+        const previous = before.entrants.find((item) => item.entrantId === entrant.entrantId);
+        const current = this.#state.entrants.find((item) => item.entrantId === entrant.entrantId);
+        if (previous?.textVersion !== current?.textVersion) this.#sendSelf(entrant.entrantId, { volatile: false });
+        const oldProjection = bonusPrivateKey(beforeBonus, entrant.entrantId);
+        if (oldProjection !== bonusPrivateKey(this.#bonus, entrant.entrantId)) {
+          for (const connection of this.#connectionsOf(entrant.accountId)) connection.emit(RACE_BONUS_SELF_EVENT, this.#bonusSelf(entrant.entrantId));
+        }
+      }
+      for (const announcement of bonusOutput.announcements) {
+        for (const connection of this.#options.followers()) connection.emit(RACE_BONUS_ANNOUNCEMENT_EVENT,
+          { raceId: this.ownership.raceId, revision: this.#bonus.revision, announcement });
+      }
     }
     if (output.ended !== undefined) {
       this.#freeze(output.ended);
     } else if (this.#stage === "running") {
-      this.#scheduleTick(output.nextDeadline);
+      this.#scheduleTick(bonusOutput.nextDeadline);
     }
-    return output;
+    return bonusOutput;
   }
 
   /**
@@ -673,7 +733,8 @@ export class RaceRuntime implements OwnedRace {
     this.#logError(`[races] the engine failed on ${this.ownership.raceId}: ${error instanceof Error ? error.name : "unknown error"}`);
     try {
       // The reducer is pure: the last good state is intact, and interrupting it only reads it.
-      this.#state = reduceRace(this.#state, { type: "interrupt", now: this.#now() }).state;
+      const interrupted = reduceBonusRace(this.#bonus, { type: "interrupt", now: this.#now() });
+      if (interrupted.ok) this.#bonus = interrupted.state;
     } catch {
       // The database interruption below is what counts.
     }
@@ -793,7 +854,7 @@ export class RaceRuntime implements OwnedRace {
   }
 
   #progress(now = this.#options.now()): RaceProgressPayload | undefined {
-    return this.#view(() => ({ broadcast: toRaceBroadcast(this.#state, asInstant(now)), serverNow: now }));
+    return this.#view(() => ({ broadcast: { ...toRaceBroadcast(this.#state, asInstant(now)), revision: this.#bonus.revision }, serverNow: now }));
   }
 
   #selfFor(entrantId: string, connectionId: string): RaceSelfPayload | undefined {
@@ -839,6 +900,17 @@ export class RaceRuntime implements OwnedRace {
 }
 
 const OUTCOMES = { finished: "finished", timedOut: "timed_out", abandoned: "abandoned" } as const;
+
+/** Compare only what the owner can recover, not the revision which advances on every tick. */
+function bonusPrivateKey(state: BonusRaceState, entrantId: string): string {
+  // Change detection only: the domain still decides which grants are usable. Do not run
+  // its full-envelope validator once per entrant twice on every keystroke batch.
+  return JSON.stringify({ phase: state.race.phase, status: state.race.entrants.find((item) => item.entrantId === entrantId)?.status,
+    grants: state.awards.grants.filter((item) => item.entrantId === entrantId),
+    consumed: state.consumed.filter((item) => item.grant.entrantId === entrantId).map((item) => item.id),
+    cursor: state.cursors.find((item) => item.entrantId === entrantId)?.seq,
+    fog: state.fog.find((item) => item.entrantId === entrantId) });
+}
 
 /** One entrant's official result as the engine produced it, written as is (RES-05). */
 export function toResultRow(result: EntrantResult): RaceResultRow {

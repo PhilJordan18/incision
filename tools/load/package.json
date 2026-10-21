@@ -1,0 +1,28 @@
+{
+  "name": "@incision/load",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-only production-build race load harness; never deployed.",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "load": "tsx src/run.ts"
+  },
+  "devDependencies": {
+    "@incision/database": "^0.1.0",
+    "@incision/domain": "^0.1.0",
+    "@types/node": "^24.19.1",
+    "@types/pg": "^8.23.1",
+    "eslint": "^9.39.5",
+    "jiti": "^2.7.0",
+    "next-auth": "5.0.0-beta.32",
+    "pg": "^8.23.1",
+    "socket.io-client": "^4.8.4",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,3 +1,7 @@
+export * from "./bots/engine";
+export * from "./bots/profiles";
+export * from "./bonuses/awards";
+export * from "./bonuses/types";
 export * from "./identity/display-name";
 export * from "./identity/initial-display-name";
 export * from "./identity/login";
@@ -14,7 +18,23 @@ export * from "./race/start";
 export * from "./race/types";
 export * from "./race/typing";
 export * from "./race/views";
+export * from "./random/prng";
 export * from "./rooms/room-admission";
 export * from "./rooms/room-code";
+export * from "./text/coherent";
+export * from "./text/generate";
 export * from "./text/graphemes";
+export * from "./text/measure";
+export * from "./text/normalize";
+// The draw itself stays internal: generateRaceText always checks its result.
+export { ARRANGE_ATTEMPTS, COVER_ATTEMPTS, COVER_WORK_BUDGET, DRAWS_PER_SLOT, type RandomContentRefusal, type RandomWords } from "./text/random";
+export * from "./text/settings";
+export * from "./text/typable";
+export * from "./text/words";
 export * from "./time";
+export * from "./words/pool";
+export * from "./words/types";
+export { applyBonusEffect, bonusFogActive, BONUS_FOG_MS, type BonusFog, type BonusEffect,
+  type BonusEffectRefusal, type BonusEffectResult, type BonusEffectInput } from "./bonuses/effects";
+export * from "./bonuses/coordinator";
+export * from "./bonuses/coordinator-types";

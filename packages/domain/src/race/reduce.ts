@@ -55,7 +55,7 @@ export const reduceRace: ReduceRace = (state, event) => {
   };
 };
 
-type Reply = { readonly keystrokes?: KeystrokeResult; readonly ignored?: PresenceIgnored };
+type Reply = { readonly keystrokes?: KeystrokeResult; readonly ignored?: PresenceIgnored; readonly typingProgress?: { readonly entrantId: EntrantState["entrantId"]; readonly furthestPosition: number } };
 type Handled = { readonly state: RaceState; readonly reply: Reply };
 
 function isFinal(state: RaceState): boolean {
@@ -129,12 +129,15 @@ function keystrokes(state: RaceState, batch: KeystrokeBatch, now: Instant): Hand
   if (entrant === undefined) {
     return { state, reply: { keystrokes: { outcome: "refused", seq: batch.seq, reason: "UNKNOWN_ENTRANT" } } };
   }
-  const { entrant: next, result } = applyKeystrokes(entrant, batch, { errorMode: state.errorMode, phase: state.phase, startsAt: state.startsAt, now });
+  const { entrant: next, result, furthestPosition } = applyKeystrokes(entrant, batch, { errorMode: state.errorMode, phase: state.phase, startsAt: state.startsAt, now });
   if (result.outcome !== "applied") {
     // A duplicate, a refusal or a resync is not activity (D-17): only a newly applied batch is.
     return { state, reply: { keystrokes: result } };
   }
-  return { state: withEntrant(state, index, active(next, now)), reply: { keystrokes: result } };
+  return { state: withEntrant(state, index, active(next, now)), reply: {
+    keystrokes: result,
+    ...(furthestPosition === undefined ? {} : { typingProgress: { entrantId: entrant.entrantId, furthestPosition } }),
+  } };
 }
 
 /** A confirmed abandon (COURSE-07), allowed during the countdown and the race. */

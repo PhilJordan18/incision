@@ -4,6 +4,7 @@ import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RACE_ABANDON_EVENT, RACE_BATCH_EVENT, RACE_CONTROL_EVENT, RACE_PRESENT_EVENT, RACE_START_EVENT } from "../../races/protocol";
 import type { RaceService } from "../races/race-service";
+import { RACE_BONUS_ACTIVATE_EVENT } from "../../races/bonus-protocol";
 import { CONTROL_LIMIT, connectionOf, ENTRANT_ACTION_LIMIT, handshakeLocale, registerRaceChannel, START_LIMIT } from "./race-channel";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
@@ -18,6 +19,7 @@ let baseUrl: string;
 const clients: Socket[] = [];
 const following = new Set<string>();
 const races = {
+  activateBonus: vi.fn<RaceService["activateBonus"]>(() => ({ ok: false, error: "NO_RACE" })),
   start: vi.fn<RaceService["start"]>(async () => ({ ok: true })),
   keystrokes: vi.fn<RaceService["keystrokes"]>(() => ({ ok: false, error: "NO_RACE" })),
   takeControl: vi.fn<RaceService["takeControl"]>(() => ({ ok: true })),
@@ -63,6 +65,22 @@ function open(cookie?: string): Promise<Socket> {
 const ask = (client: Socket, event: string, payload: unknown) => client.timeout(3_000).emitWithAck(event, payload);
 
 describe("race channel", () => {
+  it("guards bonus activation with the current session and followed room", async () => {
+    const payload = { raceId: RACE, seq: 1, milestone: 25 };
+    const anonymous = await open();
+    expect(await ask(anonymous, RACE_BONUS_ACTIVATE_EVENT, payload)).toEqual({ ok: false, error: "UNAUTHORIZED" });
+    const alice = await open("session=alice");
+    expect(await ask(alice, RACE_BONUS_ACTIVATE_EVENT, payload)).toEqual({ ok: false, error: "NO_RACE" });
+    expect(races.activateBonus).not.toHaveBeenCalled();
+    following.add(alice.id!);
+    await ask(alice, RACE_BONUS_ACTIVATE_EVENT, payload);
+    expect(races.activateBonus).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ accountId: ALICE, id: alice.id }), payload);
+    const serverSocket = io.sockets.sockets.get(alice.id!);
+    serverSocket!.data.session.expiresAt = 0;
+    // The existing session guard disconnects an expired socket before its ack can arrive.
+    await expect(ask(alice, RACE_BONUS_ACTIVATE_EVENT, payload)).rejects.toThrow("disconnected");
+    expect(races.activateBonus).toHaveBeenCalledTimes(1);
+  });
   it("refuses every race message from a socket without a session", async () => {
     const anonymous = await open();
     expect(await ask(anonymous, RACE_START_EVENT, {})).toEqual({ ok: false, error: "UNAUTHORIZED" });

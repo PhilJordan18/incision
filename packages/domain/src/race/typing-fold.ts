@@ -42,8 +42,14 @@ export type Typing = Pick<EntrantState, "typed" | "pendingError" | "counters" | 
  * insert are discarded.
  */
 export function typeEvents(entrant: Typing & Pick<EntrantState, "target">, events: readonly InputEvent[], errorMode: ErrorMode): Typing {
+  return typeEventsWithProgress(entrant, events, errorMode).typing;
+}
+
+/** Internal observation from the same fold, never a second typing simulation. */
+export function typeEventsWithProgress(entrant: Typing & Pick<EntrantState, "target">, events: readonly InputEvent[], errorMode: ErrorMode): { readonly typing: Typing; readonly furthestPosition: number } {
   const { target } = entrant;
   const typed = [...entrant.typed];
+  let furthestPosition = typed.length;
   const missedKeys: Record<string, number> = { ...entrant.missedKeys };
   let { pendingError } = entrant;
   let { correctInserts, totalInserts } = entrant.counters;
@@ -69,10 +75,11 @@ export function typeEvents(entrant: Typing & Pick<EntrantState, "target">, event
     }
     if (correct || errorMode === "free") {
       typed.push(event.grapheme);
+      furthestPosition = Math.max(furthestPosition, typed.length);
       pendingError = false;
     } else {
       pendingError = true;
     }
   }
-  return { typed, pendingError, counters: { correctInserts, totalInserts }, missedKeys };
+  return { typing: { typed, pendingError, counters: { correctInserts, totalInserts }, missedKeys }, furthestPosition };
 }

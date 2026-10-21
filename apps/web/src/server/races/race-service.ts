@@ -4,13 +4,15 @@ import {
   asEntrantId,
   asInstant,
   asRaceId,
-  createRace,
+  createBonusRace,
+  createRaceRefusal,
   type CreateRaceRefusal,
   type ErrorMode,
   MAX_BATCHES_PER_SECOND,
-  type RaceState,
+  type BonusRaceState,
 } from "@incision/domain";
 import type { Locale } from "../../i18n/locale";
+import { bonusActivationPayloadSchema, type BonusActivationAck } from "../../races/bonus-protocol";
 import {
   parseKeystrokeBatch,
   type RaceBatchAck,
@@ -24,6 +26,8 @@ import {
 import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
+import type { RaceText } from "./race-texts";
+import { BonusActivationLimiter } from "./bonus-limiter";
 
 /** A tab admitted into a room by the room channel, with the language its pages use. */
 export type RoomConnection = RaceConnection & { readonly locale: Locale };
@@ -44,7 +48,7 @@ export const ENTRANT_ACTION_WINDOW = { maxRequests: 5, windowMs: 10_000 } as con
 export type RaceServiceOptions = {
   readonly ownerId: string;
   readonly store: RaceStore & {
-    readonly startRace: (input: StartRaceInput<CreateRaceRefusal, RaceState>) => Promise<StartRaceResult<CreateRaceRefusal, RaceState>>;
+    readonly startRace: (input: StartRaceInput<CreateRaceRefusal, BonusRaceState>) => Promise<StartRaceResult<CreateRaceRefusal, BonusRaceState>>;
     readonly renewRaceLease: (ownership: RaceOwnership) => Promise<{ readonly renewed: boolean }>;
   };
   /** The server's clock (`serverClock`), in integer milliseconds since the epoch. */
@@ -54,11 +58,13 @@ export type RaceServiceOptions = {
   readonly schedule: Schedule;
   /** A room's race changed in the database (started, saved, interrupted): its members get a fresh snapshot. */
   readonly onRoomChanged: (lobbyId: string) => void;
+  /** The texts races run, per interface language (the host's at the start, D-19). */
+  readonly texts: Readonly<Record<Locale, RaceText>>;
   /**
-   * The texts races run, per interface language; undefined when none may run on this server
-   * (test fixtures in a production without RACE_FIXTURE_TEXTS=allowed): starts are refused.
+   * New races may start (RACES_ENABLED=true, races-switch.ts). Otherwise every start is refused
+   * here, before the database; races already running, rooms and results are not affected.
    */
-  readonly texts: Readonly<Record<Locale, string>> | undefined;
+  readonly racesOpen: boolean;
   /** A race of the room stopped here without a confirmed end (lost lease, unreachable database). */
   readonly onRaceLost?: (lobbyId: string) => void;
   readonly log: (message: string) => void;
@@ -91,10 +97,12 @@ export class RaceService {
   readonly #controlTimes = new Map<string, number[]>();
   /** Account → its recent « Je suis là » and abandons. */
   readonly #entrantActionTimes = new Map<string, number[]>();
+  readonly #bonusLimiter: BonusActivationLimiter;
   readonly #starting = new Set<string>();
 
   constructor(options: RaceServiceOptions) {
     this.#options = options;
+    this.#bonusLimiter = new BonusActivationLimiter(options.monotonic);
   }
 
   ownsRace(lobbyId: string): boolean {
@@ -151,8 +159,9 @@ export class RaceService {
     if (this.#registry.stopping) {
       return { ok: false, error: "UNAVAILABLE" };
     }
-    if (this.#options.texts === undefined) {
-      return { ok: false, error: "RACES_UNAVAILABLE" };
+    // The one way a race is created, the next round's start included: closed means none.
+    if (!this.#options.racesOpen) {
+      return { ok: false, error: "RACES_CLOSED" };
     }
     this.#prune(this.#startTimes, START_WINDOW.windowMs);
     if (!this.#withinWindow(this.#startTimes, connection.accountId, START_WINDOW.maxStarts, START_WINDOW.windowMs)) {
@@ -170,28 +179,36 @@ export class RaceService {
     }
   }
 
-  async #start(connection: RoomConnection, text: string): Promise<RaceStartAck> {
+  async #start(connection: RoomConnection, { id: textId, text }: RaceText): Promise<RaceStartAck> {
     const { store, ownerId } = this.#options;
     const timeLimit = asDuration(FIRST_RACE_SETTINGS.timeLimitMs);
     const acquiredAt = this.#options.monotonic();
-    let started: StartRaceResult<CreateRaceRefusal, RaceState>;
+    let started: StartRaceResult<CreateRaceRefusal, BonusRaceState>;
     try {
       started = await store.startRace({
         accountId: connection.accountId,
         ownerId,
         text,
-        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, language: connection.locale, text: "fixture" },
+        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, language: connection.locale, text: textId, bonuses: false },
         rulesVersion: RULES_VERSION,
         // Under the room lock: a refusal changes nothing, an exception rolls the start back.
-        create: ({ raceId, entrants }) =>
-          createRace({
+        create: ({ raceId, entrants }) => {
+          const input = {
             raceId: asRaceId(raceId),
             text,
             errorMode: FIRST_RACE_SETTINGS.errorMode,
             timeLimit,
             participants: entrants.map(({ entrantId, kind }) => ({ entrantId: asEntrantId(entrantId), kind })),
             now: asInstant(this.#options.now()),
-          }),
+          };
+          const refusal = createRaceRefusal(input);
+          if (refusal !== undefined) return { ok: false, reason: refusal };
+          const result = createBonusRace({ enabled: false, random: [1, 2, 3, 4], race: input });
+          // Disabled until room configuration and approved content land in 62B. This dormant
+          // stream is not used for draws or security; enabled races must receive a private seed.
+          if (!result.ok) throw new RangeError(result.reason);
+          return { ok: true, race: result.state };
+        },
       });
     } catch (error: unknown) {
       this.#logError(`[races] start failed: ${describeDatabaseError(error)}`);
@@ -226,7 +243,7 @@ export class RaceService {
     language,
   }: {
     readonly ownership: RaceOwnership;
-    readonly state: RaceState;
+    readonly state: BonusRaceState;
     readonly entrants: readonly { entrantId: string; accountId: string; displayName: string }[];
     readonly acquiredAt: number;
     readonly language: Locale;
@@ -302,6 +319,16 @@ export class RaceService {
     }
     const followed = this.#followed(connection);
     return followed === undefined ? { ok: false, error: "NO_RACE" } : followed.runtime.keystrokes(followed.connection, parsed.data);
+  }
+
+  /** Five attempts per second per authenticated account, shared across tabs and reconnects. */
+  activateBonus(connection: RoomConnection, payload: unknown): BonusActivationAck {
+    const followed = this.#followed(connection);
+    if (followed === undefined) return { ok: false, error: "NO_RACE" };
+    if (!this.#bonusLimiter.allow(connection.accountId)) return { ok: false, error: "RATE_LIMITED" };
+    const parsed = bonusActivationPayloadSchema.safeParse(payload);
+    if (!parsed.success) return { ok: false, error: "INVALID_PAYLOAD" };
+    return followed.runtime.activateBonus(followed.connection, parsed.data);
   }
 
   /** A second tab asks for the input (state-machines §2). */

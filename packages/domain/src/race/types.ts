@@ -293,6 +293,8 @@ export type PresenceIgnored = AbandonIgnored | "BOT_ENTRANT" | "ALREADY_DISCONNE
 
 /** What the race reducer returns. */
 export type RaceOutput = {
+  /** Private engine observation, only for an applied batch; never a public typing reply. */
+  readonly typingProgress?: { readonly entrantId: EntrantId; readonly furthestPosition: number };
   readonly state: RaceState;
   /**
    * True when `revision` moved, because the public view changed: `toRaceBroadcast` at the handled
@@ -334,6 +336,8 @@ export type KeystrokeContext = {
 };
 
 export type EntrantKeystrokeResult = {
+  /** Only present when the whole batch was applied, including erased intermediate inserts. */
+  readonly furthestPosition?: number;
   readonly entrant: EntrantState;
   readonly result: KeystrokeResult;
 };
