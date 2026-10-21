@@ -93,7 +93,7 @@ export function applyBonusEffect(input: BonusEffectInput): BonusEffectResult {
 }
 
 /** Exact ratios; roster order never decides a leader, and the actor must actually trail it. */
-function activeLeader(race: RaceState, actor: EntrantState): EntrantState | undefined {
+export function activeLeader(race: RaceState, actor: EntrantState): EntrantState | undefined {
   let leader: EntrantState | undefined;
   for (const entrant of race.entrants) {
     if (entrant.entrantId === actor.entrantId || entrant.status !== "racing" || compareProgress(entrant, actor) <= 0) continue;
