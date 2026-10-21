@@ -1,0 +1,60 @@
+{
+  "corpusVersion": "contract-2026-10-21",
+  "normalizationVersion": 2,
+  "language": "fr",
+  "generatedAt": "2026-10-21",
+  "measuredWith": {
+    "normalizationVersion": 1,
+    "wordfreq": "3.1.1",
+    "listVersion": "wordfreq-3.1.1-large",
+    "commonZipf": 4
+  },
+  "passages": [
+    {
+      "id": "fr-verne-vingt-mille-lieues-p1-ch14-pacifique",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "L'Océan pacifique s'étend du nord au sud entre les deux cercles polaires, et de l'ouest à l'est entre l'Asie et l'Amérique sur une étendue de cent quarante-cinq degrés en longitude. C'est la plus tranquille des mers ; ses courants sont larges et lents, ses marées médiocres, ses pluies abondantes. Tel était l'Océan que ma destinée m'appelait d'abord à parcourir dans les plus étranges conditions.",
+      "sourceText": "L’Océan pacifique s’étend du nord au sud entre les deux cercles polaires, et de l’ouest à l’est entre l’Asie et l’Amérique sur une étendue de cent quarante-cinq degrés en longitude. C’est la plus tranquille des mers ; ses courants sont larges et lents, ses marées médiocres, ses pluies abondantes. Tel était l’Océan que ma destinée m’appelait d’abord à parcourir dans les plus étranges conditions.",
+      "adaptations": [
+        "spaces: 1 non-breaking space replaced by a space",
+        "apostrophes: 10 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "Vingt mille lieues sous les mers",
+        "place": "1re partie, chapitre XIV « Le Fleuve noir », paragraphe entier",
+        "edition": "Hetzel, 1870 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=11270647",
+        "revision": "Wikisource revision 11270647",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1869–1870); Wikisource pages under CC BY-SA 4.0",
+        "retrievedAt": "2026-10-12"
+      },
+      "wordCount": 63,
+      "measures": {
+        "m1": 5.02,
+        "m2": 6.3,
+        "m3": 17.5,
+        "m4": 19,
+        "measuredWith": {
+          "normalizationVersion": 1,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "mer et voyage",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceVerifiedAt": "2026-10-12",
+        "engineAcceptedAt": "2026-10-12",
+        "engineVersion": "domain@2026-10-12, normalization 1"
+      },
+      "status": "retained"
+    }
+  ]
+}
