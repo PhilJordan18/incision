@@ -5,6 +5,12 @@ import { boundedTransaction, READ_COMMITTED, type ServerLimits, type Transaction
 import type { CheckedCorpus } from "./check";
 import { PASSAGE_ID_PATTERN } from "./format";
 
+/**
+ * The passages F-04.0 shipped (`apps/web/src/server/races/race-texts.ts`), which stored races
+ * name: every version must bring them until they are stored (F-02.3a criterion).
+ */
+export const DELIVERY_PASSAGE_IDS = ["fr-verne-vingt-mille-lieues-p1-ch14-pacifique", "en-stevenson-treasure-island-ch07-map"] as const;
+
 /** Advisory lock held by every corpus import for its transaction: imports run one at a time. */
 export const CORPUS_IMPORT_LOCK_KEY = 1_646_910_404;
 
@@ -31,7 +37,7 @@ export type CorpusImportReport = {
 };
 
 export type CorpusImportRefusal = {
-  readonly code: "VERSION_CONFLICT" | "PASSAGE_CONFLICT" | "STORED_RACE_PASSAGE_MISSING";
+  readonly code: "VERSION_CONFLICT" | "PASSAGE_CONFLICT" | "REQUIRED_PASSAGE_MISSING" | "STORED_RACE_TEXT_MISMATCH";
   readonly passageId?: string;
   readonly detail: string;
 };
@@ -95,17 +101,37 @@ async function importLocked(tx: Transaction, corpus: CheckedCorpus): Promise<Cor
     }
   }
 
-  // The races stored before the corpus (F-04.0) name their passage in their configuration: it
-  // must be in this version or already stored, so no race ever names an unknown passage.
+  // The delivery passages, and every passage a stored race names (`config_snapshot.text`, chosen by
+  // the server), must be in this version or already stored, so no race ever names an unknown
+  // passage. A race reads under READ COMMITTED: one committed meanwhile is caught by the next import.
   const named = await tx.execute<{ id: string }>(sql`select distinct config_snapshot->>'text' as id from races where config_snapshot ? 'text'`);
   const known = new Set(ids);
-  const missing = named.rows.map((row) => row.id).filter((id) => PASSAGE_ID_PATTERN.test(id) && !known.has(id));
-  if (missing.length > 0) {
-    const storedBefore = new Set((await tx.select({ id: racePassages.id }).from(racePassages).where(inArray(racePassages.id, missing))).map((row) => row.id));
-    const [unknown] = missing.filter((id) => !storedBefore.has(id)).sort();
+  const required = [...new Set([...DELIVERY_PASSAGE_IDS, ...named.rows.map((row) => row.id).filter((id) => PASSAGE_ID_PATTERN.test(id))])].filter((id) => !known.has(id));
+  if (required.length > 0) {
+    const storedBefore = new Set((await tx.select({ id: racePassages.id }).from(racePassages).where(inArray(racePassages.id, required))).map((row) => row.id));
+    const [unknown] = required.filter((id) => !storedBefore.has(id)).sort();
     if (unknown !== undefined) {
-      return { ok: false, refusal: { code: "STORED_RACE_PASSAGE_MISSING", passageId: unknown, detail: `stored races name passage ${unknown}, which this version does not bring` } };
+      return { ok: false, refusal: { code: "REQUIRED_PASSAGE_MISSING", passageId: unknown, detail: `passage ${unknown} is named by stored races or shipped with F-04.0, and this version does not bring it` } };
     }
+  }
+  // A passage brought for the first time that stored races already name must be the text they
+  // typed (F-04.0 typed the whole passage); later races only name stored passages.
+  const fresh = corpus.passages.filter((passage) => !stored.has(passage.id));
+  const typed =
+    fresh.length === 0
+      ? []
+      : (
+          await tx.execute<{ id: string; text: string }>(
+            sql`select distinct config_snapshot->>'text' as id, text_snapshot as text from races
+              where config_snapshot->>'text' in (${sql.join(
+                fresh.map((passage) => sql`${passage.id}`),
+                sql`, `,
+              )})`,
+          )
+        ).rows;
+  const mismatch = typed.find((row) => fresh.find((passage) => passage.id === row.id)?.text !== row.text);
+  if (mismatch !== undefined) {
+    return { ok: false, refusal: { code: "STORED_RACE_TEXT_MISMATCH", passageId: mismatch.id, detail: `stored races typed another text under passage ${mismatch.id}` } };
   }
 
   const retainedBefore = await tx
@@ -120,10 +146,7 @@ async function importLocked(tx: Transaction, corpus: CheckedCorpus): Promise<Cor
     checksum: corpus.checksum,
     normalizationVersion: corpus.normalizationVersion,
     measuredWith: corpus.measuredWith,
-    // After the lock: an import that waited carries a later time than the one it waited for.
-    importedAt: sql`statement_timestamp()`,
   });
-  const fresh = corpus.passages.filter((passage) => !stored.has(passage.id));
   if (fresh.length > 0) {
     await tx.insert(racePassages).values(
       fresh.map((passage) => ({

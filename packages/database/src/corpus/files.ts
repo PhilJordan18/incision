@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 import { TEXT_LANGUAGES, type TextLanguage } from "@incision/domain";
 import { CORPUS_VERSION_PATTERN } from "./format";
@@ -15,7 +15,7 @@ export const MAX_CORPUS_FILE_BYTES = 4 * 1024 * 1024;
 
 export class CorpusFileError extends Error {
   constructor(
-    readonly code: "FILE_TOO_LARGE" | "INVALID_JSON" | "NOT_CANONICAL_JSON",
+    readonly code: "NOT_A_FILE" | "FILE_TOO_LARGE" | "INVALID_JSON" | "NOT_CANONICAL_JSON",
     readonly file: string,
     message: string,
   ) {
@@ -37,7 +37,12 @@ export async function readCorpusVersion(version: string, folder: string = CORPUS
   const files = await Promise.all(
     TEXT_LANGUAGES.map(async (language) => {
       const file = path.join(folder, version, `${language}.json`);
-      const { size } = await stat(file);
+      // A regular file only: a link to /dev/zero or a FIFO would report no size and never end.
+      const info = await lstat(file);
+      if (!info.isFile()) {
+        throw new CorpusFileError("NOT_A_FILE", file, "not a regular file (a link, a folder or a device)");
+      }
+      const size = info.size;
       if (size > MAX_CORPUS_FILE_BYTES) {
         throw new CorpusFileError("FILE_TOO_LARGE", file, `${size} bytes, more than ${MAX_CORPUS_FILE_BYTES}`);
       }

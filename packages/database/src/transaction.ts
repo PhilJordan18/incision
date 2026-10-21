@@ -22,7 +22,8 @@ export const SERVER_LIMITS_MS = { lock: 2_000, statement: 3_000, idleInTransacti
 export type ServerLimits = { readonly lock: number; readonly statement: number; readonly idleInTransaction: number };
 
 /**
- * Applies `SERVER_LIMITS_MS` to the current transaction only, in one statement:
+ * Applies the limits (`SERVER_LIMITS_MS` unless an operator's batch passes its own) to the current
+ * transaction only, in one statement:
  * `set_config(…, true)` is `SET LOCAL`, the only kind of setting that is safe under Neon's
  * transaction pooling. A limited transaction must await nothing but the database: 4 s spent
  * elsewhere end its session.

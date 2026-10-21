@@ -19,7 +19,7 @@ CREATE TABLE "race_corpus_versions" (
 	"checksum" text NOT NULL,
 	"normalization_version" smallint NOT NULL,
 	"measured_with" jsonb NOT NULL,
-	"imported_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"imported_at" timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
 	"active" boolean DEFAULT false NOT NULL,
 	CONSTRAINT "race_corpus_versions_version_format" CHECK ("race_corpus_versions"."version" ~ '^[0-9a-z][0-9a-z.-]{0,62}$'),
 	CONSTRAINT "race_corpus_versions_checksum_format" CHECK ("race_corpus_versions"."checksum" ~ '^[0-9a-f]{64}$'),
@@ -52,7 +52,8 @@ CREATE TABLE "race_passages" (
 ALTER TABLE "race_corpus_entries" ADD CONSTRAINT "race_corpus_entries_version_race_corpus_versions_version_fk" FOREIGN KEY ("version") REFERENCES "public"."race_corpus_versions"("version") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "race_corpus_entries" ADD CONSTRAINT "race_corpus_entries_passage_id_race_passages_id_fk" FOREIGN KEY ("passage_id") REFERENCES "public"."race_passages"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "race_passages" ADD CONSTRAINT "race_passages_first_version_race_corpus_versions_version_fk" FOREIGN KEY ("first_version") REFERENCES "public"."race_corpus_versions"("version") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "race_corpus_versions_one_active" ON "race_corpus_versions" USING btree ("active") WHERE "race_corpus_versions"."active";--> statement-breakpoint
+CREATE UNIQUE INDEX "race_corpus_versions_one_active" ON "race_corpus_versions" USING btree ("active") WHERE "race_corpus_versions"."active";
+--> statement-breakpoint
 -- Written by hand (Drizzle does not model triggers). The corpus is append-only (F-02.3): a passage
 -- id or a version never designates other content, and nothing is deleted or truncated, so a stored
 -- race keeps its passage. Only a version's `active` flag changes: the WHEN clause compares every

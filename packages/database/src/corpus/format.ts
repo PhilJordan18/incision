@@ -8,7 +8,8 @@ import { CORPUS_ENTRY_STATUSES } from "../schema/corpus";
  * every bound is checked here or in `checkCorpus`. Strings are taken as written, never trimmed.
  */
 
-const BIDI_CONTROLS = /[؜‎‏‪-‮⁦-⁩]/u;
+/** Invisible format characters: bidirectional controls, zero-width characters, BOM, soft hyphen, word joiner. */
+const FORMAT_CHARACTERS = /\p{Cf}/u;
 /** Every C0 and C1 control; a multi-line source text may hold tabs and line breaks. */
 const CONTROLS = /[\u0000-\u001f\u007f-\u009f]/u;
 const CONTROLS_BUT_LINES = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
@@ -20,7 +21,7 @@ function cleanText(max: number, lines = false) {
     .max(max)
     .refine((value) => value.trim() === value, { error: "surrounding whitespace" })
     .refine((value) => value.isWellFormed(), { error: "a lone surrogate" })
-    .refine((value) => !BIDI_CONTROLS.test(value), { error: "a bidirectional control character" })
+    .refine((value) => !FORMAT_CHARACTERS.test(value), { error: "an invisible format character" })
     .refine((value) => !(lines ? CONTROLS_BUT_LINES : CONTROLS).test(value), { error: "a control character" });
 }
 const date = z.iso.date();
@@ -63,7 +64,8 @@ const source = z.strictObject({
   /** Where in the work: part, chapter, paragraph. */
   place: cleanText(300),
   edition: cleanText(300),
-  url: z.url({ protocol: /^https$/ }).max(500),
+  /** Kept as written: an https URL that the platform parses, under the string rules above. */
+  url: cleanText(500).refine((value) => URL.canParse(value) && new URL(value).protocol === "https:", { error: "not an https URL" }),
   /** Wikisource revision id, or Project Gutenberg eBook number. */
   revision: cleanText(100),
   licence: cleanText(500),

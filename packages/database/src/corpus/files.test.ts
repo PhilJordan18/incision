@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -53,6 +53,14 @@ describe("readCorpusVersion", () => {
   it("refuses a file larger than a corpus file can be, before reading it", async () => {
     const error = await refusalOf(corpusFolder({ fr: canonical({ text: "a".repeat(MAX_CORPUS_FILE_BYTES) }), en: canonical({}) }));
     expect(error.code).toBe("FILE_TOO_LARGE");
+  });
+
+  it("refuses a file that is a link, which could point to a device that never ends", async () => {
+    const folder = corpusFolder({ fr: canonical({}), en: canonical({}) });
+    const target = path.join(folder, "v1", "fr.json");
+    unlinkSync(target);
+    symlinkSync("/dev/zero", target);
+    expect((await refusalOf(folder)).code).toBe("NOT_A_FILE");
   });
 
   it("refuses a version name outside the pattern, so it never leaves the corpus folder", async () => {

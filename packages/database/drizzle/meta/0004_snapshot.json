@@ -1,5 +1,5 @@
 {
-  "id": "6d261de3-a86f-42c6-a0a9-08461dd2c3ce",
+  "id": "9ca99cd4-5f15-4751-aec9-59ca4962c1c8",
   "prevId": "d7f6cdcc-5368-4df4-a8d5-138a1f4b986e",
   "version": "7",
   "dialect": "postgresql",
@@ -1130,7 +1130,7 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "default": "statement_timestamp()"
         },
         "active": {
           "name": "active",

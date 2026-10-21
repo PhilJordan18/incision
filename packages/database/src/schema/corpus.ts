@@ -32,8 +32,10 @@ export const raceCorpusVersions = pgTable(
     normalizationVersion: smallint("normalization_version").notNull(),
     /** How B measured M1–M4 for this version (normalisation, wordfreq version, list, Zipf threshold, words). */
     measuredWith: jsonb("measured_with").notNull(),
-    /** Set after the import's lock, so later imports carry later times. */
-    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+    /** `statement_timestamp()`: taken after the import's lock, so later imports carry later times. */
+    importedAt: timestamp("imported_at", { withTimezone: true })
+      .notNull()
+      .default(sql`statement_timestamp()`),
     active: boolean().notNull().default(false),
   },
   (table) => [

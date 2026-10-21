@@ -124,8 +124,18 @@ describe("checkCorpus", () => {
     ["a control character", (files: Files) => (firstFr(files).editorial.theme = "mer\u0007")],
     ["a bidirectional control character", (files: Files) => (firstFr(files).source.work = "Vingt mille lieues‮")],
     ["a lone surrogate", (files: Files) => (firstFr(files).source.place = "chapitre \ud800 XIV")],
+    ["an invisible format character (zero-width space)", (files: Files) => (firstFr(files).source.author = "Jules\u200bVerne")],
+    ["a URL with a control character", (files: Files) => (firstFr(files).source.url = "https://fr.wikisource.org/\u0007")],
+    ["a URL with surrounding whitespace, never cleaned", (files: Files) => (firstFr(files).source.url = " https://fr.wikisource.org/w/index.php?oldid=11270647")],
+    ["a URL that does not parse", (files: Files) => (firstFr(files).source.url = "https://")],
   ])("refuses %s, naming the file and the passage", (_label, change) => {
     expect(refusalOf(checkCorpus(variant(change)))).toMatchObject({ code: "INVALID_FORMAT", language: "fr", passageId: VERNE });
+  });
+
+  it("never echoes an id that is not well-formed: it could carry terminal escapes", () => {
+    const refusal = refusalOf(checkCorpus(variant((files) => (firstFr(files).id = "fr-x\u001b]0;title\u0007"))));
+    expect(refusal).toMatchObject({ code: "INVALID_FORMAT", language: "fr" });
+    expect(refusal.passageId).toBeUndefined();
   });
 
   it("refuses an older normalisation version in a file header, naming the file", () => {

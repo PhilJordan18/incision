@@ -12,7 +12,7 @@ import {
   type TextLanguage,
 } from "@incision/domain";
 import type { z } from "zod";
-import { type CorpusFile, corpusFileSchema, type CorpusPassage, type MeasuredWith } from "./format";
+import { type CorpusFile, corpusFileSchema, type CorpusPassage, type MeasuredWith, PASSAGE_ID_PATTERN } from "./format";
 import { type PassageIdentity, passageContentHash, type VersionEntry, versionChecksum } from "./hash";
 
 /**
@@ -87,7 +87,8 @@ function formatRefusal(error: z.ZodError, raw: unknown, language: TextLanguage):
   let passageId: string | undefined;
   if (field === "passages" && typeof index === "number" && raw !== null && typeof raw === "object" && "passages" in raw && Array.isArray(raw.passages)) {
     const passage: unknown = raw.passages[index];
-    if (passage !== null && typeof passage === "object" && "id" in passage && typeof passage.id === "string") {
+    // Only a well-formed id: an unchecked one could carry terminal escapes into the operator's output.
+    if (passage !== null && typeof passage === "object" && "id" in passage && typeof passage.id === "string" && passage.id.length <= 120 && PASSAGE_ID_PATTERN.test(passage.id)) {
       passageId = passage.id;
     }
   }

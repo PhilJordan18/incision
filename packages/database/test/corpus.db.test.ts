@@ -74,13 +74,13 @@ function reportOf(result: CorpusImportResult) {
 }
 
 /** A finished race of an earlier release, naming its passage in its configuration. */
-async function storedRace(text: string): Promise<void> {
+async function storedRace(passageId: string, typed = "Texte."): Promise<void> {
   await pool.query("insert into lobbies (code, capacity) values ('B7K4PQ', 30) on conflict do nothing");
   await pool.query(
     `insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
-     select id, (select count(*) + 1 from races), 'finished', 1, 'Texte.', jsonb_build_object('text', $1::text), now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now()
+     select id, (select count(*) + 1 from races), 'finished', 1, $2, jsonb_build_object('text', $1::text), now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now()
      from lobbies where code = 'B7K4PQ'`,
-    [text],
+    [passageId, typed],
   );
 }
 
@@ -190,21 +190,44 @@ describe("importCorpus", () => {
     expect((await loadActiveCorpus(db))?.passages.map((passage) => passage.id)).toEqual([STEVENSON, VERNE]);
   });
 
-  it("refuses a version that drops a passage stored races name, until it is stored", async () => {
-    await storedRace(VERNE);
-    await storedRace("fixture"); // the test texts' marker, not a corpus passage
+  it("refuses a first version without the two delivery passages, even with no race stored", async () => {
     const withoutVerne = corpus((files) => (files.fr.passages[0] = { ...files.fr.passages[0]!, id: "fr-verne-pacifique-bis" }));
     expect(await importCorpus(db, withoutVerne)).toEqual({
       ok: false,
-      refusal: { code: "STORED_RACE_PASSAGE_MISSING", passageId: VERNE, detail: `stored races name passage ${VERNE}, which this version does not bring` },
+      refusal: { code: "REQUIRED_PASSAGE_MISSING", passageId: VERNE, detail: `passage ${VERNE} is named by stored races or shipped with F-04.0, and this version does not bring it` },
     });
     expect(await rows("select count(*)::int as count from race_corpus_versions")).toEqual([{ count: 0 }]);
     // Once a version brought it, later versions may leave it out: it stays stored.
     expect(reportOf(await importCorpus(db, corpus())).outcome).toBe("imported");
-    expect(reportOf(await importCorpus(db, corpus((files) => {
+    const next = corpus((files) => {
       renamed(NEXT_VERSION)(files);
       files.fr.passages[0] = { ...files.fr.passages[0]!, id: "fr-verne-pacifique-bis" };
-    }))).retiredPassages).toBe(1);
+    });
+    expect(reportOf(await importCorpus(db, next)).retiredPassages).toBe(1);
+  });
+
+  it("refuses a version that lacks a passage stored races name, and ignores the test texts' marker", async () => {
+    await storedRace("fr-autre-passage", fixture.fr.passages[0]!.text);
+    await storedRace("fixture");
+    expect(await importCorpus(db, corpus())).toMatchObject({ ok: false, refusal: { code: "REQUIRED_PASSAGE_MISSING", passageId: "fr-autre-passage" } });
+    const withIt = corpus((files) => files.fr.passages.push({ ...files.fr.passages[0]!, id: "fr-autre-passage", status: "spare" }));
+    expect(reportOf(await importCorpus(db, withIt)).outcome).toBe("imported");
+  });
+
+  it("refuses a first import of a passage whose text is not the one stored races typed under its id", async () => {
+    await storedRace(VERNE, "Un autre texte, tapé sous cet identifiant.");
+    expect(await importCorpus(db, corpus())).toEqual({
+      ok: false,
+      refusal: { code: "STORED_RACE_TEXT_MISMATCH", passageId: VERNE, detail: `stored races typed another text under passage ${VERNE}` },
+    });
+    await storedRace(STEVENSON, fixture.en.passages[0]!.text);
+    expect(await importCorpus(db, corpus())).toMatchObject({ ok: false, refusal: { code: "STORED_RACE_TEXT_MISMATCH", passageId: VERNE } });
+  });
+
+  it("accepts a first import whose passages are the texts stored races typed", async () => {
+    await storedRace(VERNE, fixture.fr.passages[0]!.text);
+    await storedRace(STEVENSON, fixture.en.passages[0]!.text);
+    expect(reportOf(await importCorpus(db, corpus())).outcome).toBe("imported");
   });
 
   it("writes nothing when a statement fails half-way, and the version active before stays active", async () => {
@@ -238,7 +261,11 @@ describe("importCorpus", () => {
       await holder.query("select pg_advisory_xact_lock($1)", [CORPUS_IMPORT_LOCK_KEY]);
       const imports = Promise.all([importCorpus(db, first), importCorpus(createDatabase(other), second)]);
       for (let attempt = 0; ; attempt += 1) {
-        const [waiting] = await rows<{ count: number }>("select count(*)::int as count from pg_locks where locktype = 'advisory' and not granted");
+        // This database's import lock only: other runs share the server.
+        const [waiting] = await rows<{ count: number }>(
+          "select count(*)::int as count from pg_locks where locktype = 'advisory' and not granted and database = (select oid from pg_database where datname = current_database()) and objid = $1 and objsubid = 1",
+          [CORPUS_IMPORT_LOCK_KEY],
+        );
         if (waiting?.count === 2) break;
         if (attempt > 100) throw new Error("the two imports never waited for the lock");
         await delay(50);

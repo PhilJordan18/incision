@@ -32,8 +32,8 @@ async function main(): Promise<void> {
 
   const checked = checkCorpus(await readCorpusVersion(values.version, values.folder));
   if (!checked.ok) {
-    const { code, language, passageId, detail } = checked.refusal;
-    throw new Error(`corpus ${values.version} refused: ${code}${language === undefined ? "" : ` (${language})`}${passageId === undefined ? "" : ` ${passageId}`}: ${detail}`);
+    // As JSON: a refusal quotes the files, whose text must never reach the terminal as control codes.
+    throw new Error(`corpus ${values.version} refused: ${JSON.stringify(checked.refusal)}`);
   }
   if (checked.corpus.version !== values.version) {
     throw new Error(`the files of folder ${values.version} say version ${checked.corpus.version}`);
@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   try {
     const result = await importCorpus(createDatabase(client), checked.corpus);
     if (!result.ok) {
-      throw new Error(`corpus ${values.version} refused: ${result.refusal.code}: ${result.refusal.detail}`);
+      throw new Error(`corpus ${values.version} refused: ${JSON.stringify(result.refusal)}`);
     }
     const { outcome, active, retained, spare, compatibleWithDefaults, newPassages, keptPassages, retiredPassages } = result.report;
     // Re-importing an older version never reactivates it: going back means importing a new version.
