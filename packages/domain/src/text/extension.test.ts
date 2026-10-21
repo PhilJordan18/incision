@@ -142,6 +142,13 @@ describe("extensionViolations: an independent check of a triple", () => {
     expect(extensionViolations(easy, ["Vent", "scaphandre", "mer"])).toEqual(["words of at most 5 letters"]);
     expect(extensionViolations({ ...request, words: { ...pool, exclusions: { language: "fr", version: "custom", words: ["nuit"] } } }, ["Vent", "nuit", "mer"])).toEqual(["no excluded word"]);
     expect(extensionViolations({ ...request, settings: settings({ exclude: ["v"] }) }, ["Vent", "nuit", "mer"])).toEqual(["words of allowed letters only"]);
+    // Each per-word rule on its own: the band's Zipf, œ and æ, and the accents.
+    const rare: RandomWords = { ...pool, list: { language: "fr", version: "custom", entries: [{ word: "vent", zipf: 5 }, { word: "nuit", zipf: 5 }, { word: "mer", zipf: 3 }] } };
+    expect(extensionViolations({ ...request, words: rare, settings: settings({ complexity: "easy" }) }, ["Vent", "nuit", "mer"])).toEqual(["words from the list, at Zipf 4 or more"]);
+    const ligature = custom("fr", ["mer", "vent", "port", "cœur"]);
+    expect(extensionViolations({ ...request, words: ligature }, ["Vent", "cœur", "mer"])).toEqual(["words of allowed letters only"]);
+    const accented = custom("fr", ["mer", "vent", "port", "été"]);
+    expect(extensionViolations({ ...request, words: accented, target: "il dort", settings: settings({ options: { ...ALL_ON, accents: false } }) }, ["vent", "été", "mer"])).toEqual(["no diacritic in a word with accents off"]);
     expect(extensionViolations(request, ["vent", "nuit", "mer"])).toEqual(["a capital on the first word only after a sentence end, with capitals on"]);
     expect(extensionViolations(request, ["Vent", "Nuit", "mer"])).toEqual(["a capital on the first word only after a sentence end, with capitals on"]);
     expect(extensionViolations(request, ["Vent", "vent", "mer"])).toEqual(["no word next to the same word"]);
@@ -171,7 +178,7 @@ describe("drawExtensionWords: the junction with the target", () => {
   it("puts a capital on the first word only after a sentence end, with capitals on", () => {
     const pool = custom("fr", ["mer", "vent", "port", "été"]);
     const capitalised = (target: string, options: TextOptions = ALL_ON) => words(drawExtensionWords(input({ words: pool, target, settings: settings({ options }) })));
-    for (const target of ["Il dort.", "Viens !", "Qui ?", 'Il dit "oui."', "(fin.)"]) {
+    for (const target of ["Il dort.", "Viens !", "Qui ?", 'Il dit "oui."', "(fin.)", 'Il dort (enfin.)"', 'Il dit "oui !")']) {
       const [first, ...rest] = capitalised(target);
       expect(first?.charAt(0)).toBe(first?.charAt(0).toUpperCase());
       expect(rest.every((word) => word === word.toLowerCase())).toBe(true);

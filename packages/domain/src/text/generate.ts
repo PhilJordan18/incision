@@ -148,7 +148,8 @@ const MARK_SET: ReadonlySet<string> = new Set(MARKS);
 const NUMBER = /^\d+$/u;
 const LEADING = /^[^\p{L}\p{N}]+/u;
 const TRAILING = /(?<=[\p{L}\p{N}])[^\p{L}\p{N}]+$/u;
-const TERMINAL_END = /[.!?]"?\)?$/u;
+// Closing quotes and parentheses in any order: a coherent passage may end « (enfin.) » as `(enfin.)"`.
+const TERMINAL_END = /[.!?][")]*$/u;
 const FRENCH_HIGH = /[;:!?]/u;
 
 const coreOf = (token: string): string => token.replace(LEADING, "").replace(TRAILING, "").toLowerCase();
@@ -157,7 +158,7 @@ const coreOf = (token: string): string => token.replace(LEADING, "").replace(TRA
 export const tokenCore = coreOf;
 /** Whether a core is a number, which the pair and repetition rules see through. */
 export const isNumberCore = (core: string): boolean => NUMBER.test(core);
-/** Whether a token ends a sentence: ".", "!" or "?", then possibly a quote and a parenthesis. */
+/** Whether a token ends a sentence: ".", "!" or "?", then possibly closing quotes and parentheses. */
 export const endsSentence = (token: string): boolean => TERMINAL_END.test(token);
 
 /** The folded exclusions, built once per list object (lists are frozen data). */
