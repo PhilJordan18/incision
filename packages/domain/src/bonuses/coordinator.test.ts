@@ -41,6 +41,45 @@ function activate(overrides: Partial<ActivateBonus> = {}): ActivateBonus {
 }
 
 describe("atomic bonus coordinator", () => {
+  it("revalidates shared mutable arrays on every call, including non-shared targets and typed text", () => {
+    for (const field of ["target", "typed"] as const) {
+      const state = ready();
+      expect(step(state, tick(state.race.clock)).ok).toBe(true);
+      const parts = state.race.entrants[1]![field] as string[];
+      const saved = parts[0]!;
+      parts[0] = "two graphemes";
+      expect(reduceBonusRace(state, tick(state.race.clock))).toMatchObject({ ok: false, reason: "INVALID_STATE" });
+      expect(availableBonusGrants(state, actor)).toEqual([]);
+      parts[0] = saved;
+      expect(step(state, tick(state.race.clock)).ok).toBe(true);
+      const copied = JSON.parse(JSON.stringify(state)) as BonusRaceState;
+      (copied.race.entrants[1]![field] as string[])[0] = "e\u0301";
+      expect(reduceBonusRace(copied, tick(state.race.clock))).toMatchObject({ ok: false, reason: "INVALID_STATE" });
+    }
+  });
+
+  it.each(["shortenSelf", "extendLeader", "fogLeader"] as const)("matches the full JSON revision oracle with shared and copied states (%s)", (kind) => {
+    let state = ready(kind);
+    const events: BonusRaceEvent[] = [tick(5000), { type: "present", entrantId: actor, now: asInstant(5000) },
+      activate(), activate(), activate({ seq: 2 }), activate({ seq: 3, milestone: 50 }),
+      { type: "connectionLost", entrantId: actor, now: asInstant(5000) },
+      { type: "connectionResumed", entrantId: actor, now: asInstant(5000) },
+      tick(10000), tick(10000), tick(130001), tick(130001)];
+    for (const event of events) {
+      const serialized = JSON.stringify(state);
+      const result = step(state, event);
+      expect(step(JSON.parse(serialized) as BonusRaceState, event)).toEqual(result);
+      // Awards observe only after change detection; restore that projection and
+      // revision to reconstruct the original full-envelope JSON comparison.
+      const candidate = { ...result.state, awards: state.awards, revision: state.revision };
+      const changed = JSON.stringify(candidate) !== serialized;
+      expect(result.state.revision).toBe(state.revision + Number(changed));
+      if (!changed) expect(result.state).toBe(state);
+      expect(JSON.stringify(state)).toBe(serialized);
+      state = result.state;
+    }
+  });
+
   it.each(["shortenSelf", "extendLeader", "fogLeader"] as const)("consumes %s exactly once across retry and JSON resume", (kind) => {
     const before = ready(kind), serialized = JSON.stringify(before);
     const content = vi.fn(words);

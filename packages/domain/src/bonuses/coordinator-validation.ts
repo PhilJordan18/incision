@@ -57,14 +57,21 @@ function validRace(race: RaceState): boolean {
     if (!checked.has(part)) checked.set(part, singleGrapheme(part) === part);
     return checked.get(part) === true;
   };
+  // Entrants initially share their target. Validate that array once in THIS call,
+  // including every element; a later call must recheck even the same reference.
+  const checkedArrays = new Map<readonly string[], boolean>();
+  const graphemesValid = (parts: readonly string[]): boolean => {
+    if (!checkedArrays.has(parts)) checkedArrays.set(parts, parts.every(graphemeValid));
+    return checkedArrays.get(parts) === true;
+  };
   if (!safe(race.clock, MAX_INSTANT) || !safe(race.startsAt, MAX_INSTANT) || !safe(race.countdownAt, race.startsAt) ||
     !safe(race.revision) || !["free", "mandatory"].includes(race.errorMode) ||
     (race.timeLimit !== null && (!safe(race.timeLimit, TIME_LIMIT_MAX_MS) || race.timeLimit < TIME_LIMIT_MIN_MS || race.startsAt + race.timeLimit > MAX_INSTANT)) ||
     (race.endedAt !== undefined && !safe(race.endedAt, race.clock))) return false;
   if (new Set(race.entrants.map((entrant) => entrant.entrantId)).size !== race.entrants.length) return false;
   return race.entrants.every((entrant) => entrant.target.length > 0 && entrant.target.length <= MAX_TEXT_GRAPHEMES &&
-    entrant.target.every(graphemeValid) && entrant.typed.length <= entrant.target.length &&
-    entrant.typed.every(graphemeValid) && safe(entrant.textVersion) && safe(entrant.ackSeq) &&
+    graphemesValid(entrant.target) && entrant.typed.length <= entrant.target.length &&
+    graphemesValid(entrant.typed) && safe(entrant.textVersion) && safe(entrant.ackSeq) &&
     ["racing", "finished", "timedOut", "abandoned"].includes(entrant.status) &&
     (entrant.status !== "racing" || entrant.typed.length < entrant.target.length) &&
     (entrant.status !== "finished" || entrant.typed.length === entrant.target.length) &&
