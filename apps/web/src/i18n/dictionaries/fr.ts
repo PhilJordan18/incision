@@ -156,6 +156,7 @@ export const fr = {
       ],
       racing: "La course en cours s’arrête pour tout le monde, sans résultats.",
       backHome: "Tu reviens à l’accueil.",
+      warning: "Action définitive",
       confirm: "Oui, quitter et fermer",
       cancel: "Rester dans la salle",
     },
@@ -167,6 +168,7 @@ export const fr = {
       close: "Fermer la salle",
       closePending: "Fermeture…",
       closeNote: "Fermer la salle fait partir tout le monde : tu devras confirmer.",
+      closeWarning: "Action définitive",
       closeQuestion: "Fermer la salle pour tout le monde ?",
       closeConsequences: [
         "Tous les membres quittent la salle, et elle n’accepte plus personne.",
@@ -246,6 +248,7 @@ export const fr = {
     present: "Je suis là",
     presentFailed: "Ta réponse n’est pas parvenue au serveur. Réessaie, ou tape.",
     abandon: "Abandonner la course",
+    abandonWarning: "Action définitive",
     abandonQuestion: "Abandonner la course ?",
     abandonBody: "Ta course s’arrête ici. Elle compte comme un abandon, classé selon ta progression.",
     abandonConfirm: "Oui, abandonner",

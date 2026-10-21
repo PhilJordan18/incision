@@ -238,6 +238,7 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     const close = host.getByRole("button", { name: "Fermer la salle" });
     await close.click();
     await expect(host.getByRole("heading", { name: "Fermer la salle pour tout le monde ?" })).toBeFocused();
+    await expect(host.getByRole("heading", { name: "Fermer la salle pour tout le monde ?" })).toHaveAccessibleDescription("Action définitive");
     await expect(host.getByText("Tous les membres quittent la salle, et elle n’accepte plus personne.")).toBeVisible();
     await host.getByRole("button", { name: "Garder la salle ouverte" }).click();
     await expect(close).toBeFocused();

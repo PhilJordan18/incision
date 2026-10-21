@@ -4,7 +4,7 @@ import { unstable_rethrow, useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { FormAlert } from "@/components/ui/form-alert";
-import { secondaryButton } from "@/components/ui/styles";
+import { destructiveLink } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { closeRoomAction, type HostActionError } from "@/server/rooms/actions";
 import { FIRST_VIEW, type HostRoundView, isStaleRefusal, nextHostRoundView } from "./host-round-view";
@@ -47,7 +47,7 @@ export function CloseRoomForm({ t, code, describedBy, onPendingChange }: CloseRo
   return (
     <form action={act} className="flex flex-col gap-3">
       <input type="hidden" name="code" value={code} />
-      <SubmitButton label={t.closeConfirm} pendingLabel={t.closePending} className={`${secondaryButton} self-start`} describedBy={describedBy} />
+      <SubmitButton label={t.closeConfirm} pendingLabel={t.closePending} className={`${destructiveLink} self-start`} describedBy={describedBy} />
       {view.error !== undefined && <FormAlert key={view.attempt} message={t.errors[view.error]} />}
     </form>
   );

@@ -63,6 +63,11 @@ async function raceText(page: Page): Promise<string> {
   return (await text.textContent()) ?? "";
 }
 
+/** Where an element sits in the page (not the viewport): a question that scrolls into view moves nothing. */
+async function pageTop(locator: ReturnType<Page["locator"]>): Promise<number> {
+  return locator.evaluate((element) => element.getBoundingClientRect().top + window.scrollY);
+}
+
 /** Types like a person, below the engine's plausibility limit (25 graphemes a second). */
 async function typeText(field: ReturnType<Page["getByLabel"]>, text: string): Promise<void> {
   await field.pressSequentially(text, { delay: 70 });
@@ -153,13 +158,21 @@ test.describe("the first complete race (F-04.0)", () => {
     const field = guest.getByLabel("Ta frappe");
     await expect(field).toBeEnabled({ timeout: 6_000 });
     await typeText(field, text.slice(0, 6));
+    // A fault left to correct in the first tab.
+    await typeText(field, text[6] === "#" ? "%" : "#");
+    await expect(field).toHaveAttribute("aria-invalid", "true");
 
+    // The watching tab shows the fault in the text, as it is, but its own field is not in error.
     const second = await context.newPage();
     await second.goto(`/rooms/${code}`);
-    await expect(second.getByText("Tu tapes dans un autre onglet ; celui-ci regarde.")).toBeVisible();
+    await expect(second.locator("#race-typing-status")).toHaveText("Tu tapes dans un autre onglet ; celui-ci regarde.");
+    await expect(second.locator(".course-texte .course-bloque")).toHaveCount(1);
     await expect(second.getByLabel("Ta frappe")).toBeDisabled();
+    await expect(second.getByLabel("Ta frappe")).toHaveAttribute("aria-invalid", "false");
+    // Taking the input takes the fault with it, to correct here.
     await second.getByRole("button", { name: "Taper dans cet onglet" }).click();
     await expect(second.getByLabel("Ta frappe")).toBeEnabled();
+    await expect(second.getByLabel("Ta frappe")).toHaveAttribute("aria-invalid", "true");
     await expect(guest.getByText("Tu tapes dans un autre onglet ; celui-ci regarde.")).toBeVisible();
     await typeText(second.getByLabel("Ta frappe"), text.slice(6, 10));
 
@@ -255,15 +268,23 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(field).toBeFocused();
     await expect(guest.getByRole("heading", { name: "Abandonner la course ?" })).toHaveCount(0);
 
-    // The host gives up for good.
+    // The host gives up for good, with a fault still to correct.
+    const hostField = host.getByLabel("Your typing");
+    const hostText = await raceText(host);
+    await typeText(hostField, hostText[0] === "#" ? "%" : "#");
+    await expect(hostField).toHaveAttribute("aria-invalid", "true");
     await host.getByRole("button", { name: "Give up the race" }).click();
     await expect(host.getByRole("heading", { name: "Give up the race?" })).toBeFocused();
+    // The warning is heard with the question.
+    await expect(host.getByRole("heading", { name: "Give up the race?" })).toHaveAccessibleDescription("Cannot be undone");
     await expectNoAccessibilityViolation(host);
     await host.getByRole("button", { name: "Yes, give up" }).click();
-    // The focus goes to the line that says it.
+    // The focus goes to the line that says it; the field is out of the race, not in error.
     await expect(host.locator("#race-typing-status")).toBeFocused();
     await expect(host.locator("#race-typing-status")).toHaveText("You gave up. You can follow the race to the end.");
-    await expect(host.getByLabel("Your typing")).toBeDisabled();
+    await expect(hostField).toBeDisabled();
+    await expect(hostField).toHaveAttribute("aria-invalid", "false");
+    await expect(host.locator(".course-texte .course-bloque")).toHaveCount(0);
     await expect(host.getByRole("button", { name: "Give up the race" })).toHaveCount(0);
     // The others see it on the list, from the server.
     await expect(guest.getByRole("region", { name: "Équipage en course" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("abandon");
@@ -272,6 +293,69 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
     await expect(guest.getByRole("table").getByRole("row").nth(2)).toContainText("abandon (volontaire)");
     await expect(host.getByRole("table").getByRole("row").nth(2)).toContainText("abandoned (voluntary)");
+  });
+
+  test("during the race, the host's leave asks under the field: nothing above it moves, no key types, the clock runs", async ({ browser }) => {
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA" });
+    const code = await openRoom(host);
+    await join(guest, code);
+    await host.getByRole("button", { name: "Start the race" }).click();
+    const field = host.getByLabel("Your typing");
+    const text = host.locator(".course-texte");
+    const question = host.getByRole("heading", { name: `Leave and close room ${code}?` });
+    const leave = host.getByRole("button", { name: "Leave the room" });
+
+    // Asked during the countdown; the text and the field keep their place in the page.
+    await expect(host.getByRole("timer")).toBeVisible();
+    const textTop = await pageTop(text);
+    const fieldTop = await pageTop(field);
+    await leave.click();
+    await expect(question).toBeFocused();
+    await expect(host.getByRole("timer"), "the question opened before « Go »").toBeVisible();
+    await expect(question).toHaveAccessibleDescription("Cannot be undone");
+    expect(await pageTop(text)).toBe(textTop);
+    expect(await pageTop(field)).toBe(fieldTop);
+    // At « Go » the field opens, but the focus stays on the question: keys meant for it never type.
+    await expect(field).toBeEnabled({ timeout: 6_000 });
+    await expect(question).toBeFocused();
+    // The text's own first keys would advance the race if they reached the field: they do not.
+    await host.keyboard.type(((await text.textContent()) ?? "").slice(0, 3), { delay: 70 });
+    await expect(question).toBeFocused();
+    await expect(host.locator(".course-juste, .course-bloque")).toHaveCount(0);
+    await expect(field).toHaveAttribute("aria-invalid", "false");
+    await expect(host.locator("dt", { hasText: "Accuracy" }).locator("xpath=following-sibling::dd")).toHaveText("—");
+    // The race goes on meanwhile, on the server's clock.
+    const clock = host.locator("dt", { hasText: "Time" }).locator("xpath=following-sibling::dd");
+    const shown = (await clock.textContent()) ?? "";
+    await expect(clock).not.toHaveText(shown);
+    await expect(host.getByRole("region", { name: "Crew racing" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("racing");
+
+    // Escape keeps the room and gives the focus back to typing, where the host goes on.
+    await host.keyboard.press("Escape");
+    await expect(question).toHaveCount(0);
+    await expect(field).toBeFocused();
+    expect(await pageTop(field)).toBe(fieldTop);
+    await typeText(field, ((await text.textContent()) ?? "").slice(0, 3));
+    await expect(host.locator(".course-juste")).toHaveCount(3);
+
+    // Once the field no longer takes keys (the host gave up), keeping the room gives the focus to the opener.
+    await host.getByRole("button", { name: "Give up the race" }).click();
+    await host.getByRole("button", { name: "Yes, give up" }).click();
+    await expect(field).toBeDisabled();
+    await leave.click();
+    await expect(question).toBeFocused();
+    await host.keyboard.press("Escape");
+    await expect(leave).toBeFocused();
+
+    // Confirmed: the race stops for everyone, without results, and the host goes home.
+    await leave.click();
+    await expect(question).toBeFocused();
+    await expect(host.getByText("The race in progress stops for everyone, without results.")).toBeVisible();
+    await expectNoAccessibilityViolation(host);
+    await host.getByRole("button", { name: "Yes, leave and close" }).click();
+    await expect(host).toHaveURL(/\/$/);
+    await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();
   });
 
   test("an idle player is asked if they are still there after 60 s; the button or a keystroke clears it for everyone (D-17)", async ({ browser }) => {
