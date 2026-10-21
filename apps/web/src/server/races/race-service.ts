@@ -4,13 +4,15 @@ import {
   asEntrantId,
   asInstant,
   asRaceId,
-  createRace,
+  createBonusRace,
+  createRaceRefusal,
   type CreateRaceRefusal,
   type ErrorMode,
   MAX_BATCHES_PER_SECOND,
-  type RaceState,
+  type BonusRaceState,
 } from "@incision/domain";
 import type { Locale } from "../../i18n/locale";
+import { bonusActivationPayloadSchema, type BonusActivationAck } from "../../races/bonus-protocol";
 import {
   parseKeystrokeBatch,
   type RaceBatchAck,
@@ -45,7 +47,7 @@ export const ENTRANT_ACTION_WINDOW = { maxRequests: 5, windowMs: 10_000 } as con
 export type RaceServiceOptions = {
   readonly ownerId: string;
   readonly store: RaceStore & {
-    readonly startRace: (input: StartRaceInput<CreateRaceRefusal, RaceState>) => Promise<StartRaceResult<CreateRaceRefusal, RaceState>>;
+    readonly startRace: (input: StartRaceInput<CreateRaceRefusal, BonusRaceState>) => Promise<StartRaceResult<CreateRaceRefusal, BonusRaceState>>;
     readonly renewRaceLease: (ownership: RaceOwnership) => Promise<{ readonly renewed: boolean }>;
   };
   /** The server's clock (`serverClock`), in integer milliseconds since the epoch. */
@@ -94,6 +96,7 @@ export class RaceService {
   readonly #controlTimes = new Map<string, number[]>();
   /** Account → its recent « Je suis là » and abandons. */
   readonly #entrantActionTimes = new Map<string, number[]>();
+  readonly #bonusTimes = new Map<string, number[]>();
   readonly #starting = new Set<string>();
 
   constructor(options: RaceServiceOptions) {
@@ -134,6 +137,7 @@ export class RaceService {
     this.#prune(this.#batchTimes, BATCH_WINDOW_MS);
     this.#prune(this.#controlTimes, CONTROL_WINDOW.windowMs);
     this.#prune(this.#entrantActionTimes, ENTRANT_ACTION_WINDOW.windowMs);
+    this.#prune(this.#bonusTimes, 1_000);
     if (tabs?.size === 0) {
       this.#followers.delete(lobbyId);
     }
@@ -178,24 +182,32 @@ export class RaceService {
     const { store, ownerId } = this.#options;
     const timeLimit = asDuration(FIRST_RACE_SETTINGS.timeLimitMs);
     const acquiredAt = this.#options.monotonic();
-    let started: StartRaceResult<CreateRaceRefusal, RaceState>;
+    let started: StartRaceResult<CreateRaceRefusal, BonusRaceState>;
     try {
       started = await store.startRace({
         accountId: connection.accountId,
         ownerId,
         text,
-        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, language: connection.locale, text: textId },
+        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, language: connection.locale, text: textId, bonuses: false },
         rulesVersion: RULES_VERSION,
         // Under the room lock: a refusal changes nothing, an exception rolls the start back.
-        create: ({ raceId, entrants }) =>
-          createRace({
+        create: ({ raceId, entrants }) => {
+          const input = {
             raceId: asRaceId(raceId),
             text,
             errorMode: FIRST_RACE_SETTINGS.errorMode,
             timeLimit,
             participants: entrants.map(({ entrantId, kind }) => ({ entrantId: asEntrantId(entrantId), kind })),
             now: asInstant(this.#options.now()),
-          }),
+          };
+          const refusal = createRaceRefusal(input);
+          if (refusal !== undefined) return { ok: false, reason: refusal };
+          const result = createBonusRace({ enabled: false, random: [1, 2, 3, 4], race: input });
+          // Disabled until room configuration and approved content land in 62B. This dormant
+          // stream is not used for draws or security; enabled races must receive a private seed.
+          if (!result.ok) throw new RangeError(result.reason);
+          return { ok: true, race: result.state };
+        },
       });
     } catch (error: unknown) {
       this.#logError(`[races] start failed: ${describeDatabaseError(error)}`);
@@ -230,7 +242,7 @@ export class RaceService {
     language,
   }: {
     readonly ownership: RaceOwnership;
-    readonly state: RaceState;
+    readonly state: BonusRaceState;
     readonly entrants: readonly { entrantId: string; accountId: string; displayName: string }[];
     readonly acquiredAt: number;
     readonly language: Locale;
@@ -306,6 +318,17 @@ export class RaceService {
     }
     const followed = this.#followed(connection);
     return followed === undefined ? { ok: false, error: "NO_RACE" } : followed.runtime.keystrokes(followed.connection, parsed.data);
+  }
+
+  /** Five attempts per second per authenticated account, shared across tabs and reconnects. */
+  activateBonus(connection: RoomConnection, payload: unknown): BonusActivationAck {
+    const followed = this.#followed(connection);
+    if (followed === undefined) return { ok: false, error: "NO_RACE" };
+    this.#prune(this.#bonusTimes, 1_000);
+    if (!this.#withinWindow(this.#bonusTimes, connection.accountId, 5, 1_000)) return { ok: false, error: "RATE_LIMITED" };
+    const parsed = bonusActivationPayloadSchema.safeParse(payload);
+    if (!parsed.success) return { ok: false, error: "INVALID_PAYLOAD" };
+    return followed.runtime.activateBonus(followed.connection, parsed.data);
   }
 
   /** A second tab asks for the input (state-machines §2). */

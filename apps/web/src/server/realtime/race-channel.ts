@@ -1,4 +1,5 @@
 import type { IncomingHttpHeaders } from "node:http";
+import { RACE_BONUS_ACTIVATE_EVENT, type BonusActivationAck } from "../../races/bonus-protocol";
 import type { Server, Socket } from "socket.io";
 import { type Locale, LOCALE_COOKIE, resolveLocale } from "../../i18n/locale";
 import {
@@ -19,7 +20,7 @@ import { currentSession } from "./socket-server";
 export type RaceChannelDependencies = {
   readonly allowedOrigin: string;
   readonly registry: SessionRegistry;
-  readonly races: Pick<RaceService, "start" | "keystrokes" | "takeControl" | "present" | "abandon">;
+  readonly races: Pick<RaceService, "start" | "keystrokes" | "takeControl" | "present" | "abandon" | "activateBonus">;
   /** The room the socket follows, as the room channel admitted it. */
   readonly followedRoom: (socket: Socket) => string | undefined;
   readonly now?: () => number;
@@ -44,6 +45,20 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
     const starts = { windowStart: now(), used: 0 };
     const controls = { windowStart: now(), used: 0 };
     const entrantActions = { windowStart: now(), used: 0 };
+
+    socket.on(RACE_BONUS_ACTIVATE_EVENT, (payload: unknown, acknowledge: unknown) => {
+      if (typeof acknowledge !== "function") return;
+      const session = currentSession(socket, dependencies);
+      if (session === undefined) {
+        acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies BonusActivationAck);
+        return;
+      }
+      if (dependencies.followedRoom(socket) === undefined) {
+        acknowledge({ ok: false, error: "NO_RACE" } satisfies BonusActivationAck);
+        return;
+      }
+      acknowledge(dependencies.races.activateBonus(connectionOf(socket, session.accountId), payload));
+    });
 
     socket.on(RACE_START_EVENT, (payload: unknown, acknowledge: unknown) => {
       if (typeof acknowledge !== "function") {
