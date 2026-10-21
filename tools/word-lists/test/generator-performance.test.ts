@@ -124,7 +124,7 @@ describe("generator cost on a 60,000-word list", () => {
     const request = { settings: { language: "fr" as const, complexity: "hard" as const, options: { punctuation: true, numbers: false, capitals: true, accents: true } }, words, target: "la mer est calme.", seed, grant };
     drawExtensionWords(request);
     let started = performance.now();
-    for (let milestone = 0; milestone < 5; milestone += 1) expect(drawExtensionWords({ ...request, seed: [milestone + 1, 5, 7, 11] }).ok).toBe(true);
+    for (let index = 0; index < 5; index += 1) expect(drawExtensionWords({ ...request, seed: [index + 1, 5, 7, 11] }).ok).toBe(true);
     const drawMs = (performance.now() - started) / 5;
     started = performance.now();
     expect(drawExtensionWords({ ...request, settings: { ...request.settings, exclude: [..."aeiouyéèêàâîôûù"] } })).toEqual({ ok: false, reason: "NO_COMPATIBLE_WORDS" });

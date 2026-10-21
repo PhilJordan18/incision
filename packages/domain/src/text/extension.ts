@@ -8,14 +8,20 @@
  *   EXTENSION_DRAW_VERSION. Identical inputs give the identical result; any change may change it.
  * - The seed is private and frozen for the race; each call derives its own generator from it and
  *   the grant identity (see `extensionState`). No shared stream is consumed, and the result never
- *   depends on the order of other events. The derivation is not cryptographic: it claims no
- *   unpredictability of its own, only the seed is secret.
+ *   depends on the order of other events.
+ * - The words are deterministic, not unpredictable: the derivation is not cryptographic. Before
+ *   any extension of a race is shown, they depend on the race's private seed; each extension shown
+ *   reveals part of the derived state, and with the public lists the first words of two or three
+ *   extensions in a race let anyone compute the first word of that race's other extensions. This
+ *   is acceptable: the words come only from the approved lists, the grant's owner can neither
+ *   choose nor redraw them, and they are shown to the race as soon as they are added. The seed
+ *   serves only this purpose, so nothing else is revealed: no other random stream, no other race.
  * - The words follow the race's language, band and options, avoid œ and æ (P-4) and the excluded
  *   words and characters, and never repeat or form a forbidden pair with their neighbour, the
  *   target's last word included (numbers are transparent, as in random mode). Coherent races draw
  *   from the lists too: the extension does not continue the story.
- * - With capitals on, the first word takes a capital only when the target's last token ends a
- *   sentence; every other word stays lowercase.
+ * - With capitals and punctuation on, the first word takes a capital only when the target's last
+ *   token ends a sentence; every other word stays lowercase.
  * - The search is bounded. EXTENSION_SEARCH_EXHAUSTED proves nothing; the other refusals are proofs
  *   or data checks. The shipped hand-written fixtures (`fixture-*` versions) are refused unless a
  *   test says otherwise, so production never falls back to them.
@@ -25,10 +31,11 @@ import { asEntrantId, asRaceId, type EntrantId, type RaceId } from "../ids";
 import { MAX_TEXT_GRAPHEMES } from "../race/limits";
 import { asRandomState, createRandom, type RandomState } from "../random/prng";
 import { forbiddenPairRule } from "../words/pool";
-import type { TextLanguage } from "../words/types";
+import { TEXT_LANGUAGES, type TextLanguage } from "../words/types";
 import { toGraphemes } from "./graphemes";
+import { drawnWordChecks, endsSentence, isNumberCore, tokenCore } from "./generate";
 import { randomPlan, type RandomWords } from "./random";
-import { checkCriteria, COMPLEXITY_CRITERIA, MIN_TEXT_WORDS, type Complexity, type ComplexityCriteria, type TextOptions } from "./settings";
+import { checkCriteria, COMPLEXITIES, COMPLEXITY_CRITERIA, MIN_TEXT_WORDS, settingCharacter, type Complexity, type ComplexityCriteria, type TextOptions } from "./settings";
 import { isWordToken, tokensOf } from "./words";
 
 /** Changes with the draw algorithm or its bounds: a different version may give different words. */
@@ -116,18 +123,15 @@ export function extensionState(seed: RandomState, grant: ExtensionGrant): Random
   return state.every((word) => word === 0) ? ZERO_REPLACEMENT : asRandomState(state);
 }
 
-const NUMBER = /^\p{N}+$/u;
-const LEADING = /^[^\p{L}\p{N}]+/u;
-const TRAILING = /(?<=[\p{L}\p{N}])[^\p{L}\p{N}]+$/u;
-const SENTENCE_END = /[.!?][")]*$/u;
-
-const coreOf = (token: string): string => token.replace(LEADING, "").replace(TRAILING, "").toLowerCase();
-
-/** The target's last word (numbers are transparent) and whether its last token ends a sentence. */
+/**
+ * The target's last word and whether its last token ends a sentence, with random mode's token rules.
+ * Numbers are transparent: a word token without a letter ("12", "3,5", "10:30", "1914-1918") is a
+ * number, since coherent passages hold more than random mode's integers.
+ */
 export function extensionJunction(target: string): { readonly lastWord?: string; readonly sentenceEnd: boolean } {
   const tokens = tokensOf(target);
-  const words = tokens.filter(isWordToken).map(coreOf).filter((core) => !NUMBER.test(core));
-  return { ...(words.length > 0 ? { lastWord: words[words.length - 1] } : {}), sentenceEnd: SENTENCE_END.test(tokens[tokens.length - 1] ?? "") };
+  const words = tokens.filter(isWordToken).map(tokenCore).filter((core) => !isNumberCore(core) && /\p{L}/u.test(core));
+  return { ...(words.length > 0 ? { lastWord: words[words.length - 1] } : {}), sentenceEnd: endsSentence(tokens[tokens.length - 1] ?? "") };
 }
 
 const isFixture = (words: RandomWords): boolean => [words.list.version, words.exclusions.version, words.pairs.version].some((version) => version.startsWith("fixture"));
@@ -139,9 +143,16 @@ function extensionPool(input: ExtensionInput, criteria: Readonly<Record<Complexi
   return randomPlan(settings, input.words, criteria[complexity]).pool.map((entry) => entry.word);
 }
 
+/** With capitals on, the first word takes a capital only after a visible sentence end: punctuation on. */
+const capitalised = (settings: ExtensionSettings, junction: { readonly sentenceEnd: boolean }): boolean =>
+  settings.options.capitals && settings.options.punctuation && junction.sentenceEnd;
+
 export function drawExtensionWords(input: ExtensionInput): ExtensionDraw {
   const criteria = input.criteria ?? COMPLEXITY_CRITERIA;
   checkCriteria(criteria);
+  if (!TEXT_LANGUAGES.includes(input.settings.language) || !COMPLEXITIES.includes(input.settings.complexity)) {
+    throw new RangeError("Unknown text language or complexity");
+  }
   const random = createRandom(extensionState(input.seed, input.grant));
   if (isFixture(input.words) && input.allowFixtureData !== true) return { ok: false, reason: "FIXTURE_DATA" };
   const pool = extensionPool(input, criteria);
@@ -149,7 +160,9 @@ export function drawExtensionWords(input: ExtensionInput): ExtensionDraw {
   // Three words, each after a space, must fit under the race's grapheme bound.
   const room = MAX_TEXT_GRAPHEMES - toGraphemes(input.target).length;
   const lengths = pool.map((word) => [...word].length);
-  const shortest = Math.min(...lengths);
+  // A loop, not Math.min(...lengths): spreading a list of 125,000 words or more overflows the stack.
+  let shortest = Number.POSITIVE_INFINITY;
+  for (const length of lengths) shortest = Math.min(shortest, length);
   if (EXTENSION_WORDS * (shortest + 1) > room) return { ok: false, reason: "NO_ROOM" };
   const forbidden = forbiddenPairRule(input.words.pairs);
   const junction = extensionJunction(input.target);
@@ -173,7 +186,7 @@ export function drawExtensionWords(input: ExtensionInput): ExtensionDraw {
     }
     if (chosen.length === EXTENSION_WORDS) {
       const [first = "", second = "", third = ""] = chosen;
-      const capital = input.settings.options.capitals && junction.sentenceEnd;
+      const capital = capitalised(input.settings, junction);
       return { ok: true, words: [capital ? first.charAt(0).toUpperCase() + first.slice(1) : first, second, third] };
     }
   }
@@ -181,8 +194,9 @@ export function drawExtensionWords(input: ExtensionInput): ExtensionDraw {
 }
 
 /**
- * Every rule a drawn triple breaks, checked against the list, the exclusions and the pairs
- * themselves, never against the pool or the draw. Empty for a valid triple. A rule never names a word.
+ * Every rule a drawn triple breaks, read from the list, the exclusions, the pairs and the alphabet
+ * themselves (`drawnWordChecks`, shared with random mode's final checks), never from the pool or
+ * the draw. Empty for a valid triple. A rule never names a word.
  */
 export function extensionViolations(input: ExtensionInput, words: readonly string[]): readonly string[] {
   const violations = new Set<string>();
@@ -190,15 +204,22 @@ export function extensionViolations(input: ExtensionInput, words: readonly strin
     if (!holds) violations.add(rule);
   };
   const criteria = input.criteria ?? COMPLEXITY_CRITERIA;
+  const { language, complexity, options, exclude = [] } = input.settings;
+  const context = {
+    language,
+    options,
+    level: criteria[complexity],
+    words: input.words,
+    excludedCharacters: exclude.map((character) => settingCharacter(character, language) ?? "").filter((character) => character !== ""),
+  };
   check(words.length === EXTENSION_WORDS, "exactly three words");
-  const pool = new Set(extensionPool(input, criteria));
   const junction = extensionJunction(input.target);
   const forbidden = forbiddenPairRule(input.words.pairs);
-  const capital = input.settings.options.capitals && junction.sentenceEnd;
+  const capital = capitalised(input.settings, junction);
   words.forEach((word, index) => {
     const lower = word.toLowerCase();
-    // The pool applies the list, the band, the exclusions, the alphabet, œ/æ, the excluded characters and the accents.
-    check(pool.has(lower), "words from the race's pool");
+    for (const [holds, rule] of drawnWordChecks(lower, context)) check(holds, rule);
+    check(isWordToken(word) && word === word.normalize("NFC") && !word.includes(" "), "word tokens, NFC, no space");
     check(index === 0 && capital ? word === lower.charAt(0).toUpperCase() + lower.slice(1) : word === lower, "a capital on the first word only after a sentence end, with capitals on");
     const previous = index === 0 ? junction.lastWord : words[index - 1]?.toLowerCase();
     if (previous !== undefined) {

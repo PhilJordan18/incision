@@ -28,6 +28,10 @@ const WORDS: Readonly<Record<"fr" | "en", RandomWords>> = {
 const ALL_ON: TextOptions = { punctuation: true, numbers: true, capitals: true, accents: true };
 const OPTION_SETS: readonly TextOptions[] = Array.from({ length: 16 }, (_, bits) => ({ punctuation: (bits & 1) > 0, numbers: (bits & 2) > 0, capitals: (bits & 4) > 0, accents: (bits & 8) > 0 }));
 const SEED: RandomState = [1, 2, 3, 4];
+/** The pinned draw for the FR fixtures, SEED, the test grant and "la mer est calme" (EXTENSION_DRAW_VERSION 1). */
+const GOLDEN_TRIPLE = ["la", "tempête", "jetée"];
+/** Successes of the needle search over seeds 1 to 40 (EXTENSION_DRAWS_PER_SLOT 64, EXTENSION_RESTARTS 4). */
+const PINNED_NEEDLE_SUCCESSES = 34;
 const grant = { raceId: asRaceId("race-1"), entrantId: asEntrantId("alice"), milestone: 25 } as const;
 const settings = (overrides: Partial<ExtensionSettings> = {}): ExtensionSettings => ({ language: "fr", complexity: "medium", options: ALL_ON, ...overrides });
 const input = (overrides: Partial<ExtensionInput> = {}): ExtensionInput => ({ settings: settings(), words: WORDS.fr, target: "la mer est calme", seed: SEED, grant, ...overrides });
@@ -132,7 +136,12 @@ describe("extensionViolations: an independent check of a triple", () => {
   it("passes a valid triple and names each broken rule, never a word", () => {
     expect(extensionViolations(request, ["Vent", "nuit", "mer"])).toEqual([]);
     expect(extensionViolations(request, ["Vent", "nuit"])).toEqual(["exactly three words"]);
-    expect(extensionViolations(request, ["Vent", "nuit", "soleil"])).toEqual(["words from the race's pool"]);
+    expect(extensionViolations(request, ["Vent", "nuit", "soleil"])).toEqual(["words from the list, at Zipf 3.3 or more"]);
+    // A band the draw would never produce is caught by the list itself: 10 letters in an easy race.
+    const easy = { ...request, words: custom("fr", ["mer", "vent", "port", "scaphandre"]), settings: settings({ complexity: "easy" }) };
+    expect(extensionViolations(easy, ["Vent", "scaphandre", "mer"])).toEqual(["words of at most 5 letters"]);
+    expect(extensionViolations({ ...request, words: { ...pool, exclusions: { language: "fr", version: "custom", words: ["nuit"] } } }, ["Vent", "nuit", "mer"])).toEqual(["no excluded word"]);
+    expect(extensionViolations({ ...request, settings: settings({ exclude: ["v"] }) }, ["Vent", "nuit", "mer"])).toEqual(["words of allowed letters only"]);
     expect(extensionViolations(request, ["vent", "nuit", "mer"])).toEqual(["a capital on the first word only after a sentence end, with capitals on"]);
     expect(extensionViolations(request, ["Vent", "Nuit", "mer"])).toEqual(["a capital on the first word only after a sentence end, with capitals on"]);
     expect(extensionViolations(request, ["Vent", "vent", "mer"])).toEqual(["no word next to the same word"]);
@@ -147,7 +156,7 @@ describe("drawExtensionWords: the junction with the target", () => {
   it("never puts a forbidden pair or the same word next to the target's last word, numbers transparent", () => {
     const pool = custom("fr", ["mer", "port", "vent"], [["mer", "port"]]);
     for (let seed = 1; seed <= 40; seed += 1) {
-      for (const target of ["la mer", "la mer 12", "la mer 3 4"]) {
+      for (const target of ["la mer", "la mer 12", "la mer 3 4", "la mer 3,5", "la mer 10:30", "la mer 1914-1918"]) {
         const [first] = words(drawExtensionWords(input({ words: pool, target, seed: [seed, 2, 3, 4] })));
         expect(["mer", "port"]).not.toContain(first);
       }
@@ -171,15 +180,75 @@ describe("drawExtensionWords: the junction with the target", () => {
       expect(capitalised(target).every((word) => word === word.toLowerCase())).toBe(true);
     }
     expect(capitalised("Il dort.", { ...ALL_ON, capitals: false }).every((word) => word === word.toLowerCase())).toBe(true);
+    // With punctuation off, sentence ends are invisible: no capital, even after a stray mark.
+    expect(capitalised("Il dort.", { ...ALL_ON, punctuation: false }).every((word) => word === word.toLowerCase())).toBe(true);
     expect(extensionJunction("Il dort.")).toEqual({ lastWord: "dort", sentenceEnd: true });
   });
 });
 
+describe("drawExtensionWords: pinned output and the exact room", () => {
+  it("pins one draw, so changing the algorithm without EXTENSION_DRAW_VERSION shows", () => {
+    expect(words(drawExtensionWords(input()))).toEqual(GOLDEN_TRIPLE);
+  });
+
+  it("never lets a longer word take the space the next words need", () => {
+    // 9 graphemes of room: only three 2-letter words fit; "efg" would push the text to 4,001.
+    const pool = custom("fr", ["ab", "cd", "efg"]);
+    const fits = `${"mer ".repeat(997)}mer`;
+    for (let seed = 1; seed <= 30; seed += 1) {
+      const drawn = words(drawExtensionWords(input({ words: pool, target: fits, seed: [seed, seed + 1, 3, 4] })));
+      expect(`${fits} ${drawn.join(" ")}`.length).toBe(MAX_TEXT_GRAPHEMES);
+    }
+  });
+
+  it("pins how often the bounded search succeeds when only one word fits the junction", () => {
+    // Every word but "zz" forms a forbidden pair with "sea": about one draw in a hundred fits the
+    // first slot. The pinned count changes with EXTENSION_DRAWS_PER_SLOT or EXTENSION_RESTARTS.
+    const letter = (value: number): string => String.fromCharCode(97 + (value % 26));
+    const others = Array.from({ length: 100 }, (_, index) => `w${letter(index)}${letter(Math.floor(index / 26))}`);
+    const pool = custom("en", ["zz", ...others], others.map((other): [string, string] => ["sea", other]));
+    let succeeded = 0;
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const draw = drawExtensionWords(input({ settings: settings({ language: "en" }), words: pool, target: "the sea", seed: [seed, 3, 5, 7] }));
+      if (draw.ok) {
+        succeeded += 1;
+        expect(draw.words[0]).toBe("zz");
+      } else {
+        expect(draw.reason).toBe("EXTENSION_SEARCH_EXHAUSTED");
+      }
+    }
+    expect(succeeded).toBe(PINNED_NEEDLE_SUCCESSES);
+  });
+
+  it("fills the room to exactly MAX_TEXT_GRAPHEMES, and refuses one grapheme more", () => {
+    const pool = custom("fr", ["ab", "cd", "ef"]);
+    // 997 × "mer " then "mer": 3,991 graphemes, so three 2-letter words and their spaces make 4,000.
+    const fits = `${"mer ".repeat(997)}mer`;
+    expect(fits.length).toBe(MAX_TEXT_GRAPHEMES - 9);
+    const drawn = words(drawExtensionWords(input({ words: pool, target: fits })));
+    expect(`${fits} ${drawn.join(" ")}`.length).toBe(MAX_TEXT_GRAPHEMES);
+    expect(extensionViolations(input({ words: pool, target: fits }), drawn)).toEqual([]);
+    const tooLong = `${fits}s`;
+    expect(drawExtensionWords(input({ words: pool, target: tooLong }))).toEqual({ ok: false, reason: "NO_ROOM" });
+    expect(extensionViolations(input({ words: pool, target: tooLong }), drawn)).toEqual(["the text stays within MAX_TEXT_GRAPHEMES"]);
+  });
+});
+
 describe("drawExtensionWords: refusals, proofs before the bounded search", () => {
-  it("refuses the shipped fixtures unless a test allows them", () => {
+  it("refuses the shipped fixtures unless a test allows them, whichever file is a fixture, before any other check", () => {
     const shipped = custom("fr", ["mer", "vent", "port"], [], "fixture-1");
     expect(drawExtensionWords(input({ words: shipped }))).toEqual({ ok: false, reason: "FIXTURE_DATA" });
     expect(drawExtensionWords(input({ words: shipped, allowFixtureData: true })).ok).toBe(true);
+    const real = custom("fr", ["mer", "vent", "port"]);
+    expect(drawExtensionWords(input({ words: { ...real, pairs: { ...real.pairs, version: "fixture-1" } } }))).toEqual({ ok: false, reason: "FIXTURE_DATA" });
+    expect(drawExtensionWords(input({ words: { ...real, exclusions: { ...real.exclusions, version: "fixture-2" } } }))).toEqual({ ok: false, reason: "FIXTURE_DATA" });
+    // Fixture data are refused first, even when the pool would be empty.
+    expect(drawExtensionWords(input({ words: shipped, settings: settings({ exclude: [..."aeiouy"] }) }))).toEqual({ ok: false, reason: "FIXTURE_DATA" });
+  });
+
+  it("throws for a language or complexity only a bug can produce", () => {
+    expect(() => drawExtensionWords(input({ settings: settings({ complexity: "extreme" as never }) }))).toThrow(RangeError);
+    expect(() => drawExtensionWords(input({ settings: settings({ language: "es" as never }) }))).toThrow(RangeError);
   });
 
   it("refuses an empty pool and a target with no room left, as proofs", () => {

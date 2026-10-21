@@ -353,19 +353,32 @@ Stored values are bounded, so database columns can be sized from these constants
     exclusions, excluded characters, no œ or æ. Coherent races draw from the lists too, so an
     extension does not continue the story.
   - No word repeats its neighbour or forms a forbidden pair with it, the target's last word
-    included (numbers are transparent). With capitals on, the first word takes a capital only after
-    a sentence end.
+    included. Numbers are transparent: a token without a letter ("12", "3,5", "10:30") is a number.
+    With capitals and punctuation on, the first word takes a capital only after a sentence end.
   - The result is a pure function of all its inputs: seed, grant, target, settings, criteria, data
     and `EXTENSION_DRAW_VERSION`. Each call derives its own generator from the race's private, frozen
     seed and the grant identity, encoded as `incision-extension-mix/1|<raceId>|<entrantId>|<milestone>`
     and mixed with four FNV-1a lanes, each hashing the seed's 16 bytes then the key, and the murmur3
-    finaliser (`EXTENSION_MIX_VERSION`). The mix is not cryptographic and claims no unpredictability:
-    only the seed is secret.
+    finaliser (`EXTENSION_MIX_VERSION`), and pinned by golden values.
+  - The words are deterministic, not unpredictable: the derivation is not cryptographic. Before any
+    extension of a race is shown, they depend on the race's private seed; each extension shown
+    reveals part of the derived state, and with the public lists the first words of two or three
+    extensions in a race let anyone compute the first word of that race's other extensions. This is
+    acceptable: the words come only from the approved lists, the grant's owner can neither choose
+    nor redraw them, and they are shown to the race as soon as they are added. The seed serves only
+    this purpose, so nothing else is revealed: no other random stream, no other race.
   - The search is bounded (`EXTENSION_DRAWS_PER_SLOT` draws per word, `EXTENSION_RESTARTS`
     restarts); `EXTENSION_SEARCH_EXHAUSTED` proves nothing. `NO_COMPATIBLE_WORDS` and `NO_ROOM`
     (three words cannot fit under `MAX_TEXT_GRAPHEMES`) are proofs. The shipped `fixture-*` data are
     refused (`FIXTURE_DATA`) unless a test allows them, so production never falls back to them.
-    `extensionViolations` checks a triple against the list, the exclusions and the pairs themselves.
+    `extensionViolations` checks a triple against the list, the exclusions, the pairs and the
+    alphabet themselves, through the same per-word rules as random mode's final checks
+    (`drawnWordChecks`), never through the pool or the draw.
+  - The server wiring (#62) must draw the seed with crypto for this purpose only, store it with the
+    race and keep it out of every payload, snapshot and log; never pass `allowFixtureData`; accept
+    only the word-data versions approved in #42; log only the refusal's reason; catch the
+    provider's exceptions itself; and memoise per grant and target text version, since the function
+    is pure and builds the whole pool.
 - **Final checks.** `raceTextViolations` lists every guarantee the final text breaks: exactly N
   words, typable characters, no line break, the grapheme bound, each option's effect; in random
   mode, each word read from the list itself (band, exclusions, alphabet, accents), included and

@@ -5,7 +5,7 @@
 import { createRandom, PRNG_VERSION, type RandomState } from "../random/prng";
 import { MAX_TEXT_GRAPHEMES } from "../race/limits";
 import { foldForExclusion, forbiddenPairRule } from "../words/pool";
-import type { WordList } from "../words/types";
+import type { ExclusionList, TextLanguage, WordList } from "../words/types";
 import { checkPassages, passageCut, type Passage } from "./coherent";
 import { containsLineBreak, toGraphemes } from "./graphemes";
 import { NORMALIZATION_VERSION } from "./normalize";
@@ -20,6 +20,7 @@ import {
   type Complexity,
   type ComplexityCriteria,
   type RandomTextSettings,
+  type TextOptions,
   type TextSettingsRefusal,
 } from "./settings";
 import { HARD_TO_TYPE_LETTERS, MARKS, untypableCharacters, usesWordLetters } from "./typable";
@@ -152,6 +153,49 @@ const FRENCH_HIGH = /[;:!?]/u;
 
 const coreOf = (token: string): string => token.replace(LEADING, "").replace(TRAILING, "").toLowerCase();
 
+/** A token's word core, its leading and trailing marks removed, in lowercase: the unit of the word rules. */
+export const tokenCore = coreOf;
+/** Whether a core is a number, which the pair and repetition rules see through. */
+export const isNumberCore = (core: string): boolean => NUMBER.test(core);
+/** Whether a token ends a sentence: ".", "!" or "?", then possibly a quote and a parenthesis. */
+export const endsSentence = (token: string): boolean => TERMINAL_END.test(token);
+
+/** The folded exclusions, built once per list object (lists are frozen data). */
+const EXCLUDED = new WeakMap<ExclusionList, ReadonlySet<string>>();
+function excludedOf(list: ExclusionList): ReadonlySet<string> {
+  let excluded = EXCLUDED.get(list);
+  if (excluded === undefined) {
+    excluded = new Set(list.words.map(foldForExclusion));
+    EXCLUDED.set(list, excluded);
+  }
+  return excluded;
+}
+
+export type DrawnWordContext = {
+  readonly language: TextLanguage;
+  readonly options: TextOptions;
+  readonly level: ComplexityCriteria;
+  readonly words: RandomWords;
+  /** The settings' excluded characters, already through settingCharacter. */
+  readonly excludedCharacters: readonly string[];
+};
+
+/**
+ * The rules a drawn word keeps, as [holds, rule] pairs, read from the list, the exclusions and the
+ * alphabet themselves, never from a pool: a faulty pool cannot vouch for itself. A rule never names
+ * the word. Shared by the final checks of random texts and of extension words.
+ */
+export function drawnWordChecks(core: string, context: DrawnWordContext): readonly (readonly [boolean, string])[] {
+  const { language, options, level, words, excludedCharacters } = context;
+  return [
+    [(zipfOf(words.list).get(core) ?? Number.NEGATIVE_INFINITY) >= level.minZipf, `words from the list, at Zipf ${level.minZipf} or more`],
+    [[...core].length <= level.maxLetters, `words of at most ${level.maxLetters} letters`],
+    [!excludedOf(words.exclusions).has(foldForExclusion(core)), "no excluded word"],
+    [usesWordLetters(core, language) && ![...core].some((character) => HARD_TO_TYPE_LETTERS.includes(character) || excludedCharacters.includes(character)), "words of allowed letters only"],
+    [options.accents || /^[a-z']+$/u.test(core), "no diacritic in a word with accents off"],
+  ];
+}
+
 /** The list's Zipf lookup, built once per list object. */
 const ZIPF = new WeakMap<WordList, ReadonlyMap<string, number>>();
 function zipfOf(list: WordList): ReadonlyMap<string, number> {
@@ -191,8 +235,7 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
   const level = criteria[settings.complexity];
   const characters = (inputs: readonly string[]): string[] => inputs.map((input) => settingCharacter(input, language) ?? "").filter((character) => character !== "");
   const excludedCharacters = characters(settings.exclude);
-  const zipf = zipfOf(words.list);
-  const excluded = new Set(words.exclusions.words.map(foldForExclusion));
+  const context: DrawnWordContext = { language, options, level, words, excludedCharacters };
   const rule = forbiddenPairRule(words.pairs);
   const lower = text.toLowerCase();
   const cores = tokens.filter(isWordToken).map(coreOf);
@@ -201,11 +244,7 @@ export function raceTextViolations(text: string, sources: RaceTextSources, crite
       check(options.numbers && Number(core) <= level.maxNumber && !(core.length > 1 && core.startsWith("0")), `numbers up to ${level.maxNumber}, without a leading zero`);
       continue;
     }
-    check((zipf.get(core) ?? Number.NEGATIVE_INFINITY) >= level.minZipf, `words from the list, at Zipf ${level.minZipf} or more`);
-    check([...core].length <= level.maxLetters, `words of at most ${level.maxLetters} letters`);
-    check(!excluded.has(foldForExclusion(core)), "no excluded word");
-    check(usesWordLetters(core, language) && ![...core].some((character) => HARD_TO_TYPE_LETTERS.includes(character) || excludedCharacters.includes(character)), "words of allowed letters only");
-    check(options.accents || /^[a-z']+$/u.test(core), "no diacritic in a word with accents off");
+    for (const [holds, rule] of drawnWordChecks(core, context)) check(holds, rule);
   }
   check(!excludedCharacters.some((character) => lower.includes(character)), "no excluded character");
   check(characters(settings.include).every((character) => lower.includes(character)), "every included character");
