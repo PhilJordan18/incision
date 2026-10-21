@@ -27,6 +27,7 @@ import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
 import type { RaceText } from "./race-texts";
+import { BonusActivationLimiter } from "./bonus-limiter";
 
 /** A tab admitted into a room by the room channel, with the language its pages use. */
 export type RoomConnection = RaceConnection & { readonly locale: Locale };
@@ -96,11 +97,12 @@ export class RaceService {
   readonly #controlTimes = new Map<string, number[]>();
   /** Account → its recent « Je suis là » and abandons. */
   readonly #entrantActionTimes = new Map<string, number[]>();
-  readonly #bonusTimes = new Map<string, number[]>();
+  readonly #bonusLimiter: BonusActivationLimiter;
   readonly #starting = new Set<string>();
 
   constructor(options: RaceServiceOptions) {
     this.#options = options;
+    this.#bonusLimiter = new BonusActivationLimiter(options.monotonic);
   }
 
   ownsRace(lobbyId: string): boolean {
@@ -137,7 +139,6 @@ export class RaceService {
     this.#prune(this.#batchTimes, BATCH_WINDOW_MS);
     this.#prune(this.#controlTimes, CONTROL_WINDOW.windowMs);
     this.#prune(this.#entrantActionTimes, ENTRANT_ACTION_WINDOW.windowMs);
-    this.#prune(this.#bonusTimes, 1_000);
     if (tabs?.size === 0) {
       this.#followers.delete(lobbyId);
     }
@@ -324,8 +325,7 @@ export class RaceService {
   activateBonus(connection: RoomConnection, payload: unknown): BonusActivationAck {
     const followed = this.#followed(connection);
     if (followed === undefined) return { ok: false, error: "NO_RACE" };
-    this.#prune(this.#bonusTimes, 1_000);
-    if (!this.#withinWindow(this.#bonusTimes, connection.accountId, 5, 1_000)) return { ok: false, error: "RATE_LIMITED" };
+    if (!this.#bonusLimiter.allow(connection.accountId)) return { ok: false, error: "RATE_LIMITED" };
     const parsed = bonusActivationPayloadSchema.safeParse(payload);
     if (!parsed.success) return { ok: false, error: "INVALID_PAYLOAD" };
     return followed.runtime.activateBonus(followed.connection, parsed.data);
