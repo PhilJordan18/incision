@@ -114,6 +114,8 @@ describe("runMigrations", () => {
       expect(await tableExists(table)).toBe(true);
     }
     expect({ lobbies: await query("select * from lobbies"), races: await query("select * from races") }).toEqual(before);
+    // Redeploying the first-race release on the upgraded database (rollback) applies nothing.
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo("0003_engine_error") })).toEqual({ applied: 0 });
   });
 
   it("serialises two concurrent migrators: a slow migration is applied exactly once", async () => {

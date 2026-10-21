@@ -1,5 +1,5 @@
 {
-  "id": "5714a85f-c906-46f2-a465-69959bc22d62",
+  "id": "6d261de3-a86f-42c6-a0a9-08461dd2c3ce",
   "prevId": "d7f6cdcc-5368-4df4-a8d5-138a1f4b986e",
   "version": "7",
   "dialect": "postgresql",
@@ -1007,25 +1007,33 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "complexity": {
+          "name": "complexity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "measures": {
+          "name": "measures",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "editorial": {
+          "name": "editorial",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checks": {
+          "name": "checks",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
         }
       },
-      "indexes": {
-        "race_corpus_entries_passage_idx": {
-          "name": "race_corpus_entries_passage_idx",
-          "columns": [
-            {
-              "expression": "passage_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "race_corpus_entries_version_race_corpus_versions_version_fk": {
           "name": "race_corpus_entries_version_race_corpus_versions_version_fk",
@@ -1069,6 +1077,22 @@
         "race_corpus_entries_status_known": {
           "name": "race_corpus_entries_status_known",
           "value": "\"race_corpus_entries\".\"status\" in ('retained', 'spare')"
+        },
+        "race_corpus_entries_complexity_known": {
+          "name": "race_corpus_entries_complexity_known",
+          "value": "\"race_corpus_entries\".\"complexity\" in ('easy', 'medium', 'hard')"
+        },
+        "race_corpus_entries_measures_complete": {
+          "name": "race_corpus_entries_measures_complete",
+          "value": "jsonb_typeof(\"race_corpus_entries\".\"measures\") = 'object' and \"race_corpus_entries\".\"measures\" ?& array['m1', 'm2', 'm3', 'm4']"
+        },
+        "race_corpus_entries_editorial_object": {
+          "name": "race_corpus_entries_editorial_object",
+          "value": "jsonb_typeof(\"race_corpus_entries\".\"editorial\") = 'object'"
+        },
+        "race_corpus_entries_checks_object": {
+          "name": "race_corpus_entries_checks_object",
+          "value": "jsonb_typeof(\"race_corpus_entries\".\"checks\") = 'object'"
         }
       },
       "isRLSEnabled": false
@@ -1174,12 +1198,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "complexity": {
-          "name": "complexity",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "text": {
           "name": "text",
           "type": "text",
@@ -1213,24 +1231,6 @@
         "word_count": {
           "name": "word_count",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "measures": {
-          "name": "measures",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "editorial": {
-          "name": "editorial",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "checks": {
-          "name": "checks",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
@@ -1279,10 +1279,6 @@
           "name": "race_passages_id_language",
           "value": "left(\"race_passages\".\"id\", 3) = \"race_passages\".\"language\" || '-'"
         },
-        "race_passages_complexity_known": {
-          "name": "race_passages_complexity_known",
-          "value": "\"race_passages\".\"complexity\" in ('easy', 'medium', 'hard')"
-        },
         "race_passages_text_length": {
           "name": "race_passages_text_length",
           "value": "char_length(\"race_passages\".\"text\") between 1 and 8000"
@@ -1301,19 +1297,7 @@
         },
         "race_passages_source_complete": {
           "name": "race_passages_source_complete",
-          "value": "jsonb_typeof(\"race_passages\".\"source\") = 'object' and \"race_passages\".\"source\" ?& array['author', 'work', 'place', 'edition', 'url', 'revision', 'licence', 'retrievedAt']"
-        },
-        "race_passages_measures_complete": {
-          "name": "race_passages_measures_complete",
-          "value": "jsonb_typeof(\"race_passages\".\"measures\") = 'object' and \"race_passages\".\"measures\" ?& array['m1', 'm2', 'm3', 'm4']"
-        },
-        "race_passages_editorial_object": {
-          "name": "race_passages_editorial_object",
-          "value": "jsonb_typeof(\"race_passages\".\"editorial\") = 'object'"
-        },
-        "race_passages_checks_object": {
-          "name": "race_passages_checks_object",
-          "value": "jsonb_typeof(\"race_passages\".\"checks\") = 'object'"
+          "value": "jsonb_typeof(\"race_passages\".\"source\") = 'object' and \"race_passages\".\"source\" ?& array['author', 'work', 'place', 'edition', 'url', 'revision', 'licence']"
         },
         "race_passages_content_hash_format": {
           "name": "race_passages_content_hash_format",
