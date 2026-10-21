@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPassageOptions, COMPLEXITY_CRITERIA, generateRaceText, normalizePassage, raceTextRefusal, type RandomTextSettings, type RandomWords } from "../../../packages/domain/src/index";
+import { applyPassageOptions, asEntrantId, asRaceId, COMPLEXITY_CRITERIA, drawExtensionWords, generateRaceText, normalizePassage, raceTextRefusal, type RandomTextSettings, type RandomWords } from "../../../packages/domain/src/index";
 import { WORD_LETTERS } from "../../../packages/domain/src/text/typable";
 
 /**
@@ -117,6 +117,21 @@ describe("generator cost on a 60,000-word list", () => {
     applyPassageOptions(`Il a${"'-".repeat(25_000)}a fin.`, { ...off, punctuation: false });
     expect(performance.now() - started).toBeLessThan(1_000);
   });
+
+  it("draws three extension words fast, a refusal included", () => {
+    const seed: [number, number, number, number] = [3, 5, 7, 11];
+    const grant = { raceId: asRaceId("race-1"), entrantId: asEntrantId("alice"), milestone: 25 } as const;
+    const request = { settings: { language: "fr" as const, complexity: "hard" as const, options: { punctuation: true, numbers: false, capitals: true, accents: true } }, words, target: "la mer est calme.", seed, grant };
+    drawExtensionWords(request);
+    let started = performance.now();
+    for (let milestone = 0; milestone < 5; milestone += 1) expect(drawExtensionWords({ ...request, seed: [milestone + 1, 5, 7, 11] }).ok).toBe(true);
+    const drawMs = (performance.now() - started) / 5;
+    started = performance.now();
+    expect(drawExtensionWords({ ...request, settings: { ...request.settings, exclude: [..."aeiouyéèêàâîôûù"] } })).toEqual({ ok: false, reason: "NO_COMPATIBLE_WORDS" });
+    const refusalMs = performance.now() - started;
+    console.info(`60k words: extension draw ${drawMs.toFixed(0)} ms, refusal ${refusalMs.toFixed(0)} ms`);
+    expect(Math.max(drawMs, refusalMs)).toBeLessThan(1_500);
+  }, 60_000);
 
   it("normalises long runs of spaces and marks in linear time", () => {
     const started = performance.now();

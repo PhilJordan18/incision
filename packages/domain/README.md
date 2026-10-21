@@ -346,6 +346,26 @@ Stored values are bounded, so database columns can be sized from these constants
   (`NO_COMPATIBLE_WORDS`), and proven incompatibilities and `TEXT_SEARCH_EXHAUSTED` stay apart. The
   generator promises no even spread of the words, whatever the pool. It runs on the server, which
   holds the lists.
+- **Extension words (F-02.6).** `drawExtensionWords` gives the three words the extendLeader bonus
+  appends to the leader's text, or a typed refusal; the server wires it into the coordinator's
+  `BonusContent` (#62), where a refusal becomes `CONTENT_UNAVAILABLE` and never consumes the grant.
+  - The words come from the race's pool, built as random mode builds it: language, band, accents,
+    exclusions, excluded characters, no œ or æ. Coherent races draw from the lists too, so an
+    extension does not continue the story.
+  - No word repeats its neighbour or forms a forbidden pair with it, the target's last word
+    included (numbers are transparent). With capitals on, the first word takes a capital only after
+    a sentence end.
+  - The result is a pure function of all its inputs: seed, grant, target, settings, criteria, data
+    and `EXTENSION_DRAW_VERSION`. Each call derives its own generator from the race's private, frozen
+    seed and the grant identity, encoded as `incision-extension-mix/1|<raceId>|<entrantId>|<milestone>`
+    and mixed with four FNV-1a lanes, each hashing the seed's 16 bytes then the key, and the murmur3
+    finaliser (`EXTENSION_MIX_VERSION`). The mix is not cryptographic and claims no unpredictability:
+    only the seed is secret.
+  - The search is bounded (`EXTENSION_DRAWS_PER_SLOT` draws per word, `EXTENSION_RESTARTS`
+    restarts); `EXTENSION_SEARCH_EXHAUSTED` proves nothing. `NO_COMPATIBLE_WORDS` and `NO_ROOM`
+    (three words cannot fit under `MAX_TEXT_GRAPHEMES`) are proofs. The shipped `fixture-*` data are
+    refused (`FIXTURE_DATA`) unless a test allows them, so production never falls back to them.
+    `extensionViolations` checks a triple against the list, the exclusions and the pairs themselves.
 - **Final checks.** `raceTextViolations` lists every guarantee the final text breaks: exactly N
   words, typable characters, no line break, the grapheme bound, each option's effect; in random
   mode, each word read from the list itself (band, exclusions, alphabet, accents), included and
@@ -390,6 +410,7 @@ Stored values are bounded, so database columns can be sized from these constants
   - `asRandomState`, `createRandom` and `shuffled`: seeded randomness (F-02.4);
   - `buildWordPool`, `foldForExclusion` and `forbiddenPairRule`, with the data on the
     `./words` subpath (F-02.4);
+  - `drawExtensionWords` and `extensionViolations`: the extendLeader bonus's words (F-02.6, on fixtures);
   - `textSettingsRefusal`, `raceTextRefusal`, `raceTextDiversity`, `generateRaceText`, `raceTextViolations`,
     `normalizePassage`, `countWords`, `cutToWords` and `measureText` (F-02.5, on fixtures).
 - **Changes.** A contract changes only through an engine pull request, announced before the
