@@ -4,12 +4,14 @@ import {
 } from "./bonus-protocol";
 
 type DomainReply = Extract<ParsedBonusAck, { ok: true }>["result"];
+export type BonusClientError = Extract<ParsedBonusAck, { ok: false }>["error"] |
+  Extract<DomainReply, { ok: false }>["reason"] | "ACK_TIMEOUT" | "INVALID_RESPONSE" | "OFFLINE";
 export type BonusClientState = {
   readonly self?: BonusSelf;
   readonly synchronized: boolean;
   readonly pending?: BonusActivationPayload;
   readonly sending: boolean;
-  readonly error?: string;
+  readonly error?: BonusClientError;
   readonly reply?: DomainReply;
   readonly announcements: readonly ParsedBonusAnnouncement[];
   readonly fogVisible: boolean;
@@ -92,10 +94,8 @@ export class BonusClient {
     }
     this.#controlling = input.controlling;
     this.#racing = input.racing;
-    if (!input.racing) {
-      this.#cancelFog?.();
-      this.#publish({ fogVisible: false });
-    }
+    // Private state and race phase travel on separate messages. Either may arrive first.
+    this.#refreshFog();
   }
 
   self(payload: unknown): void {

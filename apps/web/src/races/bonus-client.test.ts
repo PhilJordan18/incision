@@ -82,7 +82,7 @@ it.each([null, {}, { ...snapshot(), raceId: OTHER }, snapshot({ revision: 0 }), 
   expect(client.getState()).toBe(before);
 });
 
-it.each([null, { ...ack(), result: { ok: true, seq: 2, receipt } }, { ...ack(), self: snapshot({ raceId: OTHER }) },
+it.each([null, { ...ack(), result: { ok: true, seq: 2, receipt } }, { ...ack(), self: snapshot({ raceId: OTHER, revision: 2, ackSeq: 1 }) },
   { ...ack(), self: snapshot({ ackSeq: 0 }) },
   { ...ack(), result: { ok: true, seq: 1, receipt: { ...receipt, grant: { ...receipt.grant, entrantId: "other" } } } },
 ])("retains the intent after invalid acknowledgement %j", async value => {
@@ -160,6 +160,24 @@ it("expires fog on server time and disposes its timer and subscriptions", async 
   await vi.advanceTimersByTimeAsync(10_000);
   expect(listener).toHaveBeenCalledTimes(count); expect(vi.getTimerCount()).toBe(0);
 });
+
+it("restores fog when the bonus snapshot arrives before the resumed racing phase", async () => {
+  const client = setup(); client.context({ controlling: true, racing: false });
+  client.self(snapshot({ fog: { startsAt: 100, expiresAt: 3100 } }));
+  expect(client.getState().fogVisible).toBe(false);
+  client.context({ controlling: true, racing: true });
+  expect(client.getState().fogVisible).toBe(true);
+  await vi.advanceTimersByTimeAsync(3000);
+  expect(client.getState().fogVisible).toBe(false);
+});
+
+it.each([{ controlling: false, racing: true }, { controlling: true, racing: false }])(
+  "a fresh inventory does not authorize inactive context %j", context => {
+    const client = setup(); client.context(context); client.self(snapshot());
+    expect(client.getState().synchronized).toBe(true);
+    expect(client.activate()).toBe(false);
+  },
+);
 
 it("deduplicates same-revision announcements, isolates public and self revisions, bounds history", () => {
   const client = setup(); client.self(snapshot({ revision: 100 }));
