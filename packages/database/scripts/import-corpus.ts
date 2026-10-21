@@ -8,12 +8,12 @@ import { importCorpus } from "../src/corpus/import";
 import { isLocalDatabase } from "../src/local-database";
 import { describeDatabaseError } from "../src/pool";
 
-// Usage: npm run db:import:corpus -w @incision/database -- --version <version>
+// Usage: npm run db:import:corpus -w @incision/database -- --version <version> [--folder <corpus folder>]
 // Imports packages/database/corpus/<version>/ into the LOCAL database and activates it (F-02.3a).
 // Local only: a remote (production) import is a separate, authorised process (docs/DEPLOYMENT.md).
 // Reads DATABASE_URL_UNPOOLED from the root .env, as the demo seed does.
 async function main(): Promise<void> {
-  const { values } = parseArgs({ options: { version: { type: "string" } }, strict: true });
+  const { values } = parseArgs({ options: { version: { type: "string" }, folder: { type: "string" } }, strict: true });
   if (values.version === undefined) {
     throw new Error("--version <version> is required (a folder of packages/database/corpus/)");
   }
@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     throw new Error("Refusing to import a corpus into a remote database: this script is for local and test databases only");
   }
 
-  const checked = checkCorpus(await readCorpusVersion(values.version));
+  const checked = checkCorpus(await readCorpusVersion(values.version, values.folder));
   if (!checked.ok) {
     const { code, language, passageId, detail } = checked.refusal;
     throw new Error(`corpus ${values.version} refused: ${code}${language === undefined ? "" : ` (${language})`}${passageId === undefined ? "" : ` ${passageId}`}: ${detail}`);
