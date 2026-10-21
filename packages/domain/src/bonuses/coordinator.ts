@@ -56,12 +56,34 @@ export function reduceBonusRace(state: BonusRaceState, event: BonusRaceEvent, co
     activation = activated.reply;
     if (activated.receipt) announcements.push({ type: "activated", receipt: activated.receipt });
   }
-  const changed = JSON.stringify(next) !== JSON.stringify(state);
+  const changed = !sameCoordinatorState(next, state);
   next = changed ? observeAwards({ ...next, revision: state.revision + 1 }) : state;
   const deadlines = [raceOutput.nextDeadline, ...next.fog.map((fog) => fog.expiresAt)].filter((at) => at !== undefined);
   const nextDeadline = deadlines.length === 0 ? undefined : asInstant(Math.min(...deadlines));
   return { ok: true, state: next, raceOutput: { ...raceOutput, state: next.race }, announcements,
     ...(activation === undefined ? {} : { activation }), ...(nextDeadline === undefined ? {} : { nextDeadline }) };
+}
+
+/** Compare only replaced branches. Reducers preserve unmodified targets and entrants.
+ * JSON remains the value oracle for replaced leaves, including optional fields.
+ * No result is cached across calls, and validation above still inspects all state.
+ */
+function sameCoordinatorState(left: BonusRaceState, right: BonusRaceState): boolean {
+  const { race: leftRace, ...leftEnvelope } = left;
+  const { race: rightRace, ...rightEnvelope } = right;
+  const { entrants: leftEntrants, ...leftFields } = leftRace;
+  const { entrants: rightEntrants, ...rightFields } = rightRace;
+  if (JSON.stringify(leftFields) !== JSON.stringify(rightFields) ||
+    JSON.stringify(leftEnvelope) !== JSON.stringify(rightEnvelope) || leftEntrants.length !== rightEntrants.length) return false;
+  return leftEntrants.every((entrant, index) => {
+    const other = rightEntrants[index]!;
+    if (entrant === other) return true;
+    const { target, typed, ...fields } = entrant;
+    const { target: otherTarget, typed: otherTyped, ...otherFields } = other;
+    return (target === otherTarget || JSON.stringify(target) === JSON.stringify(otherTarget)) &&
+      (typed === otherTyped || JSON.stringify(typed) === JSON.stringify(otherTyped)) &&
+      JSON.stringify(fields) === JSON.stringify(otherFields);
+  });
 }
 
 function final(race: RaceState): boolean { return race.phase === "ended" || race.phase === "interrupted"; }

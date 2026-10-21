@@ -1,5 +1,5 @@
 import type { Interruption, RaceToCreate, StartRaceInput, StartRaceResult, Transition } from "@incision/database";
-import { COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, RESUME_GRACE_MS } from "@incision/domain";
+import { COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, type RaceProgressPayload, type RaceRevealPayload } from "../../races/protocol";
 import { CONTROL_WINDOW, ENTRANT_ACTION_WINDOW, FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
@@ -25,7 +25,7 @@ function harness(
   let now = START;
   const timers: { at: number; callback: () => void }[] = [];
   const created: RaceState[] = [];
-  const startRace = vi.fn(async (input: StartRaceInput<CreateRaceRefusal, RaceState>): Promise<StartRaceResult<CreateRaceRefusal, RaceState>> => {
+  const startRace = vi.fn(async (input: StartRaceInput<CreateRaceRefusal, BonusRaceState>): Promise<StartRaceResult<CreateRaceRefusal, BonusRaceState>> => {
     if (options.refusal !== undefined) {
       return { ok: false, error: options.refusal };
     }
@@ -35,7 +35,7 @@ function harness(
     if (!result.ok) {
       return { ok: false, error: result.reason };
     }
-    created.push(result.race);
+    created.push(result.race.race);
     return {
       ok: true,
       race: { raceId: RACE, lobbyId: LOBBY, ownerId: "owner-a", ownerEpoch: 1, roundNo: 1, countdownAt: new Date(START), leaseExpiresAt: new Date(START + 30_000) },
@@ -94,6 +94,26 @@ function tab(id: string, accountId: string, locale: "fr" | "en" = "fr") {
 const batch = (seq: number, grapheme: string) => ({ raceId: RACE, seq, textVersion: 0, events: [{ type: "insert", grapheme }] });
 
 describe("RaceService", () => {
+  it("bounds activation across tabs and reconnects, and validates identity and payload", async () => {
+    const { service, advance } = harness();
+    const first = tab("first", "a-host").connection;
+    const second = tab("second", "a-host").connection;
+    service.follow(LOBBY, first);
+    service.follow(LOBBY, second);
+    await service.start(first, {});
+    advance(COUNTDOWN_MS);
+    const payload = { raceId: RACE, seq: 1, milestone: 25 };
+    expect(service.activateBonus({ ...first, accountId: "a-bea" }, payload)).toEqual({ ok: false, error: "NO_RACE" });
+    expect(service.activateBonus(first, { ...payload, entrantId: "e-bea" })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
+    expect(service.activateBonus(second, payload)).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+    for (let n = 0; n < 3; n++) expect(service.activateBonus(first, payload)).toMatchObject({ ok: true, result: { reason: "BONUSES_DISABLED" } });
+    service.unfollow(first.id);
+    service.unfollow(second.id);
+    service.follow(LOBBY, first);
+    expect(service.activateBonus(first, payload)).toEqual({ ok: false, error: "RATE_LIMITED" });
+    advance(1000);
+    expect(service.activateBonus(first, payload)).toMatchObject({ ok: true, result: { reason: "BONUSES_DISABLED" } });
+  });
   it("has the engine create the race in the host's language, with the first path's settings, and runs it here", async () => {
     const { service, store, created, changed } = harness();
     const host = tab("t-host", "a-host", "en");
@@ -103,7 +123,7 @@ describe("RaceService", () => {
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
     const input = store.startRace.mock.calls[0]?.[0];
     expect(input).toMatchObject({ accountId: "a-host", ownerId: "owner-a", text: FIXTURE_RACE_TEXTS.en.text, rulesVersion: 1 });
-    expect(input?.config).toEqual({ errorMode: "mandatory", timeLimitMs: 120_000, language: "en", text: "fixture" });
+    expect(input?.config).toEqual({ errorMode: "mandatory", timeLimitMs: 120_000, language: "en", text: "fixture", bonuses: false });
     expect(created[0]).toMatchObject({ phase: "countdown", errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimit: 120_000, startsAt: START + COUNTDOWN_MS });
     expect(service.ownsRace(LOBBY)).toBe(true);
     expect(changed).toEqual([LOBBY]);

@@ -5,10 +5,10 @@ import {
   asInstant,
   asRaceId,
   COUNTDOWN_MS,
-  createRace,
+  createBonusRace,
   INACTIVITY_ABANDON_MS,
   INACTIVITY_WARNING_MS,
-  type RaceState,
+  type BonusRaceState,
   RESUME_GRACE_MS,
 } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
@@ -19,12 +19,12 @@ vi.mock("@incision/domain", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@incision/domain")>();
   return {
     ...actual,
-    reduceRace: (...args: Parameters<typeof actual.reduceRace>) => {
+    reduceBonusRace: (...args: Parameters<typeof actual.reduceBonusRace>) => {
       if (engine.failNext) {
         engine.failNext = false;
         throw new RangeError("engine fault");
       }
-      return actual.reduceRace(...args);
+      return actual.reduceBonusRace(...args);
     },
     toEntrantMeasures: (...args: Parameters<typeof actual.toEntrantMeasures>) => {
       if (engine.failMeasures) {
@@ -141,22 +141,22 @@ function fakeStore(overrides: Partial<RaceStore> = {}) {
   };
 }
 
-function created(text = "ab", timeLimitMs: number | null = 120_000): RaceState {
-  const result = createRace({
+function created(text = "ab", timeLimitMs: number | null = 120_000): BonusRaceState {
+  const result = createBonusRace({ enabled: false, random: [1, 2, 3, 4], race: {
     raceId: asRaceId(RACE),
     text,
     errorMode: "mandatory",
     timeLimit: timeLimitMs === null ? null : asDuration(timeLimitMs),
     participants: [ALICE, BOB].map(({ entrantId }) => ({ entrantId: asEntrantId(entrantId), kind: "human" as const })),
     now: asInstant(START),
-  });
+  } });
   if (!result.ok) {
     throw new Error(result.reason);
   }
-  return result.race;
+  return result.state;
 }
 
-function setup({ state = created(), store = fakeStore(), earlyMs = 0 }: { state?: RaceState; store?: ReturnType<typeof fakeStore>; earlyMs?: number } = {}) {
+function setup({ state = created(), store = fakeStore(), earlyMs = 0 }: { state?: BonusRaceState; store?: ReturnType<typeof fakeStore>; earlyMs?: number } = {}) {
   const time = fakeTime(earlyMs);
   const lease = fakeLease();
   const alice = tab("tab-alice", ALICE.accountId);
@@ -758,7 +758,7 @@ describe("RaceRuntime", () => {
   it("interrupts only the race whose views fail (engine_error), keeping the server up", async () => {
     // Counters the engine never produces make its own measures throw.
     const good = created();
-    const broken: RaceState = { ...good, entrants: good.entrants.map((entrant, index) => (index === 0 ? { ...entrant, counters: { correctInserts: 3, totalInserts: 1 } } : entrant)) };
+    const broken: BonusRaceState = { ...good, race: { ...good.race, entrants: good.race.entrants.map((entrant, index) => (index === 0 ? { ...entrant, counters: { correctInserts: 3, totalInserts: 1 } } : entrant)) } };
     const { runtime, time, store, alice, settled, log } = setup({ state: broken });
     expect(() => runtime.start()).not.toThrow();
     await time.advance(10);
