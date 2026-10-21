@@ -1,14 +1,28 @@
-import { MAX_PASSAGE_LENGTH, MIN_TEXT_WORDS, NORMALIZATION_VERSION } from "@incision/domain";
+import { COMPLEXITIES, MAX_PASSAGE_LENGTH, MIN_TEXT_WORDS, NORMALIZATION_VERSION, TEXT_LANGUAGES } from "@incision/domain";
 import { z } from "zod";
-import { CORPUS_COMPLEXITIES, CORPUS_ENTRY_STATUSES, CORPUS_LANGUAGES } from "../schema/corpus";
+import { CORPUS_ENTRY_STATUSES } from "../schema/corpus";
 
 /**
  * The corpus files, one per language, in `packages/database/corpus/<version>/<language>.json`
- * (F-02.3). B authors them from the registry; the import trusts nothing in them: unknown fields
- * are refused, every bound is checked here or in `checkCorpus`.
+ * (F-02.3). B authors them; the import trusts nothing in them: unknown fields are refused, and
+ * every bound is checked here or in `checkCorpus`. Strings are taken as written, never trimmed.
  */
 
-const text = (max: number) => z.string().trim().min(1).max(max);
+const BIDI_CONTROLS = /[؜‎‏‪-‮⁦-⁩]/u;
+/** Every C0 and C1 control; a multi-line source text may hold tabs and line breaks. */
+const CONTROLS = /[\u0000-\u001f\u007f-\u009f]/u;
+const CONTROLS_BUT_LINES = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
+
+function cleanText(max: number, lines = false) {
+  return z
+    .string()
+    .min(1)
+    .max(max)
+    .refine((value) => value.trim() === value, { error: "surrounding whitespace" })
+    .refine((value) => value.isWellFormed(), { error: "a lone surrogate" })
+    .refine((value) => !BIDI_CONTROLS.test(value), { error: "a bidirectional control character" })
+    .refine((value) => !(lines ? CONTROLS_BUT_LINES : CONTROLS).test(value), { error: "a control character" });
+}
 const date = z.iso.date();
 
 export const CORPUS_VERSION_PATTERN = /^[0-9a-z][0-9a-z.-]{0,62}$/;
@@ -22,9 +36,11 @@ export const MAX_SOURCE_TEXT_LENGTH = 2 * MAX_PASSAGE_LENGTH;
  */
 const measuredWith = z.strictObject({
   normalizationVersion: z.int().min(1),
-  wordfreq: text(40),
-  listVersion: text(80),
+  wordfreq: cleanText(40),
+  listVersion: cleanText(80),
   commonZipf: z.number().min(0).max(8),
+  /** How many first words were measured (`MEASURED_WORDS`). */
+  measuredWords: z.int().min(1),
 });
 
 /**
@@ -40,37 +56,45 @@ const measures = z.strictObject({
   measuredWith,
 });
 
+/** Where the text comes from: part of the passage's identity. */
 const source = z.strictObject({
-  author: text(200),
-  work: text(300),
+  author: cleanText(200),
+  work: cleanText(300),
   /** Where in the work: part, chapter, paragraph. */
-  place: text(300),
-  edition: text(300),
+  place: cleanText(300),
+  edition: cleanText(300),
   url: z.url({ protocol: /^https$/ }).max(500),
   /** Wikisource revision id, or Project Gutenberg eBook number. */
-  revision: text(100),
-  licence: text(500),
+  revision: cleanText(100),
+  licence: cleanText(500),
+});
+
+/** The checks B made, with their dates: a version's, not the passage's. */
+const checks = z.strictObject({
   /** When B fetched the source text. */
-  retrievedAt: date,
+  sourceRetrievedAt: date,
   /** Project Gutenberg's « Most recently updated », when known. */
-  fileUpdatedAt: date.optional(),
+  sourceFileUpdatedAt: date.optional(),
+  sourceVerifiedAt: date,
+  engineAcceptedAt: date,
+  engineVersion: cleanText(100),
 });
 
 export const corpusPassageSchema = z.strictObject({
   id: z.string().max(120).regex(PASSAGE_ID_PATTERN),
-  language: z.enum(CORPUS_LANGUAGES),
+  language: z.enum(TEXT_LANGUAGES),
   /** Editorial label (D-21), distinct from the measures. */
-  complexity: z.enum(CORPUS_COMPLEXITIES),
+  complexity: z.enum(COMPLEXITIES),
   /** The typed text: `normalizePassage(sourceText)` under the file's normalisation version. */
-  text: text(MAX_PASSAGE_LENGTH),
-  sourceText: text(MAX_SOURCE_TEXT_LENGTH),
+  text: cleanText(MAX_PASSAGE_LENGTH),
+  sourceText: cleanText(MAX_SOURCE_TEXT_LENGTH, true),
   /** Typographic changes from the source (normalisation steps, removed source markup). */
-  adaptations: z.array(text(300)).max(50),
+  adaptations: z.array(cleanText(300)).max(50),
   source,
   wordCount: z.int().min(MIN_TEXT_WORDS),
   measures,
-  editorial: z.strictObject({ level: text(100), theme: text(200), reserves: z.array(text(500)).max(20), escalated: z.boolean() }),
-  checks: z.strictObject({ sourceVerifiedAt: date, engineAcceptedAt: date, engineVersion: text(100) }),
+  editorial: z.strictObject({ level: cleanText(100), theme: cleanText(200), reserves: z.array(cleanText(500)).max(20), escalated: z.boolean() }),
+  checks,
   status: z.enum(CORPUS_ENTRY_STATUSES),
 });
 
@@ -78,7 +102,7 @@ export const corpusFileSchema = z.strictObject({
   corpusVersion: z.string().regex(CORPUS_VERSION_PATTERN),
   /** Only the engine's current version can be checked: an older corpus is normalised again first. */
   normalizationVersion: z.literal(NORMALIZATION_VERSION),
-  language: z.enum(CORPUS_LANGUAGES),
+  language: z.enum(TEXT_LANGUAGES),
   generatedAt: date,
   measuredWith,
   passages: z.array(corpusPassageSchema).min(1).max(500),

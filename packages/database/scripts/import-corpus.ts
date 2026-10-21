@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import pg from "pg";
 import { createDatabase } from "../src/client";
 import { checkCorpus } from "../src/corpus/check";
-import { readCorpusVersion } from "../src/corpus/files";
+import { CorpusFileError, readCorpusVersion } from "../src/corpus/files";
 import { importCorpus } from "../src/corpus/import";
 import { isLocalDatabase } from "../src/local-database";
 import { describeDatabaseError } from "../src/pool";
@@ -11,6 +11,7 @@ import { describeDatabaseError } from "../src/pool";
 // Usage: npm run db:import:corpus -w @incision/database -- --version <version> [--folder <corpus folder>]
 // Imports packages/database/corpus/<version>/ into the LOCAL database and activates it (F-02.3a).
 // Local only: a remote (production) import is a separate, authorised process (docs/DEPLOYMENT.md).
+// The local guard prevents a mistake, it is not a security boundary (a localhost tunnel passes).
 // Reads DATABASE_URL_UNPOOLED from the root .env, as the demo seed does.
 async function main(): Promise<void> {
   const { values } = parseArgs({ options: { version: { type: "string" }, folder: { type: "string" } }, strict: true });
@@ -45,8 +46,9 @@ async function main(): Promise<void> {
     if (!result.ok) {
       throw new Error(`corpus ${values.version} refused: ${result.refusal.code}: ${result.refusal.detail}`);
     }
-    const { outcome, retained, spare, compatibleWithDefaults, newPassages, keptPassages, retiredPassages } = result.report;
-    console.log(`[corpus] ${values.version}: ${outcome}, active`);
+    const { outcome, active, retained, spare, compatibleWithDefaults, newPassages, keptPassages, retiredPassages } = result.report;
+    // Re-importing an older version never reactivates it: going back means importing a new version.
+    console.log(`[corpus] ${values.version}: ${outcome}, ${active ? "active" : "NOT active (another version is)"}`);
     console.log(`[corpus] retained fr ${retained.fr}, en ${retained.en}; spare fr ${spare.fr}, en ${spare.en}`);
     console.log(`[corpus] serve the default settings: fr ${compatibleWithDefaults.fr}, en ${compatibleWithDefaults.en}`);
     console.log(`[corpus] passages new ${newPassages}, kept ${keptPassages}; retired from the previous version ${retiredPassages}`);
@@ -56,6 +58,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error("[corpus] failed:", describeDatabaseError(error));
+  console.error("[corpus] failed:", error instanceof CorpusFileError ? `${error.code} ${error.message}` : describeDatabaseError(error));
   process.exit(1);
 });

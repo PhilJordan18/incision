@@ -4,10 +4,11 @@
   "language": "fr",
   "generatedAt": "2026-10-21",
   "measuredWith": {
-    "normalizationVersion": 1,
+    "normalizationVersion": 2,
     "wordfreq": "3.1.1",
     "listVersion": "wordfreq-3.1.1-large",
-    "commonZipf": 4
+    "commonZipf": 4,
+    "measuredWords": 200
   },
   "passages": [
     {
@@ -27,8 +28,7 @@
         "edition": "Hetzel, 1870 (Wikisource transcription)",
         "url": "https://fr.wikisource.org/w/index.php?oldid=11270647",
         "revision": "Wikisource revision 11270647",
-        "licence": "public domain in Canada (author died 1905) and the United States (published 1869–1870); Wikisource pages under CC BY-SA 4.0",
-        "retrievedAt": "2026-10-12"
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1869–1870); Wikisource pages under CC BY-SA 4.0"
       },
       "wordCount": 63,
       "measures": {
@@ -37,10 +37,11 @@
         "m3": 17.5,
         "m4": 19,
         "measuredWith": {
-          "normalizationVersion": 1,
+          "normalizationVersion": 2,
           "wordfreq": "3.1.1",
           "listVersion": "wordfreq-3.1.1-large",
-          "commonZipf": 4
+          "commonZipf": 4,
+          "measuredWords": 200
         }
       },
       "editorial": {
@@ -50,9 +51,10 @@
         "escalated": false
       },
       "checks": {
+        "sourceRetrievedAt": "2026-10-12",
         "sourceVerifiedAt": "2026-10-12",
         "engineAcceptedAt": "2026-10-12",
-        "engineVersion": "domain@2026-10-12, normalization 1"
+        "engineVersion": "domain@2026-10-12, normalization 1 (texts unchanged under 2)"
       },
       "status": "retained"
     }

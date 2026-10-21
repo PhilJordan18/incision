@@ -19,31 +19,34 @@ export const READ_COMMITTED = { isolationLevel: "read committed" } as const;
  */
 export const SERVER_LIMITS_MS = { lock: 2_000, statement: 3_000, idleInTransaction: 4_000 } as const;
 
+export type ServerLimits = { readonly lock: number; readonly statement: number; readonly idleInTransaction: number };
+
 /**
  * Applies `SERVER_LIMITS_MS` to the current transaction only, in one statement:
  * `set_config(…, true)` is `SET LOCAL`, the only kind of setting that is safe under Neon's
  * transaction pooling. A limited transaction must await nothing but the database: 4 s spent
  * elsewhere end its session.
  */
-async function limitServerWaits(tx: Transaction): Promise<void> {
+async function limitServerWaits(tx: Transaction, limits: ServerLimits): Promise<void> {
   await tx.execute(
-    sql`select set_config('lock_timeout', ${`${SERVER_LIMITS_MS.lock}ms`}, true),
-      set_config('statement_timeout', ${`${SERVER_LIMITS_MS.statement}ms`}, true),
-      set_config('idle_in_transaction_session_timeout', ${`${SERVER_LIMITS_MS.idleInTransaction}ms`}, true)`,
+    sql`select set_config('lock_timeout', ${`${limits.lock}ms`}, true),
+      set_config('statement_timeout', ${`${limits.statement}ms`}, true),
+      set_config('idle_in_transaction_session_timeout', ${`${limits.idleInTransaction}ms`}, true)`,
   );
 }
 
 /**
  * A transaction that applies `SERVER_LIMITS_MS` before anything else, so no transaction of the
- * application can forget them.
+ * application can forget them. An operator's batch (the corpus import) may pass longer limits.
  */
 export async function boundedTransaction<Result>(
   db: Database,
   work: (tx: Transaction) => Promise<Result>,
   config?: Parameters<Database["transaction"]>[1],
+  limits: ServerLimits = SERVER_LIMITS_MS,
 ): Promise<Result> {
   return db.transaction(async (tx) => {
-    await limitServerWaits(tx);
+    await limitServerWaits(tx, limits);
     return work(tx);
   }, config);
 }

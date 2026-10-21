@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import {
   asRandomState,
   checkPassages,
@@ -8,18 +8,19 @@ import {
   normalizePassage,
   type Passage,
   passageCut,
+  TEXT_LANGUAGES,
+  type TextLanguage,
 } from "@incision/domain";
-import { isDeepStrictEqual } from "node:util";
 import type { z } from "zod";
-import { CORPUS_LANGUAGES, type CorpusLanguage } from "../schema/corpus";
 import { type CorpusFile, corpusFileSchema, type CorpusPassage, type MeasuredWith } from "./format";
+import { type PassageIdentity, passageContentHash, type VersionEntry, versionChecksum } from "./hash";
 
 /**
  * D-19's coherent text defaults (Philippe's decision 1 of October 21): the settings every
  * language of an active corpus must be able to serve. F-02.3b starts races with them until the
- * host can choose (F-03.1).
+ * host can choose (F-03.1). A product rule that may later move to @incision/domain.
  */
-export function defaultCoherentSettings(language: CorpusLanguage): CoherentTextSettings {
+export function defaultCoherentSettings(language: TextLanguage): CoherentTextSettings {
   return {
     kind: "coherent",
     language,
@@ -43,73 +44,83 @@ export type CorpusRefusalCode =
 /** Why a corpus version cannot be imported; `passageId` names the faulty passage when there is one. */
 export type CorpusRefusal = {
   readonly code: CorpusRefusalCode;
-  readonly language?: CorpusLanguage;
+  readonly language?: TextLanguage;
   readonly passageId?: string;
   readonly detail: string;
 };
 
-export type CheckedPassage = CorpusPassage & { readonly contentHash: string };
+export type CheckedPassage = CorpusPassage & { readonly identity: PassageIdentity; readonly contentHash: string };
 
 /** A corpus version that passed every check, ready to import. */
 export type CheckedCorpus = {
   readonly version: string;
   readonly normalizationVersion: number;
   readonly measuredWith: MeasuredWith;
-  /** SHA-256 of the canonical content of the whole version (both languages, statuses included). */
+  /** SHA-256 of the canonical content of the whole version (`versionChecksum`). */
   readonly checksum: string;
   readonly passages: readonly CheckedPassage[];
   /** Retained passages that can serve D-19's defaults, per language (each at least 1). */
-  readonly compatibleWithDefaults: Readonly<Record<CorpusLanguage, number>>;
+  readonly compatibleWithDefaults: Readonly<Record<TextLanguage, number>>;
 };
 
 export type CorpusCheck = { readonly ok: true; readonly corpus: CheckedCorpus } | { readonly ok: false; readonly refusal: CorpusRefusal };
 
 const refuse = (refusal: CorpusRefusal): CorpusCheck => ({ ok: false, refusal });
 
-/** JSON with object keys sorted at every level: the same content always hashes the same. */
-function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(canonicalJson).join(",")}]`;
-  }
-  if (value !== null && typeof value === "object") {
-    const entries = Object.entries(value).filter(([, item]) => item !== undefined);
-    entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
+/** A passage's identity under its corpus's normalisation version. */
+export function passageIdentity(passage: CorpusPassage, normalizationVersion: number): PassageIdentity {
+  const { id, language, text, sourceText, adaptations, source, wordCount } = passage;
+  return { id, language, text, normalizationVersion, sourceText, adaptations, source, wordCount };
 }
 
-const sha256 = (value: unknown): string => createHash("sha256").update(canonicalJson(value)).digest("hex");
-
-/** A passage's content: everything but its status, which belongs to a version. */
-export function passageContentHash(passage: CorpusPassage): string {
-  return sha256({ ...passage, status: undefined });
+/** What a version says of a checked passage, for its checksum. */
+export function versionEntry(passage: CheckedPassage): VersionEntry {
+  const { identity, status, complexity, measures, editorial, checks } = passage;
+  return { identity, status, complexity, measures, editorial, checks };
 }
 
-function formatIssue(error: z.ZodError): string {
+/** The first format issue, with the id of the passage it is in when the file names one. */
+function formatRefusal(error: z.ZodError, raw: unknown, language: TextLanguage): CorpusRefusal {
   const [issue] = error.issues;
-  return issue === undefined ? "invalid file" : `${issue.path.join(".") || "(file)"}: ${issue.message}`;
+  const where = issue === undefined ? "(file)" : issue.path.join(".") || "(file)";
+  const [field, index] = issue?.path ?? [];
+  let passageId: string | undefined;
+  if (field === "passages" && typeof index === "number" && raw !== null && typeof raw === "object" && "passages" in raw && Array.isArray(raw.passages)) {
+    const passage: unknown = raw.passages[index];
+    if (passage !== null && typeof passage === "object" && "id" in passage && typeof passage.id === "string") {
+      passageId = passage.id;
+    }
+  }
+  return { code: "INVALID_FORMAT", language, ...(passageId === undefined ? {} : { passageId }), detail: `${where}: ${issue?.message ?? "invalid file"}` };
 }
 
 /**
  * Checks one corpus version, a file per language, before anything is written (F-02.3a): format,
- * one header for both files, languages, unique ids, the typed text equal to the engine's
- * normalisation of the exact source, D-10's word count, one measurement setting, and, per
- * language, retained passages that really serve D-19's defaults (a draw is made). Pure.
+ * one header for both files, measures taken under the corpus's own normalisation version,
+ * languages, unique ids, the typed text equal to the engine's normalisation of the exact source,
+ * D-10's word count, and, per language, retained passages that really serve D-19's defaults (a
+ * draw is made). Pure.
  */
-export function checkCorpus(files: Readonly<Partial<Record<CorpusLanguage, unknown>>>): CorpusCheck {
+export function checkCorpus(files: Readonly<Partial<Record<TextLanguage, unknown>>>): CorpusCheck {
   const parsed: CorpusFile[] = [];
-  for (const language of CORPUS_LANGUAGES) {
+  for (const language of TEXT_LANGUAGES) {
     const raw = files[language];
     if (raw === undefined) {
       return refuse({ code: "MISSING_LANGUAGE", language, detail: `no ${language} file` });
     }
     const file = corpusFileSchema.safeParse(raw);
     if (!file.success) {
-      return refuse({ code: "INVALID_FORMAT", language, detail: formatIssue(file.error) });
+      return refuse(formatRefusal(file.error, raw, language));
     }
     if (file.data.language !== language) {
       return refuse({ code: "WRONG_LANGUAGE", language, detail: `the ${language} file says ${file.data.language}` });
+    }
+    if (file.data.measuredWith.normalizationVersion !== file.data.normalizationVersion) {
+      return refuse({
+        code: "MEASURED_WITH_MISMATCH",
+        language,
+        detail: `measured under normalisation version ${file.data.measuredWith.normalizationVersion}, the corpus is version ${file.data.normalizationVersion}`,
+      });
     }
     parsed.push(file.data);
   }
@@ -118,8 +129,8 @@ export function checkCorpus(files: Readonly<Partial<Record<CorpusLanguage, unkno
     return refuse({ code: "MISSING_LANGUAGE", detail: "no file" });
   }
   for (const file of parsed) {
-    if (file.corpusVersion !== first.corpusVersion || file.normalizationVersion !== first.normalizationVersion || !isDeepStrictEqual(file.measuredWith, first.measuredWith)) {
-      return refuse({ code: "MIXED_HEADERS", language: file.language, detail: "every file of a version has the same version, normalisation and measurement setting" });
+    if (file.corpusVersion !== first.corpusVersion || !isDeepStrictEqual(file.measuredWith, first.measuredWith)) {
+      return refuse({ code: "MIXED_HEADERS", language: file.language, detail: "every file of a version has the same version and measurement setting" });
     }
   }
 
@@ -135,19 +146,20 @@ export function checkCorpus(files: Readonly<Partial<Record<CorpusLanguage, unkno
         return refuse({ code: "DUPLICATE_ID", passageId: passage.id, detail: "the same id twice in a version" });
       }
       ids.add(passage.id);
-      passages.push({ ...passage, contentHash: passageContentHash(passage) });
+      const identity = passageIdentity(passage, file.normalizationVersion);
+      passages.push({ ...passage, identity, contentHash: passageContentHash(identity) });
     }
   }
 
   try {
-    // The engine's own check of a corpus, the one F-02.3b runs again when it loads the version.
+    // The engine's own check of a corpus, the one loading the active version runs again.
     checkPassages(passages.map(({ id, language, complexity, text }) => ({ id, language, complexity, text })));
   } catch (error: unknown) {
     return refuse({ code: "NOT_NORMALISED", detail: error instanceof Error ? error.message : "refused by checkPassages" });
   }
 
-  const compatibleWithDefaults = { fr: 0, en: 0 };
-  for (const language of CORPUS_LANGUAGES) {
+  const compatibleWithDefaults: Record<TextLanguage, number> = { fr: 0, en: 0 };
+  for (const language of TEXT_LANGUAGES) {
     const retained: Passage[] = passages
       .filter((passage) => passage.language === language && passage.status === "retained")
       .map(({ id, complexity, text }) => ({ id, language, complexity, text }));
@@ -167,7 +179,7 @@ export function checkCorpus(files: Readonly<Partial<Record<CorpusLanguage, unkno
       version: first.corpusVersion,
       normalizationVersion: first.normalizationVersion,
       measuredWith: first.measuredWith,
-      checksum: sha256({ version: first.corpusVersion, normalizationVersion: first.normalizationVersion, measuredWith: first.measuredWith, passages }),
+      checksum: versionChecksum(first.corpusVersion, first.normalizationVersion, first.measuredWith, passages.map(versionEntry)),
       passages,
       compatibleWithDefaults,
     },

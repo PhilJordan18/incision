@@ -6,8 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./migrations": "./src/migrations.ts",
-    "./demo-accounts": "./src/identity/demo-accounts.ts",
-    "./corpus": "./src/corpus/index.ts"
+    "./demo-accounts": "./src/identity/demo-accounts.ts"
   },
   "scripts": {
     "lint": "eslint .",

@@ -4,10 +4,11 @@
   "language": "en",
   "generatedAt": "2026-10-21",
   "measuredWith": {
-    "normalizationVersion": 1,
+    "normalizationVersion": 2,
     "wordfreq": "3.1.1",
     "listVersion": "wordfreq-3.1.1-large",
-    "commonZipf": 4
+    "commonZipf": 4,
+    "measuredWords": 200
   },
   "passages": [
     {
@@ -27,9 +28,7 @@
         "edition": "Project Gutenberg eBook no. 120 (pg120.txt)",
         "url": "https://www.gutenberg.org/ebooks/120",
         "revision": "Project Gutenberg eBook no. 120",
-        "licence": "public domain in Canada (author died 1894) and the United States (published 1881–1883); Project Gutenberg trademark not redistributed",
-        "retrievedAt": "2026-10-12",
-        "fileUpdatedAt": "2026-09-04"
+        "licence": "public domain in Canada (author died 1894) and the United States (published 1881–1883); Project Gutenberg trademark not redistributed"
       },
       "wordCount": 67,
       "measures": {
@@ -38,10 +37,11 @@
         "m3": 8.1,
         "m4": 6,
         "measuredWith": {
-          "normalizationVersion": 1,
+          "normalizationVersion": 2,
           "wordfreq": "3.1.1",
           "listVersion": "wordfreq-3.1.1-large",
-          "commonZipf": 4
+          "commonZipf": 4,
+          "measuredWords": 200
         }
       },
       "editorial": {
@@ -51,9 +51,11 @@
         "escalated": false
       },
       "checks": {
+        "sourceRetrievedAt": "2026-10-12",
+        "sourceFileUpdatedAt": "2026-09-04",
         "sourceVerifiedAt": "2026-10-12",
         "engineAcceptedAt": "2026-10-12",
-        "engineVersion": "domain@2026-10-12, normalization 1"
+        "engineVersion": "domain@2026-10-12, normalization 1 (texts unchanged under 2)"
       },
       "status": "retained"
     }
