@@ -1,0 +1,81 @@
+.track {
+  position: relative;
+  height: 560px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--color-houle);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-ligne) 20%, transparent), transparent 22%), var(--color-mer);
+}
+.finish {
+  position: absolute;
+  top: 7%;
+  left: 0;
+  width: 100%;
+  border-top: 5px solid var(--color-ligne);
+  transform: rotate(-1deg);
+}
+.finishText { position: absolute; top: 12px; left: 16px; color: var(--color-ligne); }
+.point {
+  position: absolute;
+  z-index: 1;
+  left: var(--point-x);
+  top: var(--point-y);
+  transform: translate(-50%, -50%);
+  transition: top var(--duration-court) var(--ease-incision), left var(--duration-court) var(--ease-incision);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-brume);
+  opacity: 0.4;
+}
+.named { z-index: 2; width: 22px; height: 22px; opacity: 1; background: var(--color-embrun); }
+.self { z-index: 3; background: var(--color-moi); }
+.leader { background: var(--color-or); }
+.nearAhead { background: var(--color-juste); }
+.nearBehind { background: var(--color-arcade); }
+.self::before, .self::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid var(--color-moi); }
+.self::before { inset: -9px; opacity: 0.6; border-width: 2px; }
+.self::after { inset: -18px; opacity: 0.25; }
+.bot, .bot::before, .bot::after { border-radius: 6px; }
+.initials { display: grid; place-items: center; height: 100%; font-size: 10px; font-weight: 700; color: var(--color-nuit); }
+.self .initials, .leader .initials, .nearAhead .initials, .nearBehind .initials { color: var(--color-abysse); }
+.label {
+  position: absolute;
+  left: 64%;
+  top: var(--label-y);
+  width: 34%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-ecume);
+}
+.labelName { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.selfLabel { font-weight: 700; }
+.connectors { position: absolute; inset: 0; width: 100%; height: 100%; stroke: var(--color-brume); stroke-width: 0.25; opacity: 0.45; }
+.more { position: absolute; bottom: 12px; left: 16px; color: var(--color-embrun); }
+.horizontalMore { display: none; }
+@media (min-width: 640px) and (max-width: 1279px) {
+  .verticalMore { display: none; }
+  .horizontalMore { display: inline; }
+  .track { height: 180px; background: linear-gradient(270deg, color-mix(in srgb, var(--color-ligne) 20%, transparent), transparent 22%), var(--color-mer); }
+  .point { left: var(--horizontal-x); top: var(--horizontal-y); }
+  .named:not(.self):not(.leader) { width: 10px; height: 10px; }
+  .named:not(.self):not(.leader) .initials { display: none; }
+  .self { top: 40%; }
+  .leader { top: 22%; }
+  .finish { top: 0; left: 96%; height: 100%; width: 0; border-top: 0; border-left: 5px solid var(--color-ligne); transform: none; }
+  .finishText { left: auto; right: 6%; top: 8px; }
+  .connectors, .label { display: none; }
+  .selfLabel, .leaderLabel { display: block; left: var(--horizontal-label-x); width: 24%; top: 80%; }
+  .leaderLabel { top: 63%; }
+  .more { bottom: 4px; font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .point, .label { transition: none !important; }
+}
+@media (forced-colors: active) {
+  .point { background: CanvasText; opacity: 1; forced-color-adjust: none; }
+  .initials { color: Canvas !important; }
+  .self::before, .self::after { border-color: Highlight; opacity: 1; }
+  .finish { border-color: CanvasText; }
+}

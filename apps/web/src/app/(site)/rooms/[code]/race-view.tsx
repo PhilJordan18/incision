@@ -2,6 +2,7 @@
 
 import { containsLineBreak, toGraphemes } from "@incision/domain";
 import { memo, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { RaceTrack } from "@/components/races/race-track";
 import { RaceBonuses } from "@/components/rooms/race-bonuses";
 import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
@@ -187,7 +188,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
         </>
       }
       below={below}
-      track={<div className="flex min-w-0 flex-col gap-4 self-start"><Track state={state} t={t} locale={locale} /><RaceBonuses state={bonusState} race={state} t={t.bonuses} /></div>}
+      track={<div className="flex min-w-0 flex-col gap-4 self-start"><RaceTrack entrants={state.entrants} progress={state.progress} selfId={state.selfEntrantId} t={t} locale={locale} /><RaceBonuses state={bonusState} race={state} t={t.bonuses} /></div>}
     />
   );
 }
@@ -201,12 +202,12 @@ function RaceLayout({ top, main, below, track }: { readonly top?: ReactNode; rea
   return (
     <div className="flex flex-col gap-6">
       {top}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
-        <div className="flex min-w-0 flex-col gap-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+        <div className="order-1 flex min-w-0 flex-col gap-5 sm:order-2 xl:order-1">
           {main}
           {below}
         </div>
-        {track}
+        {track && <div className="order-2 min-w-0 sm:order-1 xl:order-2">{track}</div>}
       </div>
     </div>
   );
@@ -602,61 +603,6 @@ const RaceText = memo(function RaceText({
     </div>
   );
 });
-
-function Track({ state, t, locale }: { readonly state: RaceClientState; readonly t: Dictionary["races"]; readonly locale: Locale }) {
-  const names = new Map(state.entrants.map((entrant) => [entrant.entrantId, entrant.displayName]));
-  return (
-    <section aria-labelledby="track-heading" className={`${card} flex flex-col gap-4 self-start`}>
-      <h2 id="track-heading" className="font-display text-2xl font-extrabold uppercase">
-        {t.trackHeading}
-      </h2>
-      <ul className="flex flex-col gap-3">
-        {(state.progress?.entrants ?? []).map((entrant) => {
-          const self = entrant.entrantId === state.selfEntrantId;
-          return (
-            <li key={entrant.entrantId} className="flex flex-col gap-1">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className={`font-semibold ${self ? "text-moi" : ""}`}>
-                  {names.get(entrant.entrantId)}
-                  {self ? <span className="font-normal"> ({t.you})</span> : null}
-                </span>
-                <span className="font-mono text-sm text-brume">
-                  {formatProgress(entrant.position, entrant.length, locale)} · {formatWpm(entrant.netWpm, locale)} {t.wpm}
-                </span>
-              </div>
-              <progress
-                aria-label={names.get(entrant.entrantId)}
-                value={entrant.position}
-                max={entrant.length}
-                className={`h-2 w-full appearance-none overflow-hidden rounded-full bg-sillage [&::-moz-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-sillage [&::-webkit-progress-value]:rounded-full ${
-                  self ? "[&::-moz-progress-bar]:bg-moi [&::-webkit-progress-value]:bg-moi" : "[&::-moz-progress-bar]:bg-brume [&::-webkit-progress-value]:bg-brume"
-                } ${FORCED_COLORS_BAR}`}
-              />
-              <span className="text-sm text-brume">
-                {t.status[entrant.status]}
-                {/* D-17: said in words, never by the bar's look alone. */}
-                {entrant.inactive && (
-                  <>
-                    {" · "}
-                    <span aria-hidden="true">◌ </span>
-                    {t.inactive}
-                  </>
-                )}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-/**
- * In forced colours (Windows contrast themes), the styled bar would disappear: the system's own
- * colours draw it instead, with a visible outline (WCAG 1.4.11).
- */
-const FORCED_COLORS_BAR =
-  "forced-colors:[forced-color-adjust:none] forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:[&::-webkit-progress-bar]:bg-[Canvas] forced-colors:[&::-webkit-progress-value]:bg-[Highlight] forced-colors:[&::-moz-progress-bar]:bg-[Highlight]";
 
 function Tile({ label, value, unit }: { readonly label: string; readonly value: string; readonly unit?: string }) {
   return (
