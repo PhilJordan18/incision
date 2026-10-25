@@ -1,9 +1,11 @@
 import pg from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabase, type Database } from "../src/client";
 import { runMigrations } from "../src/migrations";
 import { readAccountHistory } from "../src/races/history";
 import { readRaceForEntrant } from "../src/races/results";
+import * as schema from "../src/schema";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let database: TemporaryDatabase;
@@ -107,5 +109,25 @@ describe("private paginated race history", () => {
     const last = (await readAccountHistory(db, { accountId, cursor: next.older }))!;
     expect(last.rows.map((row) => row.raceId)).not.toContain(ids[0]);
     expect(last.rows.map((row) => row.raceId)).not.toContain(ids[1]);
+  });
+
+  it("measures the real account-filtered plan on a representative local fixture", async () => {
+    for (let n = 1000; n < 2000; n++) await seedRace(n, n % 20 === 0 ? accountId : outsider);
+    await pool.query("analyze races; analyze race_entrants; analyze race_results");
+    const queries: { sql: string; params: unknown[] }[] = [];
+    const observed = drizzle({ client: pool, schema, logger: { logQuery: (sql, params) => { queries.push({ sql, params }); } } });
+    expect((await readAccountHistory(observed, { accountId }))?.rows).toHaveLength(20);
+    expect(queries).toHaveLength(1);
+    type Plan = { "Node Type": string; "Index Name"?: string; "Actual Rows": number; Plans?: Plan[] };
+    const measured = await pool.query<{ "QUERY PLAN": { Plan: Plan; "Execution Time": number }[] }>(
+      `explain (analyze, buffers, format json) ${queries[0]!.sql}`, queries[0]!.params,
+    );
+    const plan = measured.rows[0]!["QUERY PLAN"][0]!;
+    const flatten = (node: Plan): Plan[] => [node, ...(node.Plans ?? []).flatMap(flatten)];
+    expect(plan.Plan["Actual Rows"]).toBe(21);
+    const indexes = flatten(plan.Plan).flatMap((node) => node["Index Name"] ? [node["Index Name"]] : []);
+    expect(indexes).toContain("race_entrants_account_race_unique");
+    // Evidence, not a timing assertion: machine load is not a correctness requirement.
+    console.info("[history plan]", { races: 1047, returned: 21, indexes, executionMs: plan["Execution Time"] });
   });
 });

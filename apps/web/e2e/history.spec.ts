@@ -51,10 +51,12 @@ test("private history navigates both ways without JavaScript and reopens persist
   await owner.page.getByRole("link", { name: "View results", exact: true }).first().click();
   await expect(owner.page).toHaveURL(new RegExp(`/races/${ids.at(-1)}$`));
   await expect(owner.page.getByRole("heading", { level: 1 })).toContainText(/End of the crossing/i);
+  await owner.page.goBack();
+  await expect(owner.page.getByRole("table").getByRole("row")).toHaveCount(21);
   const other = await member(browser);
   await other.page.goto(`/history?accountId=${owner.accountId}`);
   await expect(other.page.getByText("No races on this page.", { exact: true })).toBeVisible();
-  await other.page.goto(owner.page.url());
+  await other.page.goto(`/races/${ids.at(-1)}`);
   await expect(other.page.getByRole("heading", { level: 1 })).toContainText(/not found/i);
 });
 
@@ -64,12 +66,19 @@ for (const locale of ["fr-CA", "en-US"]) {
     await seed(owner.accountId, 2);
     for (const theme of ["abysse", "aube"]) {
       await owner.context.addCookies([{ name: "theme", value: theme, url: test.info().project.use.baseURL! }]);
-      await owner.page.goto("/history");
+      const response = await owner.page.goto("/history");
+      expect(response?.headers()["cache-control"]).toContain("private");
+      expect(response?.headers()["cache-control"]).toContain("no-store");
       await expect(owner.page.getByRole("columnheader", { name: "Date (UTC)", exact: true })).toBeVisible();
       for (const width of [1440, 1024, 390, 360]) {
         await owner.page.setViewportSize({ width, height: 900 });
         await expectNoHorizontalScroll(owner.page);
-        if (width === 360) await expectNoAccessibilityViolation(owner.page);
+        if (width === 360) {
+          await expectNoAccessibilityViolation(owner.page);
+          await owner.page.getByRole("region").focus();
+          await owner.page.keyboard.press("Tab");
+          await expect(owner.page.getByRole("table").getByRole("link").first()).toBeFocused();
+        }
         else await owner.page.screenshot({ path: test.info().outputPath(`history-${locale}-${theme}-${width}.png`), fullPage: true });
       }
     }
