@@ -64,3 +64,16 @@ small dictionary namespace.
 This is local Chromium evidence, not production or physical-device/Safari/Firefox
 qualification. The full browser suite was not rerun. Neon, deployments, CI, dependencies
 and integrations were not modified. The issue stays open in Review until human merge.
+
+## CI follow-up
+
+On `3e7666d`, push CI [40187107647](https://github.com/PhilJordan18/incision/actions/runs/40187107647)
+passed the full 75-test browser suite. PR CI
+[40187110936](https://github.com/PhilJordan18/incision/actions/runs/40187110936)
+passed 74/75: the existing departure/results test scanned a temporarily missing document
+title during `router.refresh()`. Its retained trace shows `Room 4A656M · Incision`
+restored immediately after axe's partial scan. All six new mobile tests passed in both runs.
+
+The follow-up changes only that test's synchronization: it requires the expected room
+title and a complete axe pass within five seconds. No accessibility rule is excluded,
+no application code changes, and no CI setting changes.

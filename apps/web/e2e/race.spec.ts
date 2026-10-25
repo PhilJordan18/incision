@@ -249,7 +249,13 @@ test.describe("the first complete race (F-04.0)", () => {
     // The results at 360 px: no horizontal page scroll, and the table's region reachable by keyboard.
     await host.setViewportSize({ width: 360, height: 800 });
     await expectNoHorizontalScroll(host);
-    await expectNoAccessibilityViolation(host);
+    // Results trigger router.refresh(): streamed metadata may briefly remove the document
+    // title after the ranking is already visible. Require both the restored title and a
+    // complete axe pass, without suppressing document-title or any other accessibility rule.
+    await expect(async () => {
+      await expect(host).toHaveTitle(`Room ${code} · Incision`);
+      await expectNoAccessibilityViolation(host);
+    }).toPass({ timeout: 5_000 });
   });
 
   test("a player gives up only after confirming it, and the results say it was a choice (COURSE-07)", async ({ browser }) => {
