@@ -23,7 +23,8 @@ test("saves the normalized name, preserves invalid input and keeps the login/ses
   await page.getByRole("button", { name: "Enregistrer le nom", exact: true }).click();
   await expect(input).toHaveAttribute("aria-invalid", "true");
   await expect(input).toHaveValue("a".repeat(41));
-  await expect(page.getByRole("alert")).toContainText("Vérifie ton nom");
+  await expect(page.locator("#display-name-error")).toHaveAttribute("role", "alert");
+  await expect(page.locator("#display-name-error")).toContainText("Vérifie ton nom");
   await expect(page.getByText("Marin Libre", { exact: true })).toBeVisible();
   expect(await query("select id, login, login_canonical, password_hash, session_version from accounts where login = $1", [account.login])).toEqual(before);
   await page.reload();
