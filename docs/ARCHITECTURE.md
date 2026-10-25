@@ -1,137 +1,182 @@
 # Architecture — Incision
 
-Version initiale alignée sur l'énoncé final, **2 octobre 2026**. Document de conception, et non une preuve que quoi que ce soit fonctionne. Livré jusqu'ici : l'intégration continue, le serveur personnalisé Next.js + Socket.IO déployé sur Azure App Service, le schéma PostgreSQL avec migrations versionnées, l'authentification (sessions Auth.js vérifiées en HTTP et sur Socket.IO), la direction artistique appliquée à l'interface et les salles par code avec présence en direct sur Socket.IO; les courses restent à implémenter.
+État du code fusionné dans `dev` au **25 octobre 2026**, référence **`f4600af`**. Cette version répond au point 4 de la [section 8 de l'énoncé final](Web-V-Travail-de-session.pdf) : modèle de données, machine à états, messages temps réel et ADR temps réel/bots. Elle remplace la description initiale du checkpoint. Je décris le code livré dans le dépôt, sans en déduire qu'il est déployé ou validé en production.
 
-## 1. Autorité et périmètre
+## 1. Périmètre et décisions
 
-L'[énoncé final](Web-V-Travail-de-session.pdf) prévaut pour les contraintes et l'évaluation. Le [cahier des charges remis](cahier-des-charges-incision.pdf) reste inchangé : ses choix incompatibles sont explicitement remplacés dans [EXIGENCES.md](EXIGENCES.md). La [direction artistique complète V3](da/da_incision.pdf), 24 pages vérifiées le 3 octobre, guide le rendu sans changer les règles du jeu ni les obligations DES. Je garde le nom Incision et j'héberge le projet sans dépense personnelle. Cible interne : lundi 5 octobre; remise annoncée : mercredi 7 octobre, 23h59.
+L'[énoncé final](Web-V-Travail-de-session.pdf) et les choix de ma [matrice](EXIGENCES.md) priment sur les anciens exemples du [cahier des charges](cahier-des-charges-incision.pdf) et du [design](../apps/design/README.md). La matrice reste le suivi des 90 exigences; cette architecture n'en change aucun statut.
 
-**Checkpoint :** OAuth GitHub **et** Discord, PostgreSQL avec migrations, création/admission par code et présence en temps réel, HTTPS, intégration continue, langue/thème et identité visuelle sur les pages existantes. La conception inclut déjà le jeu final et les bots; leur fonctionnement complet n'est pas une condition du checkpoint. Voir [le plan de livraison](architecture/verification.md).
+| À cette référence | État vérifié dans le code |
+|---|---|
+| Comptes et salles | GitHub, Discord et comptes locaux; création/admission par code, présence, contrôle de l'hôte et fermeture confirmée. Les membres persistés sont des comptes authentifiés. |
+| Course humaine | Décompte 3-2-1, révélation au début du décompte, saisie prédite puis validée par le serveur, mesures, abandon, reprise et résultats persistés. |
+| Configuration réellement utilisée | Deux passages fixes, FR/EN selon la langue de l'hôte au départ; correction obligatoire, limite de deux minutes, `bonuses: false`. Le service ne réalise pas encore tous les réglages de D-19. |
+| Corpus | Tables et import versionné livrés. La sélection serveur du corpus et ses données en préparation ne remplacent pas encore les deux passages fixes de cette référence. |
+| Bots | Moteur déterministe livré. L'admission, le pilotage serveur et les bots jouables dans les salles restent à intégrer en F-05.2. |
+| Bonus | Règles pures, coordination atomique, adaptateur serveur et interface livrés; les salles ordinaires gardent les bonus désactivés. Cela ne qualifie pas encore Arcade de bout en bout. |
+| Résultats | Tableau et fiche de course accessibles aux ayants droit; pas encore de séries MPM, graphiques, statistiques de profil ou journal de bonus persisté. |
+| Interface | Piste simple en liste. La piste verticale finale reste F-04.5. À cette référence, les PR #140 (mobile) et #141 (historique paginé) sont en revue et ne font pas partie du code décrit. |
 
-## 2. Un monolithe modulaire, organisé par domaine métier
+Les réglages constatés se trouvent dans [race-service.ts](../apps/web/src/server/races/race-service.ts) et les passages dans [race-texts.ts](../apps/web/src/server/races/race-texts.ts). Je distingue ces adaptations transitoires des objectifs D-17/D-19, dont l'absence de limite de temps par défaut. Le détail des preuves de cette révision est dans la [note de vérification F-10.2](evidence/f10-2-architecture/README.md).
+
+## 2. Un processus, trois responsabilités
 
 ```mermaid
-flowchart TB
-  Browser["Navigateur : React, FR/EN, thèmes"]
-  TLS["Frontal Azure App Service (HTTPS)"]
-  Web["Un seul processus Node : Next.js + Socket.IO"]
-  Identity["Identité : OAuth, compte local, invité"]
-  Rooms["Salles : accès, présence, hôte"]
-  Racing["Courses : frappe, horloge, bots, bonus"]
-  Content["Textes : corpus et dictionnaires"]
-  Results["Résultats : classement, séries, historique"]
-  DB[("PostgreSQL / Drizzle")]
-  Browser <--> TLS
-  TLS <--> Web
-  Web --> Identity
-  Web --> Rooms
-  Web --> Racing
-  Content --> Racing
-  Racing --> Results
-  Identity --> DB
-  Rooms --> DB
-  Content --> DB
-  Results --> DB
+flowchart LR
+  C["Navigateur React : vue et prédiction"] -->|HTTPS| N["Next.js : pages et actions"]
+  C <-->|Socket.IO| S["Canaux : session, schémas, permissions"]
+  N --> A["Services serveur"]
+  S --> A
+  A --> R["Runtime de course en mémoire"]
+  R --> D["Domaine pur : course, mesures, bonus"]
+  A --> P[("PostgreSQL / Drizzle")]
+  R -->|bail et transitions durables| P
+  B["Moteur pur des bots : livré, non raccordé"] -.-> D
 ```
 
-Organisation cible, à créer au fil des fonctionnalités :
+[server.ts](../apps/web/server.ts) compose Next.js et Socket.IO sur le même serveur HTTP Node. Je conserve un seul processus actif pour l'état de présence et les courses, derrière le frontal HTTPS prévu par l'[ADR hébergement](adr/0002-hosting.md). Les baux SQL protègent les courses lors d'un chevauchement de processus; ils ne constituent pas un service de jeu distribué.
 
-```text
-apps/web/                 Pages, composants, adaptateurs HTTP/Socket.IO, composition
-packages/domain/          identity/, rooms/, racing/, texts/, results/ : règles pures
-packages/contracts/       Schémas Zod, commandes, événements et erreurs publiques
-packages/database/        Drizzle, migrations, repositories et seed
-```
+- [apps/web](../apps/web) contient les pages, les contrats Zod partagés avec le navigateur, les adaptateurs et les services. Le paquet `packages/contracts` de la conception initiale n'existe pas : les protocoles vivent dans `src/rooms` et `src/races`.
+- [packages/domain](../packages/domain/src) contient les fonctions pures : texte, graphèmes, mesures, course, classements, bots et bonus. L'horloge et l'aléatoire y sont des entrées; le domaine n'appelle ni React, ni SQL, ni Socket.IO.
+- [packages/database](../packages/database/src) contient le schéma Drizzle, les transactions, les lecteurs et l'import du corpus. Les migrations sont [versionnées](../packages/database/drizzle).
+- Le navigateur conserve une prédiction de la frappe dans [RaceClient](../apps/web/src/races/race-client.ts), mais le serveur décide des positions, fautes, temps, bonus et résultats.
 
-Les cas d'utilisation serveur orchestrent les règles et les transactions. Le domaine ne dépend ni de React, ni de Socket.IO, ni de Drizzle. Un rôle d'hôte fourni par le client n'est jamais tenu pour fiable. Pas de microservices, de Redis ni d'infrastructure multi-instance pour le checkpoint.
+Les [ADR temps réel](adr/0001-realtime.md), [authentification](adr/0003-authentication.md), [propriété d'une course](adr/0004-race-ownership-lease.md) et [bots](adr/0005-deterministic-bots.md) donnent les raisons et limites de ces choix.
 
-## 3. Choix d'implémentation
+## 3. Modèle de données livré
 
-| Sujet | Base retenue pour la prochaine tranche | Vérification avant validation |
-|---|---|---|
-| Hébergement | D-13 / [ADR-0002](adr/0002-hosting.md) : Azure App Service (Linux, Node 24, une instance B2, crédit étudiant) + forfait gratuit de Neon PostgreSQL; déploiement zip de `main` par GitHub Actions. | Smoke test à chaque déploiement : commit déployé, Neon joignable, ping WebSocket ([DEPLOYMENT.md](DEPLOYMENT.md)). L'enseignant a accepté le serveur géré pour TECH-05. |
-| Temps réel | Socket.IO sur le même domaine que Next.js; instance unique. | Prototype en production avec deux navigateurs; [ADR-0001](adr/0001-realtime.md). |
-| Exécution TS | Node 24 / npm; `tsx` pour le serveur personnalisé en dev et pour lancer le build Next en production. Paquets qui exportent leurs sources TS, `transpilePackages` côté Next. | `tsx` devient une dépendance d'exécution. Tester une installation propre et le rechargement en dev; pas de `output: standalone`. Fait dans CP-02 : `apps/web/server.ts`, version empaquetée testée en mode production. |
-| Authentification | [ADR-0003](adr/0003-authentication.md) : Auth.js v5 (`next-auth@5.0.0-beta.32`, version épinglée), sessions JWT sans adaptateur, GitHub + Discord + Credentials; nos tables `accounts`/`oauth_identities` (sans courriel); mots de passe locaux hachés avec scrypt. | CP-04 : sessions liées à `accounts.session_version`, 24 h à compter de la connexion, révoquées à la déconnexion en HTTP et sur Socket.IO (tests unitaires, PostgreSQL et Playwright). Connexions GitHub, Discord et locales prouvées en production le 7 octobre. Les premiers essais de Discord y ont échoué sur son paramètre d'émetteur (issuer, RFC 9207), un problème corrigé et vérifié le jour même. |
-| Confidentialité | Identité OAuth par fournisseur + identifiant stable, sans courriel stocké; aucune fusion automatique par pseudonyme ou par courriel. | Lier un fournisseur exige une session de compte et une preuve OAuth. Aucun faux courriel pour contourner une bibliothèque. |
-| Validation / tests | Zod à chaque frontière, Vitest pour les règles pures, Playwright pour les parcours utilisateur; tests SQL sur un vrai PostgreSQL. | Contrats Socket.IO, concurrence des admissions, comptes de test locaux. |
-| Interface | Dictionnaires FR/EN centralisés; langue dans un cookie, celle du navigateur par défaut; thème système puis préférence enregistrée, initialisé avant l'affichage. | Métadonnées/erreurs traduites, persistance, aucun flash; jetons tirés de la direction artistique complète. |
-| CI/CD | Actions à chaque push et PR : lint, `tsc --noEmit`, tests unitaires, build. Déploiement automatique de `main` après succès. | Branche de travail → `dev` → `main`. Aucun secret de production dans les PR; ne pas déployer chaque branche en production. |
-
-Auth.js est une **piste de prototype**, et non une intégration certifiée. Credentials exige des sessions JWT; l'ancienne table obligatoire `auth_sessions` ne doit pas imposer une implémentation incompatible. Le plugin username de Better Auth conserve tout de même une inscription avec courriel : à lui seul, il ne constitue pas une solution au choix « sans courriel » du cahier des charges.
-
-## 4. Diagramme initial du modèle de données
+Ce diagramme représente les tables exportées par le [schéma](../packages/database/src/schema/index.ts), pas les futures fonctionnalités.
 
 ```mermaid
 erDiagram
-  accounts ||--o{ oauth_identities : "possède"
-  accounts o|--o{ lobby_members : "rejoint"
-  guest_sessions o|--o{ lobby_members : "rejoint"
-  lobbies ||--|| lobby_settings : "configure"
-  lobbies ||--o{ lobby_members : "accueille"
-  lobbies ||--o{ lobby_invitations : "invite"
-  lobbies ||--o{ lobby_bans : "exclut"
-  lobbies ||--o{ races : "enchaîne"
-  texts o|--o{ races : "fournit"
-  races ||--o{ race_entrants : "fige"
-  accounts o|--o{ race_entrants : "garde l'historique"
-  race_entrants ||--o| race_results : "obtient"
-  race_entrants ||--o{ race_mpm_samples : "mesure"
-  race_entrants ||--o{ race_key_errors : "agrège"
-  races ||--o{ race_bonus_events : "journalise"
+  accounts ||--o{ oauth_identities : identifie
+  accounts ||--o{ lobby_members : rejoint
+  lobbies ||--o{ lobby_members : contient
+  lobby_members o|--o| lobbies : heberge
+  lobbies o|--o{ races : organise
+  races o|--o| lobbies : manche_courante
+  accounts ||--o{ race_entrants : conserve
+  lobby_members o|--o{ race_entrants : devient
+  races ||--o{ race_entrants : fige
+  race_entrants ||--o| race_results : obtient
+  race_corpus_versions ||--o{ race_passages : introduit
+  race_corpus_versions ||--o{ race_corpus_entries : classe
+  race_passages ||--o{ race_corpus_entries : appartient
 ```
 
-Ce diagramme est le modèle cible. Ce qui est migré aujourd'hui est décrit dans [le schéma livré](architecture/data-model.md#delivered-schema). Le membre (member) décrit la présence dans une salle; le concurrent (entrant) est un instantané historique indépendant. Le compte relie les résultats à l'historique personnel. Les résultats de salle peuvent conserver un instantané anonymisé des invités/bots afin d'afficher un graphique complet, sans compte ni historique personnel pour les invités. Voir [contraintes, conservation et transactions](architecture/data-model.md).
+| Tables | Rôle et invariants |
+|---|---|
+| [accounts / oauth_identities](../packages/database/src/schema/identity.ts) | Identité applicative distincte de l'identité fournisseur; aucun courriel ni jeton fournisseur conservé. Le compte local a un identifiant canonique unique et un mot de passe haché avec scrypt. `session_version` permet la révocation. |
+| [lobbies / lobby_members](../packages/database/src/schema/rooms.ts) | Code unique de six caractères, capacité bornée de 2 à 30, phase et révision. Un compte ne peut être actif que dans une salle. Le membre garde un nom figé et sa date de départ. La clé étrangère composite impose que l'hôte appartienne à sa salle. La présence en ligne est en mémoire, pas une colonne SQL. |
+| [races](../packages/database/src/schema/races.ts) | Numéro de manche, texte exact et configuration figés, version des règles, temps et éventuelle interruption. `owner_id`, `owner_epoch` et `lease_expires_at` protègent les transitions du processus propriétaire. La manche courante d'une salle doit appartenir à cette salle. |
+| [race_entrants / race_results](../packages/database/src/schema/races.ts) | Concurrent distinct du membre de salle, lié au compte et au nom du départ. Résultat unique par course/concurrent, rang unique par course, compteurs et mesures produits par le moteur. Le lien au membre peut devenir nul lors d'une purge; le lien au compte reste obligatoire. |
+| [race_corpus_versions / race_passages / race_corpus_entries](../packages/database/src/schema/corpus.ts) | Version et empreinte, identité et provenance du passage, puis classification/mesures propres à chaque version. Au plus une version active. L'import conserve les anciennes données au lieu de les réécrire. |
 
-## 5. Machine à états d'une course — COURSE-01
+Le corpus n'a pas encore de clé étrangère depuis `races` à cette référence. `text_snapshot` et `config_snapshot` conservent le contenu utilisé par le service actuel. Un enum SQL de visibilité ne signifie pas que l'explorateur public, les invitations ou toute la configuration soient disponibles.
+
+`guest_sessions`, `lobby_settings`, `lobby_invitations`, `lobby_bans`, les séries MPM, erreurs par touche et événements de bonus ne sont **pas** des tables livrées. Je les garde dans le périmètre des cartes restantes, sans les dessiner comme présentes. Les transactions et les lecteurs de résultats sont dans [lifecycle.ts](../packages/database/src/races/lifecycle.ts) et [results.ts](../packages/database/src/races/results.ts); le [document de données](architecture/data-model.md) complète les règles de conservation.
+
+## 4. États : salle, moteur et persistance
+
+Les cinq états de salle correspondent à COURSE-01. Je les sépare des états internes de la course : une interruption ne devient pas un classement.
 
 ```mermaid
 stateDiagram-v2
   [*] --> EN_ATTENTE
-  EN_ATTENTE --> DECOMPTE: l'hôte lance, au moins 2 participants dont 1 humain
-  DECOMPTE --> EN_COURSE: départ serveur après 3 secondes
-  EN_COURSE --> RESULTATS: tous dans un état terminal ou temps maximal atteint
-  RESULTATS --> EN_ATTENTE: l'hôte prépare la course suivante
-  RESULTATS --> FERMEE: l'hôte ferme
-  EN_ATTENTE --> FERMEE: l'hôte ferme
-  DECOMPTE --> FERMEE: aucune présence humaine après traitement du départ
-  EN_COURSE --> FERMEE: aucune présence humaine après traitement du départ
+  EN_ATTENTE --> DECOMPTE: depart autorise et transaction validee
+  DECOMPTE --> EN_COURSE: echeance serveur de trois secondes
+  DECOMPTE --> RESULTATS: tous terminaux et resultats confirmes
+  EN_COURSE --> RESULTATS: tous terminaux ou limite atteinte, puis sauvegarde
+  RESULTATS --> EN_ATTENTE: prochaine manche demandee par hote
+  EN_ATTENTE --> FERMEE: fermeture ou depart de hote
+  DECOMPTE --> FERMEE: fermeture collective
+  EN_COURSE --> FERMEE: fermeture collective
+  RESULTATS --> FERMEE: fermeture ou depart de hote
+  DECOMPTE --> EN_ATTENTE: interruption sans resultats
+  EN_COURSE --> EN_ATTENTE: interruption sans resultats
   FERMEE --> [*]
 ```
 
-Les noms d'états sont les noms officiels de COURSE-01 : EN_ATTENTE, DECOMPTE, EN_COURSE, RESULTATS et FERMEE. La salle conserve une phase courante; chaque lancement crée une nouvelle manche immuable. Les nouvelles admissions ne se font qu'en attente ou aux résultats. Reprise par le même concurrent dans un délai de **30 secondes** : ce n'est pas une nouvelle admission. Configuration figée et texte révélé au début du **décompte de 3 secondes**. Une fermeture exceptionnelle faute d'humain ne produit pas de course terminée. Voir [états, départs et classement](architecture/state-machines.md).
+Le [domaine](../packages/domain/src/race/reduce.ts) passe de `countdown` à `racing`, puis `ended` ou `interrupted`. Le stockage distingue `countdown`, `racing`, `finished` et `interrupted`. Entre `ended` en mémoire et `finished` confirmé en base, le [runtime](../apps/web/src/server/races/race-runtime.ts) reste en sauvegarde : `race:confirming` ne prétend pas que les résultats sont déjà durables.
 
-## 6. Approche prévue pour les bots
+Le départ exige au moins deux participants dont un humain; les spectateurs sont exclus. Le domaine sait représenter les bots, mais le service actuel ne crée que des concurrents issus de comptes. Le départ, la clôture, le retour à l'attente et les admissions utilisent les transactions sous verrou de salle.
 
-Cinq profils : Noob 10–20 MPM (mots par minute) / 12 % d'erreurs; Débutant 20–35 / 8 %; Intermédiaire 35–60 / 5 %; Expert 70–100 / 2 %; Impossible, proposé à 140–170 / 0,5 %. Ces valeurs initiales suivent BOT-01; ajustements documentés après mesure.
+Les échéances du domaine s'appliquent avant et après chaque événement : un minuteur retardé ne repousse pas artificiellement une arrivée ou une fin de course. Chaque concurrent termine par `finished`, `timedOut` ou `abandoned`. La reprise est permise jusqu'à 30 secondes après la perte détectée par le serveur; au-delà, l'abandon pour déconnexion s'applique. L'inactivité est signalée à 60 secondes et devient un abandon au-delà de 120 secondes sans activité (D-17). Les limites exactes et leur ordre sont documentés dans [types.ts](../packages/domain/src/race/types.ts) et testés dans le domaine.
 
-Le serveur injecte **une graine (seed) et une horloge** dans un moteur pur. Le moteur produit des intentions de frappe horodatées, soumises aux mêmes règles de validation, de correction et de bonus que les humains. Les délais combinent la vitesse du profil, une variation pseudo-aléatoire, des pauses et la difficulté des mots. Aucun `Math.random()` ni aucune horloge réelle dans la règle testée. Même graine + même texte/configuration + mêmes événements externes = même simulation.
+Un seul onglet contrôle la saisie; les autres observent et peuvent demander le contrôle. La grâce de transfert d'onglet est de trois secondes, distincte de la reprise réseau. Le battement Socket.IO est de dix secondes avec cinq secondes d'attente : une coupure silencieuse peut donc être détectée jusqu'à environ quinze secondes après le dernier échange. Les trente secondes commencent à cette détection.
 
-Les bots sont identifiés et comptent parmi les 2–30 participants, jamais comme spectateurs ni comme hôtes. Tests : reproductibilité, variation de cadence, erreurs corrigées en mode correction obligatoire, ralentissement et bonus. L'ADR des bots sera finalisé avec les mesures du moteur, avant la remise finale.
+## 5. Messages et autorité
 
-## 7. Flux temps réel et persistance
+Les actions HTTP de salle et le canal Socket.IO partagent les services; je ne présente pas la création, l'admission ou la fermeture comme des commandes WebSocket fictives.
 
 ```mermaid
 sequenceDiagram
-  participant C as Client
-  participant S as Serveur Next et Socket.IO
-  participant D as Domaine
+  participant C as Navigateur
+  participant S as Canaux et services
+  participant R as Runtime et domaine
   participant P as PostgreSQL
-  C->>S: commande identifiée et schéma validé
-  S->>D: identité vérifiée, état, commande
-  D-->>S: transition autorisée ou erreur typée
-  S->>P: transaction si état durable
+  C->>S: action HTTP de creation ou admission
+  S->>P: transaction de salle
   P-->>S: commit
-  S-->>C: accusé de réception et révision
-  S-->>C: diffusion d'un instantané aux membres
+  S-->>C: resultat et room:snapshot
+  C->>S: room:watch (code, pageId)
+  S->>P: verifier appartenance et etat
+  S-->>C: ack et instantane courant
+  C->>S: race:start (hote)
+  S->>P: verrou, participants et instantanes
+  P-->>S: course creee avec proprietaire
+  S->>R: construire le runtime
+  R-->>C: race:reveal, race:self, race:progress
+  loop Frappe pendant la course
+    C->>S: race:batch (seq, textVersion, events)
+    S->>R: identite et controle verifies, heure serveur
+    R-->>C: ack et etat prive faisant autorite
+    R-->>C: race:progress periodique
+  end
+  R-->>C: race:confirming
+  R->>P: finalizeRace avec resultats figes
+  P-->>R: commit ou alreadyDone
+  R-->>C: salle en phase results
+  C->>S: rafraichissement HTTP des resultats
+  S->>P: lecture autorisee
+  S-->>C: classement persiste
 ```
 
-Pendant la frappe, le serveur valide des lots séquencés et diffuse une projection compacte, sans requête SQL à chaque frappe. Cible initiale : au plus 10 envois/s par joueur, 4 diffusions/s avec interpolation. À la fin, le résultat, les séries MPM, les erreurs agrégées et les bonus sont persistés de façon atomique pour que les résultats puissent être réaffichés. Une reconnexion reçoit un instantané qui fait autorité; `socket.id` n'est pas l'identité du joueur.
+| Message | Utilisation livrée |
+|---|---|
+| `room:watch` / `room:snapshot` | Abonnement autorisé à la salle et projection révisée de ses membres/présences. |
+| `system:ping` | Réponse avec heure serveur. Le [client d'horloge](../apps/web/src/races/clock-sync.ts) estime le demi-aller-retour, retient le meilleur échantillon récent et avance avec une horloge monotone. L'asymétrie réseau reste une limite d'affichage, jamais une autorisation de frappe. |
+| `race:start` / `race:reveal` | Départ demandé par l'hôte; texte révélé dès le début du décompte, jamais dans la salle d'attente. |
+| `race:batch` / `race:self` | Lots séquencés et versionnés; correction de la prédiction et mesures privées. Le concurrent vient de la session, pas du contenu fourni par le navigateur. |
+| `race:progress` | Projection publique; diffusion périodique au plus quatre fois par seconde (intervalle minimal de 250 ms), pouvant être volatile. Un nouvel abonnement reçoit un instantané direct. |
+| `race:control`, `race:present`, `race:abandon` | Contrôle d'onglet, réponse à l'inactivité et abandon confirmé. |
+| `race:confirming` | Résultats figés en mémoire, en attente de confirmation SQL. Il n'existe pas de message `race:results` dans ce protocole. |
+| `race:bonus:activate`, `race:bonus:self`, `race:bonus:announcement` | Activation, inventaire privé et annonces publiques. Le [protocole bonus](../apps/web/src/races/bonus-protocol.ts) est livré; les salles ordinaires ne l'activent pas encore. |
 
-## 8. Long terme sans élargir le checkpoint
+Les sources sont les protocoles [salle](../apps/web/src/rooms/protocol.ts) et [course](../apps/web/src/races/protocol.ts), le [canal course](../apps/web/src/server/realtime/race-channel.ts) et le [runtime](../apps/web/src/server/races/race-runtime.ts). La version du texte interdit qu'un lot ancien traverse silencieusement un changement de cible. Le domaine limite notamment les lots à 64 événements et dix lots par seconde; le navigateur conserve un seul lot en vol. Une réponse perdue peut mener à la retransmission du même lot, sans doubler la progression.
 
-**Application de la direction artistique.** La direction artistique finale (27 pages, 6 octobre) et sa traduction prête pour le code [`apps/design/`](../apps/design/README.md) (jetons, composants, 17 écrans de référence, logos) sont la source de vérité visuelle : neutres de nuit Abysse/Nuit, un seul accent Red Line, lumières des coureurs, Big Shoulders Display pour les titres, Instrument Serif pour un mot d'ambiance, Geist/Geist Mono pour l'interface et le texte à taper, thème clair « Aube ». Le thème sombre est la référence créative, mais l'application suit par défaut la préférence système (DES-05). Le design précède l'énoncé final : ses exemples de 50 coureurs, de code à cinq caractères et de 5→1 ne sont pas des règles du produit (maximum de 30, six caractères, 3→1; la piste reste lisible jusqu'à 50, comme marge). Les adaptations sont listées dans le choix D-15. Garder les animations facultatives, sans attente artificielle qui bloque l'accès; les informations de chaque participant restent disponibles même si la piste ne met en valeur que certains noms. Mes fichiers de design ne sont pas réécrits.
+Socket.IO assure l'ordre des événements reçus, pas une sauvegarde durable de chaque message. Je m'appuie sur les séquences, révisions et instantanés applicatifs, comme expliqué dans l'[ADR temps réel](adr/0001-realtime.md), plutôt que sur une garantie de livraison que le transport ne fournit pas.
 
-Les instantanés de texte/configuration, les séries MPM et les bots déterministes préparent la remise du 13 novembre. En revanche : pas de gestion de classe, de réseau social, de MFA, de déploiement distribué, d'éditeur de textes personnels ni de matchmaking avec un hôte système avant les exigences évaluées. La piste verticale reste la signature; les effets ne nuisent ni à la lisibilité, ni à l'usage du clavier, ni au contraste.
+## 6. Sauvegarde, pannes et sécurité
 
-Références consultées : [Next.js](https://nextjs.org/docs/app/guides/custom-server), [Auth.js Credentials](https://authjs.dev/reference/core/providers/credentials), [Better Auth username](https://better-auth.com/docs/plugins/username). Les choix qui ne sont pas imposés, et leurs limites, sont listés dans [EXIGENCES.md](EXIGENCES.md).
+Je ne fais pas de requête SQL par touche. Le runtime garde l'état de la course et gèle les résultats une fois la manche terminée. [finalizeRace](../packages/database/src/races/lifecycle.ts) écrit les résultats et change les phases dans une transaction idempotente, protégée par le propriétaire et sa génération. Une réponse perdue après commit peut être reconnue par `alreadyDone`; elle ne provoque ni résultat doublé ni fausse interruption.
+
+Le bail est renouvelé toutes les dix secondes pour trente secondes. Sans confirmation à temps, le runtime suspend localement la saisie et les diffusions avant l'expiration présumée; si un autre processus récupère la course, l'ancien propriétaire ne peut plus écrire. Les détails des marges, tentatives et délais de fermeture sont dans l'[ADR-0004](adr/0004-race-ownership-lease.md). Un crash mène à une interruption sans résultats après expiration et récupération, pas à la reconstruction de toutes les frappes. Une fermeture collective interrompt également la manche active.
+
+Les cookies Auth.js donnent l'identité, vérifiée à l'ouverture du socket. Le registre suit expiration et révocation; les canaux vérifient la session, l'appartenance et les permissions nécessaires à chaque action. Les schémas Zod bornent les données non fiables, les limiteurs bornent les requêtes et l'[origine](../apps/web/src/server/realtime/origin.ts) du handshake est contrôlée. Un `Origin` absent reste permis pour le polling même origine ou un client non navigateur : l'authentification reste nécessaire aux actions privées.
+
+La lecture de `/races/[id]` est réservée à un compte concurrent; la vue de résultats dans une salle suit les droits de ses membres. Je ne publie ni état privé des autres joueurs ni graine de bot. Le pool SQL et les transactions bornées sont livrés et testés localement; leur vérification via le pooler Neon reste une action séparée, non réalisée par cette révision documentaire.
+
+## 7. Bots et bonus : limites de l'intégration
+
+L'[ADR-0005](adr/0005-deterministic-bots.md) décrit le moteur livré : cinq profils, état pseudo-aléatoire versionné, horloge injectée, une intention par échéance, puis application par le même réducteur que pour les humains. Un retard serveur ralentit le bot; il ne crée pas une rafale de rattrapage ni un résultat rétroactif.
+
+Le [coordinateur bonus](../packages/domain/src/bonuses/coordinator.ts) fait évoluer la course et les attributions/effets dans un même état. Le runtime publie ensuite les changements privés et annonces. Le navigateur gère Entrée et les effets visuels; le serveur reste l'autorité sur la cible et sa version. Les extensions déterministes sont disponibles dans le domaine, mais leur contenu approuvé, le réglage Arcade, la participation effective des bots et la persistance détaillée des bonus restent à intégrer ou qualifier. Je ne transforme pas des scénarios avec fixtures en preuve d'activation pour les salles ordinaires.
+
+## 8. Vérification et évolution
+
+La CI existante vérifie TypeScript, lint, règles pures, schéma/migrations, PostgreSQL, build, archive de livraison, processus serveur et parcours navigateur. La présence de ces contrôles ne suffit pas à déclarer une fonctionnalité non raccordée terminée. Les [tests du runtime](../apps/web/src/server/races/race-runtime.test.ts), les [tests SQL des courses](../packages/database/test/races.db.test.ts) et l'[intégration multiprocessus](../apps/web/integration/race.integration.test.ts) sont les preuves associées aux frontières décrites ici.
+
+Pour cette carte documentaire, j'ai relu le code à la référence annoncée, le brief et les ADR, puis vérifié les liens et les diagrammes. Les tests ciblés réellement rejoués sont consignés dans la [note de vérification](evidence/f10-2-architecture/README.md). Aucun nouveau contrôle navigateur ou de production n'est attribué à ce travail.
+
+Les futures livraisons doivent mettre à jour cette description lorsqu'elles raccordent les bots, remplacent les textes fixes, enrichissent le schéma ou ajoutent les écrans restants. Le nom, le logo et les fichiers de [direction artistique](../apps/design/README.md) restent inchangés. Toute évolution multi-instance exige un partage explicite des états métier, pas seulement un adaptateur Socket.IO.
