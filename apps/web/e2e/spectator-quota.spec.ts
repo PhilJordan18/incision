@@ -39,12 +39,13 @@ for (const locale of ["fr-CA", "en-US"] as const) {
         const message = locale === "fr-CA"
           ? "Cette salle accueille déjà 20 spectateurs. Réessaie lorsqu’une place se libère."
           : "This room already has 20 spectators. Try again when a place becomes available.";
-        await expect(page.getByRole("alert")).toContainText(message);
+        const alert = page.getByRole("main").getByRole("alert");
+        await expect(alert).toContainText(message);
         expect(await query("select id from lobby_members where account_id=$1 and left_at is null", [visitor.id])).toHaveLength(0);
         for (const width of [1440, 1024, 390, 360]) {
           await page.setViewportSize({ width, height: 900 });
           await expectNoHorizontalScroll(page);
-          await expect(page.getByText(message, { exact: true })).toBeVisible();
+          await expect(alert).toBeVisible();
           if (width === 360) await expectNoAccessibilityViolation(page);
           else await page.screenshot({ path: test.info().outputPath(`quota-${width}.png`) });
         }
