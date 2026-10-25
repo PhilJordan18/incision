@@ -44,6 +44,7 @@ test("saves only a normalized private image, survives reload, and preserves it a
   await expect(image).not.toHaveAttribute("src", firstUrl!);
   expect(await query("select * from accounts where login = $1", [account.login])).toEqual(before);
   await page.getByRole("button", { name: "Se déconnecter", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
   expect((await page.request.get("/api/account/photo")).status()).toBe(401);
 });
 
