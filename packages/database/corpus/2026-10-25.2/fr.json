@@ -1,0 +1,2020 @@
+{
+  "corpusVersion": "2026-10-25.2",
+  "normalizationVersion": 2,
+  "language": "fr",
+  "generatedAt": "2026-10-25",
+  "measuredWith": {
+    "normalizationVersion": 2,
+    "wordfreq": "3.1.1",
+    "listVersion": "wordfreq-3.1.1-large",
+    "commonZipf": 4,
+    "measuredWords": 200
+  },
+  "passages": [
+    {
+      "id": "fr-verne-vingt-mille-lieues-p1-ch14-pacifique",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "L'Océan pacifique s'étend du nord au sud entre les deux cercles polaires, et de l'ouest à l'est entre l'Asie et l'Amérique sur une étendue de cent quarante-cinq degrés en longitude. C'est la plus tranquille des mers ; ses courants sont larges et lents, ses marées médiocres, ses pluies abondantes. Tel était l'Océan que ma destinée m'appelait d'abord à parcourir dans les plus étranges conditions.",
+      "sourceText": "L’Océan pacifique s’étend du nord au sud entre les deux cercles polaires, et de l’ouest à l’est entre l’Asie et l’Amérique sur une étendue de cent quarante-cinq degrés en longitude. C’est la plus tranquille des mers ; ses courants sont larges et lents, ses marées médiocres, ses pluies abondantes. Tel était l’Océan que ma destinée m’appelait d’abord à parcourir dans les plus étranges conditions.",
+      "adaptations": [
+        "spaces: 1 non-breaking space replaced by a space",
+        "apostrophes: 10 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "Vingt mille lieues sous les mers",
+        "place": "1re partie, chapitre XIV « Le Fleuve noir », paragraphe entier",
+        "edition": "Hetzel, 1870 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=11270647",
+        "revision": "Wikisource revision 11270647",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1869–1870); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 63,
+      "measures": {
+        "m1": 5.02,
+        "m2": 6.3,
+        "m3": 17.5,
+        "m4": 19,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "mer et voyage",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-verne-tour-du-monde-ch01-fogg",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Ce Phileas Fogg était-il riche ? Incontestablement. Mais comment il avait fait fortune, c'est ce que les mieux informés ne pouvaient dire, et Mr. Fogg était le dernier auquel il convînt de s'adresser pour l'apprendre. En tout cas, il n'était prodigue de rien, mais non avare, car partout où il manquait un appoint pour une chose noble, utile ou généreuse, il l'apportait silencieusement et même anonymement. En somme, rien de moins communicatif que ce gentleman. Il parlait aussi peu que possible, et semblait d'autant plus mystérieux qu'il était silencieux. Cependant sa vie était à jour, mais ce qu'il faisait était si mathématiquement toujours la même chose, que l'imagination, mécontente, cherchait au delà. Avait-il voyagé ? C'était probable, car personne ne possédait mieux que lui la carte du monde. Il n'était endroit si reculé dont il ne parût avoir une connaissance spéciale. Quelquefois, mais en peu de mots, brefs et clairs, il redressait les mille propos qui circulaient dans le club au sujet des voyageurs perdus ou égarés ; il indiquait les vraies probabilités, et ses paroles s'étaient trouvées souvent comme inspirées par une seconde vue, tant l'événement finissait toujours par les justifier. C'était un homme qui avait dû voyager partout, - en esprit, tout au moins.",
+      "sourceText": "Ce Phileas Fogg était-il riche ? Incontestablement. Mais comment il avait fait fortune, c’est ce que les mieux informés ne pouvaient dire, et Mr. Fogg était le dernier auquel il convînt de s’adresser pour l’apprendre. En tout cas, il n’était prodigue de rien, mais non avare, car partout où il manquait un appoint pour une chose noble, utile ou généreuse, il l’apportait silencieusement et même anonymement.\nEn somme, rien de moins communicatif que ce gentleman. Il parlait aussi peu que possible, et semblait d’autant plus mystérieux qu’il était silencieux. Cependant sa vie était à jour, mais ce qu’il faisait était si mathématiquement toujours la même chose, que l’imagination, mécontente, cherchait au delà.\nAvait-il voyagé ? C’était probable, car personne ne possédait mieux que lui la carte du monde. Il n’était endroit si reculé dont il ne parût avoir une connaissance spéciale. Quelquefois, mais en peu de mots, brefs et clairs, il redressait les mille propos qui circulaient dans le club au sujet des voyageurs perdus ou égarés ; il indiquait les vraies probabilités, et ses paroles s’étaient trouvées souvent comme inspirées par une seconde vue, tant l’événement finissait toujours par les justifier. C’était un homme qui avait dû voyager partout, — en esprit, tout au moins.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 3 non-breaking spaces replaced by a space",
+        "apostrophes: 14 curly apostrophes replaced by '",
+        "dashes: 1 sentence dash written as - between spaces"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "Le Tour du monde en quatre-vingts jours",
+        "place": "chapitre I, trois paragraphes consécutifs",
+        "edition": "Hetzel, 1873 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=12868439",
+        "revision": "Wikisource revision 12868439",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1872–1873); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 202,
+      "measures": {
+        "m1": 5.11,
+        "m2": 8.5,
+        "m3": 16.2,
+        "m4": 10,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "aventure, humour",
+        "reserves": [
+          "tirets normalisés en « - »"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-verne-vingt-mille-lieues-p1-ch14-oceans",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Durant les époques géologiques, à la période du feu succéda la période de l'eau. L'Océan fut d'abord universel. Puis, peu à peu, dans les temps siluriens, des sommets de montagnes apparurent, des îles émergèrent, disparurent sous des déluges partiels, se montrèrent à nouveau, se soudèrent, formèrent des continents et enfin les terres se fixèrent géographiquement telles que nous les voyons. Le solide avait conquis sur le liquide trente-sept millions six cent cinquante-sept milles carrés, soit douze mille neuf cent seize millions d'hectares. La configuration des continents permet de diviser les eaux en cinq grandes parties : l'Océan glacial arctique, l'Océan glacial antarctique, l'Océan indien, l'Océan atlantique, l'Océan pacifique. L'Océan pacifique s'étend du nord au sud entre les deux cercles polaires, et de l'ouest à l'est entre l'Asie et l'Amérique sur une étendue de cent quarante-cinq degrés en longitude. C'est la plus tranquille des mers ; ses courants sont larges et lents, ses marées médiocres, ses pluies abondantes. Tel était l'Océan que ma destinée m'appelait d'abord à parcourir dans les plus étranges conditions. \"Monsieur le professeur, me dit le capitaine Nemo, nous allons, si vous le voulez bien, relever exactement notre position, et fixer le point de départ de ce voyage. Il est midi moins le quart. Je vais remonter à la surface des eaux.\"",
+      "sourceText": "Durant les époques géologiques, à la période du feu succéda la période de l’eau. L’Océan fut d’abord universel. Puis, peu à peu, dans les temps siluriens, des sommets de montagnes apparurent, des îles émergèrent, disparurent sous des déluges partiels, se montrèrent à nouveau, se soudèrent, formèrent des continents et enfin les terres se fixèrent géographiquement telles que nous les voyons. Le solide avait conquis sur le liquide trente-sept millions six cent cinquante-sept milles carrés, soit douze mille neuf cent seize millions d’hectares.\nLa configuration des continents permet de diviser les eaux en cinq grandes parties : l’Océan glacial arctique, l’Océan glacial antarctique, l’Océan indien, l’Océan atlantique, l’Océan pacifique.\nL’Océan pacifique s’étend du nord au sud entre les deux cercles polaires, et de l’ouest à l’est entre l’Asie et l’Amérique sur une étendue de cent quarante-cinq degrés en longitude. C’est la plus tranquille des mers ; ses courants sont larges et lents, ses marées médiocres, ses pluies abondantes. Tel était l’Océan que ma destinée m’appelait d’abord à parcourir dans les plus étranges conditions.\n« Monsieur le professeur, me dit le capitaine Nemo, nous allons, si vous le voulez bien, relever exactement notre position, et fixer le point de départ de ce voyage. Il est midi moins le quart. Je vais remonter à la surface des eaux. »",
+      "adaptations": [
+        "spaces: 3 paragraph breaks replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 19 curly apostrophes replaced by '",
+        "quotes: 2 guillemets replaced by \" and attached to the quoted words"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "Vingt mille lieues sous les mers",
+        "place": "1re partie, chapitre XIV « Le Fleuve noir », quatre paragraphes",
+        "edition": "Hetzel, 1870 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=11270647",
+        "revision": "Wikisource revision 11270647",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1869–1870); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 212,
+      "measures": {
+        "m1": 5.26,
+        "m2": 9.5,
+        "m3": 18.1,
+        "m4": 12.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "difficile (nombres en lettres)",
+        "theme": "science, géographie",
+        "reserves": [
+          "guillemets normalisés"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-malot-sans-famille-p1-ch01-nourrice",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "Je suis un enfant trouvé. Mais jusqu'à huit ans j'ai cru que, comme tous les autres enfants, j'avais une mère, car lorsque je pleurais, il y avait une femme qui me serrait si doucement dans ses bras, en me berçant, que mes larmes s'arrêtaient de couler. Jamais je ne me couchais dans mon lit, sans qu'une femme vînt m'embrasser, et, quand le vent de décembre collait la neige contre les vitres blanchies, elle me prenait les pieds entre ses deux mains et elle restait à me les réchauffer en me chantant une chanson, dont je retrouve encore dans ma mémoire l'air et quelques paroles. Quand je gardais notre vache le long des chemins herbus ou dans les brandes, et que j'étais surpris par une pluie d'orage, elle accourait au-devant de moi et me forçait à m'abriter sous son jupon de laine relevé qu'elle me ramenait sur la tête et sur les épaules. Enfin quand j'avais une querelle avec un de mes camarades, elle me faisait conter mes chagrins, et presque toujours elle trouvait de bonnes paroles pour me consoler ou me donner raison. Par tout cela et par bien d'autres choses encore, par la façon dont elle me parlait, par la façon dont elle me regardait, par ses caresses, par la douceur qu'elle mettait dans ses gronderies, je croyais qu'elle était ma mère. Voici comment j'appris qu'elle n'était que ma nourrice.",
+      "sourceText": "Je suis un enfant trouvé.\nMais jusqu’à huit ans j’ai cru que, comme tous les autres enfants, j’avais une mère, car lorsque je pleurais, il y avait une femme qui me serrait si doucement dans ses bras, en me berçant, que mes larmes s’arrêtaient de couler.\nJamais je ne me couchais dans mon lit, sans qu’une femme vînt m’embrasser, et, quand le vent de décembre collait la neige contre les vitres blanchies, elle me prenait les pieds entre ses deux mains et elle restait à me les réchauffer en me chantant une chanson, dont je retrouve encore dans ma mémoire l’air et quelques paroles.\nQuand je gardais notre vache le long des chemins herbus ou dans les brandes, et que j’étais surpris par une pluie d’orage, elle accourait au-devant de moi et me forçait à m’abriter sous son jupon de laine relevé qu’elle me ramenait sur la tête et sur les épaules.\nEnfin quand j’avais une querelle avec un de mes camarades, elle me faisait conter mes chagrins, et presque toujours elle trouvait de bonnes paroles pour me consoler ou me donner raison.\nPar tout cela et par bien d’autres choses encore, par la façon dont elle me parlait, par la façon dont elle me regardait, par ses caresses, par la douceur qu’elle mettait dans ses gronderies, je croyais qu’elle était ma mère.\nVoici comment j’appris qu’elle n’était que ma nourrice.",
+      "adaptations": [
+        "spaces: 6 paragraph breaks replaced by a space",
+        "apostrophes: 18 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Hector Malot (1830–1907)",
+        "work": "Sans famille",
+        "place": "1re partie, chapitre I, sept premiers paragraphes",
+        "edition": "Dentu, 1887 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=5070999",
+        "revision": "Wikisource revision 5070999",
+        "licence": "public domain in Canada (author died 1907) and the United States (published 1878); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 231,
+      "measures": {
+        "m1": 4.43,
+        "m2": 1.5,
+        "m3": 12,
+        "m4": 7,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile à moyen",
+        "theme": "enfance, émotion",
+        "reserves": [
+          "thème de l’abandon, traité avec douceur"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-daudet-lettres-moulin-installation",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Ce sont les lapins qui ont été étonnés !... Depuis si longtemps qu'ils voyaient la porte du moulin fermée, les murs et la plate-forme envahis par les herbes, ils avaient fini par croire que la race des meuniers était éteinte, et, trouvant la place bonne, ils en avaient fait quelque chose comme un quartier général, un centre d'opérations stratégiques : le moulin de Jemmapes des lapins... La nuit de mon arrivée, il y en avait bien, sans mentir, une vingtaine assis en rond sur la plate-forme, en train de se chauffer les pattes à un rayon de lune... Le temps d'entrouvrir une lucarne, frrt ! voilà le bivouac en déroute, et tous ces petits derrières blancs qui détalent, la queue en l'air, dans le fourré. J'espère bien qu'ils reviendront. Quelqu'un de très étonné aussi, en me voyant, c'est le locataire du premier, un vieux hibou sinistre, à tête de penseur, qui habite le moulin depuis plus de vingt ans. Je l'ai trouvé dans la chambre du haut, immobile et droit sur l'arbre de couche, au milieu des plâtras, des tuiles tombées. Il m'a regardé un moment avec son oeil rond ; puis, tout effaré de ne pas me reconnaître, il s'est mis à faire : \"Hou ! hou !\" et à secouer péniblement ses ailes grises de poussière ; - ces diables de penseurs ! ça ne se brosse jamais... N'importe ! tel qu'il est, avec ses yeux clignotants et sa mine renfrognée, ce locataire silencieux me plaît encore mieux qu'un autre, et je me suis empressé de lui renouveler son bail. Il garde comme dans le passé tout le haut du moulin avec une entrée par le toit ; moi je me réserve la pièce du bas, une petite pièce blanchie à la chaux, basse et voûtée comme un réfectoire de couvent.",
+      "sourceText": "Ce sont les lapins qui ont été étonnés !… Depuis si longtemps qu’ils voyaient la porte du moulin fermée, les murs et la plate-forme envahis par les herbes, ils avaient fini par croire que la race des meuniers était éteinte, et, trouvant la place bonne, ils en avaient fait quelque chose comme un quartier général, un centre d’opérations stratégiques : le moulin de Jemmapes des lapins… La nuit de mon arrivée, il y en avait bien, sans mentir, une vingtaine assis en rond sur la plate-forme, en train de se chauffer les pattes à un rayon de lune… Le temps d’entrouvrir une lucarne, frrt ! voilà le bivouac en déroute, et tous ces petits derrières blancs qui détalent, la queue en l’air, dans le fourré. J’espère bien qu’ils reviendront.\nQuelqu’un de très étonné aussi, en me voyant, c’est le locataire du premier, un vieux hibou sinistre, à tête de penseur, qui habite le moulin depuis plus de vingt ans. Je l’ai trouvé dans la chambre du haut, immobile et droit sur l’arbre de couche, au milieu des plâtras, des tuiles tombées. Il m’a regardé un moment avec son œil rond ; puis, tout effaré de ne pas me reconnaître, il s’est mis à faire : « Hou ! hou ! » et à secouer péniblement ses ailes grises de poussière ; — ces diables de penseurs ! ça ne se brosse jamais… N’importe ! tel qu’il est, avec ses yeux clignotants et sa mine renfrognée, ce locataire silencieux me plaît encore mieux qu’un autre, et je me suis empressé de lui renouveler son bail. Il garde comme dans le passé tout le haut du moulin avec une entrée par le toit ; moi je me réserve la pièce du bas, une petite pièce blanchie à la chaux, basse et voûtée comme un réfectoire de couvent.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 13 non-breaking spaces replaced by a space",
+        "apostrophes: 15 curly apostrophes replaced by '",
+        "quotes: 2 guillemets replaced by \" and attached to the quoted words",
+        "ellipsis: 4 ellipsis characters written as three dots",
+        "ligatures: 1 ligature spelled out (œ as oe, æ as ae)",
+        "dashes: 1 sentence dash written as - between spaces"
+      ],
+      "source": {
+        "author": "Alphonse Daudet (1840–1897)",
+        "work": "Lettres de mon moulin",
+        "place": "« Installation », deux premiers paragraphes",
+        "edition": "Charpentier et Fasquelle, 1895 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=9702331",
+        "revision": "Wikisource revision 9702331",
+        "licence": "public domain in Canada (author died 1897) and the United States (published 1869); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 291,
+      "measures": {
+        "m1": 4.43,
+        "m2": 3.5,
+        "m3": 15.1,
+        "m4": 9.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "humour, animaux",
+        "reserves": [
+          "« œil » devient « oeil » (normalisation v2, P-4)"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-verne-deux-ans-vacances-ch01-tempete",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Dans l'hémisphère austral, le mois de mars correspond au mois de septembre de l'hémisphère boréal, et les nuits n'ont plus qu'une durée moyenne. Or, comme il était environ quatre heures du matin, l'horizon ne devait pas tarder à blanchir dans l'est, c'est-à-dire au-dessus de cette partie de l'Océan vers laquelle la tempête traînait le Sloughi. Peut-être, avec le jour naissant, la rafale perdrait-elle de sa violence ? Peut-être aussi, une terre serait-elle en vue, et le sort de cet équipage d'enfants se déciderait-il en quelques minutes ? On le verrait bien, quand l'aube teinterait les lointains du ciel. Vers quatre heures et demie, quelques lueurs diffuses se glissèrent jusqu'au zénith. Par malheur, les brumes limitaient encore le rayon de vue à moins d'un quart de mille. On sentait que les nuages passaient avec une vitesse effrayante. L'ouragan n'avait rien perdu de sa force, et, au large, la mer disparaissait sous l'écume d'une houle déferlante. Le schooner, tantôt enlevé sur une crête de lame, tantôt précipité au fond d'un gouffre, eût vingt fois chaviré s'il eût été pris en travers. Les quatre jeunes garçons regardaient ce chaos de flots échevelés. Ils sentaient bien que, si l'accalmie tardait à se faire, leur situation serait désespérée. Jamais le Sloughi ne résisterait vingt-quatre heures de plus aux paquets de mer qui finiraient par défoncer les capots.",
+      "sourceText": "Dans l’hémisphère austral, le mois de mars correspond au mois de septembre de l’hémisphère boréal, et les nuits n’ont plus qu’une durée moyenne. Or, comme il était environ quatre heures du matin, l’horizon ne devait pas tarder à blanchir dans l’est, c’est-à-dire au-dessus de cette partie de l’Océan vers laquelle la tempête traînait le Sloughi. Peut-être, avec le jour naissant, la rafale perdrait-elle de sa violence ? Peut-être aussi, une terre serait-elle en vue, et le sort de cet équipage d’enfants se déciderait-il en quelques minutes ? On le verrait bien, quand l’aube teinterait les lointains du ciel.\nVers quatre heures et demie, quelques lueurs diffuses se glissèrent jusqu’au zénith. Par malheur, les brumes limitaient encore le rayon de vue à moins d’un quart de mille. On sentait que les nuages passaient avec une vitesse effrayante. L’ouragan n’avait rien perdu de sa force, et, au large, la mer disparaissait sous l’écume d’une houle déferlante. Le schooner, tantôt enlevé sur une crête de lame, tantôt précipité au fond d’un gouffre, eût vingt fois chaviré s’il eût été pris en travers.\nLes quatre jeunes garçons regardaient ce chaos de flots échevelés. Ils sentaient bien que, si l’accalmie tardait à se faire, leur situation serait désespérée. Jamais le Sloughi ne résisterait vingt-quatre heures de plus aux paquets de mer qui finiraient par défoncer les capots.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 19 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "Deux ans de vacances",
+        "place": "chapitre I, trois paragraphes consécutifs",
+        "edition": "Wikisource transcription (first published 1888)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=5641105",
+        "revision": "Wikisource revision 5641105",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1888); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 220,
+      "measures": {
+        "m1": 4.96,
+        "m2": 6.5,
+        "m3": 21.6,
+        "m4": 14.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "tempête, aube en mer",
+        "reserves": [
+          "le chapitre I emploie plus loin un terme racial d’époque (paragraphe non retenu) ; le passage lui-même n’en dit rien"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-verne-ile-mysterieuse-p1-ch11-carte",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Voici, en effet, la configuration exacte de cette île, qu'il importe de faire connaître, et dont la carte fut immédiatement dressée par le reporter avec une précision suffisante. La portion est du littoral, c'est-à-dire celle sur laquelle les naufragés avaient atterri, s'échancrait largement et bordait une vaste baie terminée au sud-est par un cap aigu, qu'une pointe avait caché à Pencroff, lors de sa première exploration. Au nord-est, deux autres caps fermaient la baie, et entre eux se creusait un étroit golfe qui ressemblait à la mâchoire entr'ouverte de quelque formidable squale. Du nord-est au nord-ouest, la côte s'arrondissait comme le crâne aplati d'un fauve, pour se relever en formant une sorte de gibbosité qui n'assignait pas un dessin très-déterminé à cette partie de l'île, dont le centre était occupé par la montagne volcanique. De ce point, le littoral courait assez régulièrement nord et sud, creusé, aux deux tiers de son périmètre, par une étroite crique, à partir de laquelle il finissait en une longue queue, semblable à l'appendice caudal d'un gigantesque alligator. Cette queue formait une véritable presqu'île qui s'allongeait de plus de trente milles en mer, à compter du cap sud-est de l'île, déjà mentionné, et elle s'arrondissait en décrivant une rade foraine, largement ouverte, que dessinait le littoral inférieur de cette terre si étrangement découpée. Dans sa plus petite largeur, c'est-à-dire entre les Cheminées et la crique observée sur la côte occidentale qui lui correspondait en latitude, l'île mesurait dix milles seulement ; mais sa plus grande longueur, de la mâchoire du nord-est à l'extrémité de la queue du sud-ouest, ne comptait pas moins de trente milles.",
+      "sourceText": "Voici, en effet, la configuration exacte de cette île, qu’il importe de faire connaître, et dont la carte fut immédiatement dressée par le reporter avec une précision suffisante.\nLa portion est du littoral, c’est-à-dire celle sur laquelle les naufragés avaient atterri, s’échancrait largement et bordait une vaste baie terminée au sud-est par un cap aigu, qu’une pointe avait caché à Pencroff, lors de sa première exploration. Au nord-est, deux autres caps fermaient la baie, et entre eux se creusait un étroit golfe qui ressemblait à la mâchoire entr’ouverte de quelque formidable squale.\nDu nord-est au nord-ouest, la côte s’arrondissait comme le crâne aplati d’un fauve, pour se relever en formant une sorte de gibbosité qui n’assignait pas un dessin très-déterminé à cette partie de l’île, dont le centre était occupé par la montagne volcanique.\nDe ce point, le littoral courait assez régulièrement nord et sud, creusé, aux deux tiers de son périmètre, par une étroite crique, à partir de laquelle il finissait en une longue queue, semblable à l’appendice caudal d’un gigantesque alligator.\nCette queue formait une véritable presqu’île qui s’allongeait de plus de trente milles en mer, à compter du cap sud-est de l’île, déjà mentionné, et elle s’arrondissait en décrivant une rade foraine, largement ouverte, que dessinait le littoral inférieur de cette terre si étrangement découpée.\nDans sa plus petite largeur, c’est-à-dire entre les Cheminées et la crique observée sur la côte occidentale qui lui correspondait en latitude, l’île mesurait dix milles seulement ; mais sa plus grande longueur, de la mâchoire du nord-est à l’extrémité de la queue du sud-ouest, ne comptait pas moins de trente milles.",
+      "adaptations": [
+        "spaces: 5 paragraph breaks replaced by a space",
+        "spaces: 1 non-breaking space replaced by a space",
+        "apostrophes: 18 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "L’Île mystérieuse",
+        "place": "1re partie, chapitre XI, six paragraphes consécutifs",
+        "edition": "Hetzel, 1875 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=11450963",
+        "revision": "Wikisource revision 11450963",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1874–1875); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 269,
+      "measures": {
+        "m1": 5.07,
+        "m2": 8.5,
+        "m3": 20.6,
+        "m4": 11.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (géographie, « très-déterminé » à l’ancienne)",
+        "theme": "île, carte, exploration",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-verne-enfants-capitaine-grant-p1-ch09-magellan",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "En ce moment, le Duncan contournait la presqu'île de Brunswick, entre deux panoramas splendides. Soixante-dix milles après avoir doublé le cap Gregory, il laissa sur tribord le pénitencier de Punta Arena. Le pavillon chilien et le clocher de l'église apparurent un instant entre les arbres. Alors le détroit courait entre des masses granitiques d'un effet imposant ; les montagnes cachaient leur pied au sein de forêts immenses, et perdaient dans les nuages leur tête poudrée d'une neige éternelle ; vers le sud-ouest, le mont Tarn se dressait à six mille cinq cents pieds dans les airs ; la nuit vint, précédée d'un long crépuscule ; la lumière se fondit insensiblement en nuances douces ; le ciel se constella d'étoiles brillantes, et la Croix du Sud vint marquer aux yeux des navigateurs la route du pôle austral. Au milieu de cette obscurité lumineuse, à la clarté de ces astres qui remplacent les phares des côtes civilisées, le yacht continua audacieusement sa route sans jeter l'ancre dans ces baies faciles dont le rivage abonde ; souvent l'extrémité de ses vergues frôla les branches des hêtres antarctiques qui se penchaient sur les flots ; souvent aussi son hélice battit les eaux des grandes rivières, en réveillant les oies, les canards, les bécassines, les sarcelles, et tout ce monde emplumé des humides parages. Bientôt des ruines apparurent, et quelques écroulements auxquels la nuit prêtait un aspect grandiose, tristes restes d'une colonie abandonnée, dont le nom protestera éternellement contre la fertilité de ces côtes et la richesse de ces forêts giboyeuses. Le Duncan passait devant le Port-Famine.",
+      "sourceText": "En ce moment, le Duncan contournait la presqu’île de Brunswick, entre deux panoramas splendides. Soixante-dix milles après avoir doublé le cap Gregory, il laissa sur tribord le pénitencier de Punta Arena. Le pavillon chilien et le clocher de l’église apparurent un instant entre les arbres. Alors le détroit courait entre des masses granitiques d’un effet imposant ; les montagnes cachaient leur pied au sein de forêts immenses, et perdaient dans les nuages leur tête poudrée d’une neige éternelle ; vers le sud-ouest, le mont Tarn se dressait à six mille cinq cents pieds dans les airs ; la nuit vint, précédée d’un long crépuscule ; la lumière se fondit insensiblement en nuances douces ; le ciel se constella d’étoiles brillantes, et la Croix du Sud vint marquer aux yeux des navigateurs la route du pôle austral. Au milieu de cette obscurité lumineuse, à la clarté de ces astres qui remplacent les phares des côtes civilisées, le yacht continua audacieusement sa route sans jeter l’ancre dans ces baies faciles dont le rivage abonde ; souvent l’extrémité de ses vergues frôla les branches des hêtres antarctiques qui se penchaient sur les flots ; souvent aussi son hélice battit les eaux des grandes rivières, en réveillant les oies, les canards, les bécassines, les sarcelles, et tout ce monde emplumé des humides parages. Bientôt des ruines apparurent, et quelques écroulements auxquels la nuit prêtait un aspect grandiose, tristes restes d’une colonie abandonnée, dont le nom protestera éternellement contre la fertilité de ces côtes et la richesse de ces forêts giboyeuses. Le Duncan passait devant le Port-Famine.",
+      "adaptations": [
+        "spaces: 7 non-breaking spaces replaced by a space",
+        "apostrophes: 9 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "Les Enfants du capitaine Grant",
+        "place": "1re partie, chapitre IX « Le détroit de Magellan », un paragraphe",
+        "edition": "Hetzel, 1868 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=4522936",
+        "revision": "Wikisource revision 4522936",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1867–1868); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 255,
+      "measures": {
+        "m1": 5.05,
+        "m2": 8.5,
+        "m3": 30.7,
+        "m4": 8.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "difficile (noms de lieux, oiseaux, M3 élevée)",
+        "theme": "voyage, navigation de nuit",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-loti-pecheur-islande-p1-ch02-marie",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Leur navire s'appelait la Marie, capitaine Guermeur. Il allait chaque année faire la grande pêche dangereuse dans ces régions froides où les étés n'ont plus de nuits. Il était très ancien, comme la Vierge de faïence sa patronne. Ses flancs épais, à vertèbres de chêne, étaient éraillés, rugueux, imprégnés d'humidité et de saumure ; mais sains encore et robustes, exhalant les senteurs vivifiantes du goudron. Au repos il avait un air lourd, avec sa membrure massive, mais quand les grandes brises d'ouest soufflaient, il retrouvait sa vigueur légère, comme les mouettes que le vent réveille. Alors il avait sa façon à lui de s'élever à la lame et de rebondir, plus lestement que bien des jeunes, taillés avec les finesses modernes. Quant à eux, les six hommes et le mousse, ils étaient des Islandais (une race vaillante de marins qui est répandue surtout au pays de Paimpol et de Tréguier, et qui s'est vouée de père en fils à cette pêche-là). Ils n'avaient presque jamais vu l'été de France. À la fin de chaque hiver, ils recevaient avec les autres pêcheurs, dans le port de Paimpol, la bénédiction des départs. Pour ce jour de fête, un reposoir, toujours le même, était construit sur le quai ; il imitait une grotte en rochers et, au milieu, parmi des trophées d'ancres, d'avirons et de filets, trônait, douce et impassible, la Vierge, patronne des marins, sortie pour eux de son église, regardant toujours, de génération en génération, avec ses mêmes yeux sans vie, les heureux pour qui la saison allait être bonne, - et les autres, ceux qui ne devaient pas revenir.",
+      "sourceText": "Leur navire s’appelait la Marie, capitaine Guermeur. Il allait chaque année faire la grande pêche dangereuse dans ces régions froides où les étés n’ont plus de nuits.\nIl était très ancien, comme la Vierge de faïence sa patronne. Ses flancs épais, à vertèbres de chêne, étaient éraillés, rugueux, imprégnés d’humidité et de saumure ; mais sains encore et robustes, exhalant les senteurs vivifiantes du goudron. Au repos il avait un air lourd, avec sa membrure massive, mais quand les grandes brises d’ouest soufflaient, il retrouvait sa vigueur légère, comme les mouettes que le vent réveille. Alors il avait sa façon à lui de s’élever à la lame et de rebondir, plus lestement que bien des jeunes, taillés avec les finesses modernes.\nQuant à eux, les six hommes et le mousse, ils étaient des Islandais (une race vaillante de marins qui est répandue surtout au pays de Paimpol et de Tréguier, et qui s’est vouée de père en fils à cette pêche-là).\nIls n’avaient presque jamais vu l’été de France.\nÀ la fin de chaque hiver, ils recevaient avec les autres pêcheurs, dans le port de Paimpol, la bénédiction des départs. Pour ce jour de fête, un reposoir, toujours le même, était construit sur le quai ; il imitait une grotte en rochers et, au milieu, parmi des trophées d’ancres, d’avirons et de filets, trônait, douce et impassible, la Vierge, patronne des marins, sortie pour eux de son église, regardant toujours, de génération en génération, avec ses mêmes yeux sans vie, les heureux pour qui la saison allait être bonne, — et les autres, ceux qui ne devaient pas revenir.",
+      "adaptations": [
+        "spaces: 4 paragraph breaks replaced by a space",
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 10 curly apostrophes replaced by '",
+        "dashes: 1 sentence dash written as - between spaces"
+      ],
+      "source": {
+        "author": "Pierre Loti (1850–1923)",
+        "work": "Pêcheur d’Islande",
+        "place": "1re partie, chapitre II, cinq premiers paragraphes",
+        "edition": "1886 edition (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=15007157",
+        "revision": "Wikisource revision 15007157",
+        "licence": "public domain in Canada (author died 1923) and the United States (published 1886); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 266,
+      "measures": {
+        "m1": 4.64,
+        "m2": 3,
+        "m3": 19.3,
+        "m4": 6,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "goélette de pêche, marins bretons",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-hugo-travailleurs-mer-p2-l1-ch01-douvres",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Comme le jour commençait à poindre, les yeux inconnus qui sont peut-être ouverts dans les espaces purent voir au milieu de la mer, sur un des points où il y a le plus de solitude et de menace, deux choses entre lesquelles l'intervalle décroissait, l'une se rapprochant de l'autre. L'une, presque imperceptible dans le large mouvement des lames, était une barque à la voile ; dans cette barque il y avait un homme ; c'était la panse portant Gilliatt. L'autre, immobile, colossale, noire, avait au-dessus des vagues une surprenante figure. Deux hauts piliers soutenaient hors des flots dans le vide une sorte de traverse horizontale qui était comme un pont entre leurs sommets. La traverse, si informe de loin qu'il était impossible de deviner ce que c'était, faisait corps avec les deux jambages. Cela ressemblait à une porte. À quoi bon une porte dans cette ouverture de toutes parts qui est la mer ? On eût dit un dolmen titanique planté là, en plein océan, par une fantaisie magistrale, et bâti par des mains qui ont l'habitude de proportionner leurs constructions à l'abîme. Cette silhouette farouche se dressait sur le clair du ciel. La lueur du matin grandissait à l'est ; la blancheur de l'horizon augmentait la noirceur de la mer. En face, de l'autre côté, la lune se couchait. Ces deux piliers, c'étaient les Douvres. L'espèce de masse emboîtée entre eux comme une architrave entre deux chambranles, c'était la Durande.",
+      "sourceText": "Comme le jour commençait à poindre, les yeux inconnus qui sont peut-être ouverts dans les espaces purent voir au milieu de la mer, sur un des points où il y a le plus de solitude et de menace, deux choses entre lesquelles l’intervalle décroissait, l’une se rapprochant de l’autre. L’une, presque imperceptible dans le large mouvement des lames, était une barque à la voile ; dans cette barque il y avait un homme ; c’était la panse portant Gilliatt. L’autre, immobile, colossale, noire, avait au-dessus des vagues une surprenante figure. Deux hauts piliers soutenaient hors des flots dans le vide une sorte de traverse horizontale qui était comme un pont entre leurs sommets. La traverse, si informe de loin qu’il était impossible de deviner ce que c’était, faisait corps avec les deux jambages. Cela ressemblait à une porte. À quoi bon une porte dans cette ouverture de toutes parts qui est la mer ? On eût dit un dolmen titanique planté là, en plein océan, par une fantaisie magistrale, et bâti par des mains qui ont l’habitude de proportionner leurs constructions à l’abîme. Cette silhouette farouche se dressait sur le clair du ciel.\nLa lueur du matin grandissait à l’est ; la blancheur de l’horizon augmentait la noirceur de la mer. En face, de l’autre côté, la lune se couchait.\nCes deux piliers, c’étaient les Douvres. L’espèce de masse emboîtée entre eux comme une architrave entre deux chambranles, c’était la Durande.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 16 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Victor Hugo (1802–1885)",
+        "work": "Les Travailleurs de la mer",
+        "place": "2e partie, livre I, chapitre I, trois paragraphes consécutifs",
+        "edition": "Hugues, 1891–1892 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=5543264",
+        "revision": "Wikisource revision 5543264",
+        "licence": "public domain in Canada (author died 1885) and the United States (published 1866); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 237,
+      "measures": {
+        "m1": 4.75,
+        "m2": 8,
+        "m3": 19.1,
+        "m4": 8.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "épave à l’aube",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-bruno-tour-france-ch088-ocean",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "André et moi nous avons été bien contents, oh ! bien contents, quand nous avons reçu votre lettre, et nous vous souhaitons nous aussi la bonne année, mon cher Jean-Joseph, et qu'il ne vous arrive que du bonheur. Mais savez-vous où nous l'avons lue, votre petite lettre du jour de l'an ? C'est à Bordeaux. Et savez-vous où je vous écris celle-ci, moi ? Non, jamais, jamais vous ne devineriez cela, Jean-Joseph. Alors je vais vous le dire. C'est au beau milieu de l'Océan, sur le pont du navire le Poitou, qui est un grand vaisseau à voile. On l'appelle le Poitou parce que le capitaine auquel il appartient est de Poitiers. Mais vous n'avez jamais vu la mer, Jean-Joseph, ni les navires non plus. Alors, il faut que je vous explique cela. Imaginez-vous que l'Océan me paraît grand comme le ciel. Partout autour de moi, devant, derrière, je ne vois que de l'eau. Le ciel a l'air de toucher à la mer de tous les côtés, et notre navire avance au milieu comme une petite hirondelle, bien petite, qui paraît un point dans l'air. Pourtant il est très grand tout de même le Poitou, et on est bien installé dessus. On est même bien mieux que dans un autre bateau où j'ai navigué déjà sur la Méditerranée. La Méditerranée est aussi une grande mer, mais elle est bien loin de ressembler à l'Océan. Elle n'a point de marées, point de flux et de reflux, comme disent les matelots, tandis que l'Océan a des marées très hautes. J'étais bien en peine de ce que cela signifiait, la marée ; mais j'en ai vu une au port de la Rochelle, où notre navire s'est arrêté un jour, et je vais vous dire ce que c'est.",
+      "sourceText": "André et moi nous avons été bien contents, oh ! bien contents, quand nous avons reçu votre lettre, et nous vous souhaitons nous aussi la bonne année, mon cher Jean-Joseph, et qu’il ne vous arrive que du bonheur.\nMais savez-vous où nous l’avons lue, votre petite lettre du jour de l’an ? C’est à Bordeaux. Et savez-vous où je vous écris celle-ci, moi ? Non, jamais, jamais vous ne devineriez cela, Jean-Joseph. Alors je vais vous le dire. C’est au beau milieu de l’Océan, sur le pont du navire le Poitou, qui est un grand vaisseau à voile. On l’appelle le Poitou parce que le capitaine auquel il appartient est de Poitiers.\nMais vous n’avez jamais vu la mer, Jean-Joseph, ni les navires non plus. Alors, il faut que je vous explique cela. Imaginez-vous que l’Océan me paraît grand comme le ciel. Partout autour de moi, devant, derrière, je ne vois que de l’eau. Le ciel a l’air de toucher à la mer de tous les côtés, et notre navire avance au milieu comme une petite hirondelle, bien petite, qui paraît un point dans l’air.\nPourtant il est très grand tout de même le Poitou, et on est bien installé dessus. On est même bien mieux que dans un autre bateau où j’ai navigué déjà sur la Méditerranée.\nLa Méditerranée est aussi une grande mer, mais elle est bien loin de ressembler à l’Océan. Elle n’a point de marées, point de flux et de reflux, comme disent les matelots, tandis que l’Océan a des marées très hautes. J’étais bien en peine de ce que cela signifiait, la marée ; mais j’en ai vu une au port de la Rochelle, où notre navire s’est arrêté un jour, et je vais vous dire ce que c’est.",
+      "adaptations": [
+        "spaces: 4 paragraph breaks replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 20 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "G. Bruno (pen name of Augustine Fouillée, 1833–1923)",
+        "work": "Le Tour de la France par deux enfants",
+        "place": "ch. LXXXVIII, cinq premiers paragraphes de la lettre de Julien",
+        "edition": "Belin, 1904 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=3741061",
+        "revision": "Wikisource revision 3741061",
+        "licence": "public domain in Canada (author died 1923) and the United States (published 1877); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 290,
+      "measures": {
+        "m1": 4.27,
+        "m2": 4,
+        "m3": 3.1,
+        "m4": 11,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "mer, voyage, lettre d’enfant",
+        "reserves": [
+          "l’ouvrage contient ailleurs une légende hiérarchisant « les quatre races d’hommes » (ch. LXXVI) et un terme racial d’époque (ch. XCV), et l’édition de 1904 est très religieuse et patriotique ; le passage n’en contient rien"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-renard-histoires-naturelles-souris",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "Comme, à la clarté d'une lampe, je fais ma quotidienne page d'écriture, j'entends un léger bruit. Si je m'arrête, il cesse. Il recommence, dès que je gratte le papier. C'est une souris qui s'éveille. Je devine ses va-et-vient au bord du trou obscur où notre servante met ses torchons et ses brosses. Elle saute par terre et trotte sur les carreaux de la cuisine. Elle passe près de la cheminée, sous l'évier, se perd dans la vaisselle, et par une série de reconnaissances qu'elle pousse de plus en plus loin, elle se rapproche de moi. Chaque fois que je pose mon porte-plume, ce silence l'inquiète. Chaque fois que je m'en sers, elle croit peut-être qu'il y a une autre souris quelque part, et elle se rassure. Puis je ne la vois plus. Elle est sous ma table, dans mes jambes. Elle circule d'un pied de chaise à l'autre. Elle frôle mes sabots, en mordille le bois, ou hardiment, la voilà dessus ! Et il ne faut pas que je bouge la jambe, que je respire trop fort : elle filerait. Mais il faut que je continue d'écrire, et de peur qu'elle ne m'abandonne à mon ennui de solitaire, j'écris des signes, des riens, petitement, menu, menu, comme elle grignote.",
+      "sourceText": "Comme, à la clarté d’une lampe, je fais ma quotidienne page d’écriture, j’entends un léger bruit. Si je m’arrête, il cesse. Il recommence, dès que je gratte le papier.\nC’est une souris qui s’éveille.\nJe devine ses va-et-vient au bord du trou obscur où notre servante met ses torchons et ses brosses.\nElle saute par terre et trotte sur les carreaux de la cuisine. Elle passe près de la cheminée, sous l’évier, se perd dans la vaisselle, et par une série de reconnaissances qu’elle pousse de plus en plus loin, elle se rapproche de moi.\nChaque fois que je pose mon porte-plume, ce silence l’inquiète. Chaque fois que je m’en sers, elle croit peut-être qu’il y a une autre souris quelque part, et elle se rassure.\nPuis je ne la vois plus. Elle est sous ma table, dans mes jambes. Elle circule d’un pied de chaise à l’autre. Elle frôle mes sabots, en mordille le bois, ou hardiment, la voilà dessus !\nEt il ne faut pas que je bouge la jambe, que je respire trop fort : elle filerait.\nMais il faut que je continue d’écrire, et de peur qu’elle ne m’abandonne à mon ennui de solitaire, j’écris des signes, des riens, petitement, menu, menu, comme elle grignote.",
+      "adaptations": [
+        "spaces: 7 paragraph breaks replaced by a space",
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 17 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Jules Renard (1864–1910)",
+        "work": "Histoires naturelles",
+        "place": "« La Souris », le texte entier",
+        "edition": "Fayard, 1909, illustrated by Rabier (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=10420641",
+        "revision": "Wikisource revision 10420641",
+        "licence": "public domain in Canada (author died 1910) and the United States (published 1896–1909); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 207,
+      "measures": {
+        "m1": 4.22,
+        "m2": 2.5,
+        "m3": 13,
+        "m4": 11.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "animaux, quotidien",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-segur-malheurs-sophie-ch11-ecureuil",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "Un jour Sophie se promenait avec son cousin Paul dans le petit bois de chênes qui était tout près du château ; ils cherchaient tous deux des glands pour en faire des paniers, des sabots, des bateaux. Tout à coup Sophie sentit un gland qui lui tombait sur le dos ; pendant qu'elle se baissait pour le ramasser, un autre gland vint lui tomber sur le bout de l'oreille. \"Paul, Paul, dit-elle, viens donc voir ces glands qui sont tombés sur moi : ils sont rongés. Qui est-ce qui a pu les ronger là-haut ? les souris ne grimpent pas aux arbres, et les oiseaux ne mangent pas de glands.\" Paul prit les glands, les regarda ; puis il leva la tête et s'écria : \"C'est un écureuil ; je le vois ; il est tout en haut sur une branche ; il nous regarde comme s'il se moquait de nous.\" Sophie regarda en l'air et vit un joli petit écureuil, avec une superbe queue relevée en panache. Il se nettoyait la figure avec ses petites pattes de devant ; de temps en temps il regardait Sophie et Paul, faisait une gambade et sautait sur une autre branche. \"Que je voudrais avoir cet écureuil ! dit Sophie. Comme il est gentil et comme je m'amuserais à jouer avec lui, à le mener promener, à le soigner.\"",
+      "sourceText": "Un jour Sophie se promenait avec son cousin Paul dans le petit bois de chênes qui était tout près du château ; ils cherchaient tous deux des glands pour en faire des paniers, des sabots, des bateaux. Tout à coup Sophie sentit un gland qui lui tombait sur le dos ; pendant qu’elle se baissait pour le ramasser, un autre gland vint lui tomber sur le bout de l’oreille.\n« Paul, Paul, dit-elle, viens donc voir ces glands qui sont tombés sur moi : ils sont rongés. Qui est-ce qui a pu les ronger là-haut ? les souris ne grimpent pas aux arbres, et les oiseaux ne mangent pas de glands. »\nPaul prit les glands, les regarda ; puis il leva la tête et s’écria :\n« C’est un écureuil ; je le vois ; il est tout en haut sur une branche ; il nous regarde comme s’il se moquait de nous. »\nSophie regarda en l’air et vit un joli petit écureuil, avec une superbe queue relevée en panache. Il se nettoyait la figure avec ses petites pattes de devant ; de temps en temps il regardait Sophie et Paul, faisait une gambade et sautait sur une autre branche.\n« Que je voudrais avoir cet écureuil ! dit Sophie. Comme il est gentil et comme je m’amuserais à jouer avec lui, à le mener promener, à le soigner. »",
+      "adaptations": [
+        "spaces: 5 paragraph breaks replaced by a space",
+        "spaces: 17 non-breaking spaces replaced by a space",
+        "apostrophes: 7 curly apostrophes replaced by '",
+        "quotes: 6 guillemets replaced by \" and attached to the quoted words"
+      ],
+      "source": {
+        "author": "Comtesse de Ségur (1799–1874)",
+        "work": "Les Malheurs de Sophie",
+        "place": "ch. XI « L’Écureuil », six premiers paragraphes",
+        "edition": "Wikisource transcription (first published 1858)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=2075001",
+        "revision": "Wikisource revision 2075001",
+        "licence": "public domain in Canada (author died 1874) and the United States (published 1858); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 215,
+      "measures": {
+        "m1": 4.25,
+        "m2": 0.5,
+        "m3": 18.2,
+        "m4": 12.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "animaux, jeu",
+        "reserves": [
+          "plus loin dans le chapitre, l’écureuil est capturé et meurt ; ailleurs dans le livre, le fouet et des animaux qui meurent par imprudence. Le passage s’arrête avant"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-malot-sans-famille-p1-ch11-miche",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "Les chiens, joyeux, sautaient autour de moi, et Joli-Coeur me tirait les cheveux en poussant des petits cris. Nous n'allâmes pas bien loin. Au premier arbre qui se trouva sur la route, je posai ma harpe contre son tronc et m'allongeai sur l'herbe ; les chiens s'assirent en face de moi, Capi au milieu, Dolce d'un côté, Zerbino de l'autre ; quant à Joli-Coeur, qui n'était pas fatigué, il resta debout pour être tout prêt à voler les morceaux qui lui conviendraient. C'était une affaire délicate que le découpage de ma miche ; j'en fis cinq parts aussi égales que possible, et, pour qu'il n'y eût pas de pain gaspillé, je les distribuai en petites tranches ; chacun avait son morceau à son tour, comme si nous avions mangé à la gamelle. Joli-Coeur, qui avait besoin de moins de nourriture que nous, se trouva le mieux partagé, et il n'eut plus faim alors que nous étions encore affamés. Sur sa part je pris trois morceaux que je serrai dans mon sac pour les donner aux chiens plus tard ; puis, comme il en restait encore quatre, nous en eûmes chacun un ; ce fut à la fois notre plat de supplément et notre dessert. Bien que ce festin n'eût rien de ceux qui provoquent aux discours, le moment me parut venu d'adresser quelques paroles à mes camarades. Je me considérais naturellement comme leur chef, mais je ne me croyais pas assez au-dessus d'eux pour être dispensé de leur faire part des circonstances graves dans lesquelles nous nous trouvions. Capi avait sans doute deviné mon intention, car il tenait collés sur les miens ses grands yeux intelligents et affectueux.",
+      "sourceText": "Les chiens, joyeux, sautaient autour de moi, et Joli-Cœur me tirait les cheveux en poussant des petits cris.\nNous n’allâmes pas bien loin.\nAu premier arbre qui se trouva sur la route, je posai ma harpe contre son tronc et m’allongeai sur l’herbe ; les chiens s’assirent en face de moi, Capi au milieu, Dolce d’un côté, Zerbino de l’autre ; quant à Joli-Cœur, qui n’était pas fatigué, il resta debout pour être tout prêt à voler les morceaux qui lui conviendraient.\nC’était une affaire délicate que le découpage de ma miche ; j’en fis cinq parts aussi égales que possible, et, pour qu’il n’y eût pas de pain gaspillé, je les distribuai en petites tranches ; chacun avait son morceau à son tour, comme si nous avions mangé à la gamelle.\nJoli-Cœur, qui avait besoin de moins de nourriture que nous, se trouva le mieux partagé, et il n’eut plus faim alors que nous étions encore affamés. Sur sa part je pris trois morceaux que je serrai dans mon sac pour les donner aux chiens plus tard ; puis, comme il en restait encore quatre, nous en eûmes chacun un ; ce fut à la fois notre plat de supplément et notre dessert.\nBien que ce festin n’eût rien de ceux qui provoquent aux discours, le moment me parut venu d’adresser quelques paroles à mes camarades. Je me considérais naturellement comme leur chef, mais je ne me croyais pas assez au-dessus d’eux pour être dispensé de leur faire part des circonstances graves dans lesquelles nous nous trouvions.\nCapi avait sans doute deviné mon intention, car il tenait collés sur les miens ses grands yeux intelligents et affectueux.",
+      "adaptations": [
+        "spaces: 6 paragraph breaks replaced by a space",
+        "spaces: 6 non-breaking spaces replaced by a space",
+        "apostrophes: 15 curly apostrophes replaced by '",
+        "ligatures: 3 ligatures spelled out (œ as oe, æ as ae)"
+      ],
+      "source": {
+        "author": "Hector Malot (1830–1907)",
+        "work": "Sans famille",
+        "place": "1re partie, ch. XI, sept paragraphes consécutifs",
+        "edition": "Dentu, 1887 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=5071034",
+        "revision": "Wikisource revision 5071034",
+        "licence": "public domain in Canada (author died 1907) and the United States (published 1878); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 272,
+      "measures": {
+        "m1": 4.37,
+        "m2": 2.5,
+        "m3": 13.8,
+        "m4": 10.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile à moyen",
+        "theme": "voyage, amitié",
+        "reserves": [
+          "« Joli-Cœur » devient « Joli-Coeur » (ligatures, P-4). Le livre contient ailleurs de la violence (Garofoli bat des enfants) et une insulte raciale anglaise (2e partie, ch. XVIII) ; le passage n’en contient rien"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-renard-histoires-naturelles-goujon",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "Il remonte le courant d'eau vive et suit le chemin que tracent les cailloux : car il n'aime ni la vase, ni les herbes. Il aperçoit une bouteille couchée sur un lit de sable. Elle n'est pleine que d'eau. J'ai oublié à dessein d'y mettre une amorce. Le goujon tourne autour, cherche l'entrée et le voilà pris. Je ramène la bouteille et rejette le goujon. Plus haut, il entend du bruit. Loin de fuir, il s'approche, par curiosité. C'est moi qui m'amuse, piétine dans l'eau et remue le fond avec une perche, au bord d'un filet. Le goujon têtu veut passer par une maille. Il y reste. Je lève le filet et rejette le goujon. Plus bas, une brusque secousse tend ma ligne et le bouchon bicolore file entre deux eaux. Je tire et c'est encore lui. Je le décroche de l'hameçon et le rejette. Cette fois, je ne l'aurai plus. Il est là, immobile, à mes pieds, sous l'eau claire. Je distingue sa tête élargie, son gros oeil stupide et sa paire de barbillons. Il bâille, la lèvre déchirée, et il respire fort, après une telle émotion. Mais rien ne le corrige. Je laisse de nouveau tremper ma ligne avec le même ver. Et aussitôt le goujon mord.",
+      "sourceText": "Il remonte le courant d’eau vive et suit le chemin que tracent les cailloux : car il n’aime ni la vase, ni les herbes.\nIl aperçoit une bouteille couchée sur un lit de sable.\nElle n’est pleine que d’eau. J’ai oublié à dessein d’y mettre une amorce. Le goujon tourne autour, cherche l’entrée et le voilà pris.\nJe ramène la bouteille et rejette le goujon.\nPlus haut, il entend du bruit. Loin de fuir, il s’approche, par curiosité. C’est moi qui m’amuse, piétine dans l’eau et remue le fond avec une perche, au bord d’un filet. Le goujon têtu veut passer par une maille. Il y reste.\nJe lève le filet et rejette le goujon.\nPlus bas, une brusque secousse tend ma ligne et le bouchon bicolore file entre deux eaux.\nJe tire et c’est encore lui.\nJe le décroche de l’hameçon et le rejette.\nCette fois, je ne l’aurai plus.\nIl est là, immobile, à mes pieds, sous l’eau claire. Je distingue sa tête élargie, son gros œil stupide et sa paire de barbillons.\nIl bâille, la lèvre déchirée, et il respire fort, après une telle émotion.\nMais rien ne le corrige.\nJe laisse de nouveau tremper ma ligne avec le même ver.\nEt aussitôt le goujon mord.",
+      "adaptations": [
+        "spaces: 14 paragraph breaks replaced by a space",
+        "spaces: 1 non-breaking space replaced by a space",
+        "apostrophes: 16 curly apostrophes replaced by '",
+        "ligatures: 1 ligature spelled out (œ as oe, æ as ae)"
+      ],
+      "source": {
+        "author": "Jules Renard (1864–1910)",
+        "work": "Histoires naturelles",
+        "place": "« Le Goujon », première section (15 courts paragraphes)",
+        "edition": "Fayard, 1909, illustrated by Rabier (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=10420641",
+        "revision": "Wikisource revision 10420641",
+        "licence": "public domain in Canada (author died 1910) and the United States (published 1896–1909); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 208,
+      "measures": {
+        "m1": 4.17,
+        "m2": 0.5,
+        "m3": 17.5,
+        "m4": 8.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "pêche, humour",
+        "reserves": [
+          "« la lèvre déchirée » du poisson, sans insistance ; « gros œil » devient « gros oeil »"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-daudet-petit-chose-p1-ch01-robinson",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "Nous vivions ainsi, mon perroquet et moi, dans la plus austère solitude, lorsqu'un matin il m'arriva une chose vraiment extraordinaire. Ce jour-là, j'avais quitté ma cabane de bonne heure et je faisais, armé jusqu'aux dents, un voyage d'exploration à travers mon île... Tout à coup, je vis venir de mon côté un groupe de trois ou quatre personnes, qui parlaient à voix très haute et gesticulaient vivement. Juste Dieu ! des hommes dans mon île ! Je n'eus que le temps de me jeter derrière un bouquet de lauriers-rose et à plat ventre, s'il vous plaît... Les hommes passèrent près de moi sans me voir... Je crus distinguer la voix du concierge Colombe, ce qui me rassura un peu mais, c'est égal ! dès qu'ils furent loin je sortis de ma cachette et je les suivis à distance pour voir ce que tout cela deviendrait... Ces étrangers restèrent longtemps dans mon île... Ils la visitèrent d'un bout à l'autre dans tous ses détails. Je les vis entrer dans mes grottes et sonder avec leurs cannes la profondeur de mes océans. De temps en temps ils s'arrêtaient et remuaient la tête. Toute ma crainte était qu'ils ne vinssent à découvrir mes résidences... Que serai-je devenu, grand Dieu ! Heureusement, il n'en fut rien, et au bout d'une demi-heure, les hommes se retirèrent sans se douter seulement que l'île était habitée. Dès qu'ils furent partis, je courus m'enfermer dans une de mes cabanes, et passai là le reste du jour à me demander quels étaient ces hommes et ce qu'ils étaient venus faire.",
+      "sourceText": "Nous vivions ainsi, mon perroquet et moi, dans la plus austère solitude, lorsqu’un matin il m’arriva une chose vraiment extraordinaire. Ce jour-là, j’avais quitté ma cabane de bonne heure et je faisais, armé jusqu’aux dents, un voyage d’exploration à travers mon île… Tout à coup, je vis venir de mon côté un groupe de trois ou quatre personnes, qui parlaient à voix très haute et gesticulaient vivement. Juste Dieu ! des hommes dans mon île ! Je n’eus que le temps de me jeter derrière un bouquet de lauriers-rose et à plat ventre, s’il vous plaît… Les hommes passèrent près de moi sans me voir… Je crus distinguer la voix du concierge Colombe, ce qui me rassura un peu mais, c’est égal ! dès qu’ils furent loin je sortis de ma cachette et je les suivis à distance pour voir ce que tout cela deviendrait…\nCes étrangers restèrent longtemps dans mon île… Ils la visitèrent d’un bout à l’autre dans tous ses détails. Je les vis entrer dans mes grottes et sonder avec leurs cannes la profondeur de mes océans. De temps en temps ils s’arrêtaient et remuaient la tête. Toute ma crainte était qu’ils ne vinssent à découvrir mes résidences… Que serai-je devenu, grand Dieu ! Heureusement, il n’en fut rien, et au bout d’une demi-heure, les hommes se retirèrent sans se douter seulement que l’île était habitée. Dès qu’ils furent partis, je courus m’enfermer dans une de mes cabanes, et passai là le reste du jour à me demander quels étaient ces hommes et ce qu’ils étaient venus faire.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 19 curly apostrophes replaced by '",
+        "ellipsis: 6 ellipsis characters written as three dots"
+      ],
+      "source": {
+        "author": "Alphonse Daudet (1840–1897)",
+        "work": "Le Petit Chose",
+        "place": "1re partie, ch. I, deux paragraphes",
+        "edition": "Wikisource transcription (first published 1868)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=15581873",
+        "revision": "Wikisource revision 15581873",
+        "licence": "public domain in Canada (author died 1897) and the United States (published 1868); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 257,
+      "measures": {
+        "m1": 4.51,
+        "m2": 5,
+        "m3": 13.6,
+        "m4": 9.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile à moyen",
+        "theme": "île, jeu d’enfant, exploration",
+        "reserves": [
+          "exclamations « Juste Dieu ! » et « grand Dieu ! » ; nombreux points de suspension"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-dumas-monte-cristo-ch01-pharaon",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Le 24 février 1815, la vigie de Notre-Dame de la Garde signala le trois-mâts le Pharaon, venant de Smyrne, Trieste et Naples. Comme d'habitude, un pilote côtier partit aussitôt du port, rasa le château d'If, et alla aborder le navire entre le cap de Morgion et l'île de Rion. Aussitôt, comme d'habitude encore, la plate-forme du fort Saint-Jean s'était couverte de curieux ; car c'est toujours une grande affaire à Marseille que l'arrivée d'un bâtiment, surtout quand ce bâtiment, comme le Pharaon, a été construit, gréé, arrimé sur les chantiers de la vieille Phocée, et appartient à un armateur de la ville. Cependant ce bâtiment s'avançait ; il avait heureusement franchi le détroit que quelque secousse volcanique a creusé entre l'île de Calasareigne et l'île de Jaros ; il avait doublé Pomègue, et il s'avançait sous ses trois huniers, son grand foc et sa brigantine, mais si lentement et d'une allure si triste, que les curieux, avec cet instinct qui pressent un malheur, se demandaient quel accident pouvait être arrivé à bord. Néanmoins les experts en navigation reconnaissaient que si un accident était arrivé, ce ne pouvait être au bâtiment lui-même ; car il s'avançait dans toutes les conditions d'un navire parfaitement gouverné : son ancre était en mouillage, ses haubans de beaupré décrochés ; et près du pilote, qui s'apprêtait à diriger le Pharaon par l'étroite entrée du port de Marseille, était un jeune homme au geste rapide et à l'oeil actif, qui surveillait chaque mouvement du navire et répétait chaque ordre du pilote. La vague inquiétude qui planait sur la foule avait particulièrement atteint un des spectateurs de l'esplanade de Saint-Jean, de sorte qu'il ne put attendre l'entrée du bâtiment dans le port ; il sauta dans une petite barque et ordonna de ramer au-devant du Pharaon, qu'il atteignit en face de l'anse de la Réserve.",
+      "sourceText": "Le 24 février 1815, la vigie de Notre-Dame de la Garde signala le trois-mâts le Pharaon, venant de Smyrne, Trieste et Naples.\nComme d’habitude, un pilote côtier partit aussitôt du port, rasa le château d’If, et alla aborder le navire entre le cap de Morgion et l’île de Rion.\nAussitôt, comme d’habitude encore, la plate-forme du fort Saint-Jean s’était couverte de curieux ; car c’est toujours une grande affaire à Marseille que l’arrivée d’un bâtiment, surtout quand ce bâtiment, comme le Pharaon, a été construit, gréé, arrimé sur les chantiers de la vieille Phocée, et appartient à un armateur de la ville.\nCependant ce bâtiment s’avançait ; il avait heureusement franchi le détroit que quelque secousse volcanique a creusé entre l’île de Calasareigne et l’île de Jaros ; il avait doublé Pomègue, et il s’avançait sous ses trois huniers, son grand foc et sa brigantine, mais si lentement et d’une allure si triste, que les curieux, avec cet instinct qui pressent un malheur, se demandaient quel accident pouvait être arrivé à bord. Néanmoins les experts en navigation reconnaissaient que si un accident était arrivé, ce ne pouvait être au bâtiment lui-même ; car il s’avançait dans toutes les conditions d’un navire parfaitement gouverné : son ancre était en mouillage, ses haubans de beaupré décrochés ; et près du pilote, qui s’apprêtait à diriger le Pharaon par l’étroite entrée du port de Marseille, était un jeune homme au geste rapide et à l’œil actif, qui surveillait chaque mouvement du navire et répétait chaque ordre du pilote.\nLa vague inquiétude qui planait sur la foule avait particulièrement atteint un des spectateurs de l’esplanade de Saint-Jean, de sorte qu’il ne put attendre l’entrée du bâtiment dans le port ; il sauta dans une petite barque et ordonna de ramer au-devant du Pharaon, qu’il atteignit en face de l’anse de la Réserve.",
+      "adaptations": [
+        "spaces: 4 paragraph breaks replaced by a space",
+        "spaces: 7 non-breaking spaces replaced by a space",
+        "apostrophes: 23 curly apostrophes replaced by '",
+        "ligatures: 1 ligature spelled out (œ as oe, æ as ae)"
+      ],
+      "source": {
+        "author": "Alexandre Dumas (1802–1870)",
+        "work": "Le Comte de Monte-Cristo",
+        "place": "chapitre I « Marseille. — L’arrivée », cinq premiers paragraphes",
+        "edition": "1889 edition (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=4642213",
+        "revision": "Wikisource revision 4642213",
+        "licence": "public domain in Canada (author died 1870) and the United States (published 1844–1846); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 301,
+      "measures": {
+        "m1": 4.98,
+        "m2": 5.6,
+        "m3": 15.3,
+        "m4": 15.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "arrivée d’un trois-mâts à Marseille",
+        "reserves": [
+          "« l’œil » devient « l’oeil » (normalisation v2, P-4) ; chiffres (24, 1815)"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "spare"
+    },
+    {
+      "id": "fr-loti-pecheur-islande-p1-ch06-morues",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "La Marie projetait sur l'étendue une ombre qui était très longue comme le soir, et qui paraissait verte, au milieu de ces surfaces polies reflétant les blancheurs du ciel ; alors, dans toute cette partie ombrée qui ne miroitait pas, on pouvait distinguer par transparence ce qui se passait sous l'eau : des poissons innombrables, des myriades et des myriades, tous pareils, glissant doucement dans la même direction, comme ayant un but dans leur perpétuel voyage. C'étaient les morues qui exécutaient leurs évolutions d'ensemble, toutes en long dans le même sens, bien parallèles, faisant un effet de hachures grises, et sans cesse agitées d'un tremblement rapide, qui donnait un air de fluidité à cet amas de vies silencieuses. Quelquefois, avec un coup de queue brusque, toutes se retournaient en même temps, montrant le brillant de leur ventre argenté ; et puis le même coup de queue, le même retournement, se propageait dans le banc tout entier par ondulations lentes, comme si des milliers de lames de métal eussent jeté, entre deux eaux, chacune un petit éclair. Le soleil, déjà très bas, s'abaissait encore ; donc c'était le soir décidément. À mesure qu'il descendait dans les zones couleur de plomb qui avoisinaient la mer, il devenait jaune, et son cercle se dessinait plus net, plus réel. On pouvait le fixer avec les yeux, comme on fait pour la lune. Il éclairait pourtant ; mais on eût dit qu'il n'était pas du tout loin dans l'espace ; il semblait qu'en allant, avec un navire, seulement jusqu'au bout de l'horizon, on eût rencontré là ce gros ballon triste, flottant dans l'air à quelques mètres au-dessus des eaux.",
+      "sourceText": "La Marie projetait sur l’étendue une ombre qui était très longue comme le soir, et qui paraissait verte, au milieu de ces surfaces polies reflétant les blancheurs du ciel ; alors, dans toute cette partie ombrée qui ne miroitait pas, on pouvait distinguer par transparence ce qui se passait sous l’eau : des poissons innombrables, des myriades et des myriades, tous pareils, glissant doucement dans la même direction, comme ayant un but dans leur perpétuel voyage. C’étaient les morues qui exécutaient leurs évolutions d’ensemble, toutes en long dans le même sens, bien parallèles, faisant un effet de hachures grises, et sans cesse agitées d’un tremblement rapide, qui donnait un air de fluidité à cet amas de vies silencieuses. Quelquefois, avec un coup de queue brusque, toutes se retournaient en même temps, montrant le brillant de leur ventre argenté ; et puis le même coup de queue, le même retournement, se propageait dans le banc tout entier par ondulations lentes, comme si des milliers de lames de métal eussent jeté, entre deux eaux, chacune un petit éclair.\nLe soleil, déjà très bas, s’abaissait encore ; donc c’était le soir décidément. À mesure qu’il descendait dans les zones couleur de plomb qui avoisinaient la mer, il devenait jaune, et son cercle se dessinait plus net, plus réel. On pouvait le fixer avec les yeux, comme on fait pour la lune.\nIl éclairait pourtant ; mais on eût dit qu’il n’était pas du tout loin dans l’espace ; il semblait qu’en allant, avec un navire, seulement jusqu’au bout de l’horizon, on eût rencontré là ce gros ballon triste, flottant dans l’air à quelques mètres au-dessus des eaux.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 6 non-breaking spaces replaced by a space",
+        "apostrophes: 15 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Pierre Loti (1850–1923)",
+        "work": "Pêcheur d’Islande",
+        "place": "1re partie, chapitre VI, trois paragraphes consécutifs",
+        "edition": "1886 edition (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=15007157",
+        "revision": "Wikisource revision 15007157",
+        "licence": "public domain in Canada (author died 1923) and the United States (published 1886); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 268,
+      "measures": {
+        "m1": 4.96,
+        "m2": 9.5,
+        "m3": 19.6,
+        "m4": 6,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "mer calme sous le soleil de minuit",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "spare"
+    },
+    {
+      "id": "fr-segur-malheurs-sophie-ch09-pain-chevaux",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "Sophie était gourmande. Sa maman savait que trop manger est mauvais pour la santé ; aussi défendait-elle à Sophie de manger entre ses repas : mais Sophie, qui avait faim, mangeait tout ce qu'elle pouvait attraper. Mme de Réan allait tous les jours, après déjeuner, vers deux heures, donner du pain et du sel aux chevaux de M. de Réan ; il en avait plus de cent. Sophie suivait sa maman avec un panier plein de morceaux de pain bis, et lui en présentait un dans chaque stalle où elle entrait ; mais sa maman lui défendait sévèrement d'en manger, parce que ce pain noir et mal cuit lui ferait mal à l'estomac. Elle finissait par l'écurie des poneys. Sophie avait un poney à elle, que lui avait donné son papa : c'était un tout petit cheval noir, pas plus grand qu'un petit âne ; on lui permettait de donner elle-même du pain à son poney. Souvent elle mordait dedans avant de le lui présenter. Un jour qu'elle avait plus envie de ce pain bis que de coutume, elle prit le morceau dans ses doigts, de manière à n'en laisser passer qu'un petit bout. \"Le poney mordra ce qui dépasse de mes doigts, dit-elle, et je mangerai le reste.\" Elle présenta le pain à son petit cheval, qui saisit le morceau et en même temps le bout du doigt de Sophie, qu'il mordit violemment. Sophie n'osa pas crier, mais la douleur lui fit lâcher le pain, qui tomba à terre : le cheval laissa alors le doigt pour manger le pain.",
+      "sourceText": "Sophie était gourmande. Sa maman savait que trop manger est mauvais pour la santé ; aussi défendait-elle à Sophie de manger entre ses repas : mais Sophie, qui avait faim, mangeait tout ce qu’elle pouvait attraper.\nMme de Réan allait tous les jours, après déjeuner, vers deux heures, donner du pain et du sel aux chevaux de M. de Réan ; il en avait plus de cent.\nSophie suivait sa maman avec un panier plein de morceaux de pain bis, et lui en présentait un dans chaque stalle où elle entrait ; mais sa maman lui défendait sévèrement d’en manger, parce que ce pain noir et mal cuit lui ferait mal à l’estomac.\nElle finissait par l’écurie des poneys. Sophie avait un poney à elle, que lui avait donné son papa : c’était un tout petit cheval noir, pas plus grand qu’un petit âne ; on lui permettait de donner elle-même du pain à son poney. Souvent elle mordait dedans avant de le lui présenter.\nUn jour qu’elle avait plus envie de ce pain bis que de coutume, elle prit le morceau dans ses doigts, de manière à n’en laisser passer qu’un petit bout.\n« Le poney mordra ce qui dépasse de mes doigts, dit-elle, et je mangerai le reste. »\nElle présenta le pain à son petit cheval, qui saisit le morceau et en même temps le bout du doigt de Sophie, qu’il mordit violemment. Sophie n’osa pas crier, mais la douleur lui fit lâcher le pain, qui tomba à terre : le cheval laissa alors le doigt pour manger le pain.",
+      "adaptations": [
+        "spaces: 6 paragraph breaks replaced by a space",
+        "spaces: 9 non-breaking spaces replaced by a space",
+        "apostrophes: 11 curly apostrophes replaced by '",
+        "quotes: 2 guillemets replaced by \" and attached to the quoted words"
+      ],
+      "source": {
+        "author": "Comtesse de Ségur (1799–1874)",
+        "work": "Les Malheurs de Sophie",
+        "place": "ch. IX « Le Pain des chevaux », sept premiers paragraphes",
+        "edition": "Wikisource transcription (first published 1858)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=2074957",
+        "revision": "Wikisource revision 2074957",
+        "licence": "public domain in Canada (author died 1874) and the United States (published 1858); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 254,
+      "measures": {
+        "m1": 4.3,
+        "m2": 2,
+        "m3": 11.8,
+        "m4": 9.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "gourmandise",
+        "reserves": [
+          "une morsure, sans détail ; mêmes signalements d’œuvre que LFR15"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "spare"
+    },
+    {
+      "id": "fr-bruno-tour-france-ch089-tempete",
+      "language": "fr",
+      "complexity": "easy",
+      "text": "Ne voilà-t-il pas une autre affaire, Jean-Joseph ! Une tempête qui nous assaille. Une tempête méchante comme tout. C'était un vent comme vous n'en avez jamais vu, bien sûr ; et tant mieux pour vous, Jean-Joseph, de ne pas connaître cela. Les vagues se heurtaient les unes aux autres, hautes comme des montagnes, et avec un bruit pareil à celui du canon. Par moment, elles emportaient le navire, et nous avec, tout en l'air ; et puis après, elles nous rejetaient tout en bas, comme pour nous mettre en pièces. Elles passaient sans cesse par-dessus le pont, et les matelots, qui sont des hommes bien braves, allez, Jean-Joseph, les matelots avaient des figures sombres comme des gens qui auraient peur de mourir ; mais peur en eux-mêmes, sans en dire un mot aux autres. Jugez si le coeur me battait, à moi. Je ne cessais de prier le bon Dieu de nous secourir. Je pensais à toute sorte de choses d'autrefois qui me rendaient plus triste encore. Je me souvenais des belles prairies de l'Auvergne, où on marchait tranquillement sans avoir peur d'être englouti ; et j'aurais bien aimé entendre les mugissements de vos grandes vaches rouges, au lieu des grondements terribles de l'Océan qui nous secouait. Tout d'un coup, Jean-Joseph, voilà un bruit effroyable qui se fait entendre. J'en ai fermé les yeux d'épouvante ; je pensais : c'est fini, bien sûr, le navire est en morceaux.",
+      "sourceText": "Ne voilà-t-il pas une autre affaire, Jean-Joseph ! Une tempête qui nous assaille. Une tempête méchante comme tout. C’était un vent comme vous n’en avez jamais vu, bien sûr ; et tant mieux pour vous, Jean-Joseph, de ne pas connaître cela.\nLes vagues se heurtaient les unes aux autres, hautes comme des montagnes, et avec un bruit pareil à celui du canon. Par moment, elles emportaient le navire, et nous avec, tout en l’air ; et puis après, elles nous rejetaient tout en bas, comme pour nous mettre en pièces. Elles passaient sans cesse par-dessus le pont, et les matelots, qui sont des hommes bien braves, allez, Jean-Joseph, les matelots avaient des figures sombres comme des gens qui auraient peur de mourir ; mais peur en eux-mêmes, sans en dire un mot aux autres. Jugez si le cœur me battait, à moi. Je ne cessais de prier le bon Dieu de nous secourir. Je pensais à toute sorte de choses d’autrefois qui me rendaient plus triste encore. Je me souvenais des belles prairies de l’Auvergne, où on marchait tranquillement sans avoir peur d’être englouti ; et j’aurais bien aimé entendre les mugissements de vos grandes vaches rouges, au lieu des grondements terribles de l’Océan qui nous secouait.\nTout d’un coup, Jean-Joseph, voilà un bruit effroyable qui se fait entendre. J’en ai fermé les yeux d’épouvante ; je pensais : c’est fini, bien sûr, le navire est en morceaux.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 7 non-breaking spaces replaced by a space",
+        "apostrophes: 12 curly apostrophes replaced by '",
+        "ligatures: 1 ligature spelled out (œ as oe, æ as ae)"
+      ],
+      "source": {
+        "author": "G. Bruno (pen name of Augustine Fouillée, 1833–1923)",
+        "work": "Le Tour de la France par deux enfants",
+        "place": "ch. LXXXIX, trois premiers paragraphes",
+        "edition": "Belin, 1904 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=3741062",
+        "revision": "Wikisource revision 3741062",
+        "licence": "public domain in Canada (author died 1923) and the United States (published 1877); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 231,
+      "measures": {
+        "m1": 4.65,
+        "m2": 5,
+        "m3": 11.7,
+        "m4": 10,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile à moyen",
+        "theme": "tempête en mer",
+        "reserves": [
+          "peur de mourir et prière, sans blessure ; mêmes signalements d’œuvre que LFR13"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "spare"
+    },
+    {
+      "id": "fr-daudet-lettres-moulin-phare-sanguinaires",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Moi, pendant ce temps, j'allais m'asseoir dehors sur la terrasse. Le soleil, déjà très bas, descendait vers l'eau de plus en plus vite, entraînant tout l'horizon après lui. Le vent fraîchissait, l'île devenait violette. Dans le ciel, près de moi, un gros oiseau passait lourdement : c'était l'aigle de la tour génoise qui rentrait... Peu à peu la brume de mer montait. Bientôt on ne voyait plus que l'ourlet blanc de l'écume autour de l'île... Tout à coup, au-dessus de ma tête, jaillissait un grand flot de lumière douce. Le phare était allumé. Laissant toute l'île dans l'ombre, le clair rayon allait tomber au large sur la mer, et j'étais là perdu dans la nuit, sous ces grandes ondes lumineuses qui m'éclaboussaient à peine en passant... Mais le vent fraîchissait encore. Il fallait rentrer. À tâtons, je fermais la grosse porte, j'assurais les barres de fer ; puis, toujours tâtonnant, je prenais un petit escalier de fonte qui tremblait et sonnait sous mes pas, et j'arrivais au sommet du phare. Ici, par exemple, il y en avait de la lumière. Imaginez une lampe Carcel gigantesque à six rangs de mèches, autour de laquelle pivotent lentement les parois de la lanterne, les unes remplies par une énorme lentille de cristal, les autres ouvertes sur un grand vitrage immobile qui met la flamme à l'abri du vent... En entrant j'étais ébloui. Ces cuivres, ces étains, ces réflecteurs de métal blanc, ces murs de cristal bombé qui tournaient, avec des grands cercles bleuâtres, tout ce miroitement, tout ce cliquetis de lumières, me donnait un moment de vertige.",
+      "sourceText": "Moi, pendant ce temps, j’allais m’asseoir dehors sur la terrasse. Le soleil, déjà très bas, descendait vers l’eau de plus en plus vite, entraînant tout l’horizon après lui. Le vent fraîchissait, l’île devenait violette. Dans le ciel, près de moi, un gros oiseau passait lourdement : c’était l’aigle de la tour génoise qui rentrait… Peu à peu la brume de mer montait. Bientôt on ne voyait plus que l’ourlet blanc de l’écume autour de l’île… Tout à coup, au-dessus de ma tête, jaillissait un grand flot de lumière douce. Le phare était allumé. Laissant toute l’île dans l’ombre, le clair rayon allait tomber au large sur la mer, et j’étais là perdu dans la nuit, sous ces grandes ondes lumineuses qui m’éclaboussaient à peine en passant… Mais le vent fraîchissait encore. Il fallait rentrer. À tâtons, je fermais la grosse porte, j’assurais les barres de fer ; puis, toujours tâtonnant, je prenais un petit escalier de fonte qui tremblait et sonnait sous mes pas, et j’arrivais au sommet du phare. Ici, par exemple, il y en avait de la lumière.\nImaginez une lampe Carcel gigantesque à six rangs de mèches, autour de laquelle pivotent lentement les parois de la lanterne, les unes remplies par une énorme lentille de cristal, les autres ouvertes sur un grand vitrage immobile qui met la flamme à l’abri du vent… En entrant j’étais ébloui. Ces cuivres, ces étains, ces réflecteurs de métal blanc, ces murs de cristal bombé qui tournaient, avec des grands cercles bleuâtres, tout ce miroitement, tout ce cliquetis de lumières, me donnait un moment de vertige.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 18 curly apostrophes replaced by '",
+        "ellipsis: 4 ellipsis characters written as three dots"
+      ],
+      "source": {
+        "author": "Alphonse Daudet (1840–1897)",
+        "work": "Lettres de mon moulin",
+        "place": "« Le phare des Sanguinaires », deux paragraphes consécutifs (le soir sur la terrasse, puis la lanterne)",
+        "edition": "Charpentier et Fasquelle, 1895 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=3985556",
+        "revision": "Wikisource revision 3985556",
+        "licence": "public domain in Canada (author died 1897) and the United States (published 1869); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 262,
+      "measures": {
+        "m1": 4.61,
+        "m2": 4.5,
+        "m3": 17.1,
+        "m4": 9.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (prose claire, quelques mots rares : fraîchissait, ourlet, lampe Carcel, lentille)",
+        "theme": "phare, mer, tombée de la nuit",
+        "reserves": [
+          "aucune dans le passage ; plus haut dans la lettre, « la différence des deux races » oppose gardiens marseillais et corses (sens ancien de lignée), et un gardien raconte avoir dû garder puis descendre seul le corps d’un camarade mort (sans détail cru) ; ailleurs dans le recueil, une caricature antisémite et des termes d’époque (« À Milianah ») et le suicide d’un jeune homme (« L’Arlésienne »)"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-hemon-maria-chapdelaine-ch04-defrichage",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Le bois serrait encore de près les bâtiments qu'ils avaient élevés eux-mêmes quelques années plus tôt ; la petite maison carrée, la grange de planches mal jointes, l'étable faite de troncs bruts entre lesquels on avait forcé des chiffons et de la terre. Entre les quelques champs déjà défrichés, nus, et la lisière de grands arbres au feuillage sombre s'étendait un vaste morceau de terrain que la hache n'avait que timidement entamé. Quelques troncs verts avaient été coupés et utilisés comme pièces de charpente ; des chicots secs, sciés et fendus, avaient alimenté tout un hiver le grand poêle de fonte ; mais le sol était encore recouvert d'un chaos de souches, de racines entremêlées, d'arbres couchés à terre, trop pourris pour brûler, d'autres arbres morts mais toujours debout au milieu d'un taillis d'aunes. Les cinq hommes s'acheminèrent un matin vers cette pièce de terre et se mirent à l'ouvrage de suite et sans un mot, car la tâche de chacun avait été fixée d'avance. Le père Chapdelaine et Da'Bé se postèrent en face l'un de l'autre de chaque côté d'un arbre debout et commencèrent à balancer en cadence leurs haches à manche de merisier. Chacun d'eux faisait d'abord une coche profonde dans le bois, frappant patiemment au même endroit pendant quelques secondes, puis la hache remonta brusquement, attaquant le tronc obliquement un pied plus haut et faisant voler à chaque coup un copeau épais comme la main et taillé dans le sens de la fibre. Quand leurs deux entailles étaient près de se rejoindre, l'un d'eux s'arrêtait et l'autre frappait plus lentement, laissant chaque fois sa hache un moment dans l'entaille ; la lame de bois qui tenait encore l'arbre debout par une sorte de miracle cédait enfin, le tronc se penchait et les deux bûcherons reculaient d'un pas et le regardaient tomber, poussant un grand cri afin que chacun se gare.",
+      "sourceText": "Le bois serrait encore de près les bâtiments qu’ils avaient élevés eux-mêmes quelques années plus tôt ; la petite maison carrée, la grange de planches mal jointes, l’étable faite de troncs bruts entre lesquels on avait forcé des chiffons et de la terre. Entre les quelques champs déjà défrichés, nus, et la lisière de grands arbres au feuillage sombre s’étendait un vaste morceau de terrain que la hache n’avait que timidement entamé. Quelques troncs verts avaient été coupés et utilisés comme pièces de charpente ; des chicots secs, sciés et fendus, avaient alimenté tout un hiver le grand poêle de fonte ; mais le sol était encore recouvert d’un chaos de souches, de racines entremêlées, d’arbres couchés à terre, trop pourris pour brûler, d’autres arbres morts mais toujours debout au milieu d’un taillis d’aunes.\nLes cinq hommes s’acheminèrent un matin vers cette pièce de terre et se mirent à l’ouvrage de suite et sans un mot, car la tâche de chacun avait été fixée d’avance.\nLe père Chapdelaine et Da’Bé se postèrent en face l’un de l’autre de chaque côté d’un arbre debout et commencèrent à balancer en cadence leurs haches à manche de merisier. Chacun d’eux faisait d’abord une coche profonde dans le bois, frappant patiemment au même endroit pendant quelques secondes, puis la hache remonta brusquement, attaquant le tronc obliquement un pied plus haut et faisant voler à chaque coup un copeau épais comme la main et taillé dans le sens de la fibre. Quand leurs deux entailles étaient près de se rejoindre, l’un d’eux s’arrêtait et l’autre frappait plus lentement, laissant chaque fois sa hache un moment dans l’entaille ; la lame de bois qui tenait encore l’arbre debout par une sorte de miracle cédait enfin, le tronc se penchait et les deux bûcherons reculaient d’un pas et le regardaient tomber, poussant un grand cri afin que chacun se gare.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 25 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Louis Hémon (1880–1913)",
+        "work": "Maria Chapdelaine",
+        "place": "chapitre IV, trois paragraphes consécutifs",
+        "edition": "J.-A. LeFebvre, 1916 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=6316813",
+        "revision": "Wikisource revision 6316813",
+        "licence": "public domain in Canada (author died 1913) and the United States (published 1914); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 309,
+      "measures": {
+        "m1": 4.83,
+        "m2": 2.5,
+        "m3": 21.7,
+        "m4": 11,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (phrases longues mais vocabulaire concret du défrichement)",
+        "theme": "défrichement, forêt, bûcherons",
+        "reserves": [
+          "aucune dans le passage (« champs déjà défrichés, nus » : champs sans arbres) ; ailleurs dans le roman, le terme d’époque désignant les Autochtones (chapitres I, III, V et X) et « race » au sens national ; jurons de l’homme engagé plus loin dans le chapitre IV"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-alain-fournier-grand-meaulnes-p1-ch02-soirees",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Avant sa venue, lorsque le cours était fini, à quatre heures, une longue soirée de solitude commençait pour moi. Mon père transportait le feu du poêle de la classe dans la cheminée de notre salle à manger ; et peu à peu les derniers gamins attardés abandonnaient l'école refroidie où roulaient des tourbillons de fumée. Il y avait encore quelques jeux, des galopades dans la cour ; puis la nuit venait ; les deux élèves qui avaient balayé la classe cherchaient sous le hangar leurs capuchons et leurs pèlerines, et ils partaient bien vite, leur panier au bras, en laissant le grand portail ouvert... Alors, tant qu'il y avait une lueur de jour, je restais au fond de la mairie, enfermé dans le cabinet des archives plein de mouches mortes, d'affiches battant au vent, et je lisais assis sur une vieille bascule, auprès d'une fenêtre qui donnait sur le jardin. Lorsqu'il faisait noir, que les chiens de la ferme voisine commençaient à hurler et que le carreau de notre petite cuisine s'illuminait, je rentrais enfin. Ma mère avait commencé de préparer le repas. Je montais trois marches de l'escalier du grenier ; je m'asseyais sans rien dire et, la tête appuyée aux barreaux froids de la rampe, je la regardais allumer son feu dans l'étroite cuisine où vacillait la flamme d'une bougie. Mais quelqu'un est venu qui m'a enlevé à tous ces plaisirs d'enfant paisible. Quelqu'un a soufflé la bougie qui éclairait pour moi le doux visage maternel penché sur le repas du soir. Quelqu'un a éteint la lampe autour de laquelle nous étions une famille heureuse, à la nuit, lorsque mon père avait accroché les volets de bois aux portes vitrées. Et celui-là, ce fut Augustin Meaulnes, que les autres élèves appelèrent bientôt le grand Meaulnes.",
+      "sourceText": "Avant sa venue, lorsque le cours était fini, à quatre heures, une longue soirée de solitude commençait pour moi. Mon père transportait le feu du poêle de la classe dans la cheminée de notre salle à manger ; et peu à peu les derniers gamins attardés abandonnaient l’école refroidie où roulaient des tourbillons de fumée. Il y avait encore quelques jeux, des galopades dans la cour ; puis la nuit venait ; les deux élèves qui avaient balayé la classe cherchaient sous le hangar leurs capuchons et leurs pèlerines, et ils partaient bien vite, leur panier au bras, en laissant le grand portail ouvert…\nAlors, tant qu’il y avait une lueur de jour, je restais au fond de la mairie, enfermé dans le cabinet des archives plein de mouches mortes, d’affiches battant au vent, et je lisais assis sur une vieille bascule, auprès d’une fenêtre qui donnait sur le jardin.\nLorsqu’il faisait noir, que les chiens de la ferme voisine commençaient à hurler et que le carreau de notre petite cuisine s’illuminait, je rentrais enfin. Ma mère avait commencé de préparer le repas. Je montais trois marches de l’escalier du grenier ; je m’asseyais sans rien dire et, la tête appuyée aux barreaux froids de la rampe, je la regardais allumer son feu dans l’étroite cuisine où vacillait la flamme d’une bougie.\nMais quelqu’un est venu qui m’a enlevé à tous ces plaisirs d’enfant paisible. Quelqu’un a soufflé la bougie qui éclairait pour moi le doux visage maternel penché sur le repas du soir. Quelqu’un a éteint la lampe autour de laquelle nous étions une famille heureuse, à la nuit, lorsque mon père avait accroché les volets de bois aux portes vitrées. Et celui-là, ce fut Augustin Meaulnes, que les autres élèves appelèrent bientôt le grand Meaulnes.",
+      "adaptations": [
+        "spaces: 3 paragraph breaks replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 15 curly apostrophes replaced by '",
+        "ellipsis: 1 ellipsis character written as three dots"
+      ],
+      "source": {
+        "author": "Alain-Fournier (1886–1914)",
+        "work": "Le Grand Meaulnes",
+        "place": "1re partie, chapitre II, quatre paragraphes consécutifs",
+        "edition": "Émile-Paul frères, 1948 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=14853282",
+        "revision": "Wikisource revision 14853282",
+        "licence": "public domain in Canada (author died 1914) and the United States (published 1913); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 293,
+      "measures": {
+        "m1": 4.71,
+        "m2": 3.5,
+        "m3": 17.5,
+        "m4": 6,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (narration à l’imparfait, vocabulaire courant, quelques mots d’autrefois : pèlerines, bascule)",
+        "theme": "école de village, soirées d’hiver, enfance",
+        "reserves": [
+          "aucune dans le passage ; ailleurs dans le roman, un personnage se tire une balle de pistolet dans un bois (il survit), le terme d’époque désignant les Roms et un propos hostile d’un personnage à leur sujet"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-loti-mon-frere-yves-ch13-oiseaux",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Nous marchions toujours, toujours, avec toutes nos voiles, vers le sud. Maintenant, c'étaient des nuées de damiers et d'autres oiseaux de mer qui voyageaient derrière nous. Ils nous suivaient étonnés et confiants, depuis le matin jusqu'à la nuit, criant, se démenant, volant par courbes folles, - comme pour nous souhaiter la bienvenue à nous, autre grand oiseau aux ailes de toile, qui entrions dans leur domaine lointain et infini, l'océan Austral. Et leur troupe grossissait toujours à mesure que nous descendions. Avec les damiers, il y avait les pétrels gris-perle, le bec et les pattes légèrement teintés de bleu et de rose ; - et les malamochs tout noirs ; - et les gros albatros lourds, d'une teinte sale, avec leur air bête de mouton, avec leurs ailes rigides et immenses, fendant l'air, piaulant après nous. Même on en voyait un que les matelots se montraient : un amiral, oiseau d'une espèce rare et énorme, ayant sur ses longues pennes les trois étoiles dessinées en noir. Le temps, changé, était devenu calme, brumeux, morne. L'alizé austral était mort à son tour, et la limpidité des tropiques était perdue. Une grande fraîcheur humide surprenait nos sens. On était en août, et c'était le froid de l'autre hémisphère qui commençait. Quand on regardait tout autour de soi l'horizon vide, il semblait que le nord, le côté du soleil et des pays vivants, fût encore bleu et clair ; tandis que le sud, le côté du pôle et des déserts d'eau, était ténébreux... Par ma grande protection, Yves avait obtenu, pour sa perruche, un compartiment réservé dans une des cages à poules du commandant, et il allait chaque soir la couvrir avec un vieux morceau de voile, pour qu'elle ne fût pas incommodée par l'air de la nuit.",
+      "sourceText": "Nous marchions toujours, toujours, avec toutes nos voiles, vers le sud.\nMaintenant, c’étaient des nuées de damiers et d’autres oiseaux de mer qui voyageaient derrière nous. Ils nous suivaient étonnés et confiants, depuis le matin jusqu’à la nuit, criant, se démenant, volant par courbes folles, — comme pour nous souhaiter la bienvenue à nous, autre grand oiseau aux ailes de toile, qui entrions dans leur domaine lointain et infini, l’océan Austral.\nEt leur troupe grossissait toujours à mesure que nous descendions. Avec les damiers, il y avait les pétrels gris-perle, le bec et les pattes légèrement teintés de bleu et de rose ; — et les malamochs tout noirs ; — et les gros albatros lourds, d’une teinte sale, avec leur air bête de mouton, avec leurs ailes rigides et immenses, fendant l’air, piaulant après nous. Même on en voyait un que les matelots se montraient : un amiral, oiseau d’une espèce rare et énorme, ayant sur ses longues pennes les trois étoiles dessinées en noir.\nLe temps, changé, était devenu calme, brumeux, morne. L’alizé austral était mort à son tour, et la limpidité des tropiques était perdue. Une grande fraîcheur humide surprenait nos sens. On était en août, et c’était le froid de l’autre hémisphère qui commençait. Quand on regardait tout autour de soi l’horizon vide, il semblait que le nord, le côté du soleil et des pays vivants, fût encore bleu et clair ; tandis que le sud, le côté du pôle et des déserts d’eau, était ténébreux…\nPar ma grande protection, Yves avait obtenu, pour sa perruche, un compartiment réservé dans une des cages à poules du commandant, et il allait chaque soir la couvrir avec un vieux morceau de voile, pour qu’elle ne fût pas incommodée par l’air de la nuit.",
+      "adaptations": [
+        "spaces: 4 paragraph breaks replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 14 curly apostrophes replaced by '",
+        "ellipsis: 1 ellipsis character written as three dots",
+        "dashes: 3 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "Pierre Loti (1850–1923)",
+        "work": "Mon frère Yves",
+        "place": "chapitre XIII, cinq premiers paragraphes",
+        "edition": "Calmann-Lévy, 1893 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=13448090",
+        "revision": "Wikisource revision 13448090",
+        "licence": "public domain in Canada (author died 1923) and the United States (published 1883); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 288,
+      "measures": {
+        "m1": 4.86,
+        "m2": 4,
+        "m3": 21.6,
+        "m4": 8.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (phrases longues, noms d’oiseaux de mer : damiers, pétrels, malamochs)",
+        "theme": "mer, oiseaux de mer, océan Austral",
+        "reserves": [
+          "aucune dans le passage ; le paragraphe suivant montre des oiseaux de mer pêchés et écorchés pour être mangés ; le roman traite de l’ivrognerie du héros (beuveries, bagarres, un enfant blessé par son père ivre) et emploie un terme racial d’époque (chapitre VIII)"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-sand-mare-au-diable-ch07-brouillard",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Quand on eut enfin trouvé une belle allée bien droite, et qu'arrivé au bout, Germain chercha à voir où il était, il s'aperçut bien qu'il s'était perdu ; car le père Maurice, en lui expliquant son chemin, lui avait dit qu'à la sortie des bois il aurait à descendre un bout de côte très-raide, à traverser une immense prairie et à passer deux fois la rivière à gué. Il lui avait même recommandé d'entrer dans cette rivière, avec précaution, parce qu'au commencement de la saison il y avait eu de grandes pluies et que l'eau pouvait être un peu haute. Ne voyant ni descente, ni prairie, ni rivière, mais la lande unie et blanche comme une nappe de neige, Germain s'arrêta, chercha une maison, attendit un passant et ne trouva rien qui put le renseigner. Alors il revint sur ses pas et rentra dans les bois. Mais le brouillard s'épaissit encore plus, la lune fut tout à fait voilée, les chemins étaient affreux, les fondrières profondes. Par deux fois, la Grise faillit s'abattre ; chargée comme elle l'était, elle perdait courage, et, si elle conservait assez de discernement pour ne pas se heurter contre les arbres, elle ne pouvait empêcher que ceux qui la montaient n'eussent affaire à de grosses branches, qui barraient le chemin à la hauteur de leurs têtes et qui les mettaient fort en danger. Germain perdit son chapeau dans une de ces rencontres et eut grand'peine à le retrouver. Petit-Pierre s'était endormi, et, se laissant aller comme un sac, il embarrassait tellement les bras de son père, que celui-ci ne pouvait plus ni soutenir ni diriger le cheval.",
+      "sourceText": "Quand on eut enfin trouvé une belle allée bien droite, et qu’arrivé au bout, Germain chercha à voir où il était, il s’aperçut bien qu’il s’était perdu ; car le père Maurice, en lui expliquant son chemin, lui avait dit qu’à la sortie des bois il aurait à descendre un bout de côte très-raide, à traverser une immense prairie et à passer deux fois la rivière à gué. Il lui avait même recommandé d’entrer dans cette rivière, avec précaution, parce qu’au commencement de la saison il y avait eu de grandes pluies et que l’eau pouvait être un peu haute. Ne voyant ni descente, ni prairie, ni rivière, mais la lande unie et blanche comme une nappe de neige, Germain s’arrêta, chercha une maison, attendit un passant et ne trouva rien qui put le renseigner. Alors il revint sur ses pas et rentra dans les bois. Mais le brouillard s’épaissit encore plus, la lune fut tout à fait voilée, les chemins étaient affreux, les fondrières profondes. Par deux fois, la Grise faillit s’abattre ; chargée comme elle l’était, elle perdait courage, et, si elle conservait assez de discernement pour ne pas se heurter contre les arbres, elle ne pouvait empêcher que ceux qui la montaient n’eussent affaire à de grosses branches, qui barraient le chemin à la hauteur de leurs têtes et qui les mettaient fort en danger. Germain perdit son chapeau dans une de ces rencontres et eut grand’peine à le retrouver. Petit-Pierre s’était endormi, et, se laissant aller comme un sac, il embarrassait tellement les bras de son père, que celui-ci ne pouvait plus ni soutenir ni diriger le cheval.",
+      "adaptations": [
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 15 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "George Sand (1804–1876)",
+        "work": "La Mare au diable",
+        "place": "chapitre VII, un paragraphe (Germain égaré dans les bois)",
+        "edition": "Hetzel, 1852, illustrated works vol. 1 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=9737782",
+        "revision": "Wikisource revision 9737782",
+        "licence": "public domain in Canada (author died 1876) and the United States (published 1846); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 270,
+      "measures": {
+        "m1": 4.53,
+        "m2": 4.5,
+        "m3": 16.8,
+        "m4": 7.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (un long paragraphe, mots de la campagne : fondrières, gué ; graphie « très-raide »)",
+        "theme": "forêt, brouillard, voyage de nuit",
+        "reserves": [
+          "aucune dans le passage (« qui put » sans accent : graphie de la page, gardée) ; plus loin dans le roman, un fermier fait des avances à la jeune bergère, qui s’enfuit (rien d’explicite), puis une courte altercation"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-rivard-chez-nous-vieux-capitaine",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "C'était un vieux marin, qui possédait une vieille goélette. Tour à tour caboteur et hauturier, de cap en cap ou en plein golfe, dans les accalmies comme au milieu des tempêtes, grand largue ou vent arrière, par tous les temps et ses voiles amurées à tous les angles, le petit navire avait longtemps navigué. Le Capitaine l'avait, autrefois, construit lui-même, et jamais autre main que la sienne n'avait tenu la barre. Jamais, non plus, il n'avait gouverné sans avoir dans son poing fermé la petite statue de la Vierge, maintenant toute fruste, et qui ne le quittait point. Aussi la goélette avait-elle traversé tous les écueils, résisté à toutes les tourmentes, bravé tous les grains. Avec un soin jaloux, avec amour, le marin l'avait gardée toujours en état et bien gréée. De la carlingue à la pomme du grand mat et de l'étrave à l'étambot, elle était encore vaillante, malgré la fatigue des bordages, l'usure des ralingues, le rapiécetage des voiles. Mais le Capitaine, brisé par le grand âge, avait dû abandonner son dur métier. Il vivait chez sa fille, au village. Et la goélette restait embossée le long du quai vermoulu qui, derrière l'église, s'avance dans le fleuve. Tous les jours que le bon Dieu amenait, le vieux allait la voir ; il éprouvait les manoeuvres, s'assurait que les organeaux étaient solides, les haubans bien tendus, les voiles bien carguées, les apparaux en place ; puis, assis à l'avant, silencieux, il fumait sa pipe. Le navigateur ne naviguait plus ; mais il avait encore sa goélette, et, beau temps mauvais temps, allait ainsi la voir, la voir et la soigner. Cependant, il vint un jour où, pour aider à la dépense de la maison, il fallut vendre la goélette. Le vieillard s'y opposa longtemps ; à la fin, il comprit qu'il devait céder.",
+      "sourceText": "C’était un vieux marin, qui possédait une vieille goélette.\nTour à tour caboteur et hauturier, de cap en cap ou en plein golfe, dans les accalmies comme au milieu des tempêtes, grand largue ou vent arrière, par tous les temps et ses voiles amurées à tous les angles, le petit navire avait longtemps navigué.\nLe Capitaine l’avait, autrefois, construit lui-même, et jamais autre main que la sienne n’avait tenu la barre. Jamais, non plus, il n’avait gouverné sans avoir dans son poing fermé la petite statue de la Vierge, maintenant toute fruste, et qui ne le quittait point.\nAussi la goélette avait-elle traversé tous les écueils, résisté à toutes les tourmentes, bravé tous les grains. Avec un soin jaloux, avec amour, le marin l’avait gardée toujours en état et bien gréée. De la carlingue à la pomme du grand mat et de l’étrave à l’étambot, elle était encore vaillante, malgré la fatigue des bordages, l’usure des ralingues, le rapiécetage des voiles.\nMais le Capitaine, brisé par le grand âge, avait dû abandonner son dur métier. Il vivait chez sa fille, au village. Et la goélette restait embossée le long du quai vermoulu qui, derrière l’église, s’avance dans le fleuve.\nTous les jours que le bon Dieu amenait, le vieux allait la voir ; il éprouvait les manœuvres, s’assurait que les organeaux étaient solides, les haubans bien tendus, les voiles bien carguées, les apparaux en place ; puis, assis à l’avant, silencieux, il fumait sa pipe.\nLe navigateur ne naviguait plus ; mais il avait encore sa goélette, et, beau temps mauvais temps, allait ainsi la voir, la voir et la soigner.\nCependant, il vint un jour où, pour aider à la dépense de la maison, il fallut vendre la goélette. Le vieillard s’y opposa longtemps ; à la fin, il comprit qu’il devait céder.",
+      "adaptations": [
+        "spaces: 7 paragraph breaks replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 14 curly apostrophes replaced by '",
+        "ligatures: 1 ligature spelled out (œ as oe, æ as ae)"
+      ],
+      "source": {
+        "author": "Adjutor Rivard (1868–1945)",
+        "work": "Chez nous",
+        "place": "« Le vieux capitaine », huit premiers paragraphes",
+        "edition": "L’Action sociale catholique, 1914 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=7115526",
+        "revision": "Wikisource revision 7115526",
+        "licence": "public domain in Canada (author died 1945) and the United States (published 1914); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 300,
+      "measures": {
+        "m1": 4.67,
+        "m2": 2,
+        "m3": 17.3,
+        "m4": 6,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (phrases courtes, nombreux mots de marine : hauturier, étambot, ralingues, apparaux)",
+        "theme": "fleuve, goélette, vieux marin",
+        "reserves": [
+          "aucune dans le passage (« grand mat » et « rapiécetage » : graphies de la page, gardées) ; ailleurs dans le recueil, des clichés d’époque sur les Roms, désignés par le terme d’époque (« Les quêteux ») et le terme d’époque désignant les Autochtones dans une croyance populaire (« Le ber »)"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-maupassant-sur-l-eau-j1-brise",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Je lève les yeux sur la voile plate, molle, morte. Son triangle éclatant semble monter jusqu'au ciel, car nous avons hissé sur la misaine la grande flèche de beau temps dont la vergue dépasse de deux mètres le sommet du mât. Plus un mouvement : on se croirait sur la terre. Le baromètre baisse toujours. Cependant la ligne sombre aperçue au loin s'approche. L'éclat métallique de l'eau terni soudain se transforme en une teinte ardoisée. Le ciel est pur, sans nuage. Tout à coup autour de nous, sur la mer aussi nette qu'une plaque d'acier, glissent de place en place, rapides, effacés aussitôt qu'apparus, des frissons presque imperceptibles, comme si on eût jeté dedans mille pincée de sable menu. La voile frémit, mais à peine, puis le gui, lentement, se déplace vers tribord. Un souffle maintenant me caresse la figure et les frémissements de l'eau se multiplient autour de nous comme s'il y tombait une pluie continue de sable. Le cotre déjà recommence à marcher. Il glisse, tout droit, et un très léger clapot s'éveille le long des flancs. La barre se raidit dans ma main, la longue barre de cuivre qui semble sous le soleil une tige de feu, et la brise, de seconde en seconde, augmente. Il va falloir louvoyer ; mais qu'importe, le bateau monte bien au vent et le vent nous mènera, s'il ne faiblit pas, de bordée en bordée, à Saint-Raphaël à la nuit tombante.",
+      "sourceText": "Je lève les yeux sur la voile plate, molle, morte. Son triangle éclatant semble monter jusqu’au ciel, car nous avons hissé sur la misaine la grande flèche de beau temps dont la vergue dépasse de deux mètres le sommet du mât. Plus un mouvement : on se croirait sur la terre. Le baromètre baisse toujours. Cependant la ligne sombre aperçue au loin s’approche. L’éclat métallique de l’eau terni soudain se transforme en une teinte ardoisée. Le ciel est pur, sans nuage.\nTout à coup autour de nous, sur la mer aussi nette qu’une plaque d’acier, glissent de place en place, rapides, effacés aussitôt qu’apparus, des frissons presque imperceptibles, comme si on eût jeté dedans mille pincée de sable menu. La voile frémit, mais à peine, puis le gui, lentement, se déplace vers tribord. Un souffle maintenant me caresse la figure et les frémissements de l’eau se multiplient autour de nous comme s’il y tombait une pluie continue de sable. Le cotre déjà recommence à marcher. Il glisse, tout droit, et un très léger clapot s’éveille le long des flancs. La barre se raidit dans ma main, la longue barre de cuivre qui semble sous le soleil une tige de feu, et la brise, de seconde en seconde, augmente. Il va falloir louvoyer ; mais qu’importe, le bateau monte bien au vent et le vent nous mènera, s’il ne faiblit pas, de bordée en bordée, à Saint-Raphaël à la nuit tombante.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 12 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Guy de Maupassant (1850–1893)",
+        "work": "Sur l'eau",
+        "place": "première journée du journal, deux paragraphes consécutifs (59e et 60e de la page)",
+        "edition": "Ollendorff, 1904 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=10434365",
+        "revision": "Wikisource revision 10434365",
+        "licence": "public domain in Canada (author died 1893) and the United States (published 1888); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 238,
+      "measures": {
+        "m1": 4.54,
+        "m2": 3.5,
+        "m3": 19.5,
+        "m4": 5.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (phrases claires, vocabulaire de voile : misaine, vergue, gui, cotre, louvoyer, bordée)",
+        "theme": "voilier, calme plat, le vent se lève",
+        "reserves": [
+          "aucune dans le passage ; « mille pincée » est la graphie de la page, gardée telle quelle ; plus loin dans la même journée, l’histoire du cercueil de Paganini errant en mer ; ailleurs dans ce journal pour adultes, une diatribe contre la guerre aux images violentes, des réflexions misanthropes et un terme racial d’époque"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-marie-victorin-croquis-laurentiens-traverse-longueuil",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "À mi-fleuve le vapeur s'avance, souillant le ciel d'une longue traînée de fumée noire. À mesure que la proue fait tête au courant, les hautes lettres du mot LONGUEUIL paraissent une à une sur le flanc de bois. Déjà, la salle d'attente est évacuée. Dans le bruit des machines, les cris de la manoeuvre, le bateau accoste, au grincement des amarres, perdu dans le clapotement des eaux troublées. Les passerelles, hâtivement baissées, dégorgent pêle-mêle piétons, voitures, ouvriers, touristes. Immobile comme un récif au milieu de cette vague humaine, conscient de son importance, le placide policier veille à la sécurité publique. La descente opérée, la cohue des montants s'ordonne et défile sous l'oeil atone du contrôleur. Un coup de cloche, les passerelles se relèvent, et le bateau, tournant sur lui-même, s'éloigne, porté par le courant rapide. Les bras tendus par de lourds paquets, quelques retardataires, haletants et navrés, paraissent sous le viaduc, pendant que d'un pas automatique, le policier retourne à l'ombre pour une autre demi-heure. Au sortir de la fournaise urbaine, le passager aspire délicieusement la bouffée d'air pur venue du sud, tout en laissant l'oeil courir en liberté au long des lignes douces du paysage. Là-bas, vers l'est, la courbe gracieuse des deux rives étreint toute une troupe d'îles basses et verdoyantes qui s'estompent légèrement dans le lointain. Les voyageurs s'émerveillent devant ce fleuve qui prend, quand il lui plaît, l'ampleur d'un bras de mer. Dans la vieille Europe, il baignerait des centaines de villes et refléterait les ruines pleines de passé d'innombrables châteaux. Ici, le fleuve roule ses eaux royales entre deux files de chaumières et se met en beauté pour d'humbles paysans.",
+      "sourceText": "À mi-fleuve le vapeur s’avance, souillant le ciel d’une longue traînée de fumée noire. À mesure que la proue fait tête au courant, les hautes lettres du mot LONGUEUIL paraissent une à une sur le flanc de bois. Déjà, la salle d’attente est évacuée. Dans le bruit des machines, les cris de la manœuvre, le bateau accoste, au grincement des amarres, perdu dans le clapotement des eaux troublées. Les passerelles, hâtivement baissées, dégorgent pêle-mêle piétons, voitures, ouvriers, touristes. Immobile comme un récif au milieu de cette vague humaine, conscient de son importance, le placide policier veille à la sécurité publique. La descente opérée, la cohue des montants s’ordonne et défile sous l’œil atone du contrôleur. Un coup de cloche, les passerelles se relèvent, et le bateau, tournant sur lui-même, s’éloigne, porté par le courant rapide. Les bras tendus par de lourds paquets, quelques retardataires, haletants et navrés, paraissent sous le viaduc, pendant que d’un pas automatique, le policier retourne à l’ombre pour une autre demi-heure.\nAu sortir de la fournaise urbaine, le passager aspire délicieusement la bouffée d’air pur venue du sud, tout en laissant l’œil courir en liberté au long des lignes douces du paysage. Là-bas, vers l’est, la courbe gracieuse des deux rives étreint toute une troupe d’îles basses et verdoyantes qui s’estompent légèrement dans le lointain. Les voyageurs s’émerveillent devant ce fleuve qui prend, quand il lui plaît, l’ampleur d’un bras de mer. Dans la vieille Europe, il baignerait des centaines de villes et refléterait les ruines pleines de passé d’innombrables châteaux. Ici, le fleuve roule ses eaux royales entre deux files de chaumières et se met en beauté pour d’humbles paysans.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "apostrophes: 18 curly apostrophes replaced by '",
+        "ligatures: 3 ligatures spelled out (œ as oe, æ as ae)"
+      ],
+      "source": {
+        "author": "Frère Marie-Victorin (1885–1944)",
+        "work": "Croquis laurentiens",
+        "place": "troisième croquis (la traverse de Longueuil à Montréal), deux paragraphes consécutifs",
+        "edition": "Frères des écoles chrétiennes, 1920 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=9554398",
+        "revision": "Wikisource revision 9554398",
+        "licence": "public domain in Canada (author died 1944) and the United States (published 1920); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 275,
+      "measures": {
+        "m1": 5.03,
+        "m2": 6,
+        "m3": 21.6,
+        "m4": 8,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (vocabulaire soutenu : dégorgent, atone, s’estompent ; M1 élevée)",
+        "theme": "fleuve Saint-Laurent, traversier, Montréal",
+        "reserves": [
+          "aucune dans le passage (« dégorgent » : les passerelles déversent la foule) ; ailleurs dans le recueil, le terme d’époque désignant les Autochtones et un regard missionnaire paternaliste (croquis du Témiscamingue), des Iroquois désignés par un qualificatif péjoratif et la chasse au loup-marin"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-sand-mare-au-diable-ch02-labour",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Le vieux laboureur travaillait lentement, en silence, sans efforts inutiles. Son docile attelage ne se pressait pas plus que lui ; mais grâce à la continuité d'un labeur sans distraction et d'une dépense de forces éprouvées et soutenues, son sillon était aussi vite creusé que celui de son fils, qui menait, à quelque distance, quatre boeufs moins robustes, dans une veine de terres plus fortes et plus pierreuses. Mais ce qui attira ensuite mon attention était véritablement un beau spectacle, un noble sujet pour un peintre. À l'autre extrémité de la plaine labourable, un jeune homme de bonne mine conduisait un attelage magnifique : quatre paires de jeunes animaux à robe sombre mêlée de noir fauve à reflets de feu, avec ces têtes courtes et frisées qui sentent encore le taureau sauvage, ces gros yeux farouches, ces mouvements brusques, ce travail nerveux et saccadé qui s'irrite encore du joug et de l'aiguillon et n'obéit qu'en frémissant de colère à la domination nouvellement imposée. C'est ce qu'on appelle des boeufs fraîchement liés. L'homme qui les gouvernait avait à défricher un coin naguère abandonné au pâturage et rempli de souches séculaires, travail d'athlète auquel suffisaient à peine son énergie, sa jeunesse et ses huit animaux quasi indomptés.",
+      "sourceText": "Le vieux laboureur travaillait lentement, en silence, sans efforts inutiles. Son docile attelage ne se pressait pas plus que lui ; mais grâce à la continuité d’un labeur sans distraction et d’une dépense de forces éprouvées et soutenues, son sillon était aussi vite creusé que celui de son fils, qui menait, à quelque distance, quatre bœufs moins robustes, dans une veine de terres plus fortes et plus pierreuses.\nMais ce qui attira ensuite mon attention était véritablement un beau spectacle, un noble sujet pour un peintre. À l’autre extrémité de la plaine labourable, un jeune homme de bonne mine conduisait un attelage magnifique : quatre paires de jeunes animaux à robe sombre mêlée de noir fauve à reflets de feu, avec ces têtes courtes et frisées qui sentent encore le taureau sauvage, ces gros yeux farouches, ces mouvements brusques, ce travail nerveux et saccadé qui s’irrite encore du joug et de l’aiguillon et n’obéit qu’en frémissant de colère à la domination nouvellement imposée. C’est ce qu’on appelle des bœufs fraîchement liés. L’homme qui les gouvernait avait à défricher un coin naguère abandonné au pâturage et rempli de souches séculaires, travail d’athlète auquel suffisaient à peine son énergie, sa jeunesse et ses huit animaux quasi indomptés.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 11 curly apostrophes replaced by '",
+        "ligatures: 2 ligatures spelled out (œ as oe, æ as ae)"
+      ],
+      "source": {
+        "author": "George Sand (1804–1876)",
+        "work": "La Mare au diable",
+        "place": "chapitre II « Le labour », deux paragraphes consécutifs",
+        "edition": "Hetzel, 1852, illustrated works vol. 1 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=9737764",
+        "revision": "Wikisource revision 9737764",
+        "licence": "public domain in Canada (author died 1876) and the United States (published 1846); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 203,
+      "measures": {
+        "m1": 5.05,
+        "m2": 8.5,
+        "m3": 23,
+        "m4": 6.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (phrases longues, vocabulaire rural : attelage, joug, aiguillon)",
+        "theme": "labour, bœufs, campagne",
+        "reserves": [
+          "aucune dans le passage (« taureau sauvage » : un jeune bœuf à peine dompté) ; mêmes signalements d’œuvre que LFR26"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-hugo-travailleurs-mer-p2-l1-ch13-coquillages",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Sous ces végétations se dérobaient et se montraient en même temps les plus rares bijoux de l'écrin de l'océan, des éburnes, des strombes, des mitres, des casques, des pourpres, des buccins, des struthiolaires, des cérites turriculées. Les cloches des patelles, pareilles à des huttes microscopiques, adhéraient partout au rocher et se groupaient en villages, dans les rues desquels rôdaient les oscabrions, ces scarabées de la vague. Les galets ne pouvant que difficilement entrer dans cette grotte, les coquillages s'y réfugiaient. Les coquillages sont des grands seigneurs, qui, tout brodés et tout passementés, évitent le rude et incivil contact de la populace des cailloux. L'amoncellement étincelant des coquillages faisait sous la lame, à de certains endroits, d'ineffables irradiations à travers lesquelles on entrevoyait un fouillis d'azurs et de nacres, et des ors de toutes les nuances de l'eau. Sur la paroi de la cave, un peu au-dessus de la ligne de flottaison de la marée, une plante magnifique et singulière se rattachait comme une bordure à la tenture de varech, la continuait et l'achevait. Cette plante, fibreuse, touffue, inextricablement coudée et presque noire, offrait au regard de larges nappes brouillées et obscures, partout piquées d'innombrables petites fleurs couleur lapis-lazuli. Dans l'eau ces fleurs semblaient s'allumer, et l'on croyait voir des braises bleues. Hors de l'eau c'étaient des fleurs, sous l'eau c'étaient des saphirs ; de sorte que la lame, en montant et en inondant le soubassement de la grotte revêtu de ces plantes, couvrait le rocher d'escarboucles.",
+      "sourceText": "Sous ces végétations se dérobaient et se montraient en même temps les plus rares bijoux de l’écrin de l’océan, des éburnes, des strombes, des mitres, des casques, des pourpres, des buccins, des struthiolaires, des cérites turriculées. Les cloches des patelles, pareilles à des huttes microscopiques, adhéraient partout au rocher et se groupaient en villages, dans les rues desquels rôdaient les oscabrions, ces scarabées de la vague. Les galets ne pouvant que difficilement entrer dans cette grotte, les coquillages s’y réfugiaient. Les coquillages sont des grands seigneurs, qui, tout brodés et tout passementés, évitent le rude et incivil contact de la populace des cailloux. L’amoncellement étincelant des coquillages faisait sous la lame, à de certains endroits, d’ineffables irradiations à travers lesquelles on entrevoyait un fouillis d’azurs et de nacres, et des ors de toutes les nuances de l’eau.\nSur la paroi de la cave, un peu au-dessus de la ligne de flottaison de la marée, une plante magnifique et singulière se rattachait comme une bordure à la tenture de varech, la continuait et l’achevait. Cette plante, fibreuse, touffue, inextricablement coudée et presque noire, offrait au regard de larges nappes brouillées et obscures, partout piquées d’innombrables petites fleurs couleur lapis-lazuli. Dans l’eau ces fleurs semblaient s’allumer, et l’on croyait voir des braises bleues. Hors de l’eau c’étaient des fleurs, sous l’eau c’étaient des saphirs ; de sorte que la lame, en montant et en inondant le soubassement de la grotte revêtu de ces plantes, couvrait le rocher d’escarboucles.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 1 non-breaking space replaced by a space",
+        "apostrophes: 17 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Victor Hugo (1802–1885)",
+        "work": "Les Travailleurs de la mer",
+        "place": "2e partie, livre I, chapitre XIII, huitième et neuvième paragraphes",
+        "edition": "Testard, 1892, vol. II (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=5543265",
+        "revision": "Wikisource revision 5543265",
+        "licence": "public domain in Canada (author died 1885) and the United States (published 1866); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 245,
+      "measures": {
+        "m1": 5.38,
+        "m2": 15,
+        "m3": 34,
+        "m4": 6,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "difficile (mots rares et techniques : éburnes, strombes, oscabrions, escarboucles ; longues phrases)",
+        "theme": "grotte marine, coquillages, plantes de la mer",
+        "reserves": [
+          "aucune dans le passage ; le passage le plus ardu de la tranche, à cause de sa liste de coquillages ; hors passage, au même chapitre, une expression espagnole et une rêverie sur une déesse nue (sans rien d’explicite) ; ailleurs dans le roman, le combat contre la pieuvre et la fin, où le héros se laisse submerger par la marée (connu, non relu) ; la même œuvre est déjà dans 2026-10-25.1, à un autre chapitre"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-verne-voyage-centre-terre-ch30-mer-interieure",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Une vaste nappe d'eau, le commencement d'un lac ou d'un océan, s'étendait au delà des limites de la vue. Le rivage, largement échancré, offrait aux dernières ondulations des vagues un sable fin, doré, parsemé de ces petits coquillages où vécurent les premiers êtres de la création. Les flots s'y brisaient avec ce murmure sonore particulier aux milieux clos et immenses. Une légère écume s'envolait au souffle d'un vent modéré, et quelques embruns m'arrivaient au visage. Sur cette grève légèrement inclinée, à cent toises environ de la lisière des vagues, venaient mourir les contreforts de rochers énormes qui montaient en s'évasant à une incommensurable hauteur. Quelques-uns, déchirant le rivage de leur arête aiguë, formaient des caps et des promontoires rongés par la dent du ressac. Plus loin, l'oeil suivait leur masse nettement profilée sur les fonds brumeux de l'horizon. C'était un océan véritable, avec le contour capricieux des rivages terrestres, mais désert et d'un aspect effroyablement sauvage. Si mes regards pouvaient se promener au loin sur cette mer, c'est qu'une lumière \"spéciale\" en éclairait les moindres détails. Non pas la lumière du soleil avec ses faisceaux éclatants et l'irradiation splendide de ses rayons, ni la lueur pâle et vague de l'astre des nuits, qui n'est qu'une réflexion sans chaleur. Non. Le pouvoir éclairant de cette lumière, sa diffusion tremblotante, sa blancheur claire et sèche, le peu d'élévation de sa température, son éclat supérieur en réalité à celui de la lune, accusaient évidemment une origine électrique. C'était comme une aurore boréale, un phénomène cosmique continu, qui remplissait cette caverne capable de contenir un océan.",
+      "sourceText": "Une vaste nappe d’eau, le commencement d’un lac ou d’un océan, s’étendait au delà des limites de la vue. Le rivage, largement échancré, offrait aux dernières ondulations des vagues un sable fin, doré, parsemé de ces petits coquillages où vécurent les premiers êtres de la création. Les flots s’y brisaient avec ce murmure sonore particulier aux milieux clos et immenses. Une légère écume s’envolait au souffle d’un vent modéré, et quelques embruns m’arrivaient au visage. Sur cette grève légèrement inclinée, à cent toises environ de la lisière des vagues, venaient mourir les contreforts de rochers énormes qui montaient en s’évasant à une incommensurable hauteur. Quelques-uns, déchirant le rivage de leur arête aiguë, formaient des caps et des promontoires rongés par la dent du ressac. Plus loin, l’œil suivait leur masse nettement profilée sur les fonds brumeux de l’horizon.\nC’était un océan véritable, avec le contour capricieux des rivages terrestres, mais désert et d’un aspect effroyablement sauvage.\nSi mes regards pouvaient se promener au loin sur cette mer, c’est qu’une lumière « spéciale » en éclairait les moindres détails. Non pas la lumière du soleil avec ses faisceaux éclatants et l’irradiation splendide de ses rayons, ni la lueur pâle et vague de l’astre des nuits, qui n’est qu’une réflexion sans chaleur. Non. Le pouvoir éclairant de cette lumière, sa diffusion tremblotante, sa blancheur claire et sèche, le peu d’élévation de sa température, son éclat supérieur en réalité à celui de la lune, accusaient évidemment une origine électrique. C’était comme une aurore boréale, un phénomène cosmique continu, qui remplissait cette caverne capable de contenir un océan.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 21 curly apostrophes replaced by '",
+        "quotes: 2 guillemets replaced by \" and attached to the quoted words",
+        "ligatures: 1 ligature spelled out (œ as oe, æ as ae)"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "Voyage au centre de la Terre",
+        "place": "chapitre XXX, trois paragraphes consécutifs",
+        "edition": "Hetzel, 1867 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=3404706",
+        "revision": "Wikisource revision 3404706",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1864); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 262,
+      "measures": {
+        "m1": 5.16,
+        "m2": 7,
+        "m3": 28,
+        "m4": 10,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "difficile (longues phrases descriptives, vocabulaire savant : contreforts, ressac, irradiation)",
+        "theme": "la mer souterraine",
+        "reserves": [
+          "aucune dans le passage (« sauvage » : l’aspect du lieu) ; chapitre XXX lu en entier"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-verne-rayon-vert-ch19-grotte-fingal",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Devant eux s'ouvrait une sorte de nef, haute et profonde, pleine d'une mystérieuse pénombre. L'écart entre les deux parois latérales, au niveau de la mer, mesurait trente-quatre pieds environ. À droite et à gauche, des piliers de basalte, pressés les uns contre les autres, cachaient, comme dans certaines cathédrales de la dernière période gothique, la masse des murs de soutènement. Sur le chapiteau de ces piliers s'appuyaient les retombées d'une énorme voûte ogivale, qui, sous clef, s'élevait de cinquante pieds au-dessus des eaux moyennes. Miss Campbell et ses compagnons, émerveillés de ce premier aspect, durent enfin s'arracher à leur contemplation et suivre cette saillie, qui forme la banquette intérieure. Là se rangent, dans un ordre parfait, des centaines de colonnes prismatiques, mais de taille inégale, semblables aux produits d'une cristallisation gigantesque. Leurs fines arêtes se dégagent aussi nettement que si le ciseau d'un ornemaniste en eût profilé les lignes. Aux angles rentrants des unes s'adaptent géométriquement les angles sortants des autres. À celles-ci, il y a trois pans ; à celles-là, quatre, cinq, six, et jusqu'à sept ou huit, - ce qui, dans l'uniformité générale du style, met une variété qui prouve en faveur du sens artiste de la nature. La lumière, venue du dehors, se jouait sur tous ces angles à facettes. Reprise par l'eau intérieure, réfléchie comme dans un miroir, s'imprégnant aux pierres sous-marines, aux herbes aquatiques, de teintes vertes, rouge sombre ou jaune clair, elle allumait de mille éclats les saillies des basaltes, qui plafonnaient en caissons irréguliers à la voûte de cette hypogée sans rivale au monde.",
+      "sourceText": "Devant eux s’ouvrait une sorte de nef, haute et profonde, pleine d’une mystérieuse pénombre. L’écart entre les deux parois latérales, au niveau de la mer, mesurait trente-quatre pieds environ. À droite et à gauche, des piliers de basalte, pressés les uns contre les autres, cachaient, comme dans certaines cathédrales de la dernière période gothique, la masse des murs de soutènement. Sur le chapiteau de ces piliers s’appuyaient les retombées d’une énorme voûte ogivale, qui, sous clef, s’élevait de cinquante pieds au-dessus des eaux moyennes.\nMiss Campbell et ses compagnons, émerveillés de ce premier aspect, durent enfin s’arracher à leur contemplation et suivre cette saillie, qui forme la banquette intérieure.\nLà se rangent, dans un ordre parfait, des centaines de colonnes prismatiques, mais de taille inégale, semblables aux produits d’une cristallisation gigantesque. Leurs fines arêtes se dégagent aussi nettement que si le ciseau d’un ornemaniste en eût profilé les lignes. Aux angles rentrants des unes s’adaptent géométriquement les angles sortants des autres. À celles-ci, il y a trois pans ; à celles-là, quatre, cinq, six, et jusqu’à sept ou huit, — ce qui, dans l’uniformité générale du style, met une variété qui prouve en faveur du sens artiste de la nature.\nLa lumière, venue du dehors, se jouait sur tous ces angles à facettes. Reprise par l’eau intérieure, réfléchie comme dans un miroir, s’imprégnant aux pierres sous-marines, aux herbes aquatiques, de teintes vertes, rouge sombre ou jaune clair, elle allumait de mille éclats les saillies des basaltes, qui plafonnaient en caissons irréguliers à la voûte de cette hypogée sans rivale au monde.",
+      "adaptations": [
+        "spaces: 3 paragraph breaks replaced by a space",
+        "spaces: 1 non-breaking space replaced by a space",
+        "apostrophes: 14 curly apostrophes replaced by '",
+        "dashes: 1 sentence dash written as - between spaces"
+      ],
+      "source": {
+        "author": "Jules Verne (1828–1905)",
+        "work": "Le Rayon vert",
+        "place": "chapitre XIX, quatre paragraphes consécutifs (la grotte de Fingal)",
+        "edition": "Hetzel, 1882 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=14458339",
+        "revision": "Wikisource revision 14458339",
+        "licence": "public domain in Canada (author died 1905) and the United States (published 1882); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 259,
+      "measures": {
+        "m1": 5.17,
+        "m2": 8,
+        "m3": 23.6,
+        "m4": 9,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "difficile (vocabulaire d’architecture et de géologie : ogivale, soutènement, hypogée)",
+        "theme": "grotte marine, basalte, Écosse",
+        "reserves": [
+          "aucune dans le passage ; le titre anglais « Miss » (Miss Campbell) et « cette hypogée » au féminin, gardés comme dans la page ; chapitre XIX lu en entier"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-flaubert-coeur-simple-p2-trouville",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "D'autres fois, ayant passé la Toucques en bateau, ils cherchaient des coquilles. La marée basse laissait à découvert des oursins, des godefiches, des méduses ; et les enfants couraient, pour saisir des flocons d'écume que le vent emportait. Les flots endormis, en tombant sur le sable, se déroulaient le long de la grève ; elle s'étendait à perte de vue, mais du côté de la terre avait pour limite les dunes la séparant du Marais, large prairie en forme d'hippodrome. Quand ils revenaient par là, Trouville, au fond sur la pente du coteau, à chaque pas grandissait, et avec toutes ses maisons inégales semblait s'épanouir dans un désordre gai. Les jours qu'il faisait trop chaud, ils ne sortaient pas de leur chambre. L'éblouissante clarté du dehors plaquait des barres de lumière entre les lames des jalousies. Aucun bruit dans le village. En bas, sur le trottoir, personne. Ce silence épandu augmentait la tranquillité des choses. Au loin, les marteaux des calfats tamponnaient des carènes, et une brise lourde apportait la senteur du goudron. Le principal divertissement était le retour des barques. Dès qu'elles avaient dépassé les balises, elles commençaient à louvoyer. Leurs voiles descendaient aux deux tiers des mâts ; et, la misaine gonflée comme un ballon, elles avançaient, glissaient dans le clapotement des vagues, jusqu'au milieu du port, où l'ancre tout à coup tombait. Ensuite le bateau se plaçait contre le quai. Les matelots jetaient par-dessus le bordage des poissons palpitants ; une file de charrettes les attendait, et des femmes en bonnet de coton s'élançaient pour prendre les corbeilles et embrasser leurs hommes.",
+      "sourceText": "D’autres fois, ayant passé la Toucques en bateau, ils cherchaient des coquilles. La marée basse laissait à découvert des oursins, des godefiches, des méduses ; et les enfants couraient, pour saisir des flocons d’écume que le vent emportait. Les flots endormis, en tombant sur le sable, se déroulaient le long de la grève ; elle s’étendait à perte de vue, mais du côté de la terre avait pour limite les dunes la séparant du Marais, large prairie en forme d’hippodrome. Quand ils revenaient par là, Trouville, au fond sur la pente du coteau, à chaque pas grandissait, et avec toutes ses maisons inégales semblait s’épanouir dans un désordre gai.\nLes jours qu’il faisait trop chaud, ils ne sortaient pas de leur chambre. L’éblouissante clarté du dehors plaquait des barres de lumière entre les lames des jalousies. Aucun bruit dans le village. En bas, sur le trottoir, personne. Ce silence épandu augmentait la tranquillité des choses. Au loin, les marteaux des calfats tamponnaient des carènes, et une brise lourde apportait la senteur du goudron.\nLe principal divertissement était le retour des barques. Dès qu’elles avaient dépassé les balises, elles commençaient à louvoyer. Leurs voiles descendaient aux deux tiers des mâts ; et, la misaine gonflée comme un ballon, elles avançaient, glissaient dans le clapotement des vagues, jusqu’au milieu du port, où l’ancre tout à coup tombait. Ensuite le bateau se plaçait contre le quai. Les matelots jetaient par-dessus le bordage des poissons palpitants ; une file de charrettes les attendait, et des femmes en bonnet de coton s’élançaient pour prendre les corbeilles et embrasser leurs hommes.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 11 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Gustave Flaubert (1821–1880)",
+        "work": "Un cœur simple (Trois Contes)",
+        "place": "partie II (le séjour à Trouville), trois paragraphes consécutifs",
+        "edition": "Conard, 1910 (Trois Contes) (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=14187812",
+        "revision": "Wikisource revision 14187812",
+        "licence": "public domain in Canada (author died 1880) and the United States (published 1877); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 261,
+      "measures": {
+        "m1": 4.99,
+        "m2": 6.5,
+        "m3": 27.4,
+        "m4": 5.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (style dense, mots marins et normands rares : godefiches, calfats, carènes)",
+        "theme": "bord de mer, retour des barques de pêche",
+        "reserves": [
+          "aucune dans le passage ; ailleurs dans le conte, l’enfance maltraitée de Félicité, une tentative de violence en une phrase sans détail, la charge d’un taureau, un cliché colonial d’époque sur des gravures, puis des morts par maladie"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-aubert-de-gaspe-anciens-canadiens-ch05-debacle",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Ce que le capitaine Marcheterre avait prédit ne manqua pas d'arriver. Une détonation semblable aux éclats de la foudre se fit bien vite entendre ; et le bras de la rivière, s'échappant furieux de son lit, vint prendre à revers cet énorme amas de glaces qui n'ayant rencontré jusque-là aucun obstacle, poursuivait toujours sa marche triomphante. On crut pendant un moment que cette attaque brusque et rapide, que cette pression soudaine refoulerait une grande partie des glaces du côté du nord, comme le capitaine l'avait espéré. Il s'opéra même un changement momentané qui la refoula du côté des spectateurs, mais cet incident si favorable en apparence à la délivrance de Dumais fut d'une bien courte durée, car le lit de la rivière se trouvant trop resserré pour leur livrer passage, il se fit un temps d'arrêt pendant lequel, s'amoncelant les unes au-dessus des autres, les glaces formèrent une digue d'une hauteur prodigieuse ; et un déluge de flots, obstrué d'abord par cette barrière infranchissable, se répandit ensuite au loin sur les deux rives et inonda même la plus grande partie du village. Cette inondation soudaine, en forçant les spectateurs à chercher un lieu de refuge sur les écores de la rivière, fit évanouir le dernier espoir de secourir l'infortuné Dumais. Ce fut un long et opiniâtre combat entre le puissant élément et l'obstacle qui interceptait son cours ; mais enfin ce lac immense, sans cesse alimenté par la rivière principale et par ses affluents, finit par s'élever jusqu'au niveau de la digue qu'il sapait en même temps par la base. La digue, pressée par ce poids énorme, s'écroula avec un fracas qui ébranla les deux rives. Et comme la Rivière-du-Sud s'élargit tout-à-coup, au-dessous du bras Saint-Nicolas, son affluent, cette masse compacte, libre de toute obstruction descendit avec la rapidité d'une flèche ; et ce fut ensuite une course effrénée vers la cataracte qu'elle avait à franchir avant de tomber dans le bassin sur les rives du Saint-Laurent.",
+      "sourceText": "Ce que le capitaine Marcheterre avait prédit ne manqua pas d’arriver. Une détonation semblable aux éclats de la foudre se fit bien vite entendre ; et le bras de la rivière, s’échappant furieux de son lit, vint prendre à revers cet énorme amas de glaces qui n’ayant rencontré jusque-là aucun obstacle, poursuivait toujours sa marche triomphante. On crut pendant un moment que cette attaque brusque et rapide, que cette pression soudaine refoulerait une grande partie des glaces du côté du nord, comme le capitaine l’avait espéré. Il s’opéra même un changement momentané qui la refoula du côté des spectateurs, mais cet incident si favorable en apparence à la délivrance de Dumais fut d’une bien courte durée, car le lit de la rivière se trouvant trop resserré pour leur livrer passage, il se fit un temps d’arrêt pendant lequel, s’amoncelant les unes au-dessus des autres, les glaces formèrent une digue d’une hauteur prodigieuse ; et un déluge de flots, obstrué d’abord par cette barrière infranchissable, se répandit ensuite au loin sur les deux rives et inonda même la plus grande partie du village. Cette inondation soudaine, en forçant les spectateurs à chercher un lieu de refuge sur les écores de la rivière, fit évanouir le dernier espoir de secourir l’infortuné Dumais.\nCe fut un long et opiniâtre combat entre le puissant élément et l’obstacle qui interceptait son cours ; mais enfin ce lac immense, sans cesse alimenté par la rivière principale et par ses affluents, finit par s’élever jusqu’au niveau de la digue qu’il sapait en même temps par la base. La digue, pressée par ce poids énorme, s’écroula avec un fracas qui ébranla les deux rives. Et comme la Rivière-du-Sud s’élargit tout-à-coup, au-dessous du bras Saint-Nicolas, son affluent, cette masse compacte, libre de toute obstruction descendit avec la rapidité d’une flèche ; et ce fut ensuite une course effrénée vers la cataracte qu’elle avait à franchir avant de tomber dans le bassin sur les rives du Saint-Laurent.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 4 non-breaking spaces replaced by a space",
+        "apostrophes: 19 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Philippe Aubert de Gaspé (1786–1871)",
+        "work": "Les Anciens Canadiens",
+        "place": "chapitre V, deux paragraphes consécutifs",
+        "edition": "Desbarats et Derbishire, 1863 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=6750502",
+        "revision": "Wikisource revision 6750502",
+        "licence": "public domain in Canada (author died 1871) and the United States (published 1863); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 323,
+      "measures": {
+        "m1": 4.92,
+        "m2": 7,
+        "m3": 20.2,
+        "m4": 7,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (phrases très longues, style de 1863, mot régional « écores »)",
+        "theme": "débâcle des glaces sur la Rivière-du-Sud",
+        "reserves": [
+          "aucune dans le passage (un homme en danger sur la glace, sans blessure) ; au même chapitre, hors passage, le souvenir de cet homme attaché à un poteau par des ennemis pour être brûlé vif, puis sauvé, et un jeune homme qui frappe et mord le domestique qui le retient ; l’œuvre emploie ailleurs les termes d’époque pour les Autochtones (signalé, non relu) ; 323 mots, près de la limite"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-michelet-la-mer-l1-ch01-arbres",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "L'introduction naturelle, le vestibule de l'Océan, qui prépare à le bien sentir, c'est le cours mélancolique des fleuves du Nord-Ouest, les vastes sables du Midi, ou les landes de Bretagne. Toute personne qui va à la mer par ces voies est très-frappée de la région intermédiaire qui l'annonce. Le long de ces fleuves, c'est un vague infini de joncs, d'oseraies, de plantes diverses, qui, par les degrés des eaux mêlées et peu à peu saumâtres, deviennent enfin marines. Dans les landes, c'est, avant la mer, une mer préalable d'herbes rudes et basses, fougères et bruyères. Étant encore à une lieue, deux lieues, vous remarquez les arbres chétifs, souffreteux, rechignés, qui annoncent à leur manière par des attitudes, j'allais dire par des gestes étranges, la proximité du grand tyran, et l'oppression de son souffle. S'ils n'étaient pris par les racines, ils fuiraient visiblement ; ils regardent vers la terre, tournent le dos à l'ennemi, semblent tout près de partir, en déroute, échevelés. Ils ploient, se courbent jusqu'au sol, et ne pouvant mieux, fixés là se tordent au vent des tempêtes. Ailleurs encore, le tronc se fait petit et étend ses branches indéfiniment dans le sens horizontal. Sur les plages où les coquilles, dissoutes, élèvent une fine poussière, l'arbre en est envahi, englouti. Ses pores se fermant, l'air lui manque ; il est étouffé, mais conserve sa forme et reste là arbre de pierre, spectre d'arbre, ombre lugubre qui ne peut disparaître, captive dans la mort même.",
+      "sourceText": "L’introduction naturelle, le vestibule de l’Océan, qui prépare à le bien sentir, c’est le cours mélancolique des fleuves du Nord-Ouest, les vastes sables du Midi, ou les landes de Bretagne. Toute personne qui va à la mer par ces voies est très-frappée de la région intermédiaire qui l’annonce. Le long de ces fleuves, c’est un vague infini de joncs, d’oseraies, de plantes diverses, qui, par les degrés des eaux mêlées et peu à peu saumâtres, deviennent enfin marines. Dans les landes, c’est, avant la mer, une mer préalable d’herbes rudes et basses, fougères et bruyères. Étant encore à une lieue, deux lieues, vous remarquez les arbres chétifs, souffreteux, rechignés, qui annoncent à leur manière par des attitudes, j’allais dire par des gestes étranges, la proximité du grand tyran, et l’oppression de son souffle. S’ils n’étaient pris par les racines, ils fuiraient visiblement ; ils regardent vers la terre, tournent le dos à l’ennemi, semblent tout près de partir, en déroute, échevelés. Ils ploient, se courbent jusqu’au sol, et ne pouvant mieux, fixés là se tordent au vent des tempêtes. Ailleurs encore, le tronc se fait petit et étend ses branches indéfiniment dans le sens horizontal. Sur les plages où les coquilles, dissoutes, élèvent une fine poussière, l’arbre en est envahi, englouti. Ses pores se fermant, l’air lui manque ; il est étouffé, mais conserve sa forme et reste là arbre de pierre, spectre d’arbre, ombre lugubre qui ne peut disparaître, captive dans la mort même.",
+      "adaptations": [
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 17 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "Jules Michelet (1798–1874)",
+        "work": "La Mer",
+        "place": "livre I, chapitre I, neuvième paragraphe",
+        "edition": "Michel Lévy frères, 1875 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=9509726",
+        "revision": "Wikisource revision 9509726",
+        "licence": "public domain in Canada (author died 1874) and the United States (published 1861); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 243,
+      "measures": {
+        "m1": 4.86,
+        "m2": 5,
+        "m3": 21.8,
+        "m4": 8.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (phrases longues, adjectifs rares : souffreteux, rechignés ; « très-frappée »)",
+        "theme": "le rivage, arbres courbés par le vent",
+        "reserves": [
+          "aucune dans le passage ; au début du chapitre, une généralisation sur « les Orientaux »"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-buies-saguenay-ch03-cap-eternite",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Le cap Éternité est plus haut que son frère jumeau, mais il s'est quelque peu adouci sous la main des âges et il a laissé une épaisse chevelure de sapins couronner en paix son front et descendre sur ses flancs creusés de rides profondes. Il a une forme à peu près régulière et non pas le torse ni l'encolure violente du cap Trinité qui semble vouloir à toute heure déclarer la guerre aux éléments. Et ce caractère, celui-ci le communique à tout ce qui l'entoure ; on n'arrive à lui qu'après avoir vu défiler devant soi tout un rang de rochers abruptes, jetés en désordre sur le front de bataille, dressés à pic, et qui paraissent placés en ligne comme pour essuyer le premier choc, pour recevoir la formidable averse des cieux irrités. On les dirait toujours en colère à entendre leurs mugissements répondre aux vents de l'espace, à les entendre sourdement gronder au moindre bruit, ou quand les eaux, repoussées sous la proue des navires, se rejettent sur leurs flancs tumultueux. Écoutez... Le sifflet du bateau-à-vapeur a retenti ; l'écho dormait tranquille dans les antres profonds des noires montagnes ; soudain, à ce cri aigu qui traverse l'air, il s'éveille, il s'agite, il pousse un gémissement terrible qui, sorti des entrailles du cap, se précipite de vallées en vallées et de ravines en ravines, court comme un long frissonnement le long des rivages émus, s'engouffre dans les précipices, les remonte en bondissant, frappe les plateaux lointains, puis doucement, doucement, se ralentit, se calme et va s'éteindre enfin dans quelque gorge étroite où il arrive comme étouffé. Alors, le silence, pour quelques instants banni de ses éternelles retraites, y retourne aussitôt et étend de nouveau son muet empire sur cette immense nature subitement apaisée.",
+      "sourceText": "Le cap Éternité est plus haut que son frère jumeau, mais il s’est quelque peu adouci sous la main des âges et il a laissé une épaisse chevelure de sapins couronner en paix son front et descendre sur ses flancs creusés de rides profondes. Il a une forme à peu près régulière et non pas le torse ni l’encolure violente du cap Trinité qui semble vouloir à toute heure déclarer la guerre aux éléments. Et ce caractère, celui-ci le communique à tout ce qui l’entoure ; on n’arrive à lui qu’après avoir vu défiler devant soi tout un rang de rochers abruptes, jetés en désordre sur le front de bataille, dressés à pic, et qui paraissent placés en ligne comme pour essuyer le premier choc, pour recevoir la formidable averse des cieux irrités. On les dirait toujours en colère à entendre leurs mugissements répondre aux vents de l’espace, à les entendre sourdement gronder au moindre bruit, ou quand les eaux, repoussées sous la proue des navires, se rejettent sur leurs flancs tumultueux. Écoutez… Le sifflet du bateau-à-vapeur a retenti ; l’écho dormait tranquille dans les antres profonds des noires montagnes ; soudain, à ce cri aigu qui traverse l’air, il s’éveille, il s’agite, il pousse un gémissement terrible qui, sorti des entrailles du cap, se précipite de vallées en vallées et de ravines en ravines, court comme un long frissonnement le long des rivages émus, s’engouffre dans les précipices, les remonte en bondissant, frappe les plateaux lointains, puis doucement, doucement, se ralentit, se calme et va s’éteindre enfin dans quelque gorge étroite où il arrive comme étouffé. Alors, le silence, pour quelques instants banni de ses éternelles retraites, y retourne aussitôt et étend de nouveau son muet empire sur cette immense nature subitement apaisée.",
+      "adaptations": [
+        "spaces: 3 non-breaking spaces replaced by a space",
+        "apostrophes: 12 curly apostrophes replaced by '",
+        "ellipsis: 1 ellipsis character written as three dots"
+      ],
+      "source": {
+        "author": "Arthur Buies (1840–1901)",
+        "work": "Le Saguenay et la vallée du lac St-Jean",
+        "place": "chapitre III, un paragraphe (le cap Éternité et l’écho)",
+        "edition": "A. Côté et Cie, 1880 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=6497515",
+        "revision": "Wikisource revision 6497515",
+        "licence": "public domain in Canada (author died 1901) and the United States (published 1880); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 291,
+      "measures": {
+        "m1": 4.69,
+        "m2": 4.5,
+        "m3": 21.2,
+        "m4": 8,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (un paragraphe aux phrases très longues, style oratoire, graphies d’époque)",
+        "theme": "fjord du Saguenay, falaises, écho",
+        "reserves": [
+          "aucune dans le passage (« violente » qualifie l’encolure du cap) ; la page perd du texte à deux sauts de page ailleurs dans le chapitre, pas dans ce paragraphe, qui se lit d’un seul tenant (non comparé au fac-similé) ; au même chapitre et aux chapitres voisins, le terme d’époque désignant les Autochtones"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-chateaubriand-memoires-p1-l6-vie-a-bord",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "La cloche interrompait nos conversations ; elle réglait les Quarts, l'heure de l'habillement, celle de la revue, celle des repas. Le matin, à un signal, l'équipage, rangé sur le pont, dépouillait la chemise bleue pour en revêtir une autre qui séchait dans les haubans. La chemise quittée était immédiatement lavée dans des baquets, où cette pension de phoques savonnait aussi des faces brunes et des pattes goudronnées. Au repas du midi et du soir, les matelots, assis en rond autour des gamelles, plongeaient l'un après l'autre, régulièrement et sans fraude, leur cuiller d'étain dans la soupe flottante au roulis. Ceux qui n'avaient pas faim vendaient, pour un morceau de tabac ou pour un verre d'eau-de-vie, leur portion de biscuit ou de viande salée à leurs camarades. Les passagers mangeaient dans la chambre du capitaine. Quand il faisait beau, on tendait une voile sur l'arrière du vaisseau, et l'on dînait à la vue d'une mer bleue, tachetée çà et là de marques blanches par les écorchures de la brise. Enveloppé de mon manteau, je me couchais la nuit sur le tillac. Mes regards contemplaient les étoiles au-dessus de ma tête. La voile enflée me renvoyait la fraîcheur de la brise qui me berçait sous le dôme céleste : à demi assoupi et poussé par le vent, je changeais de ciel en changeant de rêve.",
+      "sourceText": "La cloche interrompait nos conversations ; elle réglait les Quarts, l’heure de l’habillement, celle de la revue, celle des repas. Le matin, à un signal, l’équipage, rangé sur le pont, dépouillait la chemise bleue pour en revêtir une autre qui séchait dans les haubans. La chemise quittée était immédiatement lavée dans des baquets, où cette pension de phoques savonnait aussi des faces brunes et des pattes goudronnées.\nAu repas du midi et du soir, les matelots, assis en rond autour des gamelles, plongeaient l’un après l’autre, régulièrement et sans fraude, leur cuiller d’étain dans la soupe flottante au roulis. Ceux qui n’avaient pas faim vendaient, pour un morceau de tabac ou pour un verre d’eau-de-vie, leur portion de biscuit ou de viande salée à leurs camarades. Les passagers mangeaient dans la chambre du capitaine. Quand il faisait beau, on tendait une voile sur l’arrière du vaisseau, et l’on dînait à la vue d’une mer bleue, tachetée çà et là de marques blanches par les écorchures de la brise.\nEnveloppé de mon manteau, je me couchais la nuit sur le tillac. Mes regards contemplaient les étoiles au-dessus de ma tête. La voile enflée me renvoyait la fraîcheur de la brise qui me berçait sous le dôme céleste : à demi assoupi et poussé par le vent, je changeais de ciel en changeant de rêve.",
+      "adaptations": [
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 2 non-breaking spaces replaced by a space",
+        "apostrophes: 11 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "François-René de Chateaubriand (1768–1848)",
+        "work": "Mémoires d'outre-tombe",
+        "place": "1re partie, livre VI, trois paragraphes consécutifs (la journée à bord)",
+        "edition": "Garnier, 1910, edited by Edmond Biré, vol. 1 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=5647405",
+        "revision": "Wikisource revision 5647405",
+        "licence": "public domain in Canada (author died 1848) and the United States (published 1848–1850); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 221,
+      "measures": {
+        "m1": 4.75,
+        "m2": 5.5,
+        "m3": 20.1,
+        "m4": 7.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (style ancien, vocabulaire marin : haubans, gamelles, roulis, tillac)",
+        "theme": "la vie à bord, une nuit en mer",
+        "reserves": [
+          "aucune dans le passage (« faces brunes » : des matelots hâlés ; « cette pension de phoques » : image plaisante pour l’équipage) ; le paragraphe qui précède contient un terme racial d’époque et un cliché sur les peuples d’Orient, et le livre VI a d’autres comparaisons raciales ou exotisantes d’époque"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-chateaubriand-memoires-p1-l6-tropique",
+      "language": "fr",
+      "complexity": "hard",
+      "text": "Les hommes du trident ont des jeux qui leur viennent de leurs devanciers : quand on passe la Ligne, il faut se résoudre à recevoir le baptême : même cérémonie sous le Tropique, même cérémonie sur le banc de Terre-Neuve, et, quel que soit le lieu, le chef de la mascarade est toujours le bonhomme Tropique. Tropique et hydropique sont synonymes pour les matelots : le bonhomme Tropique a donc une bedaine énorme ; il est vêtu, lors même qu'il est sous son tropique, de toutes les peaux de mouton et de toutes les jaquettes fourrées de l'équipage. Il se tient accroupi dans la grande hune, poussant de temps en temps des mugissements. Chacun le regarde d'en bas : il commence à descendre le long des haubans, pesant comme un ours, trébuchant comme Silène. En mettant le pied sur le pont, il pousse de nouveaux rugissements, bondit, saisit un seau, le remplit d'eau de mer et le verse sur le chef de ceux qui n'ont pas passé la Ligne, ou qui ne sont pas parvenus à la latitude des glaces. On fuit sous les ponts, on remonte sur les écoutilles, on grimpe aux mâts : père Tropique vous poursuit ; cela finit au moyen d'un large pourboire : jeux d'Amphitrite, qu'Homère aurait célébrés comme il a chanté Protée, si le vieil Océanus eût été connu tout entier du temps d'Ulysse ; mais alors on ne voyait encore que sa tête aux Colonnes d'Hercule ; son corps caché couvrait le monde.",
+      "sourceText": "Les hommes du trident ont des jeux qui leur viennent de leurs devanciers : quand on passe la Ligne, il faut se résoudre à recevoir le baptême : même cérémonie sous le Tropique, même cérémonie sur le banc de Terre-Neuve, et, quel que soit le lieu, le chef de la mascarade est toujours le bonhomme Tropique. Tropique et hydropique sont synonymes pour les matelots : le bonhomme Tropique a donc une bedaine énorme ; il est vêtu, lors même qu’il est sous son tropique, de toutes les peaux de mouton et de toutes les jaquettes fourrées de l’équipage. Il se tient accroupi dans la grande hune, poussant de temps en temps des mugissements. Chacun le regarde d’en bas : il commence à descendre le long des haubans, pesant comme un ours, trébuchant comme Silène. En mettant le pied sur le pont, il pousse de nouveaux rugissements, bondit, saisit un seau, le remplit d’eau de mer et le verse sur le chef de ceux qui n’ont pas passé la Ligne, ou qui ne sont pas parvenus à la latitude des glaces. On fuit sous les ponts, on remonte sur les écoutilles, on grimpe aux mâts : père Tropique vous poursuit ; cela finit au moyen d’un large pourboire : jeux d’Amphitrite, qu’Homère aurait célébrés comme il a chanté Protée, si le vieil Océanus eût été connu tout entier du temps d’Ulysse ; mais alors on ne voyait encore que sa tête aux Colonnes d’Hercule ; son corps caché couvrait le monde.",
+      "adaptations": [
+        "spaces: 10 non-breaking spaces replaced by a space",
+        "apostrophes: 10 curly apostrophes replaced by '"
+      ],
+      "source": {
+        "author": "François-René de Chateaubriand (1768–1848)",
+        "work": "Mémoires d'outre-tombe",
+        "place": "1re partie, livre VI, un paragraphe (le baptême sur le banc de Terre-Neuve)",
+        "edition": "Garnier, 1910, edited by Edmond Biré, vol. 1 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=5647405",
+        "revision": "Wikisource revision 5647405",
+        "licence": "public domain in Canada (author died 1848) and the United States (published 1848–1850); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 240,
+      "measures": {
+        "m1": 4.45,
+        "m2": 3.5,
+        "m3": 18.8,
+        "m4": 7.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile (phrases très longues, allusions mythologiques : Silène, Amphitrite, Protée)",
+        "theme": "baptême des marins, jeux de bord",
+        "reserves": [
+          "aucune dans le passage (un bizutage bon enfant à l’eau de mer, « un large pourboire ») ; mêmes signalements d’œuvre que LFR39, dont ce paragraphe n’est pas voisin"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "fr-daudet-lettres-moulin-cornille-moulins",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Notre pays, mon bon monsieur, n'a pas toujours été un endroit mort et sans renom, comme il est aujourd'hui. Autre temps, il s'y faisait un grand commerce de meunerie, et, dix lieues à la ronde, les gens des mas nous apportaient leur blé à moudre... Tout autour du village, les collines étaient couvertes de moulins à vent. De droite et de gauche on ne voyait que des ailes qui viraient au mistral par-dessus les pins, des ribambelles de petits ânes chargés de sacs, montant et dévalant le long des chemins ; et toute la semaine c'était plaisir d'entendre sur la hauteur le bruit des fouets, le craquement de la toile et le Dia hue ! des aides-meuniers... Le dimanche nous allions aux moulins, par bandes. Là-haut, les meuniers payaient le muscat. Les meunières étaient belles comme des reines, avec leurs fichus de dentelles et leurs croix d'or. Moi, j'apportais mon fifre, et jusqu'à la noire nuit on dansait des farandoles. Ces moulins-là, voyez-vous, faisaient la joie et la richesse de notre pays. Malheureusement, des Français de Paris eurent l'idée d'établir une minoterie à vapeur, sur la route de Tarascon. Tout beau, tout nouveau ! Les gens prirent l'habitude d'envoyer leurs blés aux minotiers, et les pauvres moulins à vent restèrent sans ouvrage. Pendant quelque temps ils essayèrent de lutter, mais la vapeur fut la plus forte, et l'un après l'autre, pécaïre ! ils furent tous obligés de fermer... On ne vit plus venir les petits ânes... Les belles meunières vendirent leurs croix d'or... Plus de muscat ! plus de farandole !... Le mistral avait beau souffler, les ailes restaient immobiles... Puis, un beau jour, la commune fit jeter toutes ces masures à bas, et l'on sema à leur place de la vigne et des oliviers.",
+      "sourceText": "Notre pays, mon bon monsieur, n’a pas toujours été un endroit mort et sans renom, comme il est aujourd’hui. Autre temps, il s’y faisait un grand commerce de meunerie, et, dix lieues à la ronde, les gens des mas nous apportaient leur blé à moudre… Tout autour du village, les collines étaient couvertes de moulins à vent. De droite et de gauche on ne voyait que des ailes qui viraient au mistral par-dessus les pins, des ribambelles de petits ânes chargés de sacs, montant et dévalant le long des chemins ; et toute la semaine c’était plaisir d’entendre sur la hauteur le bruit des fouets, le craquement de la toile et le Dia hue ! des aides-meuniers… Le dimanche nous allions aux moulins, par bandes. Là-haut, les meuniers payaient le muscat. Les meunières étaient belles comme des reines, avec leurs fichus de dentelles et leurs croix d’or. Moi, j’apportais mon fifre, et jusqu’à la noire nuit on dansait des farandoles. Ces moulins-là, voyez-vous, faisaient la joie et la richesse de notre pays.\nMalheureusement, des Français de Paris eurent l’idée d’établir une minoterie à vapeur, sur la route de Tarascon. Tout beau, tout nouveau ! Les gens prirent l’habitude d’envoyer leurs blés aux minotiers, et les pauvres moulins à vent restèrent sans ouvrage. Pendant quelque temps ils essayèrent de lutter, mais la vapeur fut la plus forte, et l’un après l’autre, pécaïre ! ils furent tous obligés de fermer… On ne vit plus venir les petits ânes… Les belles meunières vendirent leurs croix d’or… Plus de muscat ! plus de farandole !… Le mistral avait beau souffler, les ailes restaient immobiles… Puis, un beau jour, la commune fit jeter toutes ces masures à bas, et l’on sema à leur place de la vigne et des oliviers.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 6 non-breaking spaces replaced by a space",
+        "apostrophes: 16 curly apostrophes replaced by '",
+        "ellipsis: 7 ellipsis characters written as three dots"
+      ],
+      "source": {
+        "author": "Alphonse Daudet (1840–1897)",
+        "work": "Lettres de mon moulin",
+        "place": "« Le secret de maître Cornille », deux paragraphes consécutifs (le récit de Francet Mamaï commence)",
+        "edition": "Charpentier et Fasquelle, 1895 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=5800490",
+        "revision": "Wikisource revision 5800490",
+        "licence": "public domain in Canada (author died 1897) and the United States (published 1869); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 289,
+      "measures": {
+        "m1": 4.73,
+        "m2": 4,
+        "m3": 19.4,
+        "m4": 10,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (récit oral, phrases courtes, quelques mots provençaux)",
+        "theme": "moulins à vent, village provençal, métiers",
+        "reserves": [
+          "aucune dans le passage ; en réserve pour ne pas tirer trois passages du même recueil (2026-10-25.1 en retient déjà un, et LFR21 en est un autre) ; plus loin dans la lettre, le meunier est comparé à un Rom, désigné par le terme d’époque ; mêmes signalements de recueil que LFR21"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "spare"
+    },
+    {
+      "id": "fr-michelet-la-mer-l1-ch01-voix",
+      "language": "fr",
+      "complexity": "medium",
+      "text": "Bien avant de voir la mer, on entend et on devine la redoutable personne. D'abord, c'est un bruit lointain, sourd et uniforme. Et peu à peu tous les bruits lui cèdent et en sont couverts. On en remarque bientôt la solennelle alternative, le retour invariable de la même note, forte et basse, qui de plus en plus roule, gronde. Moins régulière l'oscillation du pendule qui nous mesure l'heure ! Mais ici le balancier n'a pas la monotonie des choses mécaniques. On y sent, on croit y sentir la vibrante intonation de la vie. En effet, au moment du flux, quand la vague monte sur la vague, immense, électrique, il se mêle au roulement orageux des eaux le bruit des coquilles et de mille êtres divers qu'elle apporte avec elle. Le reflux vient-il, un bruissement fait comprendre qu'avec les sables elle remporte ce monde de tribus fidèles, et le recueille en son sein. Que d'autres voix elle a encore ! Pour peu qu'elle soit émue, ses plaintes et ses profonds soupirs contrastent avec le silence du morne rivage. Il semble se recueillir pour écouter la menace de celle qui le flattait hier d'un flot caressant. Que va-t-elle bientôt lui dire ? Je ne veux pas le prévoir. Je ne veux point parler ici des épouvantables concerts qu'elle va donner peut-être, de ses duos avec les rocs, des basses et des tonnerres sourds qu'elle fait au fond des cavernes, ni de ces cris surprenants où l'on croit entendre : Au secours !... Non, prenons-la dans ses jours graves, où elle est forte sans violence.",
+      "sourceText": "Bien avant de voir la mer, on entend et on devine la redoutable personne. D’abord, c’est un bruit lointain, sourd et uniforme. Et peu à peu tous les bruits lui cèdent et en sont couverts. On en remarque bientôt la solennelle alternative, le retour invariable de la même note, forte et basse, qui de plus en plus roule, gronde. Moins régulière l’oscillation du pendule qui nous mesure l’heure ! Mais ici le balancier n’a pas la monotonie des choses mécaniques. On y sent, on croit y sentir la vibrante intonation de la vie. En effet, au moment du flux, quand la vague monte sur la vague, immense, électrique, il se mêle au roulement orageux des eaux le bruit des coquilles et de mille êtres divers qu’elle apporte avec elle. Le reflux vient-il, un bruissement fait comprendre qu’avec les sables elle remporte ce monde de tribus fidèles, et le recueille en son sein.\nQue d’autres voix elle a encore ! Pour peu qu’elle soit émue, ses plaintes et ses profonds soupirs contrastent avec le silence du morne rivage. Il semble se recueillir pour écouter la menace de celle qui le flattait hier d’un flot caressant. Que va-t-elle bientôt lui dire ? Je ne veux pas le prévoir. Je ne veux point parler ici des épouvantables concerts qu’elle va donner peut-être, de ses duos avec les rocs, des basses et des tonnerres sourds qu’elle fait au fond des cavernes, ni de ces cris surprenants où l’on croit entendre : Au secours !… Non, prenons-la dans ses jours graves, où elle est forte sans violence.",
+      "adaptations": [
+        "spaces: 1 paragraph break replaced by a space",
+        "spaces: 5 non-breaking spaces replaced by a space",
+        "apostrophes: 13 curly apostrophes replaced by '",
+        "ellipsis: 1 ellipsis character written as three dots"
+      ],
+      "source": {
+        "author": "Jules Michelet (1798–1874)",
+        "work": "La Mer",
+        "place": "livre I, chapitre I, dixième et onzième paragraphes",
+        "edition": "Michel Lévy frères, 1875 (Wikisource transcription)",
+        "url": "https://fr.wikisource.org/w/index.php?oldid=9509726",
+        "revision": "Wikisource revision 9509726",
+        "licence": "public domain in Canada (author died 1874) and the United States (published 1861); Wikisource pages under CC BY-SA 4.0"
+      },
+      "wordCount": 257,
+      "measures": {
+        "m1": 4.53,
+        "m2": 6,
+        "m3": 18.5,
+        "m4": 8,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen (phrases rythmées, vocabulaire courant, quelques mots rares)",
+        "theme": "la mer entendue avant d’être vue",
+        "reserves": [
+          "aucune dans le passage (« en son sein » : au sens figuré ; « Au secours !… » : cri que l’on croit entendre dans les vagues ; « forte sans violence ») ; paragraphes voisins de LFR37, d’où le statut de réserve ; au début du chapitre, une généralisation sur « les Orientaux »"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at f4600af (dev), normalization 2"
+      },
+      "status": "spare"
+    }
+  ]
+}

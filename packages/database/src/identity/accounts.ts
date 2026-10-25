@@ -111,3 +111,13 @@ export async function readAccountProfile(db: Database, accountId: string): Promi
   const [row] = await db.select({ displayName: accounts.displayName }).from(accounts).where(eq(accounts.id, accountId));
   return row;
 }
+
+/** Writes a validated D-14 name for the authenticated account only. Room and race names are snapshots. */
+export async function updateAccountDisplayName(
+  db: Database,
+  input: { readonly accountId: string; readonly displayName: string },
+): Promise<{ readonly displayName: string } | undefined> {
+  const [row] = await db.update(accounts).set({ displayName: input.displayName })
+    .where(eq(accounts.id, input.accountId)).returning({ displayName: accounts.displayName });
+  return row;
+}

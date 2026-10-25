@@ -22,6 +22,7 @@ export * from "./random/prng";
 export * from "./rooms/room-admission";
 export * from "./rooms/room-code";
 export * from "./text/coherent";
+export { drawExtensionWords, EXTENSION_DRAW_VERSION, EXTENSION_DRAWS_PER_SLOT, EXTENSION_MIX_VERSION, EXTENSION_RESTARTS, EXTENSION_WORDS, extensionViolations, type ExtensionDraw, type ExtensionGrant, type ExtensionInput, type ExtensionRefusal, type ExtensionSettings } from "./text/extension";
 export * from "./text/generate";
 export * from "./text/graphemes";
 export * from "./text/measure";
@@ -38,3 +39,5 @@ export { applyBonusEffect, bonusFogActive, BONUS_FOG_MS, type BonusFog, type Bon
   type BonusEffectRefusal, type BonusEffectResult, type BonusEffectInput } from "./bonuses/effects";
 export * from "./bonuses/coordinator";
 export * from "./bonuses/coordinator-types";
+
+export { simulateRace, type SimulatedBot, type ScriptedHumanEvent, type SimulationInput, type SimulationResult } from "./simulation/simulate-race";

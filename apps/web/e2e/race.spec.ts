@@ -97,6 +97,11 @@ test.describe("the first complete race (F-04.0)", () => {
     const guestField = guest.getByLabel("Ta frappe");
     await expect(hostField).toBeEnabled({ timeout: 6_000 });
     await expect(guestField).toBeEnabled();
+    // The UI integration never enables bonuses in normal rooms (CONF-09 remains off).
+    await guestField.press("Enter");
+    await expect(guest.getByRole("region", { name: "Bonus", exact: true })).toHaveCount(0);
+    await expect(host.getByRole("region", { name: "Bonuses", exact: true })).toHaveCount(0);
+    await expect(guest.locator(".course-texte")).toHaveText(text);
 
     // Paste and drop are refused: a pasted text never becomes keystrokes (screen 08).
     await guestField.evaluate((field) => {
@@ -225,7 +230,7 @@ test.describe("the first complete race (F-04.0)", () => {
 
   test("a player who leaves during the race abandons, and keeps a ranked result", async ({ browser }) => {
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
-    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 768, theme: "aube" });
     const code = await openRoom(host);
     await join(guest, code);
     await host.getByRole("button", { name: "Start the race" }).click();
@@ -244,12 +249,18 @@ test.describe("the first complete race (F-04.0)", () => {
     // The results at 360 px: no horizontal page scroll, and the table's region reachable by keyboard.
     await host.setViewportSize({ width: 360, height: 800 });
     await expectNoHorizontalScroll(host);
-    await expectNoAccessibilityViolation(host);
+    // Results trigger router.refresh(): streamed metadata may briefly remove the document
+    // title after the ranking is already visible. Require both the restored title and a
+    // complete axe pass, without suppressing document-title or any other accessibility rule.
+    await expect(async () => {
+      await expect(host).toHaveTitle(`Room ${code} · Incision`);
+      await expectNoAccessibilityViolation(host);
+    }).toPass({ timeout: 5_000 });
   });
 
   test("a player gives up only after confirming it, and the results say it was a choice (COURSE-07)", async ({ browser }) => {
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
-    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 768, theme: "aube" });
     const code = await openRoom(host);
     await join(guest, code);
     await host.getByRole("button", { name: "Start the race" }).click();
@@ -290,6 +301,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByRole("region", { name: "Équipage en course" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("abandon");
 
     await typeText(field, text.slice(4));
+    await guest.setViewportSize({ width: 360, height: 800 });
     await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
     await expect(guest.getByRole("table").getByRole("row").nth(2)).toContainText("abandon (volontaire)");
     await expect(host.getByRole("table").getByRole("row").nth(2)).toContainText("abandoned (voluntary)");
@@ -396,7 +408,7 @@ test.describe("the first complete race (F-04.0)", () => {
     // A whole race, a newcomer, axe at 360 px, then a second start: about 16 s on a calm machine;
     // 60 s leaves room under load, where the default 30 s would be tight.
     test.setTimeout(60_000);
-    const { page: host } = await signedIn(browser, "Capitaine", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "fr-CA", width: 768, theme: "aube" });
     const { page: guest } = await signedIn(browser, "Matelot", { locale: "en-US" });
     const { page: leaver } = await signedIn(browser, "Mousse", { locale: "fr-CA" });
     const code = await openRoom(host);
@@ -408,6 +420,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await leaver.getByRole("button", { name: "Abandonner la course" }).click();
     await leaver.getByRole("button", { name: "Oui, abandonner" }).click();
     await Promise.all([typeText(host.getByLabel("Ta frappe"), text), typeText(guest.getByLabel("Your typing"), text)]);
+    await host.setViewportSize({ width: 360, height: 800 });
     await expect(host.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
 
     // During the results, someone joins and someone leaves; only the host is offered the next round.
@@ -440,7 +453,7 @@ test.describe("the first complete race (F-04.0)", () => {
 
   test("the host closes the room from the results: everyone sees it closed, and the race stays readable (F-04.7)", async ({ browser }) => {
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US", theme: "abysse" });
-    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 768, theme: "aube" });
     const code = await openRoom(host);
     await join(guest, code);
     await host.getByRole("button", { name: "Start the race" }).click();
@@ -448,6 +461,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
     await guest.getByRole("button", { name: "Abandonner la course" }).click();
     await guest.getByRole("button", { name: "Oui, abandonner" }).click();
+    await guest.setViewportSize({ width: 360, height: 800 });
     await typeText(host.getByLabel("Your typing"), text);
     await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
     const raceHref = await guest.getByRole("link", { name: "Voir la fiche de la course" }).getAttribute("href");

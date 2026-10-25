@@ -231,7 +231,8 @@ describe("bot scheduling and authoritative integration", () => {
     expect(result.elapsed).toBeGreaterThan(120_000);
   });
 
-  it.each(BOT_LEVELS)("calibrates %s against net measures, both modes and many fixed seeds", (level) => {
+  // 160 bounded simulations per level, about 1 s of CPU alone: the timeout covers a loaded machine, not a hang.
+  it.each(BOT_LEVELS)("calibrates %s against net measures, both modes and many fixed seeds", { timeout: 30_000 }, (level) => {
     const profile = BOT_PROFILES[level];
     for (const mode of ["free", "mandatory"] as const) {
       let correct = 0;
