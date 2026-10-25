@@ -97,6 +97,11 @@ test.describe("the first complete race (F-04.0)", () => {
     const guestField = guest.getByLabel("Ta frappe");
     await expect(hostField).toBeEnabled({ timeout: 6_000 });
     await expect(guestField).toBeEnabled();
+    // The UI integration never enables bonuses in normal rooms (CONF-09 remains off).
+    await guestField.press("Enter");
+    await expect(guest.getByRole("region", { name: "Bonus", exact: true })).toHaveCount(0);
+    await expect(host.getByRole("region", { name: "Bonuses", exact: true })).toHaveCount(0);
+    await expect(guest.locator(".course-texte")).toHaveText(text);
 
     // Paste and drop are refused: a pasted text never becomes keystrokes (screen 08).
     await guestField.evaluate((field) => {
