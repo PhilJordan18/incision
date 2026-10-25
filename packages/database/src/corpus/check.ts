@@ -2,7 +2,6 @@ import { isDeepStrictEqual } from "node:util";
 import {
   asRandomState,
   checkPassages,
-  type CoherentTextSettings,
   countWords,
   generateRaceText,
   normalizePassage,
@@ -12,23 +11,9 @@ import {
   type TextLanguage,
 } from "@incision/domain";
 import type { z } from "zod";
+import { defaultCoherentSettings } from "./defaults";
 import { type CorpusFile, corpusFileSchema, type CorpusPassage, type MeasuredWith, PASSAGE_ID_PATTERN } from "./format";
 import { type PassageIdentity, passageContentHash, type VersionEntry, versionChecksum } from "./hash";
-
-/**
- * D-19's coherent text defaults (Philippe's decision 1 of October 21): the settings every
- * language of an active corpus must be able to serve. F-02.3b starts races with them until the
- * host can choose (F-03.1). A product rule that may later move to @incision/domain.
- */
-export function defaultCoherentSettings(language: TextLanguage): CoherentTextSettings {
-  return {
-    kind: "coherent",
-    language,
-    wordCount: 50,
-    complexity: "medium",
-    options: { punctuation: true, numbers: false, capitals: true, accents: true },
-  };
-}
 
 export type CorpusRefusalCode =
   | "INVALID_FORMAT"
