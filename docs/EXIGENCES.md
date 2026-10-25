@@ -115,8 +115,8 @@
 
 | ID | Attendu (résumé) | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
 |---|---|---|---|---|---|
-| RES-01 | Podium des trois premiers | non fait | — | — | N'afficher que les places existantes s'il y a deux participants. |
-| RES-02 | Tableau complet MPM/brut/précision/erreurs/temps/statut/bonus | non fait | — | — | Trois statuts officiels, champs conservés dans les résultats. |
+| RES-01 | Podium des trois premiers | partiel | `components/races/results-podium.tsx`, `race-results.tsx` | Tests de rendu ; E2E résultats et course ; `docs/evidence/f07-2a/README.md` | #65A : places réellement présentes, rang enregistré conservé et statuts explicites. Livraison locale ; recette humaine et production non validées. |
+| RES-02 | Tableau complet MPM/brut/précision/erreurs/temps/statut/bonus | partiel | `components/races/race-results.tsx` | Tests de rendu et E2E résultats (#65A) | Rang, nom figé, MPM net/brut, précision, temps et statut affichés. Erreurs et historique des bonus restent à raccorder ; aucune valeur inventée. |
 | RES-03 | Courbe MPM de tous et carte personnelle des touches manquées | non fait | — | — | Séries et erreurs agrégées prévues, pas calculées à partir d'un score final seul. |
 | RES-04 | Indicateur de record personnel | non fait | — | — | D-12 : records sur les courses terminées, segmentés avec/sans bonus et par mode d'erreur. |
 | RES-05 | Résultats des humains connectés persistés, séries MPM comprises | partiel | packages/database/src/races/lifecycle.ts; apps/web/src/server/races/race-runtime.ts | races.db.test.ts (un participant parti garde son résultat); race-runtime.test.ts | Chaque coureur authentifié garde un résultat, même parti pendant la course (abandon), dans la transaction du passage aux résultats. Restent les séries MPM (F-07.1), les invités et les bonus. |
