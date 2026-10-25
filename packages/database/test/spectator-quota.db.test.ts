@@ -20,6 +20,7 @@ beforeAll(async () => {
 afterEach(async () => {
   await pool.query("update lobbies set host_member_id = null");
   await pool.query("delete from lobbies");
+  await pool.query("delete from races");
   await pool.query("delete from accounts");
 });
 afterAll(async () => {
@@ -104,6 +105,11 @@ describe("D-22 spectator admission under the lobby lock", () => {
   it("keeps phase refusals and private-code indistinguishability ahead of quota details", async () => {
     const room = await fixture(20);
     const accountId = await account("Outsider");
+    // Active phases require an associated race; keep the fixture consistent with DB constraints.
+    await pool.query(`with race as (
+      insert into races (lobby_id, round_no, rules_version, text_snapshot, config_snapshot, countdown_at, owner_id, lease_expires_at)
+      values ($1, 1, 1, 'x', '{}', statement_timestamp(), gen_random_uuid(), statement_timestamp()) returning id
+    ) update lobbies set current_race_id=race.id from race where lobbies.id=$1`, [room.lobbyId]);
     for (const phase of ["countdown", "racing", "closed"]) {
       await pool.query("update lobbies set phase=$1 where id=$2", [phase, room.lobbyId]);
       expect(await joinRoomByCode(db, { accountId, code: room.code, role: "spectator" })).toEqual({ ok: false, error: "ROOM_NOT_ADMITTING", phase });
