@@ -31,7 +31,7 @@ Three route-handler modules are present; framework internals/static assets are n
 
 | Entry | Validation and access boundary | Evidence / limit |
 |---|---|---|
-| `GET /api/health/live` | No request fields consumed; constant liveness response. | No authentication needed, no account data. |
+| `GET /api/health/live` | No request fields consumed; liveness status and deployed commit. | No authentication needed, no account data. |
 | `GET /api/health` | No request fields consumed; readiness query to SQL, generic failure. | `app/api/health/route.test.ts`; no secret/database detail in the response. |
 | `GET/POST /api/auth/[...nextauth]` | Delegates protocol parsing to Auth.js handlers in `auth.ts`. Application credential/JWT/provider callbacks validate their own inputs. | Library-managed OAuth/CSRF parsing is not an application Zod schema or a live-provider audit. `credentials.test.ts`, `session-callbacks.test.ts`, `session-token.test.ts`. |
 | `/rooms/[code]`, including metadata | `parseRoomCode` before code lookup; canonical redirect; account session; `load-room.ts` enforces code-attempt limits and authorised room projection. | `load-room.test.ts`, `code-attempts.test.ts`, existing code-limit E2E. Domain parser rather than Zod for the route code. |
