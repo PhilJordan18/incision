@@ -111,10 +111,10 @@ describe("D-22 spectator admission under the lobby lock", () => {
       values ($1, 1, 1, 'x', '{}', statement_timestamp(), gen_random_uuid(), statement_timestamp()) returning id
     ) update lobbies set current_race_id=race.id from race where lobbies.id=$1`, [room.lobbyId]);
     for (const phase of ["countdown", "racing", "closed"]) {
-      await pool.query("update lobbies set phase=$1 where id=$2", [phase, room.lobbyId]);
+      await pool.query("update lobbies set phase=$1, closed_at=case when $1='closed' then now() else null end where id=$2", [phase, room.lobbyId]);
       expect(await joinRoomByCode(db, { accountId, code: room.code, role: "spectator" })).toEqual({ ok: false, error: "ROOM_NOT_ADMITTING", phase });
     }
-    await pool.query("update lobbies set phase='waiting', visibility='private' where id=$1", [room.lobbyId]);
+    await pool.query("update lobbies set phase='waiting', closed_at=null, visibility='private' where id=$1", [room.lobbyId]);
     expect(await joinRoomByCode(db, { accountId, code: room.code, role: "spectator" })).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
   });
 });
