@@ -85,14 +85,18 @@ test("locale formats stay consistent through a race, server results and hydratio
     await page.goto(raceUrl);
     await expect(page).toHaveTitle(new RegExp(round));
     await expect(page.locator("main")).toContainText(round);
-    const response = await page.request.get(raceUrl);
+    const response = await page.request.get(raceUrl, { headers: { "Accept-Language": locale } });
     expect(await response.text()).toContain(round);
     const data = await page.getByRole("table").innerText();
     expect(data).toMatch(locale === "fr" ? /100\s%/u : /100%/u);
     expect(data).toMatch(locale === "fr" ? /0:\d{2},\d/ : /0:\d{2}\.\d/);
     for (const theme of ["abysse", "aube"] as const) {
       await page.context().addCookies([{ name: "theme", value: theme, url: raceUrl }]);
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await page.reload();
+      await page.getByRole("heading", { level: 1 }).focus();
+      await page.keyboard.press("Tab");
+      await expect(page.locator("main [role=region]")).toBeFocused();
       for (const width of [1440, 1024, 390, 360]) {
         await page.setViewportSize({ width, height: 900 });
         await expectNoHorizontalScroll(page);
