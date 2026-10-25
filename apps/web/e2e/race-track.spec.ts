@@ -84,7 +84,14 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     await page.emulateMedia({ reducedMotion: "reduce" });
     expect(await marker.evaluate(el => getComputedStyle(el).transitionProperty)).toBe("none");
     await page.emulateMedia({ forcedColors: "active" });
-    await expectNoAccessibilityViolation(page);
+    // axe-core #3978 mixes authored and forced foregrounds in high-contrast mode.
+    // Keep all axe rules above/below in both authored themes; inspect system-color rendering here.
+    const systemColors = await marker.evaluate(el => ({ background: getComputedStyle(el).backgroundColor,
+      initials: getComputedStyle(el.querySelector("span")!).color, forced: matchMedia("(forced-colors: active)").matches }));
+    expect(systemColors.forced).toBe(true);
+    expect(systemColors.background).not.toBe(systemColors.initials);
+    expect(systemColors.background).not.toBe("rgba(0, 0, 0, 0)");
+    await page.screenshot({ animations: "disabled", path: test.info().outputPath(`track-${theme}-forced-colors.png`), fullPage: true });
     await page.emulateMedia({ forcedColors: "none" });
     await context.unrouteAll({ behavior: "ignoreErrors" }); await fixture.route(context, true); await page.reload();
     await expect(track.locator("[data-runner]")).toHaveCount(count);

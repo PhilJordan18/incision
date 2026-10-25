@@ -45,7 +45,7 @@ Socket.IO with `track-fixture.ts`, a local server that emits schema-validated
 synthetic snapshots. It exercises 30 and 50 runners, browser interpolation at
 4Hz, stable input position/focus, keyboard disclosure, all runner entries, reduced
 motion, spectator mode, axe and 1440/1024/390/360 widths. This is **rendering
- evidence**, not a claim of 50 real admitted players or production load capacity.
+evidence**, not a claim of 50 real admitted players or production load capacity.
 
 The existing ordinary two-player race test separately checks real runtime input,
 progress, stored results and reopening. Four existing mobile-keyboard scenarios
@@ -64,3 +64,12 @@ Shared matrix handoff: update COURSE-05 / DES-04 with the component, layout test
 and browser evidence after integration; retain separate limits for bots/photos
 and the PERF-03 real-load/production qualification. Do not turn the fixture's
 frame observations into Azure or end-to-end 30-client runtime evidence.
+
+Forced-colors verification is visual/system-color based, separately from the full
+axe checks in both authored themes. An exploratory whole-page axe run in forced
+colors reported false foreground combinations on existing header/body elements;
+this matches the still-open vendor defect [axe-core #3978](https://github.com/dequelabs/axe-core/issues/3978),
+which mixes `-webkit-text-fill-color` with forced backgrounds. No axe rule is
+disabled for the authored themes. The high-contrast test asserts system-color
+marker/initial contrast and captures the actual page for inspection. Initial
+failure traces are retained locally.
