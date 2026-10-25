@@ -8,6 +8,7 @@ export * from "./identity/login";
 export * from "./ids";
 export * from "./measures/compute";
 export * from "./measures/types";
+export * from "./profile/statistics";
 export * from "./race/create";
 export * from "./race/elapsed";
 export * from "./race/keystrokes";
