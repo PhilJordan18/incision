@@ -73,14 +73,14 @@ function reportOf(result: CorpusImportResult) {
   return result.report;
 }
 
-/** A finished race of an earlier release, naming its passage in its configuration. */
-async function storedRace(passageId: string, typed = "Texte."): Promise<void> {
+/** A finished race, naming its passage in its configuration (F-04.0's shape, plus `config`). */
+async function storedRace(passageId: string, typed = "Texte.", config: Record<string, unknown> = {}): Promise<void> {
   await pool.query("insert into lobbies (code, capacity) values ('B7K4PQ', 30) on conflict do nothing");
   await pool.query(
     `insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
-     select id, (select count(*) + 1 from races), 'finished', 1, $2, jsonb_build_object('text', $1::text), now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now()
+     select id, (select count(*) + 1 from races), 'finished', 1, $2, jsonb_build_object('text', $1::text) || $3::jsonb, now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now()
      from lobbies where code = 'B7K4PQ'`,
-    [passageId, typed],
+    [passageId, typed, JSON.stringify(config)],
   );
 }
 
@@ -228,6 +228,19 @@ describe("importCorpus", () => {
     await storedRace(VERNE, fixture.fr.passages[0]!.text);
     await storedRace(STEVENSON, fixture.en.passages[0]!.text);
     expect(reportOf(await importCorpus(db, corpus())).outcome).toBe("imported");
+  });
+
+  it("accepts the next versions after races drawn from the corpus, which typed a cut of a stored passage (F-02.3b)", async () => {
+    await importCorpus(db, corpus());
+    const cut = fixture.fr.passages[0]!.text.split(" ").slice(0, 50).join(" ");
+    await storedRace(VERNE, cut, { corpusVersion: FIXTURE_VERSION, language: "fr" });
+    expect(reportOf(await importCorpus(db, corpus(renamed(NEXT_VERSION))))).toMatchObject({ outcome: "imported", newPassages: 0, keptPassages: 2 });
+    const withoutVerne = corpus((files) => {
+      renamed("contract-2026-10-23")(files);
+      files.fr.passages[0] = { ...files.fr.passages[0]!, id: "fr-verne-pacifique-bis" };
+    });
+    expect(reportOf(await importCorpus(db, withoutVerne))).toMatchObject({ outcome: "imported", retiredPassages: 1 });
+    expect(await rows("select text_snapshot from races")).toEqual([{ text_snapshot: cut }]);
   });
 
   it("writes nothing when a statement fails half-way, and the version active before stays active", async () => {

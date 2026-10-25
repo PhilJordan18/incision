@@ -1,11 +1,13 @@
-import { createDatabase, createRoomWithHost, joinRoomByCode } from "@incision/database";
-import { parseRoomCode, ROOM_CODE_ALPHABET } from "@incision/domain";
+import { createDatabase, createRoomWithHost, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
+import { countWords, parseRoomCode, passageCut, ROOM_CODE_ALPHABET } from "@incision/domain";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RaceBatchAck, RaceProgressPayload, RaceRevealPayload, RaceSelfPayload } from "../src/races/protocol";
 import type { PublicRoomSnapshot } from "../src/rooms/protocol";
-import { RACE_TEXTS } from "../src/server/races/race-texts";
-import { mkdir, writeFile } from "node:fs/promises";
+import { CORPUS_RETRY_MS } from "../src/server/races/race-texts";
+import { execFile } from "node:child_process";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { promisify } from "node:util";
 import path from "node:path";
 import { account, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, startStallingProxy, type StallingProxy, type Tab } from "./servers";
 
@@ -356,11 +358,11 @@ describe("an integrated race (F-04.0)", () => {
     expect(lobby?.phase).toBe("waiting");
   }, 60_000);
 
-  it("runs the chosen text in production without RACE_FIXTURE_TEXTS, records which one, and says so at boot", async () => {
+  it("draws the race text from the imported corpus in production, refuses without one, and records the passage", async () => {
     // The process of the previous test has exited: its port is free again.
     const c = await startServer(PORTS[1] ?? 3302, { RACE_FIXTURE_TEXTS: "" });
     servers.push(c);
-    expect(c.output()).toContain(`[races] race texts: ${RACE_TEXTS.fr.id}, ${RACE_TEXTS.en.id}`);
+    expect(c.output()).toContain("[races] race texts: drawn from the active corpus (D-19: coherent, 50 words, medium)");
     expect(c.output()).not.toContain("RACE_FIXTURE_TEXTS=allowed");
     const host = await account("int-host-5", "Hôte cinq");
     const guest = await account("int-guest-5", "Invité cinq");
@@ -369,13 +371,40 @@ describe("an integrated race (F-04.0)", () => {
     const g = await tab(c.origin, guest.cookie);
     expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
     expect(await g.ask("room:watch", { code })).toMatchObject({ ok: true });
+
+    // Migrated, nothing imported yet: refused, no race written, never the fixtures.
+    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "NO_COMPATIBLE_PASSAGE" });
+    // The server's last read of the corpus happened before this answer.
+    const refusedAt = Date.now();
+    expect(await query<{ races: number; phase: string }>("select count(r.id)::int as races, l.phase from lobbies l left join races r on r.lobby_id = l.id where l.code = $1 group by l.phase", [code])).toEqual([
+      { races: 0, phase: "waiting" },
+    ]);
+    expect(c.output()).toContain("[races] corpus: no active version, starts refused until one is imported");
+
+    // The documented import (DEPLOYMENT.md), with the contract fixture: the running process serves it without a restart,
+    // once the delay between two reads of a missing corpus has passed.
+    await importCorpus("contract-2026-10-21", CONTRACT_CORPUS);
+    await sleep(Math.max(0, refusedAt + CORPUS_RETRY_MS + 500 - Date.now()));
     expect(await h.ask("race:start", {})).toEqual({ ok: true });
     const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
-    expect(reveal.reveal.text.join("")).toBe(RACE_TEXTS.fr.text);
-    expect(await query<{ text: string }>("select r.config_snapshot->>'text' as text from races r where r.id = $1", [reveal.reveal.raceId])).toEqual([
-      { text: RACE_TEXTS.fr.id },
-    ]);
-  }, 60_000);
+    const [passage] = (JSON.parse(await readFile(path.join(CONTRACT_CORPUS, "contract-2026-10-21", "fr.json"), "utf8")) as { passages: { id: string; text: string }[] }).passages;
+    const cut = passageCut({ id: passage?.id ?? "", language: "fr", complexity: "medium", text: passage?.text ?? "" }, defaultCoherentSettings("fr"));
+    expect(cut).toBeDefined();
+    expect(reveal.reveal.text.join("")).toBe(cut);
+    expect(countWords(cut ?? "")).toBe(50);
+    const [stored] = await query<{ text: string; config: Record<string, unknown> }>("select text_snapshot as text, config_snapshot as config from races where id = $1", [reveal.reveal.raceId]);
+    expect(stored?.text).toBe(cut);
+    expect(stored?.config).toMatchObject({
+      errorMode: "mandatory",
+      timeLimitMs: 120_000,
+      language: "fr",
+      text: passage?.id,
+      corpusVersion: "contract-2026-10-21",
+      textSettings: { kind: "coherent", wordCount: 50, complexity: "medium" },
+      textVersions: { generator: 1, normalization: 2 },
+    });
+    expect(c.output()).toContain("[races] corpus contract-2026-10-21: 1 fr, 1 en selectable passages");
+  }, 90_000);
 
   it("closes new races without RACES_ENABLED: a direct start creates nothing, rooms and stored results stay", async () => {
     // The previous test's process stops (its race is interrupted, as at any restart): its port is free again.
@@ -409,3 +438,14 @@ describe("an integrated race (F-04.0)", () => {
     expect(await page.text()).toContain(finished?.guestName);
   }, 60_000);
 });
+
+const CONTRACT_CORPUS = path.resolve(import.meta.dirname, "..", "..", "..", "packages", "database", "test", "fixtures", "corpus-contract");
+
+/** Imports a corpus version into the test database with the local import script, as DEPLOYMENT.md says. */
+async function importCorpus(version: string, folder: string): Promise<void> {
+  const database = path.resolve(import.meta.dirname, "..", "..", "..", "packages", "database");
+  await promisify(execFile)(process.execPath, ["--import", "tsx", "scripts/import-corpus.ts", "--version", version, "--folder", folder], {
+    cwd: database,
+    env: { ...process.env, CI: "1", DATABASE_URL_UNPOOLED: DATABASE_URL },
+  });
+}
