@@ -27,11 +27,12 @@ let findActiveMembership: (accountId: string) => Promise<ActiveMembership | unde
 let readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
 let recoverAbandonedRace: (lobbyId: string) => Promise<RoomRecovery>;
 const ownedRaces = new Set<string>();
-const raceFollows: { lobbyId: string; id: string; accountId: string; locale: string; pageId?: string }[] = [];
+const raceFollows: { lobbyId: string; id: string; accountId: string; pageId?: string }[] = [];
 const raceUnfollows: string[] = [];
 const raceFollowFails = { next: false };
 const memberships = new Map<string, ActiveMembership>();
 const snapshots = new Map<string, RoomSnapshot>();
+const SETTINGS = { revision: 3, textLanguage: "en", timeLimitMs: 90_000, errorMode: "mandatory" } as const;
 const clients: Socket[] = [];
 
 async function authenticate(cookie: string | undefined): Promise<HandshakeAuthentication> {
@@ -72,6 +73,7 @@ beforeEach(async () => {
     capacity: 30,
     revision: 1,
     members: [member("member-a", ALICE, "Alice", true), member("member-b", BOB, "Bob")],
+    settings: SETTINGS,
   });
   snapshots.set("lobby-2", {
     lobbyId: "lobby-2",
@@ -80,6 +82,7 @@ beforeEach(async () => {
     capacity: 30,
     revision: 1,
     members: [member("member-c", CLO, "Clo", true)],
+    settings: SETTINGS,
   });
   findActiveMembership = vi.fn(async (accountId: string) => memberships.get(accountId));
   readRoomSnapshot = vi.fn(async (lobbyId: string) => snapshots.get(lobbyId));
@@ -107,7 +110,6 @@ beforeEach(async () => {
           lobbyId,
           id: connection.id,
           accountId: connection.accountId,
-          locale: connection.locale,
           ...(connection.pageId === undefined ? {} : { pageId: connection.pageId }),
         });
       },
@@ -178,13 +180,13 @@ function until(condition: () => boolean): Promise<void> {
 }
 
 describe("room channel", () => {
-  it("gives a member the room's snapshot with the member online, from the session only", async () => {
+  it("gives a member the room's snapshot with the member online and the room settings, from the session only", async () => {
     const alice = await open("session=alice");
     const ack = await watch(alice, " abcdef ");
     expect(ack).toMatchObject({
       ok: true,
       selfMemberId: "member-a",
-      snapshot: { code: "ABCDEF", members: [{ memberId: "member-a", online: true }, { memberId: "member-b", online: false }] },
+      snapshot: { code: "ABCDEF", members: [{ memberId: "member-a", online: true }, { memberId: "member-b", online: false }], settings: SETTINGS },
     });
     expect(JSON.stringify(ack)).not.toContain(ALICE);
   });
@@ -597,13 +599,13 @@ describe("recovery of an abandoned race when a member watches its room (ADR-0004
 });
 
 describe("the races of the room", () => {
-  it("tells the races about a tab once its membership is checked, with its language, and when it closes", async () => {
+  it("tells the races about a tab once its membership is checked, and when it closes", async () => {
     const refused = await open("session=clo");
     await watch(refused, "ABCDEF");
     expect(raceFollows).toEqual([]);
-    const alice = await open("session=alice; locale=en");
+    const alice = await open("session=alice");
     await watch(alice);
-    expect(raceFollows).toEqual([{ lobbyId: "lobby-1", id: alice.id, accountId: ALICE, locale: "en" }]);
+    expect(raceFollows).toEqual([{ lobbyId: "lobby-1", id: alice.id, accountId: ALICE }]);
     const id = alice.id;
     alice.close();
     await until(() => raceUnfollows.includes(id ?? ""));
@@ -623,12 +625,6 @@ describe("the races of the room", () => {
     expect(await watch(alice)).toEqual({ ok: false, error: "UNAVAILABLE" });
     const bob = await open("session=bob");
     expect(await watch(bob)).toMatchObject({ ok: true });
-  });
-
-  it("takes a tab's language from the browser when no choice was made", async () => {
-    const bob = await open("session=bob", { "accept-language": "en-CA,fr;q=0.5" });
-    await watch(bob);
-    expect(raceFollows[0]?.locale).toBe("en");
   });
 
   it("drops a tab from the races once its member left the room", async () => {

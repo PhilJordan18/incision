@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RACE_ABANDON_EVENT, RACE_BATCH_EVENT, RACE_CONTROL_EVENT, RACE_PRESENT_EVENT, RACE_START_EVENT } from "../../races/protocol";
 import type { RaceService } from "../races/race-service";
 import { RACE_BONUS_ACTIVATE_EVENT } from "../../races/bonus-protocol";
-import { CONTROL_LIMIT, connectionOf, ENTRANT_ACTION_LIMIT, handshakeLocale, registerRaceChannel, START_LIMIT } from "./race-channel";
+import { CONTROL_LIMIT, connectionOf, ENTRANT_ACTION_LIMIT, registerRaceChannel, START_LIMIT } from "./race-channel";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
 import type { HandshakeAuthentication } from "./socket-session";
@@ -95,11 +95,13 @@ describe("race channel", () => {
     expect(races.abandon).not.toHaveBeenCalled();
   });
 
-  it("starts for the session's account, with the tab's language, whatever the payload claims", async () => {
+  it("starts for the session's account, whatever the payload claims", async () => {
     const alice = await open("session=alice; locale=en");
     expect(await ask(alice, RACE_START_EVENT, { accountId: "someone-else" })).toEqual({ ok: true });
     const [connection, payload] = races.start.mock.calls[0] ?? [];
-    expect(connection).toMatchObject({ id: alice.id, accountId: ALICE, locale: "en" });
+    expect(connection).toMatchObject({ id: alice.id, accountId: ALICE });
+    // The text language is the room's setting (F-03.1), never the tab's.
+    expect(connection).not.toHaveProperty("locale");
     // The payload goes to the service, which refuses anything but an empty object.
     expect(payload).toEqual({ accountId: "someone-else" });
   });
@@ -172,12 +174,6 @@ describe("race channel", () => {
     connection.emit("race:progress", {}, { volatile: true });
     connection.emit("race:reveal", {});
     expect(sent).toEqual(["volatile race:progress", "emit race:reveal"]);
-    expect(connection).toMatchObject({ id: "s-1", accountId: ALICE, pageId: "4b7f2c1e-3d5a-4e6f-8a9b-0c1d2e3f4a5b", locale: "fr" });
-  });
-
-  it("reads the tab's language from its explicit choice, then from its browser", () => {
-    expect(handshakeLocale({ cookie: "a=b; locale=en; c=d" })).toBe("en");
-    expect(handshakeLocale({ cookie: "locale=de", "accept-language": "en-GB" })).toBe("en");
-    expect(handshakeLocale({})).toBe("fr");
+    expect(connection).toMatchObject({ id: "s-1", accountId: ALICE, pageId: "4b7f2c1e-3d5a-4e6f-8a9b-0c1d2e3f4a5b" });
   });
 });

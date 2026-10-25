@@ -1,7 +1,7 @@
 import type { ActiveCorpus } from "@incision/database";
 import { asDuration, asEntrantId, asRandomState, containsLineBreak, countWords, createRaceRefusal, type Passage } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
-import { FIRST_RACE_SETTINGS } from "./race-service";
+import { RUNNABLE_TIME_LIMIT_MAX_MS } from "../rooms/room-settings";
 import { CORPUS_RETRY_MS, CorpusTexts, FIXTURE_RACE_TEXTS } from "./race-texts";
 
 /**
@@ -15,10 +15,10 @@ const TYPABLE: Record<string, RegExp> = {
 };
 
 describe("the fixture texts", () => {
-  it.each(Object.entries(FIXTURE_RACE_TEXTS))("%s: no line break (D-16), and the engine accepts it with the first path's settings", (_locale, { text }) => {
+  it.each(Object.entries(FIXTURE_RACE_TEXTS))("%s: no line break (D-16), and the engine accepts it with the longest limit races run today", (_locale, { text }) => {
     expect(containsLineBreak(text)).toBe(false);
     const participants = ["a", "b"].map((id) => ({ entrantId: asEntrantId(id), kind: "human" as const }));
-    expect(createRaceRefusal({ participants, text, timeLimit: asDuration(FIRST_RACE_SETTINGS.timeLimitMs) })).toBeUndefined();
+    expect(createRaceRefusal({ participants, text, timeLimit: asDuration(RUNNABLE_TIME_LIMIT_MAX_MS) })).toBeUndefined();
   });
 
   it.each(Object.entries(FIXTURE_RACE_TEXTS))("%s: only characters its keyboard types directly, in their composed form, single-spaced", (locale, { text }) => {

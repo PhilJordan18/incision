@@ -1,4 +1,4 @@
-import { describeDatabaseError, type RaceOwnership, type StartRaceInput, type StartRaceResult } from "@incision/database";
+import { describeDatabaseError, type OwnRoomSettings, type RaceOwnership, type StartRaceInput, type StartRaceResult } from "@incision/database";
 import {
   asDuration,
   asEntrantId,
@@ -7,7 +7,6 @@ import {
   createBonusRace,
   createRaceRefusal,
   type CreateRaceRefusal,
-  type ErrorMode,
   MAX_BATCHES_PER_SECOND,
   type BonusRaceState,
 } from "@incision/domain";
@@ -27,13 +26,17 @@ import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
 import type { RaceTextDraw, RaceTextSource } from "./race-texts";
+import { isRunnable } from "../rooms/room-settings";
 import { BonusActivationLimiter } from "./bonus-limiter";
 
-/** A tab admitted into a room by the room channel, with the language its pages use. */
-export type RoomConnection = RaceConnection & { readonly locale: Locale };
+/** A tab admitted into a room by the room channel. */
+export type RoomConnection = RaceConnection;
 
-/** The first race path (F-04.0): mandatory correction (D-19) and an explicit 120 s limit, announced and shown. */
-export const FIRST_RACE_SETTINGS = { errorMode: "mandatory" satisfies ErrorMode, timeLimitMs: 120_000 } as const;
+/**
+ * Draws a start makes at most: settings saved between the draw and the room lock refuse the start
+ * (SETTINGS_CHANGED), and it draws again with the new ones, once.
+ */
+const START_DRAWS = 2;
 /** Version of the rules a race was run under, kept with it. */
 const RULES_VERSION = 1;
 /** Starts one account may ask for, whatever its number of sockets (each takes the room lock). */
@@ -50,6 +53,8 @@ export type RaceServiceOptions = {
   readonly store: RaceStore & {
     readonly startRace: (input: StartRaceInput<CreateRaceRefusal, BonusRaceState>) => Promise<StartRaceResult<CreateRaceRefusal, BonusRaceState>>;
     readonly renewRaceLease: (ownership: RaceOwnership) => Promise<{ readonly renewed: boolean }>;
+    /** The account's room and its settings, read without a lock before the draw (F-03.1). */
+    readonly readOwnRoomSettings: (accountId: string) => Promise<OwnRoomSettings | undefined>;
   };
   /** The server's clock (`serverClock`), in integer milliseconds since the epoch. */
   readonly now: () => number;
@@ -151,9 +156,10 @@ export class RaceService {
   }
 
   /**
-   * The host starts the race (COURSE-02/03). The room, the host and the participants are
-   * checked under the room lock, where the engine creates the race (`createRace`, with its own
-   * checks); once that commits, this process runs it under its lease (ADR-0004).
+   * The host starts the race (COURSE-02/03) with the room's settings (F-03.1). The room, the host,
+   * the settings revision and the participants are checked under the room lock, where the engine
+   * creates the race (`createRace`, with its own checks); once that commits, this process runs it
+   * under its lease (ADR-0004).
    */
   async start(connection: RoomConnection, payload: unknown): Promise<RaceStartAck> {
     if (!raceStartPayloadSchema.safeParse(payload).success) {
@@ -176,26 +182,66 @@ export class RaceService {
     }
     this.#starting.add(connection.accountId);
     try {
-      // The text's language is the server's (CONF-02): the host's interface language at the start
-      // until F-03.1 lets the host choose (D-19), then the race's for good.
-      const drawn = await this.#options.texts.draw(connection.locale);
-      // Refused before any write: no race is written, the room stays as it was.
-      if (!drawn.ok) {
-        return { ok: false, error: drawn.reason };
+      for (let draw = 1; draw <= START_DRAWS; draw += 1) {
+        const answer = await this.#drawAndStart(connection);
+        if (answer !== "SETTINGS_CHANGED") {
+          return answer;
+        }
       }
-      // The draw may have waited for the corpus while the process began stopping.
-      if (this.#registry.stopping) {
-        return { ok: false, error: "UNAVAILABLE" };
-      }
-      return await this.#start(connection, drawn);
+      // Saved again during the second draw: a second tab of the host changing them in a loop.
+      this.#logError("[races] start refused: the room settings changed during each draw");
+      return { ok: false, error: "UNAVAILABLE" };
     } finally {
       this.#starting.delete(connection.accountId);
     }
   }
 
-  async #start(connection: RoomConnection, { text, record }: Extract<RaceTextDraw, { ok: true }>): Promise<RaceStartAck> {
+  /** One draw with the room's current settings, then the start transaction. */
+  async #drawAndStart(connection: RoomConnection): Promise<RaceStartAck | "SETTINGS_CHANGED"> {
+    let room: OwnRoomSettings | undefined;
+    try {
+      room = await this.#options.store.readOwnRoomSettings(connection.accountId);
+    } catch (error: unknown) {
+      this.#logError(`[races] start failed: ${describeDatabaseError(error)}`);
+      return { ok: false, error: "UNAVAILABLE" };
+    }
+    // Checked again under the room lock; refused here, a start that cannot go on reads no corpus.
+    if (room === undefined) {
+      return { ok: false, error: "NOT_IN_A_ROOM" };
+    }
+    if (!room.isHost) {
+      return { ok: false, error: "NOT_HOST" };
+    }
+    if (room.phase !== "waiting") {
+      return { ok: false, error: "ROOM_NOT_WAITING" };
+    }
+    const { settings } = room;
+    // Only the host's action writes settings, within these bounds: anything else was written by hand.
+    if (!isRunnable(settings)) {
+      this.#logError(`[races] start refused: room ${room.lobbyId} has settings races do not run yet`);
+      return { ok: false, error: "UNAVAILABLE" };
+    }
+    // The text's language is the room's (CONF-02), then the race's for good.
+    const drawn = await this.#options.texts.draw(settings.textLanguage);
+    // Refused before any write: no race is written, the room stays as it was.
+    if (!drawn.ok) {
+      return { ok: false, error: drawn.reason };
+    }
+    // The draw may have waited for the corpus while the process began stopping.
+    if (this.#registry.stopping) {
+      return { ok: false, error: "UNAVAILABLE" };
+    }
+    return this.#start(connection, drawn, settings);
+  }
+
+  async #start(
+    connection: RoomConnection,
+    { text, record }: Extract<RaceTextDraw, { ok: true }>,
+    settings: OwnRoomSettings["settings"] & { readonly timeLimitMs: number },
+  ): Promise<RaceStartAck | "SETTINGS_CHANGED"> {
     const { store, ownerId } = this.#options;
-    const timeLimit = asDuration(FIRST_RACE_SETTINGS.timeLimitMs);
+    const { revision, timeLimitMs, errorMode } = settings;
+    const timeLimit = asDuration(timeLimitMs);
     const acquiredAt = this.#options.monotonic();
     let started: StartRaceResult<CreateRaceRefusal, BonusRaceState>;
     try {
@@ -203,14 +249,15 @@ export class RaceService {
         accountId: connection.accountId,
         ownerId,
         text,
-        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, ...record, bonuses: false },
+        config: { errorMode, timeLimitMs, ...record, bonuses: false },
+        settingsRevision: revision,
         rulesVersion: RULES_VERSION,
         // Under the room lock: a refusal changes nothing, an exception rolls the start back.
         create: ({ raceId, entrants }) => {
           const input = {
             raceId: asRaceId(raceId),
             text,
-            errorMode: FIRST_RACE_SETTINGS.errorMode,
+            errorMode,
             timeLimit,
             participants: entrants.map(({ entrantId, kind }) => ({ entrantId: asEntrantId(entrantId), kind })),
             now: asInstant(this.#options.now()),
@@ -230,6 +277,9 @@ export class RaceService {
     }
     if (!started.ok) {
       const { error } = started;
+      if (error === "SETTINGS_CHANGED") {
+        return error;
+      }
       if (error === "NOT_IN_A_ROOM" || error === "NOT_HOST" || error === "ROOM_NOT_WAITING" || error === "NOT_ENOUGH_PARTICIPANTS" || error === "NO_HUMAN_PARTICIPANT") {
         return { ok: false, error };
       }

@@ -1,7 +1,5 @@
-import type { IncomingHttpHeaders } from "node:http";
 import { RACE_BONUS_ACTIVATE_EVENT, type BonusActivationAck } from "../../races/bonus-protocol";
 import type { Server, Socket } from "socket.io";
-import { type Locale, LOCALE_COOKIE, resolveLocale } from "../../i18n/locale";
 import {
   RACE_ABANDON_EVENT,
   RACE_BATCH_EVENT,
@@ -159,25 +157,12 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
   });
 }
 
-/** The tab as the races see it: its id, its session's account and the language of its pages. */
+/** The tab as the races see it: its id and its session's account (the room settings give the text language, F-03.1). */
 export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile" | "handshake">, accountId: string, pageId?: string): RoomConnection {
   return {
     id: socket.id,
     accountId,
     ...(pageId === undefined ? {} : { pageId }),
-    locale: handshakeLocale(socket.handshake.headers),
     emit: (event, payload, options) => void (options?.volatile === true ? socket.volatile.emit(event, payload) : socket.emit(event, payload)),
   };
-}
-
-/** The language the pages of this browser use: the explicit cookie, then its languages, then French. */
-export function handshakeLocale(headers: IncomingHttpHeaders): Locale {
-  const prefix = `${LOCALE_COOKIE}=`;
-  const raw = (headers.cookie ?? "")
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(prefix))
-    ?.slice(prefix.length);
-  const acceptLanguage = headers["accept-language"];
-  return resolveLocale(raw, typeof acceptLanguage === "string" ? acceptLanguage : null);
 }

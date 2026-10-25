@@ -1,13 +1,15 @@
-import type { Interruption, RaceToCreate, StartRaceInput, StartRaceResult, Transition } from "@incision/database";
+import type { Interruption, OwnRoomSettings, RaceToCreate, RoomSettings, StartRaceInput, StartRaceResult, Transition } from "@incision/database";
 import { asRandomState, COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, type RaceProgressPayload, type RaceRevealPayload } from "../../races/protocol";
-import { CONTROL_WINDOW, ENTRANT_ACTION_WINDOW, FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
+import { CONTROL_WINDOW, ENTRANT_ACTION_WINDOW, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
 import { CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts, type RaceTextDraw, type RaceTextSource } from "./race-texts";
 
 const START = 1_800_000_000_000;
 const LOBBY = "lobby-1";
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
+/** A new room's settings (F-03.1): French texts, 120 s, mandatory correction. */
+const INITIAL_SETTINGS: RoomSettings = { revision: 0, textLanguage: "fr", timeLimitMs: 120_000, errorMode: "mandatory" };
 const PARTICIPANTS = [
   { entrantId: "e-host", accountId: "a-host", memberId: "m-host", ordinal: 1, displayName: "Hôte" },
   { entrantId: "e-bea", accountId: "a-bea", memberId: "m-bea", ordinal: 2, displayName: "Bea" },
@@ -20,12 +22,37 @@ function harness(
     renewed?: boolean;
     texts?: RaceTextSource;
     racesOpen?: boolean;
+    /** The room's stored settings, over INITIAL_SETTINGS. */
+    settings?: Partial<RoomSettings>;
+    /** The room as read before the draw; `a-host` hosts it and every `a-…` account is in it by default. */
+    room?: Partial<Pick<OwnRoomSettings, "phase" | "isHost">> | "none";
+    /** How many starts the room lock refuses because settings were saved since the read before the draw. */
+    settingsChanges?: number;
   } = {},
 ) {
   let now = START;
   const timers: { at: number; callback: () => void }[] = [];
   const created: RaceState[] = [];
+  let changes = 0;
+  const readOwnRoomSettings = vi.fn(async (accountId: string): Promise<OwnRoomSettings | undefined> => {
+    if (options.room === "none") {
+      return undefined;
+    }
+    const settings = { ...INITIAL_SETTINGS, ...options.settings };
+    return {
+      lobbyId: LOBBY,
+      phase: "waiting",
+      isHost: accountId === "a-host",
+      ...options.room,
+      // Each save the room lock reported is in the next read.
+      settings: { ...settings, revision: settings.revision + changes },
+    };
+  });
   const startRace = vi.fn(async (input: StartRaceInput<CreateRaceRefusal, BonusRaceState>): Promise<StartRaceResult<CreateRaceRefusal, BonusRaceState>> => {
+    if (changes < (options.settingsChanges ?? 0)) {
+      changes += 1;
+      return { ok: false, error: "SETTINGS_CHANGED" };
+    }
     if (options.refusal !== undefined) {
       return { ok: false, error: options.refusal };
     }
@@ -45,6 +72,7 @@ function harness(
   });
   const store = {
     startRace,
+    readOwnRoomSettings,
     beginRacing: vi.fn(async (): Promise<Transition> => ({ won: true, alreadyDone: false })),
     finalizeRace: vi.fn(async (): Promise<Transition> => ({ won: true, alreadyDone: false })),
     interruptOwnRace: vi.fn(async (): Promise<Interruption> => ({ won: true, alreadyDone: false })),
@@ -85,9 +113,9 @@ function harness(
   return { service, store, created, changed, lost, advance };
 }
 
-function tab(id: string, accountId: string, locale: "fr" | "en" = "fr") {
+function tab(id: string, accountId: string) {
   const received: { event: string; payload: unknown }[] = [];
-  const connection: RoomConnection = { id, accountId, locale, emit: (event, payload) => void received.push({ event, payload }) };
+  const connection: RoomConnection = { id, accountId, emit: (event, payload) => void received.push({ event, payload }) };
   return { connection, received, reveal: () => received.find((message) => message.event === RACE_REVEAL_EVENT)?.payload as RaceRevealPayload | undefined };
 }
 
@@ -128,17 +156,17 @@ describe("RaceService", () => {
     advance(1000);
     expect(service.activateBonus(first, payload)).toMatchObject({ ok: true, result: { reason: "BONUSES_DISABLED" } });
   });
-  it("has the engine create the race in the host's language, with the first path's settings, and runs it here", async () => {
-    const { service, store, created, changed } = harness();
-    const host = tab("t-host", "a-host", "en");
+  it("has the engine create the race with the room's settings, whatever the host's pages, and runs it here", async () => {
+    const { service, store, created, changed } = harness({ settings: { revision: 4, textLanguage: "en", timeLimitMs: 90_000 } });
+    const host = tab("t-host", "a-host");
     const bea = tab("t-bea", "a-bea");
     service.follow(LOBBY, host.connection);
     service.follow(LOBBY, bea.connection);
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
     const input = store.startRace.mock.calls[0]?.[0];
-    expect(input).toMatchObject({ accountId: "a-host", ownerId: "owner-a", text: FIXTURE_RACE_TEXTS.en.text, rulesVersion: 1 });
-    expect(input?.config).toEqual({ errorMode: "mandatory", timeLimitMs: 120_000, language: "en", text: "fixture", bonuses: false });
-    expect(created[0]).toMatchObject({ phase: "countdown", errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimit: 120_000, startsAt: START + COUNTDOWN_MS });
+    expect(input).toMatchObject({ accountId: "a-host", ownerId: "owner-a", text: FIXTURE_RACE_TEXTS.en.text, settingsRevision: 4, rulesVersion: 1 });
+    expect(input?.config).toEqual({ errorMode: "mandatory", timeLimitMs: 90_000, language: "en", text: "fixture", bonuses: false });
+    expect(created[0]).toMatchObject({ phase: "countdown", errorMode: "mandatory", timeLimit: 90_000, startsAt: START + COUNTDOWN_MS });
     expect(service.ownsRace(LOBBY)).toBe(true);
     expect(changed).toEqual([LOBBY]);
     // The text reaches the room's tabs only now, never before the countdown (COURSE-03).
@@ -149,8 +177,8 @@ describe("RaceService", () => {
   it("runs the texts it is given, never the fixtures in their place, and records which one", async () => {
     const texts = { fr: { id: "fr-injected", text: "Texte injecté pour ce test." }, en: { id: "en-injected", text: "Text injected for this test." } };
     const { service, store } = harness({ texts: fixedRaceTexts(texts) });
-    const host = tab("t-host", "a-host", "fr");
-    const bea = tab("t-bea", "a-bea", "en");
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
     service.follow(LOBBY, host.connection);
     service.follow(LOBBY, bea.connection);
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
@@ -158,13 +186,13 @@ describe("RaceService", () => {
     expect(bea.reveal()?.reveal.text.join("")).toBe(texts.fr.text);
   });
 
-  it("draws a corpus passage in the host's language, records its provenance, and reveals only the cut", async () => {
+  it("draws a corpus passage in the room's text language, records its provenance, and reveals only the cut", async () => {
     const corpus = { version: "test-1", passages: Object.freeze([CORPUS_FR, CORPUS_EN].map((passage) => Object.freeze(passage))) };
     const texts = new CorpusTexts({ load: async () => corpus, seed: () => asRandomState([1, 2, 3, 4]), log: () => undefined, logError: () => undefined });
     const { service, store } = harness({ texts });
-    // The host's pages are in French, the guest's in English: the text follows the host (D-19).
-    const host = tab("t-host", "a-host", "fr");
-    const bea = tab("t-bea", "a-bea", "en");
+    // The room's texts are French (its initial settings), whatever language anyone's pages use.
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
     service.follow(LOBBY, host.connection);
     service.follow(LOBBY, bea.connection);
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
@@ -198,7 +226,7 @@ describe("RaceService", () => {
     ] as const) {
       const texts = new CorpusTexts({ load, log: () => undefined, logError: () => undefined });
       const { service, store, changed } = harness({ texts });
-      const host = tab("t-host", "a-host", "fr");
+      const host = tab("t-host", "a-host");
       service.follow(LOBBY, host.connection);
       service.follow(LOBBY, tab("t-bea", "a-bea").connection);
       expect(await service.start(host.connection, {})).toEqual({ ok: false, error });
@@ -262,10 +290,10 @@ describe("RaceService", () => {
     expect(bea.reveal()).toBeUndefined();
   });
 
-  it("marks the race text with the host's language for every reader", async () => {
-    const { service } = harness();
-    const host = tab("t-host", "a-host", "en");
-    const bea = tab("t-bea", "a-bea", "fr");
+  it("marks the race text with the room's text language for every reader", async () => {
+    const { service } = harness({ settings: { textLanguage: "en" } });
+    const host = tab("t-host", "a-host");
+    const bea = tab("t-bea", "a-bea");
     service.follow(LOBBY, host.connection);
     service.follow(LOBBY, bea.connection);
     await service.start(host.connection, {});
@@ -274,13 +302,72 @@ describe("RaceService", () => {
   });
 
   it("passes the database's and the engine's refusals on, and runs nothing", async () => {
+    // The host changed between the read before the draw and the room lock.
     const notHost = harness({ refusal: "NOT_HOST" });
-    expect(await notHost.service.start(tab("t", "a-bea").connection, {})).toEqual({ ok: false, error: "NOT_HOST" });
+    expect(await notHost.service.start(tab("t", "a-host").connection, {})).toEqual({ ok: false, error: "NOT_HOST" });
     // The engine's own start rule, applied under the room lock (COURSE-02).
     const alone = harness({ participants: PARTICIPANTS.slice(0, 1) });
     expect(await alone.service.start(tab("t", "a-host").connection, {})).toEqual({ ok: false, error: "NOT_ENOUGH_PARTICIPANTS" });
     expect(alone.service.ownsRace(LOBBY)).toBe(false);
     expect(await alone.service.start(tab("t", "a-host").connection, { text: "mine" })).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
+  });
+
+  it("refuses before the draw a start that cannot go on: outside a room, by a guest, or once the room left WAITING", async () => {
+    for (const [options, accountId, error] of [
+      [{ room: "none" }, "a-host", "NOT_IN_A_ROOM"],
+      [{}, "a-bea", "NOT_HOST"],
+      [{ room: { phase: "countdown" } }, "a-host", "ROOM_NOT_WAITING"],
+    ] as const) {
+      const draw = vi.fn(async (): Promise<RaceTextDraw> => ({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" }));
+      const { service, store } = harness({ ...options, texts: { draw } });
+      expect(await service.start(tab("t", accountId).connection, {})).toEqual({ ok: false, error });
+      expect(draw).not.toHaveBeenCalled();
+      expect(store.startRace).not.toHaveBeenCalled();
+    }
+  });
+
+  it("refuses, without drawing, settings races do not run yet: no limit, beyond 120 s, or free typing", async () => {
+    for (const settings of [{ timeLimitMs: null }, { timeLimitMs: 120_001 }, { timeLimitMs: 600_000 }, { errorMode: "free" }] as const) {
+      const draw = vi.fn(async (): Promise<RaceTextDraw> => ({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" }));
+      const logged: string[] = [];
+      const base = harness({ settings, texts: { draw } });
+      const service = new RaceService({
+        ownerId: "owner-a",
+        store: base.store,
+        now: () => START,
+        monotonic: () => START,
+        schedule: () => () => undefined,
+        onRoomChanged: () => undefined,
+        texts: { draw },
+        racesOpen: true,
+        log: () => undefined,
+        logError: (message) => logged.push(message),
+      });
+      expect(await service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: false, error: "UNAVAILABLE" });
+      expect(draw).not.toHaveBeenCalled();
+      expect(base.store.startRace).not.toHaveBeenCalled();
+      expect(logged).toEqual([`[races] start refused: room ${LOBBY} has settings races do not run yet`]);
+    }
+  });
+
+  it("answers UNAVAILABLE, without drawing, when the room settings cannot be read", async () => {
+    const draw = vi.fn(async (): Promise<RaceTextDraw> => ({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" }));
+    const { service, store } = harness({ texts: { draw } });
+    store.readOwnRoomSettings.mockRejectedValueOnce(new Error("connect ECONNREFUSED"));
+    expect(await service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: false, error: "UNAVAILABLE" });
+    expect(draw).not.toHaveBeenCalled();
+  });
+
+  it("draws again with the new settings when the host saved some during the draw, once", async () => {
+    const once = harness({ settingsChanges: 1, settings: { textLanguage: "en" } });
+    expect(await once.service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: true });
+    expect(once.store.startRace.mock.calls.map(([input]) => input.settingsRevision)).toEqual([0, 1]);
+    expect(once.store.readOwnRoomSettings).toHaveBeenCalledTimes(2);
+
+    const always = harness({ settingsChanges: 2 });
+    expect(await always.service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: false, error: "UNAVAILABLE" });
+    expect(always.store.startRace).toHaveBeenCalledTimes(2);
+    expect(always.service.ownsRace(LOBBY)).toBe(false);
   });
 
   it("refuses a second start from the same account while one is in flight", async () => {

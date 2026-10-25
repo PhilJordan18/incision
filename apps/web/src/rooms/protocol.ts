@@ -1,4 +1,4 @@
-import { MEMBER_ROLES, ROOM_PHASES } from "@incision/domain";
+import { ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES } from "@incision/domain";
 import { z } from "zod";
 
 /** The states of a race and the reasons it ended without results (`races`, ADR-0004, D-06). */
@@ -48,6 +48,19 @@ export const roomSnapshotSchema = z.object({
       raceId: z.string(),
       state: z.enum(RACE_STATES),
       interruptionReason: z.enum(INTERRUPTION_REASONS).nullable(),
+    })
+    .optional(),
+  /**
+   * What the next race runs with (F-03.1); `revision` is the one a change of settings must quote.
+   * This server always sends it; a server older than F-03.1 did not.
+   */
+  settings: z
+    .object({
+      revision: z.number().int().nonnegative(),
+      textLanguage: z.enum(TEXT_LANGUAGES),
+      /** Null: no time limit. */
+      timeLimitMs: z.number().int().positive().nullable(),
+      errorMode: z.enum(ERROR_MODES),
     })
     .optional(),
 });

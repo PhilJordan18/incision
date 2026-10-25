@@ -98,7 +98,7 @@ async function room(value: string, others: string[] = ["Bea"]): Promise<{ lobbyI
 }
 
 async function started(hostId: string, ownerId = OWNER_A) {
-  const result = await startRace(db, { accountId: hostId, ownerId, text: "La mer est calme.", config: { language: "fr" }, rulesVersion: 1, create: atLeastTwo });
+  const result = await startRace(db, { accountId: hostId, ownerId, text: "La mer est calme.", config: { language: "fr" }, settingsRevision: 0, rulesVersion: 1, create: atLeastTwo });
   if (!result.ok) {
     throw new Error(result.error);
   }
@@ -293,7 +293,7 @@ describe("startRace", () => {
     const { hostId } = await room("ABCDEF", ["Bea"]);
     const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where display_name = 'Bea'")).rows[0]!.account_id;
     const outsider = await account("Dehors");
-    const call = (accountId: string) => startRace(db, { accountId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo });
+    const call = (accountId: string) => startRace(db, { accountId, ownerId: OWNER_A, text: "x", config: {}, settingsRevision: 0, rulesVersion: 1, create: atLeastTwo });
     expect(await call(bea)).toEqual({ ok: false, error: "NOT_HOST" });
     expect(await call(outsider)).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
     await started(hostId);
@@ -311,6 +311,7 @@ describe("startRace", () => {
       ownerId: OWNER_A,
       text: "La mer est calme.",
       config: {},
+      settingsRevision: 0,
       rulesVersion: 1,
       create: (race) => ({ ok: true, race }),
     });
@@ -332,6 +333,7 @@ describe("startRace", () => {
         ownerId: OWNER_A,
         text: "x",
         config: {},
+        settingsRevision: 0,
         rulesVersion: 1,
         create: () => {
           throw new RangeError("Invalid instant");
@@ -344,7 +346,7 @@ describe("startRace", () => {
 
   it("creates one race when the host starts twice at the same moment", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
-    const call = () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo });
+    const call = () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, settingsRevision: 0, rulesVersion: 1, create: atLeastTwo });
     const [first, second] = await underRoomLock(lobbyId, [call, call]);
     expect([first.ok, second.ok].sort()).toEqual([false, true]);
     expect([first, second].find((result) => !result.ok)).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
@@ -357,7 +359,7 @@ describe("startRace", () => {
     const late = await account("Tard");
     const [joinedEarly, start, joinedLate] = await underRoomLock(lobbyId, [
       () => joinRoomByCode(db, { accountId: early, code: code("ABCDEF"), role: "participant" }),
-      () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo }),
+      () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, settingsRevision: 0, rulesVersion: 1, create: atLeastTwo }),
       () => joinRoomByCode(db, { accountId: late, code: code("ABCDEF"), role: "participant" }),
     ]);
     expect(joinedEarly).toMatchObject({ ok: true });
@@ -1098,7 +1100,7 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
     const cyr = await account("Cyr");
     expect(await joinRoomByCode(db, { accountId: cyr, code: code("ABCDEF"), role: "participant" })).toMatchObject({ ok: true });
     await startNextRound(db, { accountId: hostId, raceId: race.raceId });
-    const second = await startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "La mer est calme.", config: { language: "fr" }, rulesVersion: 1, create: atLeastTwo });
+    const second = await startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "La mer est calme.", config: { language: "fr" }, settingsRevision: 0, rulesVersion: 1, create: atLeastTwo });
     expect(second.ok && second.entrants.map((entrant) => entrant.displayName)).toEqual(["Hôte", "Bea", "Cyr"]);
     expect(second.ok && (await pool.query<{ round_no: number }>("select round_no from races where id = $1", [second.race.raceId])).rows[0]?.round_no).toBe(2);
   });

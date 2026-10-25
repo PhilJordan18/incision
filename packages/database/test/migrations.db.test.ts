@@ -118,6 +118,22 @@ describe("runMigrations", () => {
     expect(await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo("0003_engine_error") })).toEqual({ applied: 0 });
   });
 
+  it("upgrades a database at the profile-photo release (0005): every room gets settings that race as before", async () => {
+    const photoRelease = releasedMigrationsUpTo("0005_profile_photos");
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: photoRelease })).toEqual({ applied: 6 });
+    await query("insert into lobbies (code, capacity) values ('B7K4PQ', 30), ('C8M5RS', 2)");
+    await query("update lobbies set phase = 'closed', closed_at = now() where code = 'C8M5RS'");
+    const before = await query("select * from lobbies order by code");
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 6 });
+    expect(await query("select l.code, s.revision, s.text_language, s.time_limit_ms, s.error_mode from lobby_settings s join lobbies l on l.id = s.lobby_id order by l.code")).toEqual([
+      { code: "B7K4PQ", revision: 0, text_language: "fr", time_limit_ms: 120_000, error_mode: "mandatory" },
+      { code: "C8M5RS", revision: 0, text_language: "fr", time_limit_ms: 120_000, error_mode: "mandatory" },
+    ]);
+    expect(await query("select * from lobbies order by code")).toEqual(before);
+    // Redeploying the profile-photo release on the upgraded database (rollback) applies nothing.
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: photoRelease })).toEqual({ applied: 0 });
+  });
+
   it("serialises two concurrent migrators: a slow migration is applied exactly once", async () => {
     // Without the lock, both runs would read an empty journal and the second CREATE TABLE would fail.
     const slow = migrationsFolder(["select pg_sleep(1); create table slow (id integer primary key);"]);

@@ -1,16 +1,17 @@
 import type { RoomCode, RoomPhase } from "@incision/domain";
 import { eq, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { lobbies } from "../schema";
+import { lobbies, lobbySettings } from "../schema";
 import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transaction";
 import { findActiveMembership } from "./membership";
 import { bumpRevision, closeLockedRoom } from "./room-writes";
+import type { RoomSettings } from "./settings";
 
 /**
- * What only the host of a room does once a race is over (COURSE-11, F-04.7): take everyone present
- * back to the waiting room for the next round, or close the room. Each runs under the room lock,
- * with the host read again after it: a second tab, a departure or another host action may have
- * committed meanwhile.
+ * What only the host of a room does: change its settings while it waits (F-03.1), and once a race
+ * is over (COURSE-11, F-04.7), take everyone present back to the waiting room for the next round,
+ * or close the room. Each runs under the room lock, with the host read again after it: a second
+ * tab, a departure or another host action may have committed meanwhile.
  */
 
 export type HostRefusal = "NOT_IN_A_ROOM" | "NOT_HOST";
@@ -24,6 +25,14 @@ export type CloseRoomResult =
   | { readonly ok: true; readonly lobbyId: string }
   /** ROOM_RACING: a race counts down or runs; closing then is the host leaving (D-06), not this. */
   | { readonly ok: false; readonly error: HostRefusal | "ROOM_RACING" };
+
+export type ConfigureRoomResult =
+  | { readonly ok: true; readonly lobbyId: string; readonly revision: number }
+  /**
+   * ROOM_NOT_WAITING: settings are locked from the countdown to the results (state-machines §1).
+   * STALE_REVISION: the page did not show the settings saved last (another tab of the host).
+   */
+  | { readonly ok: false; readonly error: HostRefusal | "ROOM_NOT_WAITING" | "STALE_REVISION" };
 
 type LockedRoom = { readonly lobbyId: string; readonly phase: RoomPhase; readonly currentRaceId: string | null };
 
@@ -104,6 +113,49 @@ export async function closeRoom(db: Database, input: { readonly accountId: strin
       await closeLockedRoom(tx, room.lobbyId);
       await bumpRevision(tx, room.lobbyId);
       return { ok: true, lobbyId: room.lobbyId };
+    },
+    READ_COMMITTED,
+  );
+}
+
+/**
+ * The host saves the settings of the room `code` (F-03.1, CONF-12), while it waits: the revision
+ * the page showed must still be the stored one, then both revisions increase, so every member's
+ * page gets the new settings with the next snapshot. Values come checked by the caller; the
+ * table's constraints hold the engine's bounds.
+ */
+export async function configureRoom(
+  db: Database,
+  input: {
+    readonly accountId: string;
+    readonly code: RoomCode;
+    readonly revision: number;
+    readonly settings: Omit<RoomSettings, "revision">;
+  },
+): Promise<ConfigureRoomResult> {
+  return boundedTransaction(
+    db,
+    async (tx): Promise<ConfigureRoomResult> => {
+      const room = await lockOwnRoom(tx, input.accountId, input.code);
+      if (typeof room === "string") {
+        return { ok: false, error: room };
+      }
+      if (room.phase !== "waiting") {
+        return { ok: false, error: "ROOM_NOT_WAITING" };
+      }
+      // A room of a process older than migration 0006 has no row yet: its settings are at revision 0.
+      const [stored] = await tx.select({ revision: lobbySettings.revision }).from(lobbySettings).where(eq(lobbySettings.lobbyId, room.lobbyId));
+      const current = stored?.revision ?? 0;
+      if (input.revision !== current) {
+        return { ok: false, error: "STALE_REVISION" };
+      }
+      const saved = { ...input.settings, revision: current + 1 };
+      await tx
+        .insert(lobbySettings)
+        .values({ lobbyId: room.lobbyId, ...saved })
+        .onConflictDoUpdate({ target: lobbySettings.lobbyId, set: saved });
+      await bumpRevision(tx, room.lobbyId);
+      return { ok: true, lobbyId: room.lobbyId, revision: saved.revision };
     },
     READ_COMMITTED,
   );

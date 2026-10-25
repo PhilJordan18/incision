@@ -48,7 +48,7 @@ describe("account-scoped display name update", () => {
     const before = (await pool.query("select * from lobby_members where account_id = $1", [account.accountId])).rows;
     // One entrant is sufficient for this storage fixture; production's pure rule checks two.
     const race = await startRace(db, { accountId: account.accountId, ownerId: "00000000-0000-4000-8000-000000000001",
-      text: "La mer.", config: { language: "fr" }, rulesVersion: 1, create: () => ({ ok: true as const, race: {} }) });
+      text: "La mer.", config: { language: "fr" }, settingsRevision: 0, rulesVersion: 1, create: () => ({ ok: true as const, race: {} }) });
     expect(race.ok).toBe(true);
     const entrants = (await pool.query("select * from race_entrants where account_id = $1", [account.accountId])).rows;
     expect(entrants).toHaveLength(1);
