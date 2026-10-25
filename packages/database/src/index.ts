@@ -1,6 +1,7 @@
 export * from "./client";
 export * from "./errors";
 export * from "./identity/accounts";
+export * from "./identity/photos";
 export * from "./identity/password";
 export * from "./local-database";
 export * from "./pool";
