@@ -55,10 +55,12 @@ test("persisted podium, exact errors and historical record work without JavaScri
   await expect(owner.page.getByRole("table").locator("tbody tr").first().locator("td").nth(4)).toHaveText("73");
   await expect(owner.page.getByRole("columnheader", { name: "Errors", exact: true })).toBeVisible();
   await expect(owner.page.getByRole("table").locator("tbody tr").first().locator("td").last()).toHaveText("1");
-  await expect(owner.page.getByText("New personal record", { exact: true })).toBeVisible();
+  const record = owner.page.getByRole("note", { name: "Personal record for this race", exact: true });
+  await expect(record).toBeVisible();
+  await expect(record).toContainText("New personal record");
   await reference(owner.accountId, 100, "2026-10-25T10:30:00Z");
   await owner.page.reload(); await expect(podium.getByRole("listitem")).toHaveCount(2);
-  await expect(owner.page.getByText("New personal record", { exact: true })).toBeVisible();
+  await expect(record).toContainText("New personal record");
   await visitor.goto(`/races/${owner.id}`); await expect(visitor).toHaveURL(/\/sign-in/);
 });
 
@@ -68,7 +70,9 @@ for (const locale of ["fr", "en"]) test(`result podium is accessible and respons
     await owner.context.addCookies([{ name: "theme", value: theme, url: test.info().project.use.baseURL! }]);
     await owner.page.goto(`/races/${owner.id}`);
     await expect(owner.page.getByRole("columnheader", { name: locale === "fr" ? "MPM brut" : "Raw WPM", exact: true })).toBeVisible();
-    await expect(owner.page.getByText(locale === "fr" ? "Nouveau record personnel" : "New personal record", { exact: true })).toBeVisible();
+    const record = owner.page.getByRole("note", { name: locale === "fr" ? "Record personnel de cette course" : "Personal record for this race", exact: true });
+    await expect(record).toBeVisible();
+    await expect(record).toContainText(locale === "fr" ? "Nouveau record personnel" : "New personal record");
     for (const width of [1440, 1024, 390, 360]) {
       await owner.page.setViewportSize({ width, height: 1000 });
       await expectNoHorizontalScroll(owner.page);
