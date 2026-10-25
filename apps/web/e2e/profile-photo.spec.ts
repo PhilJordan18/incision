@@ -13,6 +13,7 @@ async function photo(format: "png" | "jpeg" | "webp" = "png", background = "navy
 test("saves only a normalized private image, survives reload, and preserves it after refusal", async ({ page, request }) => {
   expect((await request.get("/api/account/photo")).status()).toBe(401);
   await signInWithCredentials(page, account.login, account.password);
+  await expect(page).toHaveURL(/\/account$/);
   const before = await query("select * from accounts where login = $1", [account.login]);
   const input = page.getByLabel("Photo de profil", { exact: true });
   await input.setInputFiles({ name: "anything.txt", mimeType: "text/plain", buffer: await photo() });
@@ -50,6 +51,7 @@ test("uploads a maximum-size image without JavaScript and keeps other accounts i
   const context = await browser.newContext({ javaScriptEnabled: false, locale: "fr-CA" });
   const page = await context.newPage(); await page.goto(`${baseURL}/account`);
   await signInWithCredentials(page, account.login, account.password);
+  await expect(page).toHaveURL(/\/account$/);
   const original = await photo("jpeg");
   const maximum = Buffer.concat([original, Buffer.alloc(2 * 1024 * 1024 - original.length)]);
   await page.getByLabel("Photo de profil", { exact: true }).setInputFiles({ name: "large.jpg", mimeType: "image/jpeg", buffer: maximum });
@@ -60,6 +62,7 @@ test("uploads a maximum-size image without JavaScript and keeps other accounts i
   const otherContext = await browser.newContext({ locale: "fr-CA" });
   const other = await otherContext.newPage(); await other.goto(`${baseURL}/sign-in`);
   await signInWithCredentials(other, DEMO_ACCOUNTS[1]!.login, DEMO_ACCOUNTS[1]!.password);
+  await expect(other).toHaveURL(/\/account$/);
   expect((await other.request.get("/api/account/photo?accountId=" + account.login)).status()).toBe(404);
   await otherContext.close();
 });
@@ -71,6 +74,7 @@ test("photo form is accessible in both locales/themes and reference widths", asy
     await context.addCookies([{ name: "theme", value: theme, url: baseURL! }]);
     const page = await context.newPage();
     await signInWithCredentials(page, account.login, account.password, locale === "fr" ? FRENCH : ENGLISH);
+    await expect(page).toHaveURL(/\/account$/);
     await expectNoAccessibilityViolation(page); await expectNoHorizontalScroll(page);
     await expect(page.locator("main .bg-action")).toHaveCount(1);
     await page.locator("#profile-photo").setInputFiles({ name: "bad.png", mimeType: "image/png", buffer: Buffer.from("bad") });
