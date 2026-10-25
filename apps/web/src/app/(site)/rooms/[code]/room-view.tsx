@@ -12,6 +12,7 @@ import { StatePanel } from "@/components/ui/state-panel";
 import { card, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
+import { formatNumber } from "@/i18n/value-format";
 import type { Locale } from "@/i18n/locale";
 import {
   RACE_ABANDON_EVENT,
@@ -582,7 +583,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
             <h2 id="crew-heading" className="font-display text-3xl font-extrabold uppercase">
               {t.membersHeading}
             </h2>
-            <p className="font-mono text-sm text-brume">{format(t.membersCount, { count: participants, capacity: snapshot.capacity })}</p>
+            <p className="font-mono text-sm text-brume">{format(t.membersCount, { count: formatNumber(participants, locale), capacity: formatNumber(snapshot.capacity, locale) })}</p>
           </div>
           <ul className="flex flex-col divide-y divide-sillage">
             {snapshot.members.map((member) => (

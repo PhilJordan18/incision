@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { card, monoLabel, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
+import { formatNumber } from "@/i18n/value-format";
 import type { Locale } from "@/i18n/locale";
 import { formatAccuracy, formatElapsed, formatWpm, ordinal } from "@/races/format";
 
@@ -41,7 +42,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
       <div className="flex flex-col gap-3">
         <p className={monoLabel}>
           <span aria-hidden="true">[.</span>
-          {t.results.label} · {format(t.results.roundLabel, { round: race.roundNo })}
+          {t.results.label} · {format(t.results.roundLabel, { round: formatNumber(race.roundNo, locale) })}
           <span aria-hidden="true">]</span>
         </p>
         {/* The view's main heading, in the room as on the race's own page. */}
@@ -55,7 +56,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
           {/* The one red mist of the screen, behind the rank (design rule 4). */}
           <p className="red-mist flex items-baseline gap-4 self-start px-10 py-6 -mx-10 -my-6 [--mist-x:30%] [--mist-y:55%]">
             <span className="font-display text-[96px] leading-none font-black text-ecume sm:text-[120px]">{ordinal(self.result.rank, locale, t.results.ordinal)}</span>
-            <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: ranked.length })}</span>
+            <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: formatNumber(ranked.length, locale) })}</span>
           </p>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Tile label={t.results.columns.netWpm} value={formatWpm(self.result.netWpm, locale)} unit={t.wpm} />
