@@ -2,7 +2,7 @@
 
 - Status: **accepted and implemented for the engine**; room admission and scheduling remain F-05.2.
 - Date: 25 October 2026; reviewed against `dev` at `f4600af`.
-- Scope: BOT-01 and the engine portion of F-05.1. This is not evidence that BOT-02 or playable bots are complete.
+- Scope: engine behaviour for BOT-01/02/03/05 in F-05.1. This is not evidence that their room integration or BOT-04 presentation and bonus behaviour are complete.
 
 ## Context and decision
 
