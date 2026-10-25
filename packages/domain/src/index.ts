@@ -8,7 +8,6 @@ export * from "./identity/login";
 export * from "./ids";
 export * from "./measures/compute";
 export * from "./measures/types";
-export * from "./profile/result-record";
 export * from "./race/create";
 export * from "./race/elapsed";
 export * from "./race/keystrokes";
@@ -40,5 +39,6 @@ export { applyBonusEffect, bonusFogActive, BONUS_FOG_MS, type BonusFog, type Bon
   type BonusEffectRefusal, type BonusEffectResult, type BonusEffectInput } from "./bonuses/effects";
 export * from "./bonuses/coordinator";
 export * from "./bonuses/coordinator-types";
+export * from "./profile/result-record";
 
 export { simulateRace, type SimulatedBot, type ScriptedHumanEvent, type SimulationInput, type SimulationResult } from "./simulation/simulate-race";

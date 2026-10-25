@@ -1,8 +1,10 @@
 # F-07.2B — Exact errors and personal records
 
 Local verification, October 25, 2026. Refs #65; depends on #154 (F-07.2A).
-Product SHA: `2f5b6e3a6947b010d7a2d81074da1ab2a87018c0`.
-Documentation and screenshots committed afterwards do not change the product tree.
+Built/visually verified product SHA: `2f5b6e3a6947b010d7a2d81074da1ab2a87018c0`.
+Later changes add documentation/screenshots and move the new pure helper's export
+within the same barrel to avoid an insertion conflict with the pending #151.
+No implementation, UI, test or dependency behavior changes after this build.
 No human acceptance, merge, production verification or deployment is claimed here.
 
 ## Delivered behavior
@@ -43,6 +45,8 @@ The final product delta after `e88f93e` is a test locator correction and the rec
 note's opaque theme surface plus its regression assertion. The domain and database
 implementation did not change. The full root unit suite is not claimed to have been
 rerun on the final SHA; the affected tests, checks and real build/browser flow were.
+After the documentation/export-position commit, guards, lint, typecheck and the
+same 3 domain + 6 render + 9 PostgreSQL tests are rerun as the delivery check.
 
 Local logs: `.codex-worktrees/_tools/f072b-gate.log` and `f072b-final.log`.
 Heavy commands used the shared `heavy.sh` lock. SQL tests create/drop their own local
