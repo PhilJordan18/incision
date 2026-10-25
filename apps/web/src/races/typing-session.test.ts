@@ -100,6 +100,30 @@ const applied = (seq: number, typed: string[], change: Partial<EntrantSnapshotPa
 });
 
 describe("TypingSession", () => {
+  it("rebases pending prediction on a bonus target without rolling back on a late acknowledgement", async () => {
+    const { session, sent, answer, advance } = harness();
+    session.receive(self()); session.type(insert("a")); session.type(insert("b"));
+    const extended = [...TARGET, " ", "s", "e", "a"];
+    session.receive(self({ textVersion: 1, target: extended, typed: ["a"], ackSeq: 1 }));
+    expect(session.view()).toMatchObject({ target: extended, typed: ["a", "b"] });
+    await answer(0, applied(1, ["a"]));
+    expect(session.view()?.target).toEqual(extended);
+    await advance(110);
+    expect(sent[1].batch).toMatchObject({ seq: 2, textVersion: 1, events: [insert("b")] });
+    session.receive(self({ typed: ["a"], ackSeq: 1 }));
+    expect(session.view()?.target).toEqual(extended);
+  });
+
+  it("ignores wrong-race acknowledgements and snapshots whose sequence or text version goes backwards", async () => {
+    const { session, answer, advance, sent } = harness();
+    session.receive(self({ textVersion: 1 })); session.type(insert("a"));
+    await answer(0, { ...applied(1, ["a"]), self: self({ raceId: "2b3c4d5e-6f70-4182-a3b4-c5d6e7f80912" }) });
+    await advance(1000); expect(sent).toHaveLength(2);
+    await answer(1, applied(1, ["a"], { textVersion: 1 }));
+    session.receive(self({ ackSeq: 0, textVersion: 2 }));
+    expect(session.view()?.typed).toEqual(["a"]);
+  });
+
   it("takes no keystroke before the server's snapshot, nor in a tab that observes", () => {
     const { session, sent } = harness();
     session.type(insert("a"));
