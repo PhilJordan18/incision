@@ -295,6 +295,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByRole("region", { name: "Équipage en course" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("abandon");
 
     await typeText(field, text.slice(4));
+    await guest.setViewportSize({ width: 360, height: 800 });
     await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
     await expect(guest.getByRole("table").getByRole("row").nth(2)).toContainText("abandon (volontaire)");
     await expect(host.getByRole("table").getByRole("row").nth(2)).toContainText("abandoned (voluntary)");
@@ -398,7 +399,7 @@ test.describe("the first complete race (F-04.0)", () => {
   });
 
   test("the host takes everyone present to the next round, a newcomer included, and races them again (F-04.7)", async ({ browser }) => {
-    // A whole race, a newcomer, axe on tablet, then a second start: about 16 s on a calm machine;
+    // A whole race, a newcomer, axe at 360 px, then a second start: about 16 s on a calm machine;
     // 60 s leaves room under load, where the default 30 s would be tight.
     test.setTimeout(60_000);
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "fr-CA", width: 768, theme: "aube" });
@@ -413,6 +414,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await leaver.getByRole("button", { name: "Abandonner la course" }).click();
     await leaver.getByRole("button", { name: "Oui, abandonner" }).click();
     await Promise.all([typeText(host.getByLabel("Ta frappe"), text), typeText(guest.getByLabel("Your typing"), text)]);
+    await host.setViewportSize({ width: 360, height: 800 });
     await expect(host.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
 
     // During the results, someone joins and someone leaves; only the host is offered the next round.
@@ -453,6 +455,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
     await guest.getByRole("button", { name: "Abandonner la course" }).click();
     await guest.getByRole("button", { name: "Oui, abandonner" }).click();
+    await guest.setViewportSize({ width: 360, height: 800 });
     await typeText(host.getByLabel("Your typing"), text);
     await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
     const raceHref = await guest.getByRole("link", { name: "Voir la fiche de la course" }).getAttribute("href");
