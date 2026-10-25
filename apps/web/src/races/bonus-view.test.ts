@@ -1,10 +1,14 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { RaceView } from "../app/(site)/rooms/[code]/race-view";
 import { getDictionary } from "../i18n/dictionaries";
 import { BonusClient } from "./bonus-client";
 import { RaceClient } from "./race-client";
+
+// This layout regression exercises the hydrated wide-screen branch; real viewport transitions
+// and the conservative server default are covered by mobile-keyboard.spec.ts.
+vi.mock("@/components/use-narrow-screen", () => ({ useNarrowScreen: () => false }));
 
 it("renders the effective target and progress denominator inside a fixed-height, scrollable region", () => {
   const raceId = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";

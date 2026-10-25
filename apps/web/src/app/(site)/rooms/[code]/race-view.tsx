@@ -5,6 +5,8 @@ import { memo, type ReactNode, useEffect, useRef, useState, useSyncExternalStore
 import { RaceBonuses } from "@/components/rooms/race-bonuses";
 import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
+import { useNarrowScreen } from "@/components/use-narrow-screen";
+import { physicalKeyboardMessages } from "@/i18n/dictionaries/physical-keyboard";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import { formatNumber } from "@/i18n/value-format";
@@ -61,6 +63,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
   const state = useSyncExternalStore(race.subscribe, race.getState, race.getState);
   const bonusState = useSyncExternalStore(bonuses.subscribe, bonuses.getState, bonuses.getState);
   const now = useServerClock(race, state);
+  const narrow = useNarrowScreen();
   const reveal = expectedRaceId === undefined || state.reveal?.raceId === expectedRaceId ? state.reveal : undefined;
   const waitedLong = useWaitedLong(reveal === undefined);
   if (reveal === undefined) {
@@ -130,7 +133,18 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
             )}
           </dl>
 
-          {state.selfEntrantId === null ? (
+          {narrow ? (
+            <section aria-labelledby="keyboard-guidance-heading" className={`${card} flex flex-col gap-3 p-5`}>
+              <h2 id="keyboard-guidance-heading" className="font-display text-2xl font-extrabold uppercase">
+                {physicalKeyboardMessages[locale].heading}
+              </h2>
+              <p id={TYPING_STATUS_ID} tabIndex={-1} role="status" className="text-embrun focus:outline-2 focus:outline-offset-4 focus:outline-ecume">
+                {(state.typing?.status ?? selfProgress?.status) === "abandoned"
+                  ? t.abandoned[state.abandonReason ?? "voluntary"]
+                  : physicalKeyboardMessages[locale].description}
+              </p>
+            </section>
+          ) : state.selfEntrantId === null ? (
             <>
               <p className="text-embrun">{t.spectating}</p>
               <RaceText target={reveal.text} typing={undefined} label={t.textLabel} language={state.language ?? locale} overlay={countdown} />
