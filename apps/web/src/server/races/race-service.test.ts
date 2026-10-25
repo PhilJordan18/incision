@@ -1,9 +1,9 @@
 import type { Interruption, RaceToCreate, StartRaceInput, StartRaceResult, Transition } from "@incision/database";
-import { COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS } from "@incision/domain";
+import { asRandomState, COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, type RaceProgressPayload, type RaceRevealPayload } from "../../races/protocol";
 import { CONTROL_WINDOW, ENTRANT_ACTION_WINDOW, FIRST_RACE_SETTINGS, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
-import { FIXTURE_RACE_TEXTS, type RaceText } from "./race-texts";
+import { CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts, type RaceTextDraw, type RaceTextSource } from "./race-texts";
 
 const START = 1_800_000_000_000;
 const LOBBY = "lobby-1";
@@ -18,7 +18,7 @@ function harness(
     refusal?: "NOT_HOST" | "NOT_ENOUGH_PARTICIPANTS";
     participants?: typeof PARTICIPANTS;
     renewed?: boolean;
-    texts?: Readonly<Record<"fr" | "en", RaceText>>;
+    texts?: RaceTextSource;
     racesOpen?: boolean;
   } = {},
 ) {
@@ -64,7 +64,7 @@ function harness(
     },
     onRoomChanged: (lobbyId) => changed.push(lobbyId),
     onRaceLost: (lobbyId) => lost.push(lobbyId),
-    texts: options.texts ?? FIXTURE_RACE_TEXTS,
+    texts: options.texts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
     racesOpen: options.racesOpen ?? true,
     log: () => undefined,
   });
@@ -90,6 +90,20 @@ function tab(id: string, accountId: string, locale: "fr" | "en" = "fr") {
   const connection: RoomConnection = { id, accountId, locale, emit: (event, payload) => void received.push({ event, payload }) };
   return { connection, received, reveal: () => received.find((message) => message.event === RACE_REVEAL_EVENT)?.payload as RaceRevealPayload | undefined };
 }
+
+// Written for these tests, not corpus passages: about sixty words each, normalised.
+const CORPUS_FR = {
+  id: "fr-test-depart",
+  language: "fr" as const,
+  complexity: "medium" as const,
+  text: "La mer est calme ce matin. Le capitaine regarde le ciel, puis il appelle son équipage. Nous levons l'ancre avant midi, et le navire quitte le port sous un vent léger. Les mouettes crient au-dessus des vagues. Vers le soir, la côte disparaît derrière nous, et chacun reprend son poste en silence. La nuit sera longue, mais personne ne se plaint.",
+};
+const CORPUS_EN = {
+  id: "en-test-departure",
+  language: "en" as const,
+  complexity: "medium" as const,
+  text: "The sea was calm that morning. The captain looked at the sky, then called his crew on deck. We raised the anchor before noon, and the ship left the harbour under a light wind. Gulls cried above the waves. Towards evening the coast faded behind us, and each sailor went back to his post in silence. The night would be long, but nobody complained.",
+};
 
 const batch = (seq: number, grapheme: string) => ({ raceId: RACE, seq, textVersion: 0, events: [{ type: "insert", grapheme }] });
 
@@ -134,7 +148,7 @@ describe("RaceService", () => {
 
   it("runs the texts it is given, never the fixtures in their place, and records which one", async () => {
     const texts = { fr: { id: "fr-injected", text: "Texte injecté pour ce test." }, en: { id: "en-injected", text: "Text injected for this test." } };
-    const { service, store } = harness({ texts });
+    const { service, store } = harness({ texts: fixedRaceTexts(texts) });
     const host = tab("t-host", "a-host", "fr");
     const bea = tab("t-bea", "a-bea", "en");
     service.follow(LOBBY, host.connection);
@@ -142,6 +156,93 @@ describe("RaceService", () => {
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
     expect(store.startRace.mock.calls[0]?.[0]).toMatchObject({ text: texts.fr.text, config: { language: "fr", text: "fr-injected" } });
     expect(bea.reveal()?.reveal.text.join("")).toBe(texts.fr.text);
+  });
+
+  it("draws a corpus passage in the host's language, records its provenance, and reveals only the cut", async () => {
+    const corpus = { version: "test-1", passages: Object.freeze([CORPUS_FR, CORPUS_EN].map((passage) => Object.freeze(passage))) };
+    const texts = new CorpusTexts({ load: async () => corpus, seed: () => asRandomState([1, 2, 3, 4]), log: () => undefined, logError: () => undefined });
+    const { service, store } = harness({ texts });
+    // The host's pages are in French, the guest's in English: the text follows the host (D-19).
+    const host = tab("t-host", "a-host", "fr");
+    const bea = tab("t-bea", "a-bea", "en");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, bea.connection);
+    expect(await service.start(host.connection, {})).toEqual({ ok: true });
+    const cut = CORPUS_FR.text.split(" ").slice(0, 50).join(" ");
+    const input = store.startRace.mock.calls[0]?.[0];
+    expect(input?.text).toBe(cut);
+    expect(input?.config).toEqual({
+      errorMode: "mandatory",
+      timeLimitMs: 120_000,
+      language: "fr",
+      text: CORPUS_FR.id,
+      corpusVersion: "test-1",
+      textSettings: { kind: "coherent", language: "fr", wordCount: 50, complexity: "medium", options: { punctuation: true, numbers: false, capitals: true, accents: true } },
+      textVersions: { generator: 1, criteria: "start-1", normalization: 2, prng: expect.any(String) },
+      bonuses: false,
+    });
+    expect(bea.reveal()?.reveal.text.join("")).toBe(cut);
+    expect(bea.reveal()?.language).toBe("fr");
+  });
+
+  it("refuses a start before the database when no corpus passage serves it, or when the corpus cannot load, and writes no race", async () => {
+    for (const [load, error] of [
+      [async () => undefined, "NO_COMPATIBLE_PASSAGE"],
+      [async () => ({ version: "test-1", passages: Object.freeze([Object.freeze(CORPUS_EN)]) }), "NO_COMPATIBLE_PASSAGE"],
+      [
+        async () => {
+          throw new Error("connect ECONNREFUSED");
+        },
+        "UNAVAILABLE",
+      ],
+    ] as const) {
+      const texts = new CorpusTexts({ load, log: () => undefined, logError: () => undefined });
+      const { service, store, changed } = harness({ texts });
+      const host = tab("t-host", "a-host", "fr");
+      service.follow(LOBBY, host.connection);
+      service.follow(LOBBY, tab("t-bea", "a-bea").connection);
+      expect(await service.start(host.connection, {})).toEqual({ ok: false, error });
+      expect(store.startRace).not.toHaveBeenCalled();
+      expect(service.ownsRace(LOBBY)).toBe(false);
+      expect(changed).toEqual([]);
+    }
+  });
+
+  it("draws a text only for a start that may go on: never while races are closed, beyond the start window, or during the same account's start", async () => {
+    const draw = vi.fn(async (): Promise<RaceTextDraw> => ({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" }));
+    const closed = harness({ racesOpen: false, texts: { draw } });
+    expect(await closed.service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: false, error: "RACES_CLOSED" });
+    expect(draw).not.toHaveBeenCalled();
+
+    const { service } = harness({ texts: { draw } });
+    const host = tab("t-host", "a-host").connection;
+    for (let attempt = 0; attempt < START_WINDOW.maxStarts; attempt += 1) {
+      expect(await service.start(host, {})).toEqual({ ok: false, error: "NO_COMPATIBLE_PASSAGE" });
+    }
+    expect(await service.start(host, {})).toEqual({ ok: false, error: "RATE_LIMITED" });
+    expect(draw).toHaveBeenCalledTimes(START_WINDOW.maxStarts);
+
+    draw.mockClear();
+    const pending = Promise.withResolvers<RaceTextDraw>();
+    draw.mockReturnValueOnce(pending.promise);
+    const other = harness({ texts: { draw } }).service;
+    const first = other.start(tab("t-1", "a-host").connection, {});
+    expect(await other.start(tab("t-2", "a-host").connection, {})).toEqual({ ok: false, error: "RATE_LIMITED" });
+    pending.resolve({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await first).toEqual({ ok: false, error: "NO_COMPATIBLE_PASSAGE" });
+    expect(draw).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes no race when the process began stopping while the text was drawn", async () => {
+    const pending = Promise.withResolvers<RaceTextDraw>();
+    const { service, store } = harness({ texts: { draw: () => pending.promise } });
+    const host = tab("t-host", "a-host");
+    service.follow(LOBBY, host.connection);
+    const start = service.start(host.connection, {});
+    await service.stop({ onEnded: () => undefined, timeoutMs: 1_000 });
+    pending.resolve({ ok: true, text: FIXTURE_RACE_TEXTS.fr.text, record: { language: "fr", text: "fixture" } });
+    expect(await start).toEqual({ ok: false, error: "UNAVAILABLE" });
+    expect(store.startRace).not.toHaveBeenCalled();
   });
 
   it("refuses every start before the database while races are closed (RACES_ENABLED), and leaves the room as it was", async () => {
@@ -392,7 +493,7 @@ describe("RaceService", () => {
         return () => clearTimeout(timer);
       },
       onRoomChanged: () => undefined,
-      texts: FIXTURE_RACE_TEXTS,
+      texts: fixedRaceTexts(FIXTURE_RACE_TEXTS),
       racesOpen: true,
       log: () => undefined,
       logError: (message) => logged.push(message),

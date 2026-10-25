@@ -7,6 +7,7 @@ import {
   findActiveMembership,
   getDatabase,
   interruptOwnRace,
+  loadActiveCorpus,
   readRoomSnapshot,
   readSessionVersion,
   recoverAbandonedRaces,
@@ -27,7 +28,7 @@ import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
 import { processOwnerId } from "./src/server/races/process-owner";
 import { RaceService, serverClock } from "./src/server/races/race-service";
 import { racesOpenOf, racesSwitchNotice } from "./src/server/races/races-switch";
-import { FIXTURE_RACE_TEXTS, RACE_TEXTS } from "./src/server/races/race-texts";
+import { CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts } from "./src/server/races/race-texts";
 import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
@@ -62,6 +63,10 @@ async function main(): Promise<void> {
       }),
     registry,
   });
+  // The race texts (F-02.3b): drawn from the active corpus, unless a test build asks for the short fixtures.
+  const corpusTexts = env.fixtureRaceTexts
+    ? undefined
+    : new CorpusTexts({ load: () => loadActiveCorpus(databaseOf(env)), log: (message) => console.log(message), logError: (message) => console.error(message) });
   // The races this process runs (F-04.0, ADR-0004): every write fenced by owner and generation.
   const races = new RaceService({
     ownerId: processOwnerId(),
@@ -81,18 +86,21 @@ async function main(): Promise<void> {
     },
     onRoomChanged: notifyRoomChanged,
     onRaceLost: (lobbyId) => roomEvents().emit("raceLost", lobbyId),
-    // The chosen texts, unless a test build asks for the short fixtures.
-    texts: env.fixtureRaceTexts ? FIXTURE_RACE_TEXTS : RACE_TEXTS,
+    texts: corpusTexts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
     // Whether races may start at all; never which texts they run (the fixtures stay local only).
     racesOpen: racesOpenOf(env.racesSwitch),
     log: (message) => console.log(message),
     logError: (message) => console.error(message),
   });
   console.log(
-    env.fixtureRaceTexts
-      ? "[races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the chosen texts"
-      : `[races] race texts: ${RACE_TEXTS.fr.id}, ${RACE_TEXTS.en.id}`,
+    corpusTexts === undefined
+      ? "[races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus"
+      : "[races] race texts: drawn from the active corpus (D-19: coherent, 50 words, medium)",
   );
+  // Loaded now, without delaying the server; a failure is retried at the next start.
+  if (corpusTexts !== undefined && env.databaseUrl !== undefined) {
+    void corpusTexts.warm();
+  }
   const racesNotice = racesSwitchNotice(env.racesSwitch);
   (racesNotice.level === "warn" ? console.warn : console.log)(racesNotice.message);
   // A departure committed by a server action ends the leaver's race, or the race if the room closed.
