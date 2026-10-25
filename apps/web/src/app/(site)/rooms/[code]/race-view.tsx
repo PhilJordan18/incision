@@ -138,7 +138,11 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
               <h2 id="keyboard-guidance-heading" className="font-display text-2xl font-extrabold uppercase">
                 {physicalKeyboardMessages[locale].heading}
               </h2>
-              <p className="text-embrun">{physicalKeyboardMessages[locale].description}</p>
+              <p id={TYPING_STATUS_ID} tabIndex={-1} role="status" className="text-embrun focus:outline-2 focus:outline-offset-4 focus:outline-ecume">
+                {(state.typing?.status ?? selfProgress?.status) === "abandoned"
+                  ? t.abandoned[state.abandonReason ?? "voluntary"]
+                  : physicalKeyboardMessages[locale].description}
+              </p>
             </section>
           ) : state.selfEntrantId === null ? (
             <>

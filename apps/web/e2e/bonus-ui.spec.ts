@@ -85,6 +85,8 @@ test("real race view and runtime: FIFO, Enter guards, three effects, translated 
       await page.screenshot({ path: test.info().outputPath(`bonus-${page === actor.page ? "fr-aube" : "en-abysse"}-${width}.png`), fullPage: true });
     }
     await page.setViewportSize({ width: 360, height: 800 }); await expectNoAccessibilityViolation(page);
+    // D-20 replaces typing on phones; return to a wide viewport before resuming the race.
+    await page.setViewportSize({ width: 1024, height: 1000 });
   }
   await Promise.all([
     field.pressSequentially("aa bb cc dd ee ff gg", { delay: 75 }),

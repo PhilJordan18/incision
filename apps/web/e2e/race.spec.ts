@@ -230,7 +230,7 @@ test.describe("the first complete race (F-04.0)", () => {
 
   test("a player who leaves during the race abandons, and keeps a ranked result", async ({ browser }) => {
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
-    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 768, theme: "aube" });
     const code = await openRoom(host);
     await join(guest, code);
     await host.getByRole("button", { name: "Start the race" }).click();
@@ -254,7 +254,7 @@ test.describe("the first complete race (F-04.0)", () => {
 
   test("a player gives up only after confirming it, and the results say it was a choice (COURSE-07)", async ({ browser }) => {
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
-    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 768, theme: "aube" });
     const code = await openRoom(host);
     await join(guest, code);
     await host.getByRole("button", { name: "Start the race" }).click();
@@ -398,10 +398,10 @@ test.describe("the first complete race (F-04.0)", () => {
   });
 
   test("the host takes everyone present to the next round, a newcomer included, and races them again (F-04.7)", async ({ browser }) => {
-    // A whole race, a newcomer, axe at 360 px, then a second start: about 16 s on a calm machine;
+    // A whole race, a newcomer, axe on tablet, then a second start: about 16 s on a calm machine;
     // 60 s leaves room under load, where the default 30 s would be tight.
     test.setTimeout(60_000);
-    const { page: host } = await signedIn(browser, "Capitaine", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: host } = await signedIn(browser, "Capitaine", { locale: "fr-CA", width: 768, theme: "aube" });
     const { page: guest } = await signedIn(browser, "Matelot", { locale: "en-US" });
     const { page: leaver } = await signedIn(browser, "Mousse", { locale: "fr-CA" });
     const code = await openRoom(host);
@@ -445,7 +445,7 @@ test.describe("the first complete race (F-04.0)", () => {
 
   test("the host closes the room from the results: everyone sees it closed, and the race stays readable (F-04.7)", async ({ browser }) => {
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US", theme: "abysse" });
-    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 360, theme: "aube" });
+    const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA", width: 768, theme: "aube" });
     const code = await openRoom(host);
     await join(guest, code);
     await host.getByRole("button", { name: "Start the race" }).click();
