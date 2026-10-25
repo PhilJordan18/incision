@@ -1,8 +1,10 @@
 import { readAccountProfile } from "@incision/database";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeading } from "@/components/ui/page-heading";
-import { card, monoLabel } from "@/components/ui/styles";
+import { card, monoLabel, secondaryButton } from "@/components/ui/styles";
+import { getHistoryDictionary } from "@/i18n/dictionaries/history";
 import { getRequestDictionary } from "@/i18n/server";
 import { requireAccountSession } from "@/server/auth/session";
 import { authDatabase } from "@/server/auth/store";
@@ -16,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Protected on the server: no valid session, no page (the header link is only a convenience). */
 export default async function AccountPage() {
   const { accountId } = await requireAccountSession("/account");
-  const [{ t }, profile] = await Promise.all([getRequestDictionary(), readAccountProfile(authDatabase(), accountId)]);
+  const [{ t, locale }, profile] = await Promise.all([getRequestDictionary(), readAccountProfile(authDatabase(), accountId)]);
   if (profile === undefined) {
     redirect("/sign-in");
   }
@@ -29,6 +31,7 @@ export default async function AccountPage() {
           <p className="text-2xl font-semibold">{profile.displayName}</p>
         </div>
         <p className="text-embrun">{t.account.signOutScope}</p>
+        <Link href="/history" className={secondaryButton}>{getHistoryDictionary(locale).title}</Link>
         <SignOutForm labels={{ signOut: t.account.signOut, signingOut: t.account.signingOut, signOutFailed: t.account.signOutFailed }} />
       </section>
     </>

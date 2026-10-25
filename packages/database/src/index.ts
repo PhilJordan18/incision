@@ -5,6 +5,7 @@ export * from "./identity/password";
 export * from "./local-database";
 export * from "./pool";
 export * from "./races/lifecycle";
+export * from "./races/history";
 export * from "./races/results";
 export * from "./rooms/create-room";
 export * from "./rooms/host-actions";
