@@ -35,6 +35,7 @@ export const en: Dictionary = {
       ROOM_NOT_FOUND: "No open room has this code. Check the 6 characters.",
       ROOM_NOT_ADMITTING: "This room is not admitting anyone right now: a race is running or it is closed.",
       ROOM_FULL: "This room is full.",
+      SPECTATORS_FULL: "This room already has 20 spectators. Try again when a place becomes available.",
       ALREADY_IN_ANOTHER_ROOM: "You are already in room {code}.",
       RATE_LIMITED: "Too many room changes in a row. Try again in a minute.",
       CODE_RATE_LIMITED: "Too many wrong codes tried from this network. Try again in a minute.",

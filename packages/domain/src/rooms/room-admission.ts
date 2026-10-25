@@ -19,13 +19,15 @@ export function admitsNewMembers(phase: RoomPhase): phase is AdmittingPhase {
   return phase === "waiting" || phase === "results";
 }
 
-export type AdmissionRefusal = "ROOM_NOT_ADMITTING" | "ROOM_FULL";
+export type AdmissionRefusal = "ROOM_NOT_ADMITTING" | "ROOM_FULL" | "SPECTATORS_FULL";
 
 export type AdmissionRequest = {
   readonly phase: RoomPhase;
   readonly role: MemberRole;
   /** Active participants of the room, read under the room lock. */
   readonly activeParticipants: number;
+  /** Active spectator memberships, including a spectating host, read under the room lock. */
+  readonly activeSpectators: number;
   readonly capacity: number;
 };
 
@@ -34,12 +36,16 @@ export type AdmissionRequest = {
  * only while waiting or at results (SALLE-09); spectators take no participant place
  * (SALLE-05).
  */
-export function admissionRefusal({ phase, role, activeParticipants, capacity }: AdmissionRequest): AdmissionRefusal | undefined {
+export function admissionRefusal({ phase, role, activeParticipants, activeSpectators, capacity }: AdmissionRequest): AdmissionRefusal | undefined {
   if (!admitsNewMembers(phase)) {
     return "ROOM_NOT_ADMITTING";
   }
   if (role === "participant" && activeParticipants >= capacity) {
     return "ROOM_FULL";
+  }
+  // D-22: spectators have their own fixed quota, independent of participant capacity.
+  if (role === "spectator" && activeSpectators >= 20) {
+    return "SPECTATORS_FULL";
   }
   return undefined;
 }

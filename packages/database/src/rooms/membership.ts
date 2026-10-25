@@ -125,7 +125,7 @@ export type JoinRoomInput = { readonly accountId: string; readonly code: RoomCod
 
 export type JoinRoomResult =
   | { readonly ok: true; readonly lobbyId: string; readonly memberId: string; readonly alreadyMember: boolean }
-  | { readonly ok: false; readonly error: "ROOM_NOT_FOUND" | "ROOM_FULL" | "ACCOUNT_NOT_FOUND" }
+  | { readonly ok: false; readonly error: "ROOM_NOT_FOUND" | "ROOM_FULL" | "SPECTATORS_FULL" | "ACCOUNT_NOT_FOUND" }
   /** The phase tells a closed room from a race in progress (the code limit counts only the first). */
   | { readonly ok: false; readonly error: "ROOM_NOT_ADMITTING"; readonly phase: Exclude<RoomPhase, AdmittingPhase> }
   | { readonly ok: false; readonly error: "ALREADY_IN_ANOTHER_ROOM"; readonly currentCode: string };
@@ -168,16 +168,21 @@ async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput):
       ? { ok: true, lobbyId: lobby.id, memberId: current.memberId, alreadyMember: true }
       : { ok: false, error: "ALREADY_IN_ANOTHER_ROOM", currentCode: current.code };
   }
-  const activeParticipants =
-    role === "participant"
-      ? firstRow(
-          await tx
-            .select({ value: count() })
-            .from(lobbyMembers)
-            .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, "participant"), isNull(lobbyMembers.leftAt))),
-        ).value
-      : 0;
-  const refusal = admissionRefusal({ phase: lobby.phase, role, activeParticipants, capacity: lobby.capacity });
+  // The lobby row lock serializes admissions and departures. Count only the requested
+  // role, independently of the other quota; existing membership was returned above.
+  const activeInRole = firstRow(
+    await tx
+      .select({ value: count() })
+      .from(lobbyMembers)
+      .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, role), isNull(lobbyMembers.leftAt))),
+  ).value;
+  const refusal = admissionRefusal({
+    phase: lobby.phase,
+    role,
+    activeParticipants: role === "participant" ? activeInRole : 0,
+    activeSpectators: role === "spectator" ? activeInRole : 0,
+    capacity: lobby.capacity,
+  });
   if (refusal !== undefined) {
     return admissionRefusalResult(refusal, lobby.phase);
   }
@@ -212,7 +217,8 @@ async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput):
 function admissionRefusalResult(refusal: AdmissionRefusal, phase: RoomPhase): JoinRoomResult & { readonly ok: false } {
   switch (refusal) {
     case "ROOM_FULL":
-      return { ok: false, error: "ROOM_FULL" };
+    case "SPECTATORS_FULL":
+      return { ok: false, error: refusal };
     case "ROOM_NOT_ADMITTING":
       // The domain refuses admission exactly in these phases; a mismatch still refuses.
       return admitsNewMembers(phase) ? { ok: false, error: "ROOM_FULL" } : { ok: false, error: "ROOM_NOT_ADMITTING", phase };
