@@ -7,6 +7,7 @@ import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } fro
 import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
+import { formatNumber } from "@/i18n/value-format";
 import type { Locale } from "@/i18n/locale";
 import type { BonusClient } from "@/races/bonus-client";
 import { isBonusKeyIntent } from "@/races/bonus-key-intent";
@@ -84,7 +85,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
   const remaining = reveal.timeLimit === null ? undefined : reveal.timeLimit - Math.max(0, now - reveal.startsAt);
   const seconds = Math.max(1, Math.ceil((reveal.startsAt - now) / 1_000));
   // Over the faded text (screen 07), so that nothing moves when typing opens.
-  const countdown = counting ? <Countdown seconds={seconds} t={t} /> : undefined;
+  const countdown = counting ? <Countdown seconds={seconds} t={t} locale={locale} /> : undefined;
   // One speed for "me", the broadcast's, as on the track; accuracy from the server's measures.
   const speed = selfProgress?.netWpm ?? state.measures?.netWpm ?? 0;
   const typedAnything = (state.typing?.totalInserts ?? 0) > 0;
@@ -104,7 +105,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
             {reveal.timeLimit !== null && (
               <span>
                 <span aria-hidden="true">[.</span>
-                {format(t.timeLimit, { minutes: Math.round(reveal.timeLimit / 60_000) })}
+                {format(t.timeLimit, { minutes: formatNumber(Math.round(reveal.timeLimit / 60_000), locale) })}
                 <span aria-hidden="true">]</span>
               </span>
             )}
@@ -112,7 +113,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
 
           {/* One live region from the reveal on: 3, 2, 1, then the start, announced once each. */}
           <p aria-live="assertive" aria-atomic="true" className="sr-only">
-            {counting ? String(seconds) : t.countdownGo}
+            {counting ? formatNumber(seconds, locale) : t.countdownGo}
           </p>
         </>
       }
@@ -350,7 +351,7 @@ function useServerClock(race: RaceClient, state: RaceClientState): number {
  * Screen 07 over the faded text: the digit in its ring. A timer for assistive technology, whose
  * announcements come from the view's single live region.
  */
-function Countdown({ seconds, t }: { readonly seconds: number; readonly t: Dictionary["races"] }) {
+function Countdown({ seconds, t, locale }: { readonly seconds: number; readonly t: Dictionary["races"]; readonly locale: Locale }) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-carte bg-nuit/85">
       <p id="countdown-label" className={monoLabel}>
@@ -361,7 +362,7 @@ function Countdown({ seconds, t }: { readonly seconds: number; readonly t: Dicti
         aria-labelledby="countdown-label"
         className="grid size-28 place-items-center rounded-full border-4 border-ligne font-display text-7xl leading-none font-black sm:size-36 sm:text-8xl"
       >
-        {seconds}
+        {formatNumber(seconds, locale)}
       </p>
       <p className="font-serif text-2xl italic">{t.countdownMood}</p>
     </div>

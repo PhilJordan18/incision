@@ -7,6 +7,7 @@ import { RaceResults } from "@/components/races/race-results";
 import { StatePanel } from "@/components/ui/state-panel";
 import { discreetButton, secondaryButton } from "@/components/ui/styles";
 import { format } from "@/i18n/format";
+import { formatNumber } from "@/i18n/value-format";
 import { getRequestDictionary } from "@/i18n/server";
 import { requireAccountSession } from "@/server/auth/session";
 import { authDatabase } from "@/server/auth/store";
@@ -26,11 +27,11 @@ const loadRace = cache(async (raceId: string, accountId: string): Promise<RacePa
 });
 
 export async function generateMetadata({ params }: PageProps<"/races/[id]">): Promise<Metadata> {
-  const [{ t }, { id }] = await Promise.all([getRequestDictionary(), params]);
+  const [{ t, locale }, { id }] = await Promise.all([getRequestDictionary(), params]);
   const { accountId } = await requireAccountSession(`/races/${id}`);
   const page = await loadRace(id, accountId);
   return page.kind === "race"
-    ? { title: `${t.races.racePage.title} · ${format(t.races.results.roundLabel, { round: page.race.roundNo })}`, robots: { index: false } }
+    ? { title: `${t.races.racePage.title} · ${format(t.races.results.roundLabel, { round: formatNumber(page.race.roundNo, locale) })}`, robots: { index: false } }
     : { title: t.races.racePage.notFoundHeading, robots: { index: false } };
 }
 
