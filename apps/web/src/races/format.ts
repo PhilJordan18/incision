@@ -1,4 +1,5 @@
 import { format } from "../i18n/format";
+import { formatNumber } from "../i18n/value-format";
 import type { Locale } from "../i18n/locale";
 
 type OrdinalForms = { readonly one: string; readonly two: string; readonly few: string; readonly other: string };
@@ -7,7 +8,7 @@ type OrdinalForms = { readonly one: string; readonly two: string; readonly few: 
 export function ordinal(rank: number, locale: Locale, forms: OrdinalForms): string {
   const category = new Intl.PluralRules(locale, { type: "ordinal" }).select(rank);
   const template = category === "one" || category === "two" || category === "few" ? forms[category] : forms.other;
-  return format(template, { rank });
+  return format(template, { rank: formatNumber(rank, locale) });
 }
 
 /**
@@ -30,16 +31,16 @@ export function formatClock(ms: number): string {
 
 /** Display rounding only (the exact values are stored): WPM to the unit. */
 export function formatWpm(wpm: number, locale: Locale): string {
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(wpm);
+  return formatNumber(wpm, locale, { maximumFractionDigits: 0 });
 }
 
 /** Accuracy to the tenth, with the language's percent sign and spacing ("96,4 %", "96.4%"). */
 export function formatAccuracy(accuracy: number, locale: Locale): string {
-  return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(accuracy / 100);
+  return formatNumber(accuracy / 100, locale, { style: "percent", maximumFractionDigits: 1 });
 }
 
 /** Progress as a whole percentage, never 100 % before the end. */
 export function formatProgress(position: number, length: number, locale: Locale): string {
   const ratio = length === 0 ? 0 : position / length;
-  return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0, roundingMode: "floor" }).format(ratio);
+  return formatNumber(ratio, locale, { style: "percent", maximumFractionDigits: 0, roundingMode: "floor" });
 }
