@@ -109,6 +109,8 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       sendBatch: (batch) => (socket.connected ? socket.timeout(BATCH_TIMEOUT_MS).emitWithAck(RACE_BATCH_EVENT, batch) : Promise.reject(new Error("offline"))),
       connected: () => socket.connected,
     });
+    socket.on("connect", () => race.startClockSync((sentAt) => socket.timeout(5_000).emitWithAck("system:ping", { sentAt })));
+    socket.on("disconnect", () => race.stopClockSync());
     socket.on(RACE_REVEAL_EVENT, (payload: unknown) => race.reveal(payload));
     socket.on(RACE_PROGRESS_EVENT, (payload: unknown) => race.progress(payload));
     socket.on(RACE_SELF_EVENT, (payload: unknown) => race.self(payload));
@@ -231,7 +233,6 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     };
 
     socket.on("connect", () => {
-      race.startClockSync((sentAt) => socket.timeout(5_000).emitWithAck("system:ping", { sentAt }));
       // A new connection is a new socket on the server, with its own budget.
       generation += 1;
       inFlight = false;
@@ -240,7 +241,6 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       watch();
     });
     socket.on("disconnect", (reason) => {
-      race.stopClockSync();
       generation += 1;
       inFlight = false;
       clearTimeout(retry);
