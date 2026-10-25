@@ -52,11 +52,6 @@ async function raceText(page: Page): Promise<string> {
   return (await text.textContent()) ?? "";
 }
 
-/** Where an element sits in the page (not the viewport): a question that scrolls into view moves nothing. */
-async function pageTop(locator: ReturnType<Page["locator"]>): Promise<number> {
-  return locator.evaluate((element) => element.getBoundingClientRect().top + window.scrollY);
-}
-
 /** Types like a person, below the engine's plausibility limit (25 graphemes a second). */
 async function typeText(field: ReturnType<Page["getByLabel"]>, text: string): Promise<void> {
   await field.pressSequentially(text, { delay: 70 });
@@ -81,6 +76,7 @@ test("locale formats stay consistent through a race, server results and hydratio
   await expect(host.getByRole("heading", { name: /End of the crossing/i })).toBeVisible({ timeout: 15000 });
   await expect(guest.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible();
   await guest.getByRole("link", { name: "Voir la fiche de la course" }).click();
+  await expect(guest).toHaveURL(/\/races\/[0-9a-f-]{36}$/);
   const raceUrl = guest.url();
   const raceId = raceUrl.split("/").at(-1);
   // A large round number distinguishes locale grouping, unlike normal early rounds.
