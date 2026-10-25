@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { asEntrantId } from "../ids";
-import { createRaceRefusal } from "../race/create";
 import { TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "../race/limits";
 import type { ErrorMode } from "../race/types";
 import type { RandomTextSettings } from "../text/settings";
 import type { Duration } from "../time";
-import { TEXT_LANGUAGES } from "../words/types";
+import { TEXT_LANGUAGES, type TextLanguage } from "../words/types";
 import { defaultRoomConfiguration, defaultTextSettings, roomConfigurationRefusal, type RoomConfiguration } from "./room-configuration";
 
 const limit = (milliseconds: number): Duration => milliseconds as Duration;
@@ -49,15 +47,6 @@ describe("roomConfigurationRefusal", () => {
     expect(roomConfigurationRefusal(configuration({ timeLimit: limit(milliseconds) }))).toBe("INVALID_TIME_LIMIT");
   });
 
-  it("applies the time limit rule of createRaceRefusal", () => {
-    const participants = [{ entrantId: asEntrantId("alice"), kind: "human" as const }, { entrantId: asEntrantId("bob"), kind: "human" as const }];
-    for (const milliseconds of [null, 0, TIME_LIMIT_MIN_MS - 1, TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS, TIME_LIMIT_MAX_MS + 1, 30_000.5]) {
-      const timeLimit = milliseconds === null ? null : limit(milliseconds);
-      const race = createRaceRefusal({ participants, text: "ab", timeLimit }) === "INVALID_TIME_LIMIT";
-      expect(roomConfigurationRefusal(configuration({ timeLimit })) === "INVALID_TIME_LIMIT").toBe(race);
-    }
-  });
-
   it("accepts both error modes (CONF-08)", () => {
     expect(roomConfigurationRefusal(configuration({ errorMode: "free" }))).toBeUndefined();
     expect(roomConfigurationRefusal(configuration({ errorMode: "mandatory" }))).toBeUndefined();
@@ -74,7 +63,9 @@ describe("roomConfigurationRefusal", () => {
     expect(roomConfigurationRefusal(configuration({ text, timeLimit: limit(1) }))).toBe("INVALID_TIME_LIMIT");
   });
 
-  it("throws for an error mode only a bug can produce", () => {
-    expect(() => roomConfigurationRefusal(configuration({ errorMode: "lenient" as ErrorMode }))).toThrow(RangeError);
+  it("throws for a value only a bug can produce, even with a time limit to refuse", () => {
+    expect(() => roomConfigurationRefusal(configuration({ errorMode: "lenient" as ErrorMode, timeLimit: limit(1) }))).toThrow(RangeError);
+    const text = { ...defaultTextSettings("fr"), language: "de" as TextLanguage };
+    expect(() => roomConfigurationRefusal(configuration({ text, timeLimit: limit(1) }))).toThrow(RangeError);
   });
 });

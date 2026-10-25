@@ -1,7 +1,7 @@
 import { asEntrantId, asRaceId } from "../ids";
 import { containsLineBreak, toGraphemes } from "../text/graphemes";
 import { asInstant } from "../time";
-import { COUNTDOWN_MS, MAX_TEXT_GRAPHEMES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "./limits";
+import { COUNTDOWN_MS, isValidTimeLimit, MAX_TEXT_GRAPHEMES } from "./limits";
 import { ENTRANT_KINDS, startRefusal } from "./start";
 import { ERROR_MODES, type CreateRace, type CreateRaceInput, type CreateRaceRefusal, type EntrantState } from "./types";
 
@@ -34,8 +34,7 @@ export function createRaceRefusal(input: Pick<CreateRaceInput, "participants" | 
   if (length > MAX_TEXT_GRAPHEMES) {
     return "TEXT_TOO_LONG";
   }
-  const { timeLimit } = input;
-  if (timeLimit !== null && !(Number.isSafeInteger(timeLimit) && timeLimit >= TIME_LIMIT_MIN_MS && timeLimit <= TIME_LIMIT_MAX_MS)) {
+  if (!isValidTimeLimit(input.timeLimit)) {
     return "INVALID_TIME_LIMIT";
   }
   return undefined;
