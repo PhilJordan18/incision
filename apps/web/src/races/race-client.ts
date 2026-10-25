@@ -8,6 +8,7 @@ import {
   raceSelfPayloadSchema,
   type RaceSelfPayload,
 } from "./protocol";
+import { ClockSync } from "./clock-sync";
 import { type SentBatch, type TypingBlock, TypingSession, type TypingView } from "./typing-session";
 
 /** What the race view draws. A new object after every change, so React sees it changed. */
@@ -36,8 +37,9 @@ export type RaceTransport = {
 };
 
 export type RaceClientOptions = {
-  /** The browser's clock; the server's is this plus the offset learnt from each message. */
+  /** Browser wall clock, used until round-trip calibration. */
   readonly now: () => number;
+  readonly monotonic?: () => number;
   readonly schedule: (callback: () => void, delayMs: number) => () => void;
 };
 
@@ -54,11 +56,11 @@ export class RaceClient {
   #state: RaceClientState = EMPTY;
   #session: TypingSession | undefined;
   #transport: RaceTransport | undefined;
-  /** Server clock minus browser clock, from the latest message (no round-trip compensation, F-04.2). */
-  #offsetMs = 0;
+  readonly #clock: ClockSync;
 
   constructor(options: RaceClientOptions) {
     this.#options = options;
+    this.#clock = new ClockSync({ ...options, monotonic: options.monotonic ?? options.now, changed: () => this.#update({}) });
   }
 
   readonly subscribe = (listener: () => void): (() => void) => {
@@ -76,11 +78,20 @@ export class RaceClient {
   /** The socket closed for good (the page unmounts): nothing is sent or resent any more. */
   detach(): void {
     this.#transport = undefined;
+    this.stopClockSync();
   }
 
   /** The server's clock as this tab estimates it. */
   serverNow(): number {
-    return this.#options.now() + this.#offsetMs;
+    return this.#clock.now();
+  }
+
+  startClockSync(ping: (sentAt: number) => Promise<unknown>): void {
+    this.#clock.start(ping);
+  }
+
+  stopClockSync(): void {
+    this.#clock.stop();
   }
 
   reveal(payload: unknown): void {
@@ -89,7 +100,7 @@ export class RaceClient {
       return;
     }
     const { reveal, language, entrants, selfEntrantId, serverNow } = parsed.data;
-    this.#offsetMs = serverNow - this.#options.now();
+    this.#clock.observe(serverNow);
     if (this.#state.reveal?.raceId !== reveal.raceId) {
       this.#session?.close();
       this.#session =
@@ -114,11 +125,11 @@ export class RaceClient {
     if (!parsed.success || parsed.data.broadcast.raceId !== this.#state.reveal?.raceId) {
       return;
     }
-    this.#offsetMs = parsed.data.serverNow - this.#options.now();
     const current = this.#state.progress;
     if (current !== undefined && current.revision > parsed.data.broadcast.revision) {
       return;
     }
+    this.#clock.observe(parsed.data.serverNow);
     this.#update({ progress: parsed.data.broadcast });
   }
 
