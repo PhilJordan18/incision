@@ -38,7 +38,7 @@
 | AUTH-02 | Invité avec un pseudo de 3–20 caractères et un cookie signé | non fait | — | — | Identité distincte du socket; décisions D-04, D-07. |
 | AUTH-03 | Invité sans création de salle, photo ni historique persistant | non fait | — | — | Avatar généré; aucun transfert de l'historique invité vers le compte. D-03/D-08. |
 | AUTH-04 | Photo JPEG/PNG/WebP ≤2 Mo, validation serveur, redimensionnement | non fait | — | — | Stockage persistant local possible, aucun service payant nécessaire. |
-| AUTH-05 | Modification du nom d'affichage | non fait | — | — | Distinct de l'identifiant local et du sujet OAuth. |
+| AUTH-05 | Modification du nom d'affichage | complet (local) | `account/display-name-{action,form}`, `server/auth/change-display-name.ts`, `identity/accounts.ts` | 12 tests unitaires ciblés, 4 tests PostgreSQL, 3 parcours Playwright ; `docs/evidence/f07-5a/README.md` | F-07.5A : nom D-14 modifiable dans `/account`, identité issue de la session. Identifiant local, OAuth et sessions inchangés ; noms des salles et courses déjà créées conservés, nouveau nom à la prochaine admission. Sans unicité globale. Non validé en production ; photo et statistiques hors tranche. |
 | AUTH-06 | Profil : MPM meilleur/moyen, précision, courses/victoires, courbe | non fait | — | — | Profil personnel d'abord; réseau social hors du périmètre évalué. |
 
 ## Salles
