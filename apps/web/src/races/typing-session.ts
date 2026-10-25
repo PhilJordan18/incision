@@ -106,6 +106,7 @@ export class TypingSession {
       // Closed by the page: nothing more is taken or sent.
       return;
     }
+    if (this.#older(self.snapshot)) return;
     this.#snapshot = self.snapshot;
     this.#measures = self.measures;
     this.#control = self.control;
@@ -253,6 +254,10 @@ export class TypingSession {
       return;
     }
     const { result, self } = ack.data;
+    if (result.seq !== batch.seq || self.snapshot.raceId !== this.#options.raceId || this.#older(self.snapshot)) {
+      this.#resendLater(batch);
+      return;
+    }
     this.#inFlight = undefined;
     this.#snapshot = self.snapshot;
     this.#measures = self.measures;
@@ -268,5 +273,11 @@ export class TypingSession {
     }
     this.#options.onChange();
     this.#flush();
+  }
+
+  /** A reliable bonus snapshot can overtake a delayed typing response. Neither cursor rolls back. */
+  #older(snapshot: EntrantSnapshotPayload): boolean {
+    return this.#snapshot !== undefined && (snapshot.entrantId !== this.#snapshot.entrantId ||
+      snapshot.ackSeq < this.#snapshot.ackSeq || snapshot.textVersion < this.#snapshot.textVersion);
   }
 }

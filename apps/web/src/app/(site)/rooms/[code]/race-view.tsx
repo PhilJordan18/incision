@@ -2,16 +2,21 @@
 
 import { containsLineBreak, toGraphemes } from "@incision/domain";
 import { memo, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { RaceBonuses } from "@/components/rooms/race-bonuses";
 import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
+import type { BonusClient } from "@/races/bonus-client";
+import { isBonusKeyIntent } from "@/races/bonus-key-intent";
+import { fogStartsAt } from "@/races/fog";
 import { formatAccuracy, formatClock, formatProgress, formatWpm } from "@/races/format";
 import type { RaceClient, RaceClientState } from "@/races/race-client";
 
 type RaceViewProps = {
   readonly race: RaceClient;
+  readonly bonuses: BonusClient;
   readonly t: Dictionary["races"];
   readonly locale: Locale;
   readonly roomLabel: string;
@@ -51,8 +56,9 @@ export function focusTyping(fallback?: HTMLElement | null): void {
  * clock, then the text, the typing field and everyone's progress. What is typed shows at once
  * (the engine's prediction); progress, measures and results come from the server.
  */
-export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeControl, onPresent, onAbandon, reconnecting, below }: RaceViewProps) {
+export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, onTakeControl, onPresent, onAbandon, reconnecting, below }: RaceViewProps) {
   const state = useSyncExternalStore(race.subscribe, race.getState, race.getState);
+  const bonusState = useSyncExternalStore(bonuses.subscribe, bonuses.getState, bonuses.getState);
   const now = useServerClock(race, state);
   const reveal = expectedRaceId === undefined || state.reveal?.raceId === expectedRaceId ? state.reveal : undefined;
   const waitedLong = useWaitedLong(reveal === undefined);
@@ -74,7 +80,7 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
   const counting = phase === "countdown" && now < reveal.startsAt;
   const selfProgress = state.progress?.entrants.find((entrant) => entrant.entrantId === state.selfEntrantId);
   const typedCount = state.typing?.typed.length ?? selfProgress?.position ?? 0;
-  const length = reveal.text.length;
+  const length = state.typing?.target.length ?? reveal.text.length;
   const remaining = reveal.timeLimit === null ? undefined : reveal.timeLimit - Math.max(0, now - reveal.startsAt);
   const seconds = Math.max(1, Math.ceil((reveal.startsAt - now) / 1_000));
   // Over the faded text (screen 07), so that nothing moves when typing opens.
@@ -131,6 +137,8 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
           ) : (
             <TypingZone
               race={race}
+              bonuses={bonuses}
+              fog={bonusState.fogVisible}
               state={state}
               t={t}
               canType={!counting && phase === "racing"}
@@ -164,7 +172,7 @@ export function RaceView({ race, t, locale, roomLabel, expectedRaceId, onTakeCon
         </>
       }
       below={below}
-      track={<Track state={state} t={t} locale={locale} />}
+      track={<div className="flex min-w-0 flex-col gap-4 self-start"><Track state={state} t={t} locale={locale} /><RaceBonuses state={bonusState} race={state} t={t.bonuses} /></div>}
     />
   );
 }
@@ -362,6 +370,8 @@ function Countdown({ seconds, t }: { readonly seconds: number; readonly t: Dicti
 
 function TypingZone({
   race,
+  bonuses,
+  fog,
   state,
   t,
   canType,
@@ -370,6 +380,8 @@ function TypingZone({
   language,
 }: {
   readonly race: RaceClient;
+  readonly bonuses: BonusClient;
+  readonly fog: boolean;
   readonly state: RaceClientState;
   readonly t: Dictionary["races"];
   readonly canType: boolean;
@@ -396,6 +408,7 @@ function TypingZone({
     if (field === null) {
       return;
     }
+    let composing = false;
     const insert = (data: string) => {
       // Enter is reserved (D-16): never a keystroke, whatever the input method sends.
       if (data.length === 0 || containsLineBreak(data)) {
@@ -417,31 +430,48 @@ function TypingZone({
       // Pasting, dropping, line breaks and other edits are refused (screen 08).
     };
     const onCompositionEnd = (event: CompositionEvent) => {
+      composing = false;
       insert(event.data);
       field.value = "";
     };
+    const onCompositionStart = () => { composing = true; };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Backspace") {
         event.preventDefault();
         race.type({ type: "deleteBackward" });
       } else if (event.key === "Enter") {
-        event.preventDefault();
+        // Leave IME confirmation alone; it is not a bonus or a typing event (D-16).
+        if (!event.isComposing && !composing && event.keyCode !== 229) event.preventDefault();
+        const current = race.getState();
+        if (isBonusKeyIntent({
+          key: event.key, repeat: event.repeat, isComposing: event.isComposing || composing,
+          keyCode: event.keyCode, modified: event.altKey || event.ctrlKey || event.metaKey || event.shiftKey,
+          context: {
+            typingFieldFocused: document.activeElement === field && !field.disabled,
+            dialogOpen: document.querySelector('[data-warning-question]') !== null,
+            controlling: current.control === "controlling" && current.block === undefined,
+            racing: current.progress?.phase === "racing" && current.typing?.status === "racing" && !current.confirming,
+            enabled: bonuses.getState().self?.enabled === true,
+          },
+        })) bonuses.activate();
       }
     };
     const refuse = (event: Event) => event.preventDefault();
     field.addEventListener("beforeinput", onBeforeInput);
+    field.addEventListener("compositionstart", onCompositionStart);
     field.addEventListener("compositionend", onCompositionEnd);
     field.addEventListener("keydown", onKeyDown);
     field.addEventListener("paste", refuse);
     field.addEventListener("drop", refuse);
     return () => {
       field.removeEventListener("beforeinput", onBeforeInput);
+      field.removeEventListener("compositionstart", onCompositionStart);
       field.removeEventListener("compositionend", onCompositionEnd);
       field.removeEventListener("keydown", onKeyDown);
       field.removeEventListener("paste", refuse);
       field.removeEventListener("drop", refuse);
     };
-  }, [race]);
+  }, [race, bonuses]);
 
   // A fault to correct only while this player types here: once the race is over for them (given
   // up, finished, time up, interrupted) or the field is blocked, the line says why, and neither the
@@ -465,7 +495,7 @@ function TypingZone({
                 : t.typingHint;
   return (
     <div className="flex flex-col gap-4">
-      <RaceText target={reveal?.text ?? []} typing={typing} showFault={canType && ended === undefined} label={t.textLabel} language={language} overlay={overlay} />
+      <RaceText target={typing?.target ?? reveal?.text ?? []} typing={typing} fog={fog && ended === undefined} showFault={canType && ended === undefined} label={t.textLabel} language={language} overlay={overlay} />
       <div className="flex flex-col gap-2">
         <label htmlFor={TYPING_INPUT_ID} className={monoLabel}>
           {t.typingLabel}
@@ -508,6 +538,7 @@ const RaceText = memo(function RaceText({
   target,
   typing,
   showFault = true,
+  fog = false,
   label,
   language,
   overlay,
@@ -516,16 +547,29 @@ const RaceText = memo(function RaceText({
   readonly typing: RaceClientState["typing"];
   /** The fault still to correct, boxed; not once the race is over for this player. */
   readonly showFault?: boolean;
+  readonly fog?: boolean;
   readonly label: string;
   readonly language: Locale;
   /** The countdown, over the faded text; the card keeps one height before and after. */
   readonly overlay?: ReactNode;
 }) {
   const typed = typing?.typed.length ?? 0;
+  const hiddenFrom = fog ? fogStartsAt(target, typed) : target.length;
+  const textArea = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    // Long/extended targets scroll inside a fixed card, never moving the typing field.
+    const area = textArea.current;
+    const cursor = area?.querySelector<HTMLElement>(".course-curseur");
+    if (!area || !cursor) return;
+    const frame = area.getBoundingClientRect();
+    const caret = cursor.getBoundingClientRect();
+    if (caret.bottom > frame.bottom) area.scrollTop += caret.bottom - frame.bottom;
+    else if (caret.top < frame.top) area.scrollTop -= frame.top - caret.top;
+  }, [typed, target]);
   return (
-    <div className={`${card} relative min-h-60 p-5`}>
+    <div className={`${card} relative flex h-60 flex-col p-5`}>
       <p className={`${monoLabel} mb-2`}>{label}</p>
-      <p lang={language} className={`course-texte break-words ${overlay === undefined ? "" : "opacity-40"}`}>
+      <p ref={textArea} role="region" aria-label={label} tabIndex={0} lang={language} className={`course-texte min-h-0 overflow-y-auto break-words ${overlay === undefined ? "" : "opacity-40"}`}>
         {target.map((grapheme, index) => {
           const mark = typing?.marks[index];
           const blocked = showFault && typing?.pendingError === true && index === typed;
@@ -533,7 +577,7 @@ const RaceText = memo(function RaceText({
             index < typed ? (mark === "wrong" ? "course-erreur" : "course-juste") : blocked ? "course-bloque course-curseur" : index === typed && typing !== undefined ? "course-curseur" : "";
           return (
             // Graphemes never move: the same text, re-rendered in place.
-            <span key={index} className={className}>
+            <span key={index} aria-hidden={index >= hiddenFrom ? true : undefined} className={`${className} ${index >= hiddenFrom ? "invisible" : ""}`}>
               {grapheme}
             </span>
           );

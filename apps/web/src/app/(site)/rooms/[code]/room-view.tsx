@@ -13,6 +13,9 @@ import { card, discreetButton, monoLabel, secondaryButton } from "@/components/u
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
+import { BonusChannel } from "@/races/bonus-channel";
+import { BonusClient } from "@/races/bonus-client";
+import { RACE_BONUS_ACTIVATE_EVENT, RACE_BONUS_ANNOUNCEMENT_EVENT, RACE_BONUS_SELF_EVENT } from "@/races/bonus-protocol";
 import {
   RACE_ABANDON_EVENT,
   RACE_BATCH_EVENT,
@@ -87,6 +90,13 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         },
       }),
   );
+  const [bonuses] = useState(() => new BonusClient({
+    serverNow: () => race.serverNow(),
+    schedule: (callback, delay) => {
+      const timer = setTimeout(callback, delay);
+      return () => clearTimeout(timer);
+    },
+  }));
   const startRef = useRef<() => Promise<RaceStartAck>>(async () => ({ ok: false, error: "UNAVAILABLE" }));
   const takeControlRef = useRef<(raceId: string) => void>(() => undefined);
   const entrantActionRef = useRef<(event: typeof RACE_PRESENT_EVENT | typeof RACE_ABANDON_EVENT, raceId: string) => Promise<boolean>>(async () => false);
@@ -103,6 +113,13 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
 
   useEffect(() => {
     const socket = io({ reconnectionDelayMax: 5_000 });
+    const bonusChannel = new BonusChannel(race, bonuses, {
+      send: (command) => socket.connected
+        ? socket.timeout(BATCH_TIMEOUT_MS).emitWithAck(RACE_BONUS_ACTIVATE_EVENT, command)
+        : Promise.reject(new Error("offline")),
+    });
+    socket.on(RACE_BONUS_SELF_EVENT, (payload: unknown) => bonuses.self(payload));
+    socket.on(RACE_BONUS_ANNOUNCEMENT_EVENT, (payload: unknown) => bonuses.announce(payload));
     // Listening from the first connection: the race's text can come before the room's new phase.
     race.attach({
       sendBatch: (batch) => (socket.connected ? socket.timeout(BATCH_TIMEOUT_MS).emitWithAck(RACE_BATCH_EVENT, batch) : Promise.reject(new Error("offline"))),
@@ -125,7 +142,11 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         void socket
           .timeout(5_000)
           .emitWithAck(RACE_CONTROL_EVENT, { raceId })
-          .then((answer: unknown) => raceControlAckSchema.safeParse(answer))
+          .then((answer: unknown) => {
+            const ack = raceControlAckSchema.safeParse(answer);
+            // Taking control sends race:self, not bonus:self. Re-watch for a fresh private cursor.
+            if (ack.success && ack.data.ok) watch();
+          })
           .catch(() => undefined);
       }
     };
@@ -230,6 +251,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     };
 
     socket.on("connect", () => {
+      bonusChannel.connect();
       // A new connection is a new socket on the server, with its own budget.
       generation += 1;
       inFlight = false;
@@ -238,6 +260,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       watch();
     });
     socket.on("disconnect", (reason) => {
+      bonusChannel.disconnect();
       generation += 1;
       inFlight = false;
       clearTimeout(retry);
@@ -276,10 +299,11 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     });
     return () => {
       clearTimeout(retry);
+      bonusChannel.close();
       race.detach();
       socket.close();
     };
-  }, [initial.code, router, race, pageId]);
+  }, [initial.code, router, race, bonuses, pageId]);
 
   // A server render newer than what the socket brought (after a refresh) replaces it.
   const [rendered, setRendered] = useState(initial);
@@ -469,6 +493,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
         </h1>
         <RaceView
           race={race}
+          bonuses={bonuses}
           t={tRaces}
           locale={locale}
           roomLabel={format(t.roomTitle, { code: snapshot.code })}
