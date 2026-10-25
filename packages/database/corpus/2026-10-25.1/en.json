@@ -1,0 +1,977 @@
+{
+  "corpusVersion": "2026-10-25.1",
+  "normalizationVersion": 2,
+  "language": "en",
+  "generatedAt": "2026-10-25",
+  "measuredWith": {
+    "normalizationVersion": 2,
+    "wordfreq": "3.1.1",
+    "listVersion": "wordfreq-3.1.1-large",
+    "commonZipf": 4,
+    "measuredWords": 200
+  },
+  "passages": [
+    {
+      "id": "en-stevenson-treasure-island-ch07-map",
+      "language": "en",
+      "complexity": "medium",
+      "text": "I brooded by the hour together over the map, all the details of which I well remembered. Sitting by the fire in the housekeeper's room, I approached that island in my fancy from every possible direction; I explored every acre of its surface; I climbed a thousand times to that tall hill they call the Spy-glass, and from the top enjoyed the most wonderful and changing prospects.",
+      "sourceText": "I brooded by the hour together over the map, all the details of which I well remembered. Sitting by the fire in the housekeeper’s room, I approached that island in my fancy from every possible direction; I explored every acre of its surface; I climbed a thousand times to that tall hill they call the Spy-glass, and from the top enjoyed the most wonderful and changing prospects.",
+      "adaptations": [
+        "apostrophes: 1 curly apostrophe replaced by '",
+        "spaces: Project Gutenberg's hard line breaks joined by a space"
+      ],
+      "source": {
+        "author": "Robert Louis Stevenson (1850–1894)",
+        "work": "Treasure Island",
+        "place": "chapter VII “I Go to Bristol”, two consecutive sentences",
+        "edition": "Project Gutenberg eBook no. 120 (pg120.txt)",
+        "url": "https://www.gutenberg.org/ebooks/120",
+        "revision": "Project Gutenberg eBook no. 120",
+        "licence": "public domain in Canada (author died 1894) and the United States (published 1881–1883); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 67,
+      "measures": {
+        "m1": 4.54,
+        "m2": 4.5,
+        "m3": 7.6,
+        "m4": 6,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "carte au trésor et île",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2026-09-04",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-carroll-alice-ch01-rabbit-hole",
+      "language": "en",
+      "complexity": "easy",
+      "text": "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, \"and what is the use of a book,\" thought Alice \"without pictures or conversations?\" So she was considering in her own mind (as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her. There was nothing so very remarkable in that; nor did Alice think it so very much out of the way to hear the Rabbit say to itself, \"Oh dear! Oh dear! I shall be late!\" (when she thought it over afterwards, it occurred to her that she ought to have wondered at this, but at the time it all seemed quite natural); but when the Rabbit actually took a watch out of its waistcoat-pocket, and looked at it, and then hurried on, Alice started to her feet, for it flashed across her mind that she had never before seen a rabbit with either a waistcoat-pocket, or a watch to take out of it, and burning with curiosity, she ran across the field after it, and fortunately was just in time to see it pop down a large rabbit-hole under the hedge. In another moment down went Alice after it, never once considering how in the world she was to get out again.",
+      "sourceText": "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, “and what is the use of a book,” thought Alice “without pictures or conversations?”\nSo she was considering in her own mind (as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.\nThere was nothing so very remarkable in that; nor did Alice think it so very much out of the way to hear the Rabbit say to itself, “Oh dear! Oh dear! I shall be late!” (when she thought it over afterwards, it occurred to her that she ought to have wondered at this, but at the time it all seemed quite natural); but when the Rabbit actually took a watch out of its waistcoat-pocket, and looked at it, and then hurried on, Alice started to her feet, for it flashed across her mind that she had never before seen a rabbit with either a waistcoat-pocket, or a watch to take out of it, and burning with curiosity, she ran across the field after it, and fortunately was just in time to see it pop down a large rabbit-hole under the hedge.\nIn another moment down went Alice after it, never once considering how in the world she was to get out again.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "markup: 6 Project Gutenberg italic marks (_) removed",
+        "spaces: 3 paragraph breaks replaced by a space",
+        "quotes: 6 curly quotation marks replaced by \""
+      ],
+      "source": {
+        "author": "Lewis Carroll (1832–1898)",
+        "work": "Alice’s Adventures in Wonderland",
+        "place": "chapter I “Down the Rabbit-Hole”, first four paragraphs",
+        "edition": "Project Gutenberg eBook no. 11 (pg11.txt)",
+        "url": "https://www.gutenberg.org/ebooks/11",
+        "revision": "Project Gutenberg eBook no. 11",
+        "licence": "public domain in Canada (author died 1898) and the United States (published 1865); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 274,
+      "measures": {
+        "m1": 4.06,
+        "m2": 3.5,
+        "m3": 3.1,
+        "m4": 9.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "humour, merveilleux",
+        "reserves": [
+          "italiques Gutenberg retirées ; « stupid » qualifie Alice"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2025-06-26",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-grahame-wind-willows-ch01-river-bank",
+      "language": "en",
+      "complexity": "medium",
+      "text": "The Mole had been working very hard all the morning, spring-cleaning his little home. First with brooms, then with dusters; then on ladders and steps and chairs, with a brush and a pail of whitewash; till he had dust in his throat and eyes, and splashes of whitewash all over his black fur, and an aching back and weary arms. Spring was moving in the air above and in the earth below and around him, penetrating even his dark and lowly little house with its spirit of divine discontent and longing. It was small wonder, then, that he suddenly flung down his brush on the floor, said \"Bother!\" and \"O blow!\" and also \"Hang spring-cleaning!\" and bolted out of the house without even waiting to put on his coat. Something up above was calling him imperiously, and he made for the steep little tunnel which answered in his case to the gravelled carriage-drive owned by animals whose residences are nearer to the sun and air. So he scraped and scratched and scrabbled and scrooged and then he scrooged again and scrabbled and scratched and scraped, working busily with his little paws and muttering to himself, \"Up we go! Up we go!\" till at last, pop! his snout came out into the sunlight, and he found himself rolling in the warm grass of a great meadow. \"This is fine!\" he said to himself. \"This is better than whitewashing!\" The sunshine struck hot on his fur, soft breezes caressed his heated brow, and after the seclusion of the cellarage he had lived in so long the carol of happy birds fell on his dulled hearing almost like a shout. Jumping off all his four legs at once, in the joy of living and the delight of spring without its cleaning, he pursued his way across the meadow till he reached the hedge on the further side.",
+      "sourceText": "The Mole had been working very hard all the morning, spring-cleaning his little home. First with brooms, then with dusters; then on ladders and steps and chairs, with a brush and a pail of whitewash; till he had dust in his throat and eyes, and splashes of whitewash all over his black fur, and an aching back and weary arms. Spring was moving in the air above and in the earth below and around him, penetrating even his dark and lowly little house with its spirit of divine discontent and longing. It was small wonder, then, that he suddenly flung down his brush on the floor, said “Bother!” and “O blow!” and also “Hang spring-cleaning!” and bolted out of the house without even waiting to put on his coat. Something up above was calling him imperiously, and he made for the steep little tunnel which answered in his case to the gravelled carriage-drive owned by animals whose residences are nearer to the sun and air. So he scraped and scratched and scrabbled and scrooged and then he scrooged again and scrabbled and scratched and scraped, working busily with his little paws and muttering to himself, “Up we go! Up we go!” till at last, pop! his snout came out into the sunlight, and he found himself rolling in the warm grass of a great meadow.\n“This is fine!” he said to himself. “This is better than whitewashing!” The sunshine struck hot on his fur, soft breezes caressed his heated brow, and after the seclusion of the cellarage he had lived in so long the carol of happy birds fell on his dulled hearing almost like a shout. Jumping off all his four legs at once, in the joy of living and the delight of spring without its cleaning, he pursued his way across the meadow till he reached the hedge on the further side.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 1 paragraph break replaced by a space",
+        "quotes: 12 curly quotation marks replaced by \""
+      ],
+      "source": {
+        "author": "Kenneth Grahame (1859–1932)",
+        "work": "The Wind in the Willows",
+        "place": "chapter I “The River Bank”, first two paragraphs",
+        "edition": "Project Gutenberg eBook no. 289 (pg289.txt)",
+        "url": "https://www.gutenberg.org/ebooks/289",
+        "revision": "Project Gutenberg eBook no. 289",
+        "licence": "public domain in Canada (author died 1932) and the United States (published 1908); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 314,
+      "measures": {
+        "m1": 4.45,
+        "m2": 3.5,
+        "m3": 16.4,
+        "m4": 8,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "nature, animaux",
+        "reserves": [
+          "exclamations légères (« Bother! »)"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2024-11-30",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-montgomery-anne-green-gables-ch02-shining-waters",
+      "language": "en",
+      "complexity": "hard",
+      "text": "They had driven over the crest of a hill. Below them was a pond, looking almost like a river so long and winding was it. A bridge spanned it midway and from there to its lower end, where an amber-hued belt of sand-hills shut it in from the dark blue gulf beyond, the water was a glory of many shifting hues - the most spiritual shadings of crocus and rose and ethereal green, with other elusive tintings for which no name has ever been found. Above the bridge the pond ran up into fringing groves of fir and maple and lay all darkly translucent in their wavering shadows. Here and there a wild plum leaned out from the bank like a white-clad girl tiptoeing to her own reflection. From the marsh at the head of the pond came the clear, mournfully-sweet chorus of the frogs. There was a little gray house peering around a white apple orchard on a slope beyond and, although it was not yet quite dark, a light was shining from one of its windows. \"That's Barry's pond,\" said Matthew. \"Oh, I don't like that name, either. I shall call it - let me see - the Lake of Shining Waters. Yes, that is the right name for it. I know because of the thrill. When I hit on a name that suits exactly it gives me a thrill. Do things ever give you a thrill?\"",
+      "sourceText": "They had driven over the crest of a hill. Below them was a pond, looking almost like a river so long and winding was it. A bridge spanned it midway and from there to its lower end, where an amber-hued belt of sand-hills shut it in from the dark blue gulf beyond, the water was a glory of many shifting hues--the most spiritual shadings of crocus and rose and ethereal green, with other elusive tintings for which no name has ever been found. Above the bridge the pond ran up into fringing groves of fir and maple and lay all darkly translucent in their wavering shadows. Here and there a wild plum leaned out from the bank like a white-clad girl tiptoeing to her own reflection. From the marsh at the head of the pond came the clear, mournfully-sweet chorus of the frogs. There was a little gray house peering around a white apple orchard on a slope beyond and, although it was not yet quite dark, a light was shining from one of its windows.\n“That’s Barry’s pond,” said Matthew.\n“Oh, I don’t like that name, either. I shall call it--let me see--the Lake of Shining Waters. Yes, that is the right name for it. I know because of the thrill. When I hit on a name that suits exactly it gives me a thrill. Do things ever give you a thrill?”",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 2 paragraph breaks replaced by a space",
+        "apostrophes: 3 curly apostrophes replaced by '",
+        "quotes: 4 curly quotation marks replaced by \"",
+        "dashes: 3 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "L. M. Montgomery (1874–1942)",
+        "work": "Anne of Green Gables",
+        "place": "chapter II, three consecutive paragraphs",
+        "edition": "Project Gutenberg eBook no. 45 (pg45.txt)",
+        "url": "https://www.gutenberg.org/ebooks/45",
+        "revision": "Project Gutenberg eBook no. 45",
+        "licence": "public domain in Canada (author died 1942) and the United States (published 1908); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 236,
+      "measures": {
+        "m1": 4.17,
+        "m2": 1.5,
+        "m3": 17.9,
+        "m4": 6.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen à difficile",
+        "theme": "nature, Canada",
+        "reserves": [
+          "doubles traits d’union normalisés en « - »"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2025-04-29",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-stevenson-treasure-island-ch08-spy-glass",
+      "language": "en",
+      "complexity": "medium",
+      "text": "When I had done breakfasting the squire gave me a note addressed to John Silver, at the sign of the Spy-glass, and told me I should easily find the place by following the line of the docks and keeping a bright lookout for a little tavern with a large brass telescope for sign. I set off, overjoyed at this opportunity to see some more of the ships and seamen, and picked my way among a great crowd of people and carts and bales, for the dock was now at its busiest, until I found the tavern in question. It was a bright enough little place of entertainment. The sign was newly painted; the windows had neat red curtains; the floor was cleanly sanded. There was a street on each side and an open door on both, which made the large, low room pretty clear to see in, in spite of clouds of tobacco smoke. The customers were mostly seafaring men, and they talked so loudly that I hung at the door, almost afraid to enter. As I was waiting, a man came out of a side room, and at a glance I was sure he must be Long John. His left leg was cut off close by the hip, and under the left shoulder he carried a crutch, which he managed with wonderful dexterity, hopping about upon it like a bird. He was very tall and strong, with a face as big as a ham - plain and pale, but intelligent and smiling. Indeed, he seemed in the most cheerful spirits, whistling as he moved about among the tables, with a merry word or a slap on the shoulder for the more favoured of his guests.",
+      "sourceText": "When I had done breakfasting the squire gave me a note addressed to John Silver, at the sign of the Spy-glass, and told me I should easily find the place by following the line of the docks and keeping a bright lookout for a little tavern with a large brass telescope for sign. I set off, overjoyed at this opportunity to see some more of the ships and seamen, and picked my way among a great crowd of people and carts and bales, for the dock was now at its busiest, until I found the tavern in question.\nIt was a bright enough little place of entertainment. The sign was newly painted; the windows had neat red curtains; the floor was cleanly sanded. There was a street on each side and an open door on both, which made the large, low room pretty clear to see in, in spite of clouds of tobacco smoke.\nThe customers were mostly seafaring men, and they talked so loudly that I hung at the door, almost afraid to enter.\nAs I was waiting, a man came out of a side room, and at a glance I was sure he must be Long John. His left leg was cut off close by the hip, and under the left shoulder he carried a crutch, which he managed with wonderful dexterity, hopping about upon it like a bird. He was very tall and strong, with a face as big as a ham--plain and pale, but intelligent and smiling. Indeed, he seemed in the most cheerful spirits, whistling as he moved about among the tables, with a merry word or a slap on the shoulder for the more favoured of his guests.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 3 paragraph breaks replaced by a space",
+        "dashes: 1 sentence dash written as - between spaces"
+      ],
+      "source": {
+        "author": "Robert Louis Stevenson (1850–1894)",
+        "work": "Treasure Island",
+        "place": "chapter VIII “At the Sign of the Spy-glass”, first four paragraphs",
+        "edition": "Project Gutenberg eBook no. 120 (pg120.txt)",
+        "url": "https://www.gutenberg.org/ebooks/120",
+        "revision": "Project Gutenberg eBook no. 120",
+        "licence": "public domain in Canada (author died 1894) and the United States (published 1881–1883); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 285,
+      "measures": {
+        "m1": 3.98,
+        "m2": 1.5,
+        "m3": 10.3,
+        "m4": 1.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "aventure",
+        "reserves": [
+          "taverne, tabac et jambe amputée décrits sans violence : conformes aux critères ; « -- » normalisés"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2026-09-04",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-faraday-candle-lecture1-opening",
+      "language": "en",
+      "complexity": "hard",
+      "text": "I purpose, in return for the honour you do us by coming to see what are our proceedings here, to bring before you, in the course of these lectures, the Chemical History of a Candle. I have taken this subject on a former occasion; and were it left to my own will, I should prefer to repeat it almost every year - so abundant is the interest that attaches itself to the subject, so wonderful are the varieties of outlet which it offers into the various departments of philosophy. There is not a law under which any part of this universe is governed which does not come into play, and is touched upon in these phenomena. There is no better, there is no more open door by which you can enter into the study of natural philosophy, than by considering the physical phenomena of a candle. I trust, therefore, I shall not disappoint you in choosing this for my subject rather than any newer topic, which could not be better, were it even so good. And before proceeding, let me say this also - that though our subject be so great, and our intention that of treating it honestly, seriously, and philosophically, yet I mean to pass away from all those who are seniors amongst us. I claim the privilege of speaking to juveniles as a juvenile myself. I have done so on former occasions - and, if you please, I shall do so again. And though I stand here with the knowledge of having the words I utter given to the world, yet that shall not deter me from speaking in the same familiar way to those whom I esteem nearest to me on this occasion.",
+      "sourceText": "I purpose, in return for the honour you do us by coming to see what are our proceedings here, to bring before you, in the course of these lectures, the Chemical History of a Candle. I have taken this subject on a former occasion; and were it left to my own will, I should prefer to repeat it almost every year—so abundant is the interest that attaches itself to the subject, so wonderful are the varieties of outlet which it offers into the various departments of philosophy. There is not a law under which any part of this universe is governed which does not come into play, and is touched upon in these phenomena. There is no better, there is no more open door by which you can enter into the study of natural philosophy, than by considering the physical phenomena of a candle. I trust, therefore, I shall not disappoint you in choosing this for my subject rather than any newer topic, which could not be better, were it even so good.\nAnd before proceeding, let me say this also—that though our subject be so great, and our intention that of treating it honestly, seriously, and philosophically, yet I mean to pass away from all those who are seniors amongst us. I claim the privilege of speaking to juveniles as a juvenile myself. I have done so on former occasions—and, if you please, I shall do so again. And though I stand here with the knowledge of having the words I utter given to the world, yet that shall not deter me from speaking in the same familiar way to those whom I esteem nearest to me on this occasion.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 1 paragraph break replaced by a space",
+        "dashes: 3 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "Michael Faraday (1791–1867)",
+        "work": "The Chemical History of a Candle",
+        "place": "Lecture I, first two paragraphs",
+        "edition": "Project Gutenberg eBook no. 14474 (pg14474.txt)",
+        "url": "https://www.gutenberg.org/ebooks/14474",
+        "revision": "Project Gutenberg eBook no. 14474",
+        "licence": "public domain in Canada (author died 1867) and the United States (published 1861); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 284,
+      "measures": {
+        "m1": 4.37,
+        "m2": 4,
+        "m3": 6.1,
+        "m4": 1.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "difficile (style oratoire)",
+        "theme": "science",
+        "reserves": [
+          "tirets normalisés"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2026-10-20",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-dana-two-years-mast-ch31-iceberg",
+      "language": "en",
+      "complexity": "medium",
+      "text": "This was an iceberg, and of the largest size, as one of our men said who had been in the Northern ocean. As far as the eye could reach, the sea in every direction was of a deep blue color, the waves running high and fresh, and sparkling in the light, and in the midst lay this immense mountain-island, its cavities and valleys thrown into deep shade, and its points and pinnacles glittering in the sun. All hands were soon on deck, looking at it, and admiring in various ways its beauty and grandeur. But no description can give any idea of the strangeness, splendor, and, really, the sublimity, of the sight. Its great size; - for it must have been from two to three miles in circumference, and several hundred feet in height; - its slow motion, as its base rose and sank in the water, and its high points nodded against the clouds; the dashing of the waves upon it, which, breaking high with foam, lined its base with a white crust; and the thundering sound of the cracking of the mass, and the breaking and tumbling down of huge pieces; together with its nearness and approach, which added a slight element of fear, - all combined to give to it the character of true sublimity. The main body of the mass was, as I have said, of an indigo color, its base crusted with frozen foam; and as it grew thin and transparent toward the edges and top, its color shaded off from a deep blue to the whiteness of snow.",
+      "sourceText": "This was an iceberg, and of the largest size, as one of our men said who had been in the Northern ocean.  As far as the eye could reach, the sea in every direction was of a deep blue color, the waves running high and fresh, and sparkling in the light, and in the midst lay this immense mountain-island, its cavities and valleys thrown into deep shade, and its points and pinnacles glittering in the sun.\nAll hands were soon on deck, looking at it, and admiring in various ways its beauty and grandeur.  But no description can give any idea of the strangeness, splendor, and, really, the sublimity, of the sight.\nIts great size;--for it must have been from two to three miles in circumference, and several hundred feet in height;--its slow motion, as its base rose and sank in the water, and its high points nodded against the clouds; the dashing of the waves upon it, which, breaking high with foam, lined its base with a white crust; and the thundering sound of the cracking of the mass, and the breaking and tumbling down of huge pieces; together with its nearness and approach, which added a slight element of fear,--all combined to give to it the character of true sublimity.  The main body of the mass was, as I have said, of an indigo color, its base crusted with frozen foam; and as it grew thin and transparent toward the edges and top, its color shaded off from a deep blue to the whiteness of snow.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 2 paragraph breaks replaced by a space",
+        "spaces: 3 runs of spaces collapsed to one",
+        "dashes: 3 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "Richard Henry Dana Jr. (1815–1882)",
+        "work": "Two Years Before the Mast",
+        "place": "chapter XXXI, three consecutive paragraphs",
+        "edition": "Project Gutenberg eBook no. 2055 (pg2055.txt)",
+        "url": "https://www.gutenberg.org/ebooks/2055",
+        "revision": "Project Gutenberg eBook no. 2055",
+        "licence": "public domain in Canada (author died 1882) and the United States (published 1840); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 261,
+      "measures": {
+        "m1": 4.29,
+        "m2": 3,
+        "m3": 11.6,
+        "m4": 4,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "iceberg près du cap Horn",
+        "reserves": [
+          "aucune dans le passage ; le juron censuré (« d--- you ») est au paragraphe précédent, non retenu"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2020-12-31",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-melville-moby-dick-ch01-loomings",
+      "language": "en",
+      "complexity": "hard",
+      "text": "There now is your insular city of the Manhattoes, belted round by wharves as Indian isles by coral reefs - commerce surrounds it with her surf. Right and left, the streets take you waterward. Its extreme downtown is the battery, where that noble mole is washed by waves, and cooled by breezes, which a few hours previous were out of sight of land. Look at the crowds of water-gazers there. Circumambulate the city of a dreamy Sabbath afternoon. Go from Corlears Hook to Coenties Slip, and from thence, by Whitehall, northward. What do you see? - Posted like silent sentinels all around the town, stand thousands upon thousands of mortal men fixed in ocean reveries. Some leaning against the spiles; some seated upon the pier-heads; some looking over the bulwarks of ships from China; some high aloft in the rigging, as if striving to get a still better seaward peep. But these are all landsmen; of week days pent up in lath and plaster - tied to counters, nailed to benches, clinched to desks. How then is this? Are the green fields gone? What do they here? But look! here come more crowds, pacing straight for the water, and seemingly bound for a dive. Strange! Nothing will content them but the extremest limit of the land; loitering under the shady lee of yonder warehouses will not suffice. No. They must get just as nigh the water as they possibly can without falling in. And there they stand - miles of them - leagues. Inlanders all, they come from lanes and alleys, streets and avenues - north, east, south, and west. Yet here they all unite. Tell me, does the magnetic virtue of the needles of the compasses of all those ships attract them thither?",
+      "sourceText": "There now is your insular city of the Manhattoes, belted round by wharves as Indian isles by coral reefs—commerce surrounds it with her surf. Right and left, the streets take you waterward. Its extreme downtown is the battery, where that noble mole is washed by waves, and cooled by breezes, which a few hours previous were out of sight of land. Look at the crowds of water-gazers there.\nCircumambulate the city of a dreamy Sabbath afternoon. Go from Corlears Hook to Coenties Slip, and from thence, by Whitehall, northward. What do you see?—Posted like silent sentinels all around the town, stand thousands upon thousands of mortal men fixed in ocean reveries. Some leaning against the spiles; some seated upon the pier-heads; some looking over the bulwarks of ships from China; some high aloft in the rigging, as if striving to get a still better seaward peep. But these are all landsmen; of week days pent up in lath and plaster—tied to counters, nailed to benches, clinched to desks. How then is this? Are the green fields gone? What do they here?\nBut look! here come more crowds, pacing straight for the water, and seemingly bound for a dive. Strange! Nothing will content them but the extremest limit of the land; loitering under the shady lee of yonder warehouses will not suffice. No. They must get just as nigh the water as they possibly can without falling in. And there they stand—miles of them—leagues. Inlanders all, they come from lanes and alleys, streets and avenues—north, east, south, and west. Yet here they all unite. Tell me, does the magnetic virtue of the needles of the compasses of all those ships attract them thither?",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 2 paragraph breaks replaced by a space",
+        "dashes: 6 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "Herman Melville (1819–1891)",
+        "work": "Moby-Dick; or, The Whale",
+        "place": "chapter 1 “Loomings”, paragraphs 2 to 4",
+        "edition": "Project Gutenberg eBook no. 2701 (pg2701.txt)",
+        "url": "https://www.gutenberg.org/ebooks/2701",
+        "revision": "Project Gutenberg eBook no. 2701",
+        "licence": "public domain in Canada (author died 1891) and the United States (published 1851); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 288,
+      "measures": {
+        "m1": 4.54,
+        "m2": 1.5,
+        "m3": 22,
+        "m4": 7,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "difficile (vocabulaire du XIXe, M3 élevée)",
+        "theme": "l’attrait de la mer",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2026-10-09",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-stevenson-kidnapped-ch14-islet",
+      "language": "en",
+      "complexity": "easy",
+      "text": "With my stepping ashore I began the most unhappy part of my adventures. It was half-past twelve in the morning, and though the wind was broken by the land, it was a cold night. I dared not sit down (for I thought I should have frozen), but took off my shoes and walked to and fro upon the sand, bare-foot, and beating my breast with infinite weariness. There was no sound of man or cattle; not a cock crew, though it was about the hour of their first waking; only the surf broke outside in the distance, which put me in mind of my perils and those of my friend. To walk by the sea at that hour of the morning, and in a place so desert-like and lonesome, struck me with a kind of fear. As soon as the day began to break I put on my shoes and climbed a hill - the ruggedest scramble I ever undertook - falling, the whole way, between big blocks of granite, or leaping from one to another. When I got to the top the dawn was come. There was no sign of the brig, which must have lifted from the reef and sunk. The boat, too, was nowhere to be seen. There was never a sail upon the ocean; and in what I could see of the land was neither house nor man.",
+      "sourceText": "With my stepping ashore I began the most unhappy part of my adventures. It was half-past twelve in the morning, and though the wind was broken by the land, it was a cold night. I dared not sit down (for I thought I should have frozen), but took off my shoes and walked to and fro upon the sand, bare-foot, and beating my breast with infinite weariness. There was no sound of man or cattle; not a cock crew, though it was about the hour of their first waking; only the surf broke outside in the distance, which put me in mind of my perils and those of my friend. To walk by the sea at that hour of the morning, and in a place so desert-like and lonesome, struck me with a kind of fear.\nAs soon as the day began to break I put on my shoes and climbed a hill--the ruggedest scramble I ever undertook--falling, the whole way, between big blocks of granite, or leaping from one to another. When I got to the top the dawn was come. There was no sign of the brig, which must have lifted from the reef and sunk. The boat, too, was nowhere to be seen. There was never a sail upon the ocean; and in what I could see of the land was neither house nor man.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 1 paragraph break replaced by a space",
+        "dashes: 2 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "Robert Louis Stevenson (1850–1894)",
+        "work": "Kidnapped",
+        "place": "chapter XIV “The Islet”, first two paragraphs",
+        "edition": "Project Gutenberg eBook no. 421 (pg421.txt)",
+        "url": "https://www.gutenberg.org/ebooks/421",
+        "revision": "Project Gutenberg eBook no. 421",
+        "licence": "public domain in Canada (author died 1894) and the United States (published 1886); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 230,
+      "measures": {
+        "m1": 3.87,
+        "m2": 1,
+        "m3": 9,
+        "m4": 4.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile à moyen",
+        "theme": "naufragé à l’aube",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2024-09-23",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-kipling-captains-courageous-ch01-forecastle",
+      "language": "en",
+      "complexity": "medium",
+      "text": "When he waked he listened for the first breakfast-bell on the steamer, wondering why his state-room had grown so small. Turning, he looked into a narrow, triangular cave, lit by a lamp hung against a huge square beam. A three-cornered table within arm's reach ran from the angle of the bows to the foremast. At the after end, behind a well-used Plymouth stove, sat a boy about his own age, with a flat red face and a pair of twinkling gray eyes. He was dressed in a blue jersey and high rubber boots. Several pairs of the same sort of foot-wear, an old cap, and some worn-out woollen socks lay on the floor, and black and yellow oilskins swayed to and fro beside the bunks. The place was packed as full of smells as a bale is of cotton. The oilskins had a peculiarly thick flavor of their own which made a sort of background to the smells of fried fish, burnt grease, paint, pepper, and stale tobacco; but these, again, were all hooped together by one encircling smell of ship and salt water. Harvey saw with disgust that there were no sheets on his bed-place. He was lying on a piece of dingy ticking full of lumps and nubbles. Then, too, the boat's motion was not that of a steamer. She was neither sliding nor rolling, but rather wriggling herself about in a silly, aimless way, like a colt at the end of a halter. Water-noises ran by close to his ear, and beams creaked and whined about him. All these things made him grunt despairingly and think of his mother.",
+      "sourceText": "When he waked he listened for the first breakfast-bell on the steamer, wondering why his state-room had grown so small. Turning, he looked into a narrow, triangular cave, lit by a lamp hung against a huge square beam. A three-cornered table within arm's reach ran from the angle of the bows to the foremast. At the after end, behind a well-used Plymouth stove, sat a boy about his own age, with a flat red face and a pair of twinkling gray eyes. He was dressed in a blue jersey and high rubber boots. Several pairs of the same sort of foot-wear, an old cap, and some worn-out woollen socks lay on the floor, and black and yellow oilskins swayed to and fro beside the bunks. The place was packed as full of smells as a bale is of cotton. The oilskins had a peculiarly thick flavor of their own which made a sort of background to the smells of fried fish, burnt grease, paint, pepper, and stale tobacco; but these, again, were all hooped together by one encircling smell of ship and salt water. Harvey saw with disgust that there were no sheets on his bed-place. He was lying on a piece of dingy ticking full of lumps and nubbles. Then, too, the boat's motion was not that of a steamer. She was neither sliding nor rolling, but rather wriggling herself about in a silly, aimless way, like a colt at the end of a halter. Water-noises ran by close to his ear, and beams creaked and whined about him. All these things made him grunt despairingly and think of his mother.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space"
+      ],
+      "source": {
+        "author": "Rudyard Kipling (1865–1936)",
+        "work": "Captains Courageous",
+        "place": "chapter I, one paragraph",
+        "edition": "Project Gutenberg eBook no. 2186 (pg2186.txt)",
+        "url": "https://www.gutenberg.org/ebooks/2186",
+        "revision": "Project Gutenberg eBook no. 2186",
+        "licence": "public domain in Canada (author died 1936) and the United States (published 1897); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 272,
+      "measures": {
+        "m1": 4.21,
+        "m2": 3,
+        "m3": 11.1,
+        "m4": 4.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "réveil à bord d’une goélette de pêche",
+        "reserves": [
+          "le passage est propre, mais le livre emploie ailleurs une insulte raciale (9 fois) et des caricatures en dialecte ; cas remonté pour information"
+        ],
+        "escalated": true
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2020-12-31",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-defoe-robinson-crusoe-ch07-valley",
+      "language": "en",
+      "complexity": "easy",
+      "text": "It was on the 15th of July that I began to take a more particular survey of the island itself. I went up the creek first, where, as I hinted, I brought my rafts on shore. I found after I came about two miles up, that the tide did not flow any higher, and that it was no more than a little brook of running water, very fresh and good; but this being the dry season, there was hardly any water in some parts of it - at least not enough to run in any stream, so as it could be perceived. On the banks of this brook I found many pleasant savannahs or meadows, plain, smooth, and covered with grass; and on the rising parts of them, next to the higher grounds, where the water, as might be supposed, never overflowed, I found a great deal of tobacco, green, and growing to a great and very strong stalk. There were divers other plants, which I had no notion of or understanding about, that might, perhaps, have virtues of their own, which I could not find out. I searched for the cassava root, which the Indians, in all that climate, make their bread of, but I could find none. I saw large plants of aloes, but did not understand them. I saw several sugar-canes, but wild, and, for want of cultivation, imperfect. I contented myself with these discoveries for this time, and came back, musing with myself what course I might take to know the virtue and goodness of any of the fruits or plants which I should discover, but could bring it to no conclusion; for, in short, I had made so little observation while I was in the Brazils, that I knew little of the plants in the field; at least, very little that might serve to any purpose now in my distress.",
+      "sourceText": "It was on the 15th of July that I began to take a more particular survey of the island itself. I went up the creek first, where, as I hinted, I brought my rafts on shore. I found after I came about two miles up, that the tide did not flow any higher, and that it was no more than a little brook of running water, very fresh and good; but this being the dry season, there was hardly any water in some parts of it—at least not enough to run in any stream, so as it could be perceived. On the banks of this brook I found many pleasant savannahs or meadows, plain, smooth, and covered with grass; and on the rising parts of them, next to the higher grounds, where the water, as might be supposed, never overflowed, I found a great deal of tobacco, green, and growing to a great and very strong stalk. There were divers other plants, which I had no notion of or understanding about, that might, perhaps, have virtues of their own, which I could not find out. I searched for the cassava root, which the Indians, in all that climate, make their bread of, but I could find none. I saw large plants of aloes, but did not understand them. I saw several sugar-canes, but wild, and, for want of cultivation, imperfect. I contented myself with these discoveries for this time, and came back, musing with myself what course I might take to know the virtue and goodness of any of the fruits or plants which I should discover, but could bring it to no conclusion; for, in short, I had made so little observation while I was in the Brazils, that I knew little of the plants in the field; at least, very little that might serve to any purpose now in my distress.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "dashes: 1 sentence dash written as - between spaces"
+      ],
+      "source": {
+        "author": "Daniel Defoe (c. 1660–1731)",
+        "work": "Robinson Crusoe",
+        "place": "chapter VII (editorial chapter titles), one paragraph",
+        "edition": "Project Gutenberg eBook no. 521 (pg521.txt)",
+        "url": "https://www.gutenberg.org/ebooks/521",
+        "revision": "Project Gutenberg eBook no. 521",
+        "licence": "public domain in Canada (author died 1731) and the United States (published 1719); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 314,
+      "measures": {
+        "m1": 3.99,
+        "m2": 1.5,
+        "m3": 6.1,
+        "m4": 2.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile à moyen",
+        "theme": "exploration de l’île",
+        "reserves": [
+          "le livre comporte ailleurs un contenu colonial et racial (Vendredi, « savages ») ; le passage nomme seulement « the Indians », terme d’époque sans jugement, à propos du pain de manioc. « 15th » disparaît quand les nombres sont désactivés"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2025-09-07",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-potter-squirrel-nutkin-opening",
+      "language": "en",
+      "complexity": "easy",
+      "text": "This is a Tale about a tail - a tail that belonged to a little red squirrel, and his name was Nutkin. He had a brother called Twinkleberry, and a great many cousins: they lived in a wood at the edge of a lake. In the middle of the lake there is an island covered with trees and nut bushes; and amongst those trees stands a hollow oak-tree, which is the house of an owl who is called Old Brown. One autumn when the nuts were ripe, and the leaves on the hazel bushes were golden and green - Nutkin and Twinkleberry and all the other little squirrels came out of the wood, and down to the edge of the lake. They made little rafts out of twigs, and they paddled away over the water to Owl Island to gather nuts. Each squirrel had a little sack and a large oar, and spread out his tail for a sail. They also took with them an offering of three fat mice as a present for Old Brown, and put them down upon his door-step. Then Twinkleberry and the other little squirrels each made a low bow, and said politely - \"Old Mr. Brown, will you favour us with permission to gather nuts upon your island?\"",
+      "sourceText": "This is a Tale about a tail--a tail that belonged to a little red squirrel, and his name was Nutkin.\nHe had a brother called Twinkleberry, and a great many cousins: they lived in a wood at the edge of a lake.\nIn the middle of the lake there is an island covered with trees and nut bushes; and amongst those trees stands a hollow oak-tree, which is the house of an owl who is called Old Brown.\nOne autumn when the nuts were ripe, and the leaves on the hazel bushes were golden and green--Nutkin and Twinkleberry and all the other little squirrels came out of the wood, and down to the edge of the lake.\nThey made little rafts out of twigs, and they paddled away over the water to Owl Island to gather nuts.\nEach squirrel had a little sack and a large oar, and spread out his tail for a sail.\nThey also took with them an offering of three fat mice as a present for Old Brown, and put them down upon his door-step.\nThen Twinkleberry and the other little squirrels each made a low bow, and said politely--\n\"Old Mr. Brown, will you favour us with permission to gather nuts upon your island?\"",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "markup: 4 Project Gutenberg [Illustration] lines removed",
+        "spaces: 8 paragraph breaks replaced by a space",
+        "dashes: 3 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "Beatrix Potter (1866–1943)",
+        "work": "The Tale of Squirrel Nutkin",
+        "place": "opening of the tale, up to the first request to the owl",
+        "edition": "Project Gutenberg eBook no. 14872 (pg14872.txt)",
+        "url": "https://www.gutenberg.org/ebooks/14872",
+        "revision": "Project Gutenberg eBook no. 14872",
+        "licence": "public domain in Canada (author died 1943) and the United States (published 1903); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 211,
+      "measures": {
+        "m1": 3.98,
+        "m2": 1.5,
+        "m3": 9.1,
+        "m4": 4,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "écureuils, île, lac",
+        "reserves": [
+          "quatre lignes « [Illustration] » de la transcription Gutenberg retirées (balisage, pas texte de l’autrice) ; « trois souris grasses » offertes au hibou"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2020-12-19",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-milne-winnie-pooh-ch09-island",
+      "language": "en",
+      "complexity": "easy",
+      "text": "Christopher Robin lived at the very top of the Forest. It rained, and it rained, and it rained, but the water couldn't come up to his house. It was rather jolly to look down into the valleys and see the water all round him, but it rained so hard that he stayed indoors most of the time, and thought about things. Every morning he went out with his umbrella and put a stick in the place where the water came up to, and every next morning he went out and couldn't see his stick any more, so he put another stick in the place where the water came up to, and then he walked home again, and each morning he had a shorter way to walk than he had had the morning before. On the morning of the fifth day he saw the water all round him, and knew that for the first time in his life he was on a real island. Which was very exciting. It was on this morning that Owl came flying over the water to say \"How do you do,\" to his friend Christopher Robin. \"I say, Owl,\" said Christopher Robin, \"isn't this fun? I'm on an island!\" \"The atmospheric conditions have been very unfavourable lately,\" said Owl.",
+      "sourceText": "Christopher Robin lived at the very top of the Forest. It rained, and it rained, and it rained, but the water couldn't come up to his house. It was rather jolly to look down into the valleys and see the water all round him, but it rained so hard that he stayed indoors most of the time, and thought about things. Every morning he went out with his umbrella and put a stick in the place where the water came up to, and every next morning he went out and couldn't see his stick any more, so he put another stick in the place where the water came up to, and then he walked home again, and each morning he had a shorter way to walk than he had had the morning before. On the morning of the fifth day he saw the water all round him, and knew that for the first time in his life he was on a real island. Which was very exciting.\nIt was on this morning that Owl came flying over the water to say \"How do you do,\" to his friend Christopher Robin.\n\"I say, Owl,\" said Christopher Robin, \"isn't this fun? I'm on an island!\"\n\"The atmospheric conditions have been very unfavourable lately,\" said Owl.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "markup: 2 Project Gutenberg italic marks (_) removed",
+        "spaces: 3 paragraph breaks replaced by a space"
+      ],
+      "source": {
+        "author": "A. A. Milne (1882–1956)",
+        "work": "Winnie-the-Pooh",
+        "place": "chapter IX, four paragraphs after the second section break",
+        "edition": "Project Gutenberg eBook no. 67098 (pg67098.txt)",
+        "url": "https://www.gutenberg.org/ebooks/67098",
+        "revision": "Project Gutenberg eBook no. 67098",
+        "licence": "public domain in Canada (author died 1956) and the United States (published 1926); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 213,
+      "measures": {
+        "m1": 3.83,
+        "m2": 1.5,
+        "m3": 4.2,
+        "m4": 5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "pluie, île, humour",
+        "reserves": [
+          "texte du domaine public au Canada (auteur mort en 1956) et aux États-Unis (1926) ; les illustrations de Shepard ne sont pas utilisées"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2024-12-31",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-kipling-jungle-book-white-seal-beaches",
+      "language": "en",
+      "complexity": "easy",
+      "text": "The sea cows had separated and were browsing lazily along the edges of the finest beaches that Kotick had ever seen. There were long stretches of smooth-worn rock running for miles, exactly fitted to make seal-nurseries, and there were play-grounds of hard sand sloping inland behind them, and there were rollers for seals to dance in, and long grass to roll in, and sand dunes to climb up and down, and, best of all, Kotick knew by the feel of the water, which never deceives a true sea catch, that no men had ever come there. The first thing he did was to assure himself that the fishing was good, and then he swam along the beaches and counted up the delightful low sandy islands half hidden in the beautiful rolling fog. Away to the northward, out to sea, ran a line of bars and shoals and rocks that would never let a ship come within six miles of the beach, and between the islands and the mainland was a stretch of deep water that ran up to the perpendicular cliffs, and somewhere below the cliffs was the mouth of the tunnel. \"It's Novastoshnah over again, but ten times better,\" said Kotick. \"Sea Cow must be wiser than I thought. Men can't come down the cliffs, even if there were any men; and the shoals to seaward would knock a ship to splinters. If any place in the sea is safe, this is it.\"",
+      "sourceText": "The sea cows had separated and were browsing lazily along the edges of the finest beaches that Kotick had ever seen. There were long stretches of smooth-worn rock running for miles, exactly fitted to make seal-nurseries, and there were play-grounds of hard sand sloping inland behind them, and there were rollers for seals to dance in, and long grass to roll in, and sand dunes to climb up and down, and, best of all, Kotick knew by the feel of the water, which never deceives a true sea catch, that no men had ever come there.\nThe first thing he did was to assure himself that the fishing was good, and then he swam along the beaches and counted up the delightful low sandy islands half hidden in the beautiful rolling fog. Away to the northward, out to sea, ran a line of bars and shoals and rocks that would never let a ship come within six miles of the beach, and between the islands and the mainland was a stretch of deep water that ran up to the perpendicular cliffs, and somewhere below the cliffs was the mouth of the tunnel.\n“It’s Novastoshnah over again, but ten times better,” said Kotick. “Sea Cow must be wiser than I thought. Men can’t come down the cliffs, even if there were any men; and the shoals to seaward would knock a ship to splinters. If any place in the sea is safe, this is it.”",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 2 paragraph breaks replaced by a space",
+        "apostrophes: 2 curly apostrophes replaced by '",
+        "quotes: 4 curly quotation marks replaced by \""
+      ],
+      "source": {
+        "author": "Rudyard Kipling (1865–1936)",
+        "work": "The Jungle Book",
+        "place": "“The White Seal”, three consecutive paragraphs",
+        "edition": "Project Gutenberg eBook no. 236 (pg236.txt)",
+        "url": "https://www.gutenberg.org/ebooks/236",
+        "revision": "Project Gutenberg eBook no. 236",
+        "licence": "public domain in Canada (author died 1936) and the United States (published 1894); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 244,
+      "measures": {
+        "m1": 4.3,
+        "m2": 3,
+        "m3": 11.2,
+        "m4": 3,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile à moyen",
+        "theme": "mer, phoques, découverte",
+        "reserves": [
+          "l’histoire décrit plus tôt la chasse aux phoques ; le passage n’en montre rien"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2023-05-01",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-baum-wizard-oz-ch01-cyclone",
+      "language": "en",
+      "complexity": "easy",
+      "text": "Toto jumped out of Dorothy's arms and hid under the bed, and the girl started to get him. Aunt Em, badly frightened, threw open the trap door in the floor and climbed down the ladder into the small, dark hole. Dorothy caught Toto at last and started to follow her aunt. When she was halfway across the room there came a great shriek from the wind, and the house shook so hard that she lost her footing and sat down suddenly upon the floor. Then a strange thing happened. The house whirled around two or three times and rose slowly through the air. Dorothy felt as if she were going up in a balloon. The north and south winds met where the house stood, and made it the exact center of the cyclone. In the middle of a cyclone the air is generally still, but the great pressure of the wind on every side of the house raised it up higher and higher, until it was at the very top of the cyclone; and there it remained and was carried miles and miles away as easily as you could carry a feather. It was very dark, and the wind howled horribly around her, but Dorothy found she was riding quite easily. After the first few whirls around, and one other time when the house tipped badly, she felt as if she were being rocked gently, like a baby in a cradle.",
+      "sourceText": "Toto jumped out of Dorothy’s arms and hid under the bed, and the girl started to get him. Aunt Em, badly frightened, threw open the trap door in the floor and climbed down the ladder into the small, dark hole. Dorothy caught Toto at last and started to follow her aunt. When she was halfway across the room there came a great shriek from the wind, and the house shook so hard that she lost her footing and sat down suddenly upon the floor.\nThen a strange thing happened.\nThe house whirled around two or three times and rose slowly through the air. Dorothy felt as if she were going up in a balloon.\nThe north and south winds met where the house stood, and made it the exact center of the cyclone. In the middle of a cyclone the air is generally still, but the great pressure of the wind on every side of the house raised it up higher and higher, until it was at the very top of the cyclone; and there it remained and was carried miles and miles away as easily as you could carry a feather.\nIt was very dark, and the wind howled horribly around her, but Dorothy found she was riding quite easily. After the first few whirls around, and one other time when the house tipped badly, she felt as if she were being rocked gently, like a baby in a cradle.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 4 paragraph breaks replaced by a space",
+        "apostrophes: 1 curly apostrophe replaced by '"
+      ],
+      "source": {
+        "author": "L. Frank Baum (1856–1919)",
+        "work": "The Wonderful Wizard of Oz",
+        "place": "chapter I, five consecutive paragraphs",
+        "edition": "Project Gutenberg eBook no. 55 (pg55.txt)",
+        "url": "https://www.gutenberg.org/ebooks/55",
+        "revision": "Project Gutenberg eBook no. 55",
+        "licence": "public domain in Canada (author died 1919) and the United States (published 1900); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 241,
+      "measures": {
+        "m1": 4.04,
+        "m2": 0.5,
+        "m3": 7.6,
+        "m4": 1,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "aventure, tempête",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2024-12-29",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "retained"
+    },
+    {
+      "id": "en-stevenson-treasure-island-ch13-island",
+      "language": "en",
+      "complexity": "medium",
+      "text": "The appearance of the island when I came on deck next morning was altogether changed. Although the breeze had now utterly ceased, we had made a great deal of way during the night and were now lying becalmed about half a mile to the south-east of the low eastern coast. Grey-coloured woods covered a large part of the surface. This even tint was indeed broken up by streaks of yellow sand-break in the lower lands, and by many tall trees of the pine family, out-topping the others - some singly, some in clumps; but the general colouring was uniform and sad. The hills ran up clear above the vegetation in spires of naked rock. All were strangely shaped, and the Spy-glass, which was by three or four hundred feet the tallest on the island, was likewise the strangest in configuration, running up sheer from almost every side and then suddenly cut off at the top like a pedestal to put a statue on. The HISPANIOLA was rolling scuppers under in the ocean swell. The booms were tearing at the blocks, the rudder was banging to and fro, and the whole ship creaking, groaning, and jumping like a manufactory. I had to cling tight to the backstay, and the world turned giddily before my eyes, for though I was a good enough sailor when there was way on, this standing still and being rolled about like a bottle was a thing I never learned to stand without a qualm or so, above all in the morning, on an empty stomach.",
+      "sourceText": "The appearance of the island when I came on deck next morning was altogether changed. Although the breeze had now utterly ceased, we had made a great deal of way during the night and were now lying becalmed about half a mile to the south-east of the low eastern coast. Grey-coloured woods covered a large part of the surface. This even tint was indeed broken up by streaks of yellow sand-break in the lower lands, and by many tall trees of the pine family, out-topping the others--some singly, some in clumps; but the general colouring was uniform and sad. The hills ran up clear above the vegetation in spires of naked rock. All were strangely shaped, and the Spy-glass, which was by three or four hundred feet the tallest on the island, was likewise the strangest in configuration, running up sheer from almost every side and then suddenly cut off at the top like a pedestal to put a statue on.\nThe HISPANIOLA was rolling scuppers under in the ocean swell. The booms were tearing at the blocks, the rudder was banging to and fro, and the whole ship creaking, groaning, and jumping like a manufactory. I had to cling tight to the backstay, and the world turned giddily before my eyes, for though I was a good enough sailor when there was way on, this standing still and being rolled about like a bottle was a thing I never learned to stand without a qualm or so, above all in the morning, on an empty stomach.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 1 paragraph break replaced by a space",
+        "dashes: 1 sentence dash written as - between spaces"
+      ],
+      "source": {
+        "author": "Robert Louis Stevenson (1850–1894)",
+        "work": "Treasure Island",
+        "place": "chapter XIII, first two paragraphs",
+        "edition": "Project Gutenberg eBook no. 120 (pg120.txt)",
+        "url": "https://www.gutenberg.org/ebooks/120",
+        "revision": "Project Gutenberg eBook no. 120",
+        "licence": "public domain in Canada (author died 1894) and the United States (published 1881–1883); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 258,
+      "measures": {
+        "m1": 4.42,
+        "m2": 4,
+        "m3": 13.6,
+        "m4": 3.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "moyen",
+        "theme": "première vue de l’île, navire encalminé",
+        "reserves": [
+          "« HISPANIOLA » en capitales dans la source Gutenberg"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2026-09-04",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "spare"
+    },
+    {
+      "id": "en-conrad-typhoon-ch03-storm",
+      "language": "en",
+      "complexity": "hard",
+      "text": "The sea, flattened down in the heavier gusts, would uprise and overwhelm both ends of the Nan-Shan in snowy rushes of foam, expanding wide, beyond both rails, into the night. And on this dazzling sheet, spread under the blackness of the clouds and emitting a bluish glow, Captain MacWhirr could catch a desolate glimpse of a few tiny specks black as ebony, the tops of the hatches, the battened companions, the heads of the covered winches, the foot of a mast. This was all he could see of his ship. Her middle structure, covered by the bridge which bore him, his mate, the closed wheelhouse where a man was steering shut up with the fear of being swept overboard together with the whole thing in one great crash - her middle structure was like a half-tide rock awash upon a coast. It was like an outlying rock with the water boiling up, streaming over, pouring off, beating round - like a rock in the surf to which shipwrecked people cling before they let go - only it rose, it sank, it rolled continuously, without respite and rest, like a rock that should have miraculously struck adrift from a coast and gone wallowing upon the sea. The Nan-Shan was being looted by the storm with a senseless, destructive fury: trysails torn out of the extra gaskets, double-lashed awnings blown away, bridge swept clean, weather-cloths burst, rails twisted, light-screens smashed - and two of the boats had gone already. They had gone unheard and unseen, melting, as it were, in the shock and smother of the wave. It was only later, when upon the white flash of another high sea hurling itself amidships, Jukes had a vision of two pairs of davits leaping black and empty out of the solid blackness, with one overhauled fall flying and an iron-bound block capering in the air, that he became aware of what had happened within about three yards of his back.",
+      "sourceText": "The sea, flattened down in the heavier gusts, would uprise and overwhelm both ends of the Nan-Shan in snowy rushes of foam, expanding wide, beyond both rails, into the night. And on this dazzling sheet, spread under the blackness of the clouds and emitting a bluish glow, Captain MacWhirr could catch a desolate glimpse of a few tiny specks black as ebony, the tops of the hatches, the battened companions, the heads of the covered winches, the foot of a mast. This was all he could see of his ship. Her middle structure, covered by the bridge which bore him, his mate, the closed wheelhouse where a man was steering shut up with the fear of being swept overboard together with the whole thing in one great crash--her middle structure was like a half-tide rock awash upon a coast. It was like an outlying rock with the water boiling up, streaming over, pouring off, beating round--like a rock in the surf to which shipwrecked people cling before they let go--only it rose, it sank, it rolled continuously, without respite and rest, like a rock that should have miraculously struck adrift from a coast and gone wallowing upon the sea.\nThe Nan-Shan was being looted by the storm with a senseless, destructive fury: trysails torn out of the extra gaskets, double-lashed awnings blown away, bridge swept clean, weather-cloths burst, rails twisted, light-screens smashed--and two of the boats had gone already. They had gone unheard and unseen, melting, as it were, in the shock and smother of the wave. It was only later, when upon the white flash of another high sea hurling itself amidships, Jukes had a vision of two pairs of davits leaping black and empty out of the solid blackness, with one overhauled fall flying and an iron-bound block capering in the air, that he became aware of what had happened within about three yards of his back.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 1 paragraph break replaced by a space",
+        "dashes: 4 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "Joseph Conrad (1857–1924)",
+        "work": "Typhoon",
+        "place": "chapter III, two consecutive paragraphs",
+        "edition": "Project Gutenberg eBook no. 1142 (pg1142.txt)",
+        "url": "https://www.gutenberg.org/ebooks/1142",
+        "revision": "Project Gutenberg eBook no. 1142",
+        "licence": "public domain in Canada (author died 1924) and the United States (published 1902–1903); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 323,
+      "measures": {
+        "m1": 4.47,
+        "m2": 2.5,
+        "m3": 20.8,
+        "m4": 2.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "difficile (vocabulaire nautique)",
+        "theme": "typhon sur un vapeur",
+        "reserves": [
+          "le livre caricature ailleurs ses passagers chinois ; le passage n’en contient pas. En réserve, 323 mots après normalisation"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2024-10-29",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "spare"
+    },
+    {
+      "id": "en-potter-jeremy-fisher-opening",
+      "language": "en",
+      "complexity": "easy",
+      "text": "Once upon a time there was a frog called Mr. Jeremy Fisher; he lived in a little damp house amongst the buttercups at the edge of a pond. The water was all slippy-sloppy in the larder and in the back passage. But Mr. Jeremy liked getting his feet wet; nobody ever scolded him, and he never caught a cold! He was quite pleased when he looked out and saw large drops of rain, splashing in the pond - \"I will get some worms and go fishing and catch a dish of minnows for my dinner,\" said Mr. Jeremy Fisher. \"If I catch more than five fish, I will invite my friends Mr. Alderman Ptolemy Tortoise and Sir Isaac Newton. The Alderman, however, eats salad.\" Mr. Jeremy put on a macintosh, and a pair of shiny goloshes; he took his rod and basket, and set off with enormous hops to the place where he kept his boat. The boat was round and green, and very like the other lily-leaves. It was tied to a water-plant in the middle of the pond. Mr. Jeremy took a reed pole, and pushed the boat out into open water. \"I know a good place for minnows,\" said Mr. Jeremy Fisher. Mr. Jeremy stuck his pole into the mud and fastened the boat to it. Then he settled himself cross-legged and arranged his fishing tackle. He had the dearest little red float. His rod was a tough stalk of grass, his line was a fine long white horse-hair, and he tied a little wriggling worm at the end. The rain trickled down his back, and for nearly an hour he stared at the float.",
+      "sourceText": "Once upon a time there was a frog called Mr. Jeremy Fisher; he lived in a little damp house amongst the buttercups at the edge of a pond.\nThe water was all slippy-sloppy in the larder and in the back passage.\nBut Mr. Jeremy liked getting his feet wet; nobody ever scolded him, and he never caught a cold!\nHe was quite pleased when he looked out and saw large drops of rain, splashing in the pond--\n\"I will get some worms and go fishing and catch a dish of minnows for my dinner,\" said Mr. Jeremy Fisher. \"If I catch more than five fish, I will invite my friends Mr. Alderman Ptolemy Tortoise and Sir Isaac Newton. The Alderman, however, eats salad.\"\nMr. Jeremy put on a macintosh, and a pair of shiny goloshes; he took his rod and basket, and set off with enormous hops to the place where he kept his boat.\nThe boat was round and green, and very like the other lily-leaves. It was tied to a water-plant in the middle of the pond.\nMr. Jeremy took a reed pole, and pushed the boat out into open water. \"I know a good place for minnows,\" said Mr. Jeremy Fisher.\nMr. Jeremy stuck his pole into the mud and fastened the boat to it.\nThen he settled himself cross-legged and arranged his fishing tackle. He had the dearest little red float. His rod was a tough stalk of grass, his line was a fine long white horse-hair, and he tied a little wriggling worm at the end.\nThe rain trickled down his back, and for nearly an hour he stared at the float.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 10 paragraph breaks replaced by a space",
+        "dashes: 1 sentence dash written as - between spaces"
+      ],
+      "source": {
+        "author": "Beatrix Potter (1866–1943)",
+        "work": "The Tale of Mr. Jeremy Fisher",
+        "place": "opening of the tale",
+        "edition": "Project Gutenberg eBook no. 15077 (pg15077.txt)",
+        "url": "https://www.gutenberg.org/ebooks/15077",
+        "revision": "Project Gutenberg eBook no. 15077",
+        "licence": "public domain in Canada (author died 1943) and the United States (published 1906); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 277,
+      "measures": {
+        "m1": 3.97,
+        "m2": 2,
+        "m3": 10.6,
+        "m4": 7,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile",
+        "theme": "grenouille, pêche, pluie",
+        "reserves": [],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2026-05-23",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "spare"
+    },
+    {
+      "id": "en-kipling-just-so-cat-opening",
+      "language": "en",
+      "complexity": "easy",
+      "text": "HEAR and attend and listen; for this befell and behappened and became and was, O my Best Beloved, when the Tame animals were wild. The Dog was wild, and the Horse was wild, and the Cow was wild, and the Sheep was wild, and the Pig was wild - as wild as wild could be - and they walked in the Wet Wild Woods by their wild lones. But the wildest of all the wild animals was the Cat. He walked by himself, and all places were alike to him. Of course the Man was wild too. He was dreadfully wild. He didn't even begin to be tame till he met the Woman, and she told him that she did not like living in his wild ways. She picked out a nice dry Cave, instead of a heap of wet leaves, to lie down in; and she strewed clean sand on the floor; and she lit a nice fire of wood at the back of the Cave; and she hung a dried wild-horse skin, tail-down, across the opening of the Cave; and she said, 'Wipe you feet, dear, when you come in, and now we'll keep house.' That night, Best Beloved, they ate wild sheep roasted on the hot stones, and flavoured with wild garlic and wild pepper; and wild duck stuffed with wild rice and wild fenugreek and wild coriander; and marrow-bones of wild oxen; and wild cherries, and wild grenadillas. Then the Man went to sleep in front of the fire ever so happy; but the Woman sat up, combing her hair. She took the bone of the shoulder of mutton - the big fat blade-bone - and she looked at the wonderful marks on it, and she threw more wood on the fire, and she made a Magic. She made the First Singing Magic in the world.",
+      "sourceText": "HEAR and attend and listen; for this befell and behappened and became and was, O my Best Beloved, when the Tame animals were wild. The Dog was wild, and the Horse was wild, and the Cow was wild, and the Sheep was wild, and the Pig was wild--as wild as wild could be--and they walked in the Wet Wild Woods by their wild lones. But the wildest of all the wild animals was the Cat. He walked by himself, and all places were alike to him.\nOf course the Man was wild too. He was dreadfully wild. He didn’t even begin to be tame till he met the Woman, and she told him that she did not like living in his wild ways. She picked out a nice dry Cave, instead of a heap of wet leaves, to lie down in; and she strewed clean sand on the floor; and she lit a nice fire of wood at the back of the Cave; and she hung a dried wild-horse skin, tail-down, across the opening of the Cave; and she said, ‘Wipe you feet, dear, when you come in, and now we’ll keep house.’\nThat night, Best Beloved, they ate wild sheep roasted on the hot stones, and flavoured with wild garlic and wild pepper; and wild duck stuffed with wild rice and wild fenugreek and wild coriander; and marrow-bones of wild oxen; and wild cherries, and wild grenadillas. Then the Man went to sleep in front of the fire ever so happy; but the Woman sat up, combing her hair. She took the bone of the shoulder of mutton--the big fat blade-bone--and she looked at the wonderful marks on it, and she threw more wood on the fire, and she made a Magic. She made the First Singing Magic in the world.",
+      "adaptations": [
+        "spaces: Project Gutenberg's hard line breaks joined by a space",
+        "spaces: 2 paragraph breaks replaced by a space",
+        "apostrophes: 4 curly apostrophes replaced by '",
+        "dashes: 4 sentence dashes written as - between spaces"
+      ],
+      "source": {
+        "author": "Rudyard Kipling (1865–1936)",
+        "work": "Just So Stories",
+        "place": "“The Cat that Walked by Himself”, first three paragraphs",
+        "edition": "Project Gutenberg eBook no. 2781 (pg2781.txt)",
+        "url": "https://www.gutenberg.org/ebooks/2781",
+        "revision": "Project Gutenberg eBook no. 2781",
+        "licence": "public domain in Canada (author died 1936) and the United States (published 1902); Project Gutenberg trademark not redistributed"
+      },
+      "wordCount": 306,
+      "measures": {
+        "m1": 3.71,
+        "m2": 1,
+        "m3": 4.5,
+        "m4": 6.5,
+        "measuredWith": {
+          "normalizationVersion": 2,
+          "wordfreq": "3.1.1",
+          "listVersion": "wordfreq-3.1.1-large",
+          "commonZipf": 4,
+          "measuredWords": 200
+        }
+      },
+      "editorial": {
+        "level": "facile (langue ancienne : « befell and behappened »)",
+        "theme": "animaux sauvages, conte",
+        "reserves": [
+          "306 mots ; « Wipe you feet » est la formule de Kipling ; une insulte raciale ailleurs dans le recueil (conte du léopard)"
+        ],
+        "escalated": false
+      },
+      "checks": {
+        "sourceRetrievedAt": "2026-10-25",
+        "sourceFileUpdatedAt": "2016-10-07",
+        "sourceVerifiedAt": "2026-10-25",
+        "engineAcceptedAt": "2026-10-25",
+        "engineVersion": "@incision/domain at 1ccf480 (F-02.3a head), normalization 2"
+      },
+      "status": "spare"
+    }
+  ]
+}
