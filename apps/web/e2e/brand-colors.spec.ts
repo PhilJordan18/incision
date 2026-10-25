@@ -11,9 +11,10 @@ for (const locale of ["fr-CA", "en-US"] as const) {
           const page = await context.newPage();
           for (const route of ["/", "/sign-in"]) {
             await page.goto(`${baseURL}${route}`);
-            const white = page.locator('a img[src="/brand/wm-white.svg"]');
-            const black = page.locator('a img[src="/brand/wm-black.svg"]');
-            const logo = page.locator('a:has(img[src="/brand/wm-white.svg"])');
+            // Sign-in renders separate desktop/mobile panels; exactly one is visible.
+            const logo = page.locator('a:visible:has(img[src="/brand/wm-white.svg"])');
+            const white = logo.locator('img[src="/brand/wm-white.svg"]');
+            const black = logo.locator('img[src="/brand/wm-black.svg"]');
             await expect(logo).toHaveCount(1);
             await expect(logo).toHaveAccessibleName(/Incision/);
             for (const colorScheme of ["light", "dark"] as const) {
@@ -45,6 +46,12 @@ for (const locale of ["fr-CA", "en-US"] as const) {
             await expect(theme === "aube" ? black : white).toBeVisible();
             await expect(theme === "aube" ? white : black).toBeHidden();
             if (javaScriptEnabled) await expectNoAccessibilityViolation(page);
+            if (javaScriptEnabled && locale === "fr-CA") {
+              for (const width of [1440, 1024, 390]) {
+                await page.setViewportSize({ width, height: 900 });
+                await page.screenshot({ path: test.info().outputPath(`${route === "/" ? "home" : "sign-in"}-authored-${width}.png`) });
+              }
+            }
           }
         } finally {
           await context.close();
