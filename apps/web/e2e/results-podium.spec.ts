@@ -38,6 +38,7 @@ test("persisted podium and raw WPM work without JavaScript and survive reload", 
   await expect(podium.getByRole("listitem").nth(1)).toContainText("Second sailor");
   await expect(owner.page.getByRole("table").getByRole("columnheader")).toHaveCount(7);
   await expect(owner.page.getByRole("columnheader", { name: "Raw WPM", exact: true })).toBeVisible();
+  await expect(owner.page.getByRole("table").locator("tbody tr").first().locator("td").nth(4)).toHaveText("73");
   await owner.page.reload(); await expect(podium.getByRole("listitem")).toHaveCount(2);
   await visitor.goto(`/races/${owner.id}`); await expect(visitor).toHaveURL(/\/sign-in/);
 });
@@ -53,7 +54,7 @@ for (const locale of ["fr", "en"]) test(`result podium is accessible and respons
       await expectNoHorizontalScroll(owner.page);
       if (width === 360) {
         await expectNoAccessibilityViolation(owner.page);
-        const scroll = owner.page.getByRole("region").filter({ has: owner.page.getByRole("table") });
+        const scroll = owner.page.getByRole("region", { name: locale === "fr" ? "Classement de la manche" : "Ranking of the round", exact: true });
         await scroll.focus(); await expect(scroll).toBeFocused();
         await owner.page.keyboard.press("ArrowRight");
       } else if (process.env.RESULTS_SCREENSHOTS) {
