@@ -73,3 +73,30 @@ which mixes `-webkit-text-fill-color` with forced backgrounds. No axe rule is
 disabled for the authored themes. The high-contrast test asserts system-color
 marker/initial contrast and captures the actual page for inspection. Initial
 failure traces are retained locally.
+
+## Final local results
+
+Runtime implementation `6c6c9f5`; final browser harness `5ed18a5`:
+
+- 9/9 placement/component unit tests; web typecheck, lint, production build and
+  no-JavaScript/diff checks pass.
+- 4/4 final track browser cases: FR and EN × Aube and Abysse, including 30/50
+  synthetic entrants, no overlapping named labels at vertical widths, reduced
+  motion and system-color captures.
+- 5/5 existing real-flow regressions passed in the preceding targeted run:
+  ordinary two-player race/results/reopening plus all four mobile-keyboard cases.
+  The final visual refinement changes only marker stacking/spacing and labels;
+  these five flows were not needlessly rerun after that refinement.
+- Frame samples over 2.3s: 137–140 frames, 79–81 distinct marker positions under
+  4Hz synthetic input, largest observed frame interval 16.8–33.4ms. This local
+  observation is not an FPS guarantee on other hardware or Azure.
+- Code-reviewer, functional QA and UI/UX roles applied sequentially: no remaining
+  blocking finding in the track. Captures compared with references08/14 at1440,
+  1024 and390. Names/labels no longer animate through each other during resizing;
+  selected marker spacing and local z-order preserve the local marker.
+- Existing site wordmark is pale under forced-light system colors while the app
+  is in its dark theme. This is outside the track and is recorded for #73; logo
+  assets were not edited. It does not invalidate the track's system-color check.
+
+Captures: [desktop](track-abysse-1440.png), [tablet](track-aube-1024.png),
+[phone](track-aube-390.png), [system colors](track-abysse-forced-colors.png).
