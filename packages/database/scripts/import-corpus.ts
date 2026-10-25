@@ -5,12 +5,9 @@ import { createDatabase } from "../src/client";
 import { checkCorpus } from "../src/corpus/check";
 import { CorpusFileError, readCorpusVersion } from "../src/corpus/files";
 import { importCorpus } from "../src/corpus/import";
+import { printable } from "../src/corpus/printable";
 import { isLocalDatabase } from "../src/local-database";
 import { describeDatabaseError } from "../src/pool";
-
-/** JSON, with C1 controls and invisible format characters escaped too: nothing a file holds acts on the terminal. */
-const printable = (value: unknown): string =>
-  JSON.stringify(value).replace(/[\u007f-\u009f\p{Cf}]/gu, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
 
 // Usage: npm run db:import:corpus -w @incision/database -- --version <version> [--folder <corpus folder>]
 // Imports packages/database/corpus/<version>/ into the LOCAL database and activates it (F-02.3a).

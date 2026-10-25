@@ -12,15 +12,6 @@ import { DELIVERY_PASSAGE_IDS } from "./import";
 const PACKAGE = path.join(import.meta.dirname, "..", "..");
 const ROOT = path.join(PACKAGE, "..", "..");
 
-describe("the delivery passages", () => {
-  it("are the ones F-04.0 ships in race-texts.ts, so the import keeps requiring the right ids", () => {
-    const raceTexts = readFileSync(path.join(ROOT, "apps", "web", "src", "server", "races", "race-texts.ts"), "utf8");
-    for (const id of DELIVERY_PASSAGE_IDS) {
-      expect(raceTexts, id).toContain(`id: "${id}"`);
-    }
-  });
-});
-
 describe("where the corpus files live", () => {
   it("outside every folder the release archive copies from a package", () => {
     const script = readFileSync(path.join(ROOT, "scripts", "package-release.sh"), "utf8");
@@ -44,5 +35,13 @@ describe("where the corpus files live", () => {
     expect(importers).toEqual([]);
     const manifest = JSON.parse(readFileSync(path.join(PACKAGE, "package.json"), "utf8")) as { exports: Record<string, string> };
     expect(Object.entries(manifest.exports).filter(([name, target]) => name.includes("corpus") || target.includes("corpus") || name.includes("*"))).toEqual([]);
+  });
+});
+
+describe("the delivery passages", () => {
+  it("are exactly the texts F-04.0 ships in race-texts.ts, so the import keeps requiring the right ids", () => {
+    const raceTexts = readFileSync(path.join(ROOT, "apps", "web", "src", "server", "races", "race-texts.ts"), "utf8");
+    const shipped = [...raceTexts.matchAll(/\bid: "((?:fr|en)-[0-9a-z-]+)"/g)].map((match) => match[1]);
+    expect(shipped.toSorted()).toEqual([...DELIVERY_PASSAGE_IDS].toSorted());
   });
 });
