@@ -32,12 +32,12 @@ L'étiquette `complexity` est **éditoriale**. Elle vient de l'appréciation de 
 | moyen | `medium` |
 | moyen à difficile, difficile | `hard` |
 
-L'appréciation d'origine, avec ses nuances, est conservée telle quelle dans `editorial.level` et dans les tableaux ci-dessous. Ni l'étiquette ni l'appréciation ne sont une classification scientifique calculée : les mesures M1 à M4 sont fournies pour information, et leurs seuils ne sont pas calibrés (D-10, P-1).
+L'appréciation d'origine, avec ses nuances, est conservée telle quelle dans `editorial.level` et dans les tableaux ci-dessous. Ni l'étiquette ni l'appréciation ne sont une classification scientifique calculée : les mesures M1 à M4 sont fournies pour information, et leurs seuils ne sont pas calibrés (D-10, P-1). Deux appréciations, gardées telles quelles, citent « M3 élevée » (LFR8 et LEN8) : pendant la sélection, c'était un indice de lecture parmi d'autres, lu comme un vocabulaire rare, et non un seuil qui fixe l'étiquette.
 
 ## Format, versions et mesures
 
 - Format de F-02.3a (`packages/database/src/corpus/format.ts`), normalisation version 2. Chaque fichier est écrit exactement comme `JSON.stringify(valeur, null, 2)` suivi d'un saut de ligne.
-- `text` est exactement `normalizePassage(sourceText, langue)` du moteur, et `wordCount` est `countWords(text)`. `sourceText` est l'extrait exact de la source ; ses sauts de paragraphe sont gardés (`\n`).
+- `text` est exactement `normalizePassage(sourceText, langue)` du moteur, et `wordCount` est `countWords(text)`. `sourceText` est l'extrait exact de la source, à la mise en forme de transcription de Project Gutenberg près (retours à la ligne forcés joints, balisage retiré, voir « Adaptations ») ; ses sauts de paragraphe sont gardés (`\n`).
 - Moteur : `@incision/domain` de la tête de F-02.3a (1ccf480), normalisation 2 (`checks.engineVersion`).
 - Mesures (`measureText` du moteur, `measures.measuredWith`) : M1, nombre moyen de lettres par mot ; M2, part des mots de plus de 9 lettres (%) ; M3, part des mots hors du vocabulaire courant, noms propres à part (%) ; M4, caractères spéciaux pour 100 mots (; : ! ? " ( ), chiffres, apostrophes et traits d'union). Fréquences : wordfreq 3.1.1, listes `large_fr` et `large_en` (CC BY-SA 4.0), seuil du vocabulaire courant Zipf 4, sur les 200 premiers mots au plus.
 - Cinq passages mesurés lors de la première tranche avec un état antérieur de l'outil de mesure ont des mesures différentes de mes notes de travail : `fr-daudet-lettres-moulin-installation`, `fr-dumas-monte-cristo-ch01-pharaon`, `en-stevenson-treasure-island-ch08-spy-glass`, `en-faraday-candle-lecture1-opening` et le passage de livraison anglais (M3 7,6 au lieu de 8,1). Les fichiers portent les valeurs recalculées par le moteur le 25 octobre ; les étiquettes n'en dépendent pas.
@@ -51,9 +51,9 @@ L'appréciation d'origine, avec ses nuances, est conservée telle quelle dans `e
 
 ## Adaptations
 
-Les adaptations sont listées passage par passage dans `adaptations`, avec leur nombre, du texte source exact au texte tapé :
+Les adaptations sont listées passage par passage dans `adaptations`, avec leur nombre, de la source au texte tapé :
 
-- **Toutes sources :** espaces insécables et sauts de paragraphe remplacés par une espace ; apostrophes et guillemets typographiques remplacés par `'` et `"` (les guillemets français perdent leurs espaces intérieures) ; points de suspension écrits en trois points ; ligatures écrites en toutes lettres (œ en oe, P-4) ; tirets de phrase écrits « - » entre espaces. Ce sont les règles de la normalisation 2, appliquées par le moteur ; le générateur vérifie que chaque changement signalé par le moteur a sa ligne, et réciproquement.
+- **Toutes sources :** espaces insécables et sauts de paragraphe remplacés par une espace ; suites d'espaces ramenées à une seule ; apostrophes et guillemets typographiques remplacés par `'` et `"` (les guillemets français perdent leurs espaces intérieures) ; points de suspension écrits en trois points ; ligatures écrites en toutes lettres (œ en oe, P-4) ; tirets de phrase écrits « - » entre espaces. Ce sont les règles de la normalisation 2, appliquées par le moteur ; le générateur vérifie que chaque changement signalé par le moteur a sa ligne, et que chacune de ces lignes correspond à un changement du moteur. Les deux adaptations propres à Project Gutenberg, ci-dessous, sont faites avant le moteur, en tirant `sourceText` de la transcription.
 - **Project Gutenberg :** les retours à la ligne forcés de la transcription sont joints par une espace. Balisage de transcription retiré, compté dans `adaptations` : marques d'italique `_` dans `en-carroll-alice-ch01-rabbit-hole` (6) et `en-milne-winnie-pooh-ch09-island` (2), lignes `[Illustration]` dans `en-potter-squirrel-nutkin-opening` (4).
 - Aucun mot n'est retiré ni remplacé dans un passage littéraire (D3). Quand l'hôte désactive les nombres, la ponctuation, les majuscules ou les accents, le moteur transforme le texte tapé au moment de la course ; le passage stocké ne change pas.
 
@@ -142,7 +142,7 @@ Une réserve décrit ce qu'un relecteur doit savoir du passage ou de son œuvre 
 
 **Cas remonté (`editorial.escalated`) :** `en-kipling-captains-courageous-ch01-forecastle`, signalé pour information le 12 octobre. Le passage lui-même est propre ; l'œuvre emploie ailleurs une insulte raciale. Il reste retenu selon la politique déléguée, et je peux le passer en réserve dans une prochaine version sans toucher aux autres.
 
-**Mots relus dans les passages retenus.** Aucun juron, aucune insulte. Quelques mots demandent un contexte et sont acceptés tels quels : « une race vaillante de marins » (Loti) et « la race des meuniers » (Daudet), au sens ancien de lignée ; « the Indians » (Defoe), terme d'époque sans jugement ; « stupid » et « stupide » appliqués à Alice qui a sommeil et à l'œil d'un poisson.
+**Mots relus dans les passages retenus.** Aucun juron, aucune insulte. Quelques mots demandent un contexte et sont acceptés tels quels : « une race vaillante de marins » (Loti) et « la race des meuniers » (Daudet), au sens ancien de lignée ; « the Indians » (Defoe), terme d'époque sans jugement ; « stupid » et « stupide » appliqués à Alice qui a sommeil et à l'œil d'un poisson ; « ces diables de penseurs ! », exclamation familière, et les « petits derrières blancs » des lapins (Daudet, *Installation*) ; « Indian isles » (Melville), nom géographique.
 
 ## Couverture
 
