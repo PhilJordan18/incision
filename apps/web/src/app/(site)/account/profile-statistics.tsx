@@ -29,7 +29,7 @@ export function ProfileStatisticsPanel({ data, locale }: { readonly data: Accoun
         <p className="text-embrun">{t.scope}</p>
         <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {tiles.map((tile) => <div key={tile.key} className={`${card} min-w-0 ${tile.record ? "border-or bg-or/5" : ""}`}>
-            <dt className={`${monoLabel} ${tile.record ? "text-or" : ""}`}>{tile.label}</dt>
+            <dt className={monoLabel}>{tile.label}</dt>
             <dd data-stat={tile.key} className="mt-2 break-words font-display text-5xl font-extrabold">{tile.value}</dd>
           </div>)}
         </dl>

@@ -47,7 +47,7 @@ test("private statistics use completed races and remain readable without JavaScr
   for (const [key, value] of Object.entries({ best: "60", average: "30", accuracy: "50%", races: "3", victories: "1" })) {
     await expect(owner.page.locator(`[data-stat="${key}"]`)).toHaveText(value);
   }
-  const toggle = owner.page.getByText("View chart values", { exact: true });
+  const toggle = owner.page.locator("summary").filter({ hasText: "View chart values" });
   await toggle.focus(); await owner.page.keyboard.press("Enter");
   await expect(owner.page.getByRole("table").getByRole("row")).toHaveCount(4);
   await expect(owner.page.getByRole("table")).not.toContainText("999");
