@@ -97,7 +97,7 @@ async function main(): Promise<void> {
       ? "[races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus"
       : "[races] race texts: drawn from the active corpus (D-19: coherent, 50 words, medium)",
   );
-  // Loaded now, without delaying the server; a failure is retried at the next start.
+  // Loaded now, without delaying the server; a failure is retried by a later start, at most every CORPUS_RETRY_MS.
   if (corpusTexts !== undefined && env.databaseUrl !== undefined) {
     void corpusTexts.warm();
   }

@@ -106,7 +106,7 @@ export class CorpusTexts implements RaceTextSource {
     this.#options = options;
   }
 
-  /** At boot: loads the corpus now and says what races will draw from; a failure is logged and retried at the next start. */
+  /** At boot: loads the corpus now and says what races will draw from; a failure is logged and retried by a later start, at most every CORPUS_RETRY_MS. */
   async warm(): Promise<void> {
     try {
       await this.#active();
