@@ -113,7 +113,7 @@ This handoff is a remaining integration task, not a claim that the central matri
 
 ### Source navigation
 
-- [Room actions](../../../../apps/web/src/server/rooms/actions.ts) and [new boundary tests](../../../../apps/web/src/server/rooms/action-boundaries.test.ts)
-- [Race channel](../../../../apps/web/src/server/realtime/race-channel.ts) and [race service](../../../../apps/web/src/server/races/race-service.ts)
-- [Race protocol](../../../../apps/web/src/races/protocol.ts), [bonus protocol](../../../../apps/web/src/races/bonus-protocol.ts) and [room protocol](../../../../apps/web/src/rooms/protocol.ts)
-- [SQL lifecycle/host checks](../../../../packages/database/src/races/lifecycle.ts) and [SQL regression tests](../../../../packages/database/test/races.db.test.ts)
+- [Room actions](../../../apps/web/src/server/rooms/actions.ts) and [new boundary tests](../../../apps/web/src/server/rooms/action-boundaries.test.ts)
+- [Race channel](../../../apps/web/src/server/realtime/race-channel.ts) and [race service](../../../apps/web/src/server/races/race-service.ts)
+- [Race protocol](../../../apps/web/src/races/protocol.ts), [bonus protocol](../../../apps/web/src/races/bonus-protocol.ts) and [room protocol](../../../apps/web/src/rooms/protocol.ts)
+- [SQL lifecycle/host checks](../../../packages/database/src/races/lifecycle.ts) and [SQL regression tests](../../../packages/database/test/races.db.test.ts)
