@@ -23,6 +23,9 @@ describe("exact errors and private record presentation", () => {
       expect(html).toContain(resultsDetails[locale].mandatory);
       expect(html).toContain(resultsDetails[locale].noBonuses);
       expect(html).toContain(resultsDetails[locale].errorsHelp);
+      // Gold text needs the opaque card surface in Aube, not a gold-tinted background.
+      expect(html).toContain('border bg-nuit p-3');
+      expect(html).not.toContain('bg-or/10');
     }
   });
   it("shows an unavailable comparison without inventing a category; hides records from spectators", () => {

@@ -63,7 +63,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
             <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: formatNumber(ranked.length, locale) })}</span>
           </p>
           {record !== undefined && (
-            <div aria-label={details.recordLabel} role="note" className={`self-start rounded-lg border p-3 text-sm ${record.status === "improved" || record.status === "tied" ? "border-or bg-or/10" : "border-houle"}`}>
+            <div aria-label={details.recordLabel} role="note" className={`self-start rounded-lg border bg-nuit p-3 text-sm ${record.status === "improved" || record.status === "tied" ? "border-or" : "border-houle"}`}>
               <p className={`font-semibold ${record.status === "improved" || record.status === "tied" ? "text-or" : "text-embrun"}`}>
                 {record.status === "improved" || record.status === "tied" ? <span aria-hidden="true">★ </span> : null}
                 {details[record.status]}
