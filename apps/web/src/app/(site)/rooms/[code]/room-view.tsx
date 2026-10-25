@@ -81,6 +81,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     () =>
       new RaceClient({
         now: Date.now,
+        monotonic: () => performance.now(),
         schedule: (callback, delayMs) => {
           const timer = setTimeout(callback, delayMs);
           return () => clearTimeout(timer);
@@ -230,6 +231,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     };
 
     socket.on("connect", () => {
+      race.startClockSync((sentAt) => socket.timeout(5_000).emitWithAck("system:ping", { sentAt }));
       // A new connection is a new socket on the server, with its own budget.
       generation += 1;
       inFlight = false;
@@ -238,6 +240,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       watch();
     });
     socket.on("disconnect", (reason) => {
+      race.stopClockSync();
       generation += 1;
       inFlight = false;
       clearTimeout(retry);

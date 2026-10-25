@@ -55,3 +55,18 @@ describe("RaceClient", () => {
     expect(client.getState()).toMatchObject({ abandonReason: "inactivity", typing: { status: "abandoned" } });
   });
 });
+
+it("keeps calibrated countdown time when a delayed reveal arrives, and detaches the probe", async () => {
+  let now = 10_000;
+  const cancelled: number[] = [];
+  const client = new RaceClient({ now: () => now, monotonic: () => now,
+    schedule: (_callback, delay) => () => { cancelled.push(delay); } });
+  client.startClockSync(async () => { now += 200; return { ok: true, serverTime: 15_100 }; });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(client.serverNow()).toBe(15_200);
+  client.reveal({ ...reveal(RACE), serverNow: 15_000 });
+  expect(client.serverNow()).toBe(15_200);
+  expect(client.getState().reveal?.startsAt).toBe(3_000);
+  client.detach();
+  expect(cancelled).toContain(250);
+});
