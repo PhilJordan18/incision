@@ -219,6 +219,7 @@ export const en: Dictionary = {
       RATE_LIMITED: "Wait a moment before starting again.",
       RACES_CLOSED: "Races are temporarily closed on this site. The room stays open: try again later.",
       UNAVAILABLE: "The race could not start, the server is not answering. Try again.",
+      NO_COMPATIBLE_PASSAGE: "No text is available for this race right now. The room stays open: try again later.",
     },
     preparing: "Preparing the race…",
     countdownLabel: "Starting in",
