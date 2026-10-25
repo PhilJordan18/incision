@@ -101,6 +101,23 @@ describe("runMigrations", () => {
     expect(await runMigrations({ connectionString: database.url, migrationsFolder: cp03Release })).toEqual({ applied: 0 });
   });
 
+  it("upgrades a database at the first-race release (0003): the corpus tables arrive, rooms and races are untouched", async () => {
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo("0003_engine_error") })).toEqual({ applied: 4 });
+    await query("insert into lobbies (code, capacity) values ('B7K4PQ', 30)");
+    await query(
+      `insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
+       select id, 1, 'finished', 1, 'Texte.', '{"text": "fr-verne-vingt-mille-lieues-p1-ch14-pacifique"}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`,
+    );
+    const before = { lobbies: await query("select * from lobbies"), races: await query("select * from races") };
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 4 });
+    for (const table of ["race_corpus_versions", "race_passages", "race_corpus_entries"]) {
+      expect(await tableExists(table)).toBe(true);
+    }
+    expect({ lobbies: await query("select * from lobbies"), races: await query("select * from races") }).toEqual(before);
+    // Redeploying the first-race release on the upgraded database (rollback) applies nothing.
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo("0003_engine_error") })).toEqual({ applied: 0 });
+  });
+
   it("serialises two concurrent migrators: a slow migration is applied exactly once", async () => {
     // Without the lock, both runs would read an empty journal and the second CREATE TABLE would fail.
     const slow = migrationsFolder(["select pg_sleep(1); create table slow (id integer primary key);"]);
