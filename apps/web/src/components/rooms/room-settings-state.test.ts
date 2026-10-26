@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { awaitingSettings, draftConflict, editableSettings, settingsDraft, settingsForm, validDraft, type SavedRoomSettings } from "./room-settings-state";
+import { awaitingSettings, draftConflict, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings } from "./room-settings-state";
 import { roomSettingsCopy, roomStartNote } from "@/i18n/room-settings";
 import { parseConfigureRoomForm } from "@/server/rooms/room-settings";
 
 const saved: SavedRoomSettings & { timeLimitMs: number } = { revision: 7, textLanguage: "fr", timeLimitMs: 120_000, errorMode: "mandatory" };
 
 describe("waiting-room settings state", () => {
+  it("blocks stale authority and unknown outcomes until a read, even before the snapshot catches up", () => {
+    for (const error of ["NOT_HOST", "NOT_IN_A_ROOM", "ROOM_NOT_WAITING", "STALE_REVISION", "UNAVAILABLE"] as const) expect(requiresSettingsRefresh(error)).toBe(true);
+    for (const error of [undefined, "INVALID_SETTINGS", "RATE_LIMITED"] as const) expect(requiresSettingsRefresh(error)).toBe(false);
+  });
   it("pins the settings revision, not the unrelated room revision", () => {
     const draft = { ...settingsDraft(saved), textLanguage: "en" as const, seconds: "60" };
     const form = settingsForm("ABCDEF", draft);

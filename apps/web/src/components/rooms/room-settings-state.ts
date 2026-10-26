@@ -1,6 +1,7 @@
 import { TIME_LIMIT_MIN_MS } from "@incision/domain";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
 import { RUNNABLE_TIME_LIMIT_MAX_MS } from "@/server/rooms/room-settings";
+import type { ConfigureRoomError } from "@/server/rooms/actions";
 
 export type SavedRoomSettings = NonNullable<PublicRoomSnapshot["settings"]>;
 export type SettingsDraft = {
@@ -32,6 +33,12 @@ export function validDraft(draft: SettingsDraft): boolean {
 /** Acknowledgement alone is not the new snapshot. A newer snapshot also satisfies the ack. */
 export function awaitingSettings(revision: number | undefined, settings: SavedRoomSettings | undefined): boolean {
   return revision !== undefined && (settings === undefined || settings.revision < revision);
+}
+
+/** A stale authority or uncertain outcome must be read again before another edit. */
+export function requiresSettingsRefresh(error: ConfigureRoomError | undefined): boolean {
+  return error === "STALE_REVISION" || error === "UNAVAILABLE" || error === "NOT_HOST"
+    || error === "NOT_IN_A_ROOM" || error === "ROOM_NOT_WAITING";
 }
 
 export function settingsForm(code: string, draft: SettingsDraft): FormData {

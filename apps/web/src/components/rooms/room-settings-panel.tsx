@@ -8,7 +8,7 @@ import type { Locale } from "@/i18n/locale";
 import { roomSettingsCopy } from "@/i18n/room-settings";
 import { configureRoomAction, type ConfigureRoomState } from "@/server/rooms/actions";
 import { RUNNABLE_TIME_LIMIT_MAX_MS } from "@/server/rooms/room-settings";
-import { awaitingSettings, draftConflict, editableSettings, settingsDraft, settingsForm, validDraft, type SavedRoomSettings, type SettingsDraft } from "./room-settings-state";
+import { awaitingSettings, draftConflict, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings, type SettingsDraft } from "./room-settings-state";
 
 type Props = {
   readonly code: string;
@@ -34,12 +34,13 @@ export function RoomSettingsPanel({ code, settings, host, live, locale, refresh 
   const conflict = draftConflict(draft, settings) || answer.error === "STALE_REVISION";
   // Unknown outcomes require an explicit read, never an automatic resubmission.
   const uncertain = answer.error === "UNAVAILABLE";
-  const canEdit = host && live && supported && !pending && !awaiting;
+  const needsRefresh = requiresSettingsRefresh(answer.error);
+  const canEdit = host && live && supported && !pending && !awaiting && !needsRefresh;
 
   function cancel() {
     if (submitting.current) return;
     setDraft(null);
-    setAnswer({});
+    setAnswer((previous) => requiresSettingsRefresh(previous.error) ? previous : {});
     editButton.current?.focus();
   }
 
@@ -121,7 +122,7 @@ export function RoomSettingsPanel({ code, settings, host, live, locale, refresh 
       )}
       {answer.error !== undefined && <p role="alert" className="text-sm text-erreur">⚠ {t.errors[answer.error]}</p>}
       {answer.revision !== undefined && <p role="status" className="text-sm text-embrun">{awaiting ? t.waiting : t.saved}</p>}
-      {(conflict || uncertain || awaiting || settings === undefined) && <button type="button" disabled={pending} onClick={reload} className={`${discreetButton} self-start`}>{t.reload}</button>}
+      {(conflict || needsRefresh || awaiting || settings === undefined) && <button type="button" disabled={pending} onClick={reload} className={`${discreetButton} self-start`}>{t.reload}</button>}
     </section>
   );
 }

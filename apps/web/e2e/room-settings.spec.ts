@@ -136,6 +136,9 @@ test("a lost action response preserves the draft and offers a read, not an autom
   await expect(panel(page).getByRole("spinbutton")).toHaveValue("45");
   await expect(panel(page).getByRole("button", { name: "Enregistrer les réglages" })).toBeDisabled();
   expect(actions).toBe(1);
+  await panel(page).getByRole("button", { name: "Annuler", exact: true }).click();
+  await expect(panel(page).getByRole("button", { name: "Modifier les réglages" })).toHaveAttribute("aria-disabled", "true");
+  await expect(panel(page).getByRole("alert")).toContainText("confirmation n’a pas été reçue");
   await page.unroute("**/rooms/*");
   await panel(page).getByRole("button", { name: "Recharger les réglages" }).click();
   await expect(page.getByText("[.En direct]", { exact: true })).toBeVisible();
