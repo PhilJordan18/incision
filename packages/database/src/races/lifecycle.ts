@@ -3,6 +3,7 @@ import type { RoomPhase } from "@incision/domain";
 import { and, asc, count, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { findActiveMembership } from "../rooms/membership";
+import { readSettingsRevision } from "../rooms/settings";
 import { firstRow } from "../rows";
 import {
   ACTIVE_RACE_STATES,
@@ -10,7 +11,6 @@ import {
   type InterruptionReason,
   lobbies,
   lobbyMembers,
-  lobbySettings,
   raceEntrants,
   raceResults,
   races,
@@ -66,9 +66,11 @@ export type StartRaceInput<Refusal extends string, Created> = {
   readonly text: string;
   readonly config: Readonly<Record<string, unknown>>;
   /**
-   * The revision of the room settings the text and `config` come from (F-03.1), read before the
-   * draw: a change saved meanwhile refuses the start (SETTINGS_CHANGED), never a race on stale settings.
+   * The room whose settings the text and `config` come from (F-03.1), and their revision, read
+   * before the draw: a change saved meanwhile, or a host now in another room (another tab),
+   * refuses the start (SETTINGS_CHANGED), never a race on another room's or stale settings.
    */
+  readonly lobbyId: string;
   readonly settingsRevision: number;
   readonly rulesVersion: number;
   /**
@@ -124,9 +126,8 @@ export async function startRace<Refusal extends string, Created>(
     if (lobby.phase !== "waiting") {
       return { ok: false, error: "ROOM_NOT_WAITING" };
     }
-    // Settings change under the same lock (configureRoom); a room without a row has its initial ones, revision 0.
-    const [settings] = await tx.select({ revision: lobbySettings.revision }).from(lobbySettings).where(eq(lobbySettings.lobbyId, lobby.id));
-    if ((settings?.revision ?? 0) !== input.settingsRevision) {
+    // Settings change under the same lock (configureRoom), and they are this room's only.
+    if (lobby.id !== input.lobbyId || (await readSettingsRevision(tx, lobby.id)) !== input.settingsRevision) {
       return { ok: false, error: "SETTINGS_CHANGED" };
     }
     const participants = await tx

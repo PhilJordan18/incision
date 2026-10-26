@@ -28,6 +28,8 @@ function harness(
     room?: Partial<Pick<OwnRoomSettings, "phase" | "isHost">> | "none";
     /** How many starts the room lock refuses because settings were saved since the read before the draw. */
     settingsChanges?: number;
+    /** What those saves changed, read with the next draw. */
+    saved?: Partial<RoomSettings>;
   } = {},
 ) {
   let now = START;
@@ -38,7 +40,7 @@ function harness(
     if (options.room === "none") {
       return undefined;
     }
-    const settings = { ...INITIAL_SETTINGS, ...options.settings };
+    const settings = { ...INITIAL_SETTINGS, ...options.settings, ...(changes > 0 ? options.saved : {}) };
     return {
       lobbyId: LOBBY,
       phase: "waiting",
@@ -80,6 +82,7 @@ function harness(
   };
   const changed: string[] = [];
   const lost: string[] = [];
+  const logged: string[] = [];
   const service = new RaceService({
     ownerId: "owner-a",
     store,
@@ -95,6 +98,7 @@ function harness(
     texts: options.texts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
     racesOpen: options.racesOpen ?? true,
     log: () => undefined,
+    logError: (message) => logged.push(message),
   });
   const advance = (ms: number) => {
     const target = now + ms;
@@ -110,7 +114,7 @@ function harness(
     }
     now = target;
   };
-  return { service, store, created, changed, lost, advance };
+  return { service, store, created, changed, lost, logged, advance };
 }
 
 function tab(id: string, accountId: string) {
@@ -164,7 +168,7 @@ describe("RaceService", () => {
     service.follow(LOBBY, bea.connection);
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
     const input = store.startRace.mock.calls[0]?.[0];
-    expect(input).toMatchObject({ accountId: "a-host", ownerId: "owner-a", text: FIXTURE_RACE_TEXTS.en.text, settingsRevision: 4, rulesVersion: 1 });
+    expect(input).toMatchObject({ accountId: "a-host", ownerId: "owner-a", text: FIXTURE_RACE_TEXTS.en.text, lobbyId: LOBBY, settingsRevision: 4, rulesVersion: 1 });
     expect(input?.config).toEqual({ errorMode: "mandatory", timeLimitMs: 90_000, language: "en", text: "fixture", bonuses: false });
     expect(created[0]).toMatchObject({ phase: "countdown", errorMode: "mandatory", timeLimit: 90_000, startsAt: START + COUNTDOWN_MS });
     expect(service.ownsRace(LOBBY)).toBe(true);
@@ -359,15 +363,24 @@ describe("RaceService", () => {
   });
 
   it("draws again with the new settings when the host saved some during the draw, once", async () => {
-    const once = harness({ settingsChanges: 1, settings: { textLanguage: "en" } });
+    const draw = vi.fn(fixedRaceTexts(FIXTURE_RACE_TEXTS).draw);
+    const once = harness({ settingsChanges: 1, settings: { textLanguage: "en", timeLimitMs: 90_000 }, saved: { textLanguage: "fr", timeLimitMs: 60_000 }, texts: { draw } });
     expect(await once.service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: true });
-    expect(once.store.startRace.mock.calls.map(([input]) => input.settingsRevision)).toEqual([0, 1]);
-    expect(once.store.readOwnRoomSettings).toHaveBeenCalledTimes(2);
+    expect(draw.mock.calls).toEqual([["en"], ["fr"]]);
+    expect(
+      once.store.startRace.mock.calls.map(([input]) => ({ revision: input.settingsRevision, text: input.text, timeLimitMs: input.config["timeLimitMs"] })),
+    ).toEqual([
+      { revision: 0, text: FIXTURE_RACE_TEXTS.en.text, timeLimitMs: 90_000 },
+      { revision: 1, text: FIXTURE_RACE_TEXTS.fr.text, timeLimitMs: 60_000 },
+    ]);
+    expect(once.created[0]).toMatchObject({ timeLimit: 60_000 });
+    expect(once.logged).toEqual([]);
 
     const always = harness({ settingsChanges: 2 });
     expect(await always.service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: false, error: "UNAVAILABLE" });
     expect(always.store.startRace).toHaveBeenCalledTimes(2);
     expect(always.service.ownsRace(LOBBY)).toBe(false);
+    expect(always.logged).toEqual(["[races] start refused: the room settings changed during each draw"]);
   });
 
   it("refuses a second start from the same account while one is in flight", async () => {

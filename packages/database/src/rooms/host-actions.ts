@@ -5,7 +5,7 @@ import { lobbies, lobbySettings } from "../schema";
 import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transaction";
 import { findActiveMembership } from "./membership";
 import { bumpRevision, closeLockedRoom } from "./room-writes";
-import type { RoomSettings } from "./settings";
+import { readSettingsRevision, type RoomSettings } from "./settings";
 
 /**
  * What only the host of a room does: change its settings while it waits (F-03.1), and once a race
@@ -143,16 +143,14 @@ export async function configureRoom(
       if (room.phase !== "waiting") {
         return { ok: false, error: "ROOM_NOT_WAITING" };
       }
-      // A room of a process older than migration 0006 has no row yet: its settings are at revision 0.
-      const [stored] = await tx.select({ revision: lobbySettings.revision }).from(lobbySettings).where(eq(lobbySettings.lobbyId, room.lobbyId));
-      const current = stored?.revision ?? 0;
+      const current = await readSettingsRevision(tx, room.lobbyId);
       if (input.revision !== current) {
         return { ok: false, error: "STALE_REVISION" };
       }
       const saved = { ...input.settings, revision: current + 1 };
       await tx
         .insert(lobbySettings)
-        .values({ lobbyId: room.lobbyId, ...saved })
+        .values({ ...saved, lobbyId: room.lobbyId })
         .onConflictDoUpdate({ target: lobbySettings.lobbyId, set: saved });
       await bumpRevision(tx, room.lobbyId);
       return { ok: true, lobbyId: room.lobbyId, revision: saved.revision };

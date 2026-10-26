@@ -231,12 +231,13 @@ export class RaceService {
     if (this.#registry.stopping) {
       return { ok: false, error: "UNAVAILABLE" };
     }
-    return this.#start(connection, drawn, settings);
+    return this.#start(connection, drawn, room.lobbyId, settings);
   }
 
   async #start(
     connection: RoomConnection,
     { text, record }: Extract<RaceTextDraw, { ok: true }>,
+    lobbyId: string,
     settings: OwnRoomSettings["settings"] & { readonly timeLimitMs: number },
   ): Promise<RaceStartAck | "SETTINGS_CHANGED"> {
     const { store, ownerId } = this.#options;
@@ -250,6 +251,7 @@ export class RaceService {
         ownerId,
         text,
         config: { errorMode, timeLimitMs, ...record, bonuses: false },
+        lobbyId,
         settingsRevision: revision,
         rulesVersion: RULES_VERSION,
         // Under the room lock: a refusal changes nothing, an exception rolls the start back.

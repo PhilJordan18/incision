@@ -52,6 +52,15 @@ export function settingsOf(row: SettingsColumns): RoomSettings {
     : { revision: settingsRevision, textLanguage, timeLimitMs, errorMode };
 }
 
+/**
+ * The stored settings revision of a room, read under its lock by a save or a start. A room created
+ * by a process older than migration 0006 has no row yet: its initial settings are at revision 0.
+ */
+export async function readSettingsRevision(tx: Queryable, lobbyId: string): Promise<number> {
+  const [row] = await tx.select({ revision: lobbySettings.revision }).from(lobbySettings).where(eq(lobbySettings.lobbyId, lobbyId));
+  return row?.revision ?? initialRoomSettings(DEFAULT_TEXT_LANGUAGE).revision;
+}
+
 /** The room an account occupies and its settings, as read before a start: checked again under the room lock. */
 export type OwnRoomSettings = {
   readonly lobbyId: string;
