@@ -72,6 +72,15 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       expect(text.length).toBeGreaterThan(5);
       for (const [index, width] of [768, 1024].entries()) {
         await runner.setViewportSize({ width, height: 1000 });
+        await field.scrollIntoViewIfNeeded();
+        // Reduced motion still permits the design's 150 ms responsive transitions.
+        // Finish those before comparing geometry across a keystroke, not across a resize.
+        await field.evaluate(async () => {
+          await document.fonts.ready;
+          await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          await Promise.all(document.getAnimations().filter(animation =>
+            animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)));
+        });
         const before = await field.boundingBox();
         await field.pressSequentially(text[index]!, { delay: 80 });
         // A separate browser receives server-authoritative progress: rejected edits never preceded this key.
