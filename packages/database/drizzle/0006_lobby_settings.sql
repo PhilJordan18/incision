@@ -10,6 +10,4 @@ CREATE TABLE "lobby_settings" (
 	CONSTRAINT "lobby_settings_time_limit_range" CHECK ("lobby_settings"."time_limit_ms" is null or "lobby_settings"."time_limit_ms" between 30000 and 600000)
 );
 --> statement-breakpoint
-ALTER TABLE "lobby_settings" ADD CONSTRAINT "lobby_settings_lobby_id_lobbies_id_fk" FOREIGN KEY ("lobby_id") REFERENCES "public"."lobbies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
--- Rooms already open keep the first race path's 120 s and mandatory correction; their texts are French, the site's default language (no host's language is stored).
-INSERT INTO "lobby_settings" ("lobby_id", "text_language", "time_limit_ms", "error_mode") SELECT "id", 'fr', 120000, 'mandatory' FROM "lobbies";
+ALTER TABLE "lobby_settings" ADD CONSTRAINT "lobby_settings_lobby_id_lobbies_id_fk" FOREIGN KEY ("lobby_id") REFERENCES "public"."lobbies"("id") ON DELETE cascade ON UPDATE no action;

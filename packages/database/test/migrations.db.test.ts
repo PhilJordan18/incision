@@ -118,7 +118,7 @@ describe("runMigrations", () => {
     expect(await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo("0003_engine_error") })).toEqual({ applied: 0 });
   });
 
-  it("upgrades a database at the profile-photo release (0005): every room gets settings that race as before", async () => {
+  it("upgrades a database at the profile-photo release (0005): every room gets French texts, 120 s and mandatory correction (0006, 0007)", async () => {
     const photoRelease = releasedMigrationsUpTo("0005_profile_photos");
     expect(await runMigrations({ connectionString: database.url, migrationsFolder: photoRelease })).toEqual({ applied: 6 });
     await query("insert into lobbies (code, capacity) values ('B7K4PQ', 30), ('C8M5RS', 2)");
