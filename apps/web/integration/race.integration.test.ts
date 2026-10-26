@@ -1,7 +1,8 @@
-import { createDatabase, createRoomWithHost, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
+import { configureRoom, createDatabase, createRoomWithHost, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
 import { countWords, parseRoomCode, passageCut, ROOM_CODE_ALPHABET } from "@incision/domain";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { LOCALE_COOKIE } from "../src/i18n/locale";
 import type { RaceBatchAck, RaceProgressPayload, RaceRevealPayload, RaceSelfPayload } from "../src/races/protocol";
 import type { PublicRoomSnapshot } from "../src/rooms/protocol";
 import { CORPUS_RETRY_MS } from "../src/server/races/race-texts";
@@ -131,7 +132,8 @@ describe("an integrated race (F-04.0)", () => {
     expect(await h.ask("race:start", {})).toEqual({ ok: true });
     const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
     const text = reveal.reveal.text;
-    // The text reached nobody before the countdown (COURSE-03), and follows the host's language.
+    // The text reached nobody before the countdown (COURSE-03), and follows the room's language:
+    // French, the site's default, for a room created without one (F-03.1a).
     const beforeReveal = g.received.slice(0, g.received.findIndex((message) => message.event === "race:reveal"));
     expect(JSON.stringify(beforeReveal)).not.toContain(text.join(""));
     expect(text.join("")).toBe("Texte de test : la mer est calme, le vent se lève.");
@@ -406,8 +408,45 @@ describe("an integrated race (F-04.0)", () => {
     expect(c.output()).toContain("[races] corpus contract-2026-10-21: 1 fr, 1 en selectable passages");
   }, 90_000);
 
+  it("draws each room's text in the language its host saved, whatever the language of the tabs (F-03.1a, CONF-02)", async () => {
+    // The previous test's process, with the contract corpus imported: one passage per language.
+    const c = servers.at(-1);
+    expect(c?.output()).toContain("[races] corpus contract-2026-10-21: 1 fr, 1 en selectable passages");
+    const host = await account("int-host-language", "Hôte langue");
+    const guest = await account("int-guest-language", "Invité langue");
+    const code = parseRoomCode(await room(host, [guest]));
+    if (c === undefined || !code.ok) {
+      throw new Error("no server or no room");
+    }
+    // The host saves English texts and a 60 s limit with the revision a new room's page shows, through the
+    // database function configureRoomAction calls.
+    const english = { textLanguage: "en", timeLimitMs: 60_000, errorMode: "mandatory" } as const;
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: english })).toMatchObject({ ok: true, revision: 1 });
+    // Both browse the site in French.
+    const h = await tab(c.origin, `${host.cookie}; ${LOCALE_COOKIE}=fr`);
+    const g = await tab(c.origin, `${guest.cookie}; ${LOCALE_COOKIE}=fr`);
+    expect(await h.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { revision: 1, ...english } } });
+    expect(await g.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { revision: 1, ...english } } });
+
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const [passage] = (JSON.parse(await readFile(path.join(CONTRACT_CORPUS, "contract-2026-10-21", "en.json"), "utf8")) as { passages: { id: string; text: string }[] }).passages;
+    const cut = passageCut({ id: passage?.id ?? "", language: "en", complexity: "medium", text: passage?.text ?? "" }, defaultCoherentSettings("en"));
+    expect(cut).toBeDefined();
+    expect(reveal.reveal.text.join("")).toBe(cut);
+    expect(reveal.reveal).toMatchObject({ errorMode: "mandatory", timeLimit: 60_000 });
+    const [stored] = await query<{ text: string; config: Record<string, unknown> }>("select text_snapshot as text, config_snapshot as config from races where id = $1", [reveal.reveal.raceId]);
+    expect(stored?.text).toBe(cut);
+    expect(stored?.config).toMatchObject({ errorMode: "mandatory", timeLimitMs: 60_000, language: "en", text: passage?.id, corpusVersion: "contract-2026-10-21" });
+    // Once the countdown has begun, the settings stay those the race started with.
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 1, settings: { ...english, textLanguage: "fr" } })).toEqual({
+      ok: false,
+      error: "ROOM_NOT_WAITING",
+    });
+  }, 60_000);
+
   it("closes new races without RACES_ENABLED: a direct start creates nothing, rooms and stored results stay", async () => {
-    // The previous test's process stops (its race is interrupted, as at any restart): its port is free again.
+    // The corpus tests' process stops (its races are interrupted, as at any restart): its port is free again.
     const previous = servers.at(-1);
     previous?.child.kill("SIGTERM");
     await previous?.exited;

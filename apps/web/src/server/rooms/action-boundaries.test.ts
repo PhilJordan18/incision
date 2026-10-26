@@ -9,10 +9,12 @@ const boundary = vi.hoisted(() => ({
   leave: vi.fn(),
   next: vi.fn(),
   close: vi.fn(),
+  configure: vi.fn(),
   changed: vi.fn(),
   left: vi.fn(),
 }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/i18n/server", () => ({ getRequestLocale: async () => "en" }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect ${path}`); } }));
 vi.mock("@/server/auth/session", () => ({ requireAccountSession: boundary.requireSession, getAccountSession: vi.fn() }));
 vi.mock("@/server/auth/store", () => ({ authDatabase: boundary.database }));
@@ -23,10 +25,11 @@ vi.mock("@incision/database", async (importOriginal) => ({
   leaveCurrentRoom: boundary.leave,
   startNextRound: boundary.next,
   closeRoom: boundary.close,
+  configureRoom: boundary.configure,
 }));
 
-const { createRoomAction, leaveRoomAction, nextRoundAction, closeRoomAction } = await import("./actions");
-const processGlobal = globalThis as typeof globalThis & { incisionRoomChanges?: unknown };
+const { createRoomAction, leaveRoomAction, nextRoundAction, closeRoomAction, configureRoomAction } = await import("./actions");
+const processGlobal = globalThis as typeof globalThis & { incisionRoomChanges?: unknown; incisionSettingsChanges?: unknown };
 const RACE = "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b";
 
 function form(): FormData {
@@ -35,21 +38,30 @@ function form(): FormData {
   value.set("raceId", RACE);
   value.set("accountId", "forged-host");
   value.set("hostMemberId", "forged-member");
+  value.set("revision", "0");
+  // The text language of the settings form; a new room's comes from the request instead (mocked "en").
+  value.set("textLanguage", "fr");
+  value.set("timeLimitSeconds", "60");
   return value;
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
   delete processGlobal.incisionRoomChanges;
+  delete processGlobal.incisionSettingsChanges;
   boundary.requireSession.mockResolvedValue({ accountId: "session-account" });
 });
-afterEach(() => { delete processGlobal.incisionRoomChanges; });
+afterEach(() => {
+  delete processGlobal.incisionRoomChanges;
+  delete processGlobal.incisionSettingsChanges;
+});
 
 const guardedActions = [
   { name: "create", invoke: (data: FormData) => createRoomAction({}, data) },
   { name: "leave", invoke: (data: FormData) => leaveRoomAction({}, data) },
   { name: "next round", invoke: nextRoundAction },
   { name: "close", invoke: closeRoomAction },
+  { name: "configure", invoke: configureRoomAction },
 ];
 
 describe("server-action identity boundaries (SEC-01)", () => {
@@ -57,7 +69,7 @@ describe("server-action identity boundaries (SEC-01)", () => {
     boundary.requireSession.mockRejectedValue(new Error("redirect /sign-in"));
     await expect(invoke(form())).rejects.toThrow("redirect /sign-in");
     expect(boundary.database).not.toHaveBeenCalled();
-    for (const call of [boundary.create, boundary.leave, boundary.next, boundary.close, boundary.changed, boundary.left]) {
+    for (const call of [boundary.create, boundary.leave, boundary.next, boundary.close, boundary.configure, boundary.changed, boundary.left]) {
       expect(call).not.toHaveBeenCalled();
     }
   });
@@ -65,6 +77,12 @@ describe("server-action identity boundaries (SEC-01)", () => {
   it.each([
     { name: "next round", invoke: nextRoundAction, mutation: boundary.next, expected: { accountId: "session-account", raceId: RACE } },
     { name: "close", invoke: closeRoomAction, mutation: boundary.close, expected: { accountId: "session-account", code: "ABCDEF" } },
+    {
+      name: "configure",
+      invoke: configureRoomAction,
+      mutation: boundary.configure,
+      expected: { accountId: "session-account", code: "ABCDEF", revision: 0, settings: { textLanguage: "fr", timeLimitMs: 60_000, errorMode: "mandatory" } },
+    },
   ])("$name ignores a forged host identity and preserves the transactional refusal", async ({ invoke, mutation, expected }) => {
     mutation.mockResolvedValue({ ok: false, error: "NOT_HOST" });
     expect(await invoke(form())).toEqual({ error: "NOT_HOST" });
@@ -73,10 +91,10 @@ describe("server-action identity boundaries (SEC-01)", () => {
     expect(boundary.left).not.toHaveBeenCalled();
   });
 
-  it("creation assigns the host from the session, not the submitted account", async () => {
+  it("creation assigns the host from the session and the texts' language from the request, not from the form", async () => {
     boundary.create.mockResolvedValue({ ok: true, room: { id: "room", code: "ABCDEF" } });
     await expect(createRoomAction({}, form())).rejects.toThrow("redirect /rooms/ABCDEF");
-    expect(boundary.create).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.objectContaining({ accountId: "session-account" }));
+    expect(boundary.create).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.objectContaining({ accountId: "session-account", textLanguage: "en" }));
   });
 
   it("leaving uses only the authenticated account and cannot redirect off-site", async () => {

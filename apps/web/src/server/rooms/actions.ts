@@ -4,6 +4,8 @@ import { randomInt } from "node:crypto";
 import {
   type CloseRoomResult,
   closeRoom,
+  configureRoom,
+  type ConfigureRoomResult,
   createRoomWithHost,
   describeDatabaseError,
   findActiveMembership,
@@ -15,13 +17,15 @@ import {
 import { MEMBER_ROLES, type MemberRole, parseRoomCode, ROOM_MAX_CAPACITY, type RoomCodeError } from "@incision/domain";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { getRequestLocale } from "@/i18n/server";
 import { CODE_INPUT_MAX_LENGTH } from "@/rooms/code-input";
 import { safeRedirectPath } from "@/server/auth/safe-redirect";
 import { getAccountSession, requireAccountSession } from "@/server/auth/session";
 import { authDatabase } from "@/server/auth/store";
 import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
 import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
-import { allowRoomChange, forgiveRoomChange } from "./room-change-limiter";
+import { allowRoomChange, allowSettingsChange, forgiveRoomChange } from "./room-change-limiter";
+import { parseConfigureRoomForm } from "./room-settings";
 import { notifyMemberLeft, notifyRoomChanged } from "./room-events";
 
 export type JoinError =
@@ -141,7 +145,10 @@ export type CreateRoomState = {
   readonly currentCode?: string;
 };
 
-/** Create a room by code as its host (SALLE-01/02): only a signed-in account can. */
+/**
+ * Create a room by code as its host (SALLE-01/02): only a signed-in account can. Its texts start in
+ * the creator's interface language (D-19); the host may change it in the waiting room (F-03.1).
+ */
 export async function createRoomAction(_previous: CreateRoomState, formData: FormData): Promise<CreateRoomState> {
   const { accountId } = await requireAccountSession("/rooms/new");
   const role = requestedRole(formData);
@@ -160,6 +167,7 @@ export async function createRoomAction(_previous: CreateRoomState, formData: For
       visibility: "code",
       capacity: ROOM_MAX_CAPACITY,
       randomIndex: (upperBound) => randomInt(upperBound),
+      textLanguage: await getRequestLocale(),
     });
   } catch (error: unknown) {
     logFailure("create", error);
@@ -272,4 +280,39 @@ export async function closeRoomAction(formData: FormData): Promise<HostActionSta
   notifyMemberLeft(result.lobbyId, accountId, true);
   notifyRoomChanged(result.lobbyId);
   return {};
+}
+
+export type ConfigureRoomError = Extract<ConfigureRoomResult, { readonly ok: false }>["error"] | "INVALID_SETTINGS" | "RATE_LIMITED" | "UNAVAILABLE";
+
+/** `revision`: the settings revision saved, for the page's next change. */
+export type ConfigureRoomState = { readonly error?: ConfigureRoomError; readonly revision?: number };
+
+/**
+ * The host saves the settings of the room its page shows (`code`), while it waits (F-03.1,
+ * CONF-01/02/12): the text language and a time limit of 30 s to 120 s, with the settings revision
+ * the page shows. The fields are checked before the budget and the database; the host, the room's
+ * phase and the revision under the room lock. Every member's page gets the settings with the room's
+ * next snapshot.
+ */
+export async function configureRoomAction(formData: FormData): Promise<ConfigureRoomState> {
+  const { accountId } = await requireAccountSession("/");
+  const request = parseConfigureRoomForm(formData);
+  if (request === undefined) {
+    return { error: "INVALID_SETTINGS" };
+  }
+  if (!allowSettingsChange(accountId)) {
+    return { error: "RATE_LIMITED" };
+  }
+  let result: ConfigureRoomResult;
+  try {
+    result = await configureRoom(authDatabase(), { accountId, ...request });
+  } catch (error: unknown) {
+    logFailure("configure", error);
+    return { error: "UNAVAILABLE" };
+  }
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  notifyRoomChanged(result.lobbyId);
+  return { revision: result.revision };
 }
