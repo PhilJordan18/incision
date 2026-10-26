@@ -2,11 +2,11 @@
 
 import { containsLineBreak, toGraphemes } from "@incision/domain";
 import { memo, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { TypingLegend } from "@/components/races/typing-legend";
 import { RaceBonuses } from "@/components/rooms/race-bonuses";
 import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
 import { useNarrowScreen } from "@/components/use-narrow-screen";
+import { TypingLegend } from "@/components/races/typing-legend";
 import { physicalKeyboardMessages } from "@/i18n/dictionaries/physical-keyboard";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
