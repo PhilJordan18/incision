@@ -26,13 +26,11 @@ const digits = (maxLength: number) =>
  * The host's change of settings (F-03.1a): the settings revision its page shows, the text language
  * and a time limit in whole seconds. The error mode is not editable yet.
  */
-const configureRoomFieldsSchema = z
-  .object({
-    revision: digits(9),
-    textLanguage: z.enum(TEXT_LANGUAGES),
-    timeLimitSeconds: digits(3).pipe(z.number().min(TIME_LIMIT_MIN_MS / 1000).max(RUNNABLE_TIME_LIMIT_MAX_MS / 1000)),
-  })
-  .strict();
+const configureRoomFieldsSchema = z.object({
+  revision: digits(9),
+  textLanguage: z.enum(TEXT_LANGUAGES),
+  timeLimitSeconds: digits(3).pipe(z.number().min(TIME_LIMIT_MIN_MS / 1000).max(RUNNABLE_TIME_LIMIT_MAX_MS / 1000)),
+});
 
 const FIELDS = ["revision", "textLanguage", "timeLimitSeconds"] as const;
 

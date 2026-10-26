@@ -4,8 +4,8 @@ import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionC
 /**
  * The first complete race (F-04.0) in real browsers: two accounts, the countdown on the server's
  * clock, typing validated by the engine on the server, everyone's progress, the results saved and
- * read again. The host's pages are in English, so the race text is the English test fixture
- * (the text follows the host's language, D-19); the guest's pages are in French.
+ * read again. The host's pages are in English when it creates the room, so the room's texts are
+ * English (D-19, F-03.1a) and the race runs the English test fixture; the guest's pages are in French.
  */
 const contexts: BrowserContext[] = [];
 
@@ -87,7 +87,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expectNoAccessibilityViolation(host);
     await start.click();
 
-    // The 3-2-1 countdown on both sides, then the text, in the host's language.
+    // The 3-2-1 countdown on both sides, then the text, in the room's language.
     await expect(guest.getByRole("timer")).toBeVisible();
     await expect(host.getByRole("timer")).toBeVisible();
     const text = await raceText(guest);

@@ -16,6 +16,11 @@ export function publicSnapshot(snapshot: RoomSnapshot, online: ReadonlySet<strin
       online: online.has(memberId),
     })),
     ...(snapshot.race === undefined ? {} : { race: snapshot.race }),
-    settings: snapshot.settings,
+    settings: {
+      revision: snapshot.settings.revision,
+      textLanguage: snapshot.settings.textLanguage,
+      timeLimitMs: snapshot.settings.timeLimitMs,
+      errorMode: snapshot.settings.errorMode,
+    },
   };
 }

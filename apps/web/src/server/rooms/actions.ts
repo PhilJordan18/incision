@@ -305,7 +305,7 @@ export async function configureRoomAction(formData: FormData): Promise<Configure
   }
   let result: ConfigureRoomResult;
   try {
-    result = await configureRoom(authDatabase(), { accountId, ...request });
+    result = await configureRoom(authDatabase(), { ...request, accountId });
   } catch (error: unknown) {
     logFailure("configure", error);
     return { error: "UNAVAILABLE" };

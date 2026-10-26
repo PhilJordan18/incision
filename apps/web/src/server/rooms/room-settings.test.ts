@@ -37,8 +37,9 @@ describe("parseConfigureRoomForm", () => {
     }
   });
 
-  it("refuses numbers a form would not send: signs, fractions, exponents, spaces, too many digits", () => {
-    for (const seconds of ["+60", "-60", "60.0", "6e1", " 60", "0x3c", "0060"]) {
+  it("refuses numbers a form would not send: signs, fractions, exponents, spaces, other digits, too many digits", () => {
+    // Arabic-Indic and full-width sixty, then a trailing line feed: the pattern reads ASCII digits to the very end.
+    for (const seconds of ["+60", "-60", "60.0", "6e1", " 60", "60\n", "0x3c", "0060", "٦٠", "６０"]) {
       expect(parseConfigureRoomForm(form({ ...VALID, timeLimitSeconds: seconds })), seconds).toBeUndefined();
     }
     for (const revision of ["-1", "1.5", "1e3", "", "1234567890"]) {

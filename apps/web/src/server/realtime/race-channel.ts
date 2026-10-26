@@ -158,7 +158,7 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
 }
 
 /** The tab as the races see it: its id and its session's account (the room settings give the text language, F-03.1). */
-export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile" | "handshake">, accountId: string, pageId?: string): RoomConnection {
+export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile">, accountId: string, pageId?: string): RoomConnection {
   return {
     id: socket.id,
     accountId,

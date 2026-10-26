@@ -166,7 +166,6 @@ describe("race channel", () => {
     const sent: string[] = [];
     const socket = {
       id: "s-1",
-      handshake: { headers: {} },
       emit: (event: string) => sent.push(`emit ${event}`),
       volatile: { emit: (event: string) => sent.push(`volatile ${event}`) },
     } as unknown as Parameters<typeof connectionOf>[0];
