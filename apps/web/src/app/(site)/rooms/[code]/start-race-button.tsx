@@ -10,13 +10,14 @@ type StartRaceButtonProps = {
   readonly start: () => Promise<RaceStartAck>;
   readonly participants: number;
   readonly t: Dictionary["races"];
+  readonly note?: string;
 };
 
 /**
  * The host starts the race (COURSE-02): the one red action of the waiting room. The server
  * decides (host, phase, the engine's start rule); this button only says why it refused.
  */
-export function StartRaceButton({ start, participants, t }: StartRaceButtonProps) {
+export function StartRaceButton({ start, participants, t, note }: StartRaceButtonProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<RaceStartError | undefined>(undefined);
   // A hint only, from the engine's constant: the server applies the engine's start rule itself.
@@ -54,7 +55,7 @@ export function StartRaceButton({ start, participants, t }: StartRaceButtonProps
         {pending ? t.starting : t.start}
       </button>
       <p id="start-note" className="text-sm text-brume">
-        {enough ? t.startNote : t.startNeedsTwo}
+        {enough ? (note ?? t.startNote) : t.startNeedsTwo}
       </p>
       <p role="alert" className="min-h-5 text-sm text-erreur">
         {error === undefined ? "" : `⚠ ${t.startErrors[error]}`}
