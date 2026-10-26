@@ -1241,13 +1241,22 @@ describe("room settings under the room lock (F-03.1a)", () => {
   const settingsOf = async (lobbyId: string) => (await readRoomSnapshot(db, lobbyId))?.settings;
 
   it("orders a save and a start by the room lock: the second one is refused, in either order", async () => {
-    const first = await room("ABCDEF");
-    const [saved, refused] = await underRoomLock(first.lobbyId, [() => save(first.hostId, 0), () => start(first.hostId, first.lobbyId, 0)]);
-    expect(saved).toEqual({ ok: true, lobbyId: first.lobbyId, revision: 1 });
-    // Its text was drawn with revision 0: no race, and the server draws again with the saved settings.
-    expect(refused).toEqual({ ok: false, error: "SETTINGS_CHANGED" });
-    expect(await lobbyOf(first.lobbyId)).toMatchObject({ phase: "waiting", current_race_id: null });
-    expect(await pool.query("select 1 from races where lobby_id = $1", [first.lobbyId])).toMatchObject({ rowCount: 0 });
+    for (const [value, withoutRow] of [
+      ["ABCDEF", false],
+      ["CDEFGH", true],
+    ] as const) {
+      const first = await room(value);
+      if (withoutRow) {
+        // A room created by a process older than migration 0006: the save creates its row.
+        await pool.query("delete from lobby_settings where lobby_id = $1", [first.lobbyId]);
+      }
+      const [saved, refused] = await underRoomLock(first.lobbyId, [() => save(first.hostId, 0, value), () => start(first.hostId, first.lobbyId, 0)]);
+      expect(saved, value).toEqual({ ok: true, lobbyId: first.lobbyId, revision: 1 });
+      // Its text was drawn with revision 0: no race, and the server draws again with the saved settings.
+      expect(refused, value).toEqual({ ok: false, error: "SETTINGS_CHANGED" });
+      expect(await lobbyOf(first.lobbyId)).toMatchObject({ phase: "waiting", current_race_id: null });
+      expect(await pool.query("select 1 from races where lobby_id = $1", [first.lobbyId])).toMatchObject({ rowCount: 0 });
+    }
 
     const second = await room("BCDEFG");
     const [begun, late] = await underRoomLock(second.lobbyId, [() => start(second.hostId, second.lobbyId, 0), () => save(second.hostId, 0, "BCDEFG")]);
