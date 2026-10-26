@@ -16,6 +16,8 @@ The room persists between races. Its phase follows exactly the COURSE-01 busines
 | EN_ATTENTE/RESULTATS → FERMEE | Closure by the host (`closeRoom`, for the room its page shows only, refused during a race); every member leaves, admissions stop, the races stay in their entrants' history. |
 | Any open phase → FERMEE | After the host's departure/expiry, no connected human successor: close according to SALLE-08. If a race is active, keep a trace of the interruption, without a fake completed result. |
 
+**Settings (F-03.1a).** The host changes the room's settings (today the text language and a time limit of 30 s to 120 s) only in EN_ATTENTE, quoting the settings revision its page shows; from DECOMPTE to RESULTATS inclusive they are locked (`ROOM_NOT_WAITING`), and RESULTATS → EN_ATTENTE makes them editable again, unchanged. Each save raises the settings revision and the room's revision, and every member gets the new settings in the next snapshot. EN_ATTENTE → DECOMPTE freezes the settings of the revision checked under the room lock: a save during the start's text draw makes the server draw once more, then refuse the start.
+
 Scope choice: no "cancel the current race to change the settings" button before the final obligations. The host can leave and hand over their role; settings are changed between rounds. No system host and no automatic matchmaking start. A "ready" check is not required by COURSE-02 and is not added as a mandatory condition.
 
 ## 2. Admission and presence
