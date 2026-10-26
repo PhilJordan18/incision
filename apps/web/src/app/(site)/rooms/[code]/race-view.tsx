@@ -2,6 +2,7 @@
 
 import { containsLineBreak, toGraphemes } from "@incision/domain";
 import { memo, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { TypingLegend } from "@/components/races/typing-legend";
 import { RaceBonuses } from "@/components/rooms/race-bonuses";
 import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
@@ -160,6 +161,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
               onTakeControl={onTakeControl}
               overlay={countdown}
               language={state.language ?? locale}
+              locale={locale}
             />
           )}
 
@@ -393,6 +395,7 @@ function TypingZone({
   onTakeControl,
   overlay,
   language,
+  locale,
 }: {
   readonly race: RaceClient;
   readonly bonuses: BonusClient;
@@ -403,6 +406,7 @@ function TypingZone({
   readonly onTakeControl: (raceId: string) => void;
   readonly overlay: ReactNode;
   readonly language: Locale;
+  readonly locale: Locale;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const { typing, block, reveal } = state;
@@ -538,6 +542,7 @@ function TypingZone({
           </button>
         )}
       </div>
+      <TypingLegend mode={reveal?.errorMode} locale={locale} />
     </div>
   );
 }
