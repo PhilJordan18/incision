@@ -1,120 +1,89 @@
-# F-01.6C1 — voluntary host succession, work in progress
+# F-01.6C1 — voluntary host succession
 
-Code checkpoint: `5bcf823`, based on `dev` `1cfe076`. No PR published at this
-checkpoint: the results-screen handover below is a delivery blocker. No merge.
+Verified code and browser regression: `4b578fb`, based on `dev` `1cfe076`.
+The results-refresh hunk was explicitly released by A through Philippe on October27.
+No merge. The parent #36 stays open for C2 and guest integration.
 
-## Scope and coordination
+## Delivered scope
 
-SALLE-08/D-03, voluntary departure only. Human spectators are eligible. SQL
-membership and current sockets are intersected under the room lock; ordering uses
-SQL epoch microseconds. Existing race notification preserves the race on transfer
-and interrupts only on closure without a successor. See
-[the adapter contract](../../architecture/host-succession.md).
+SALLE-08/D-03, voluntary departure for persisted accounts. Under the room lock,
+active SQL membership is intersected with current authenticated socket presence.
+The oldest connected human inherits, including spectators; exact SQL microseconds
+and stable identifiers determine ordering. Without a successor, existing closure
+and interruption semantics apply. Storage/presence failures roll back.
 
-A's release is recorded in issue #36, implementation reservation
-[6446503700](https://github.com/PhilJordan18/incision/issues/36#issuecomment-6446503700).
-C1 avoids room-channel, room-events, race-service/runtime, races lifecycle/interruption,
-schema/migrations and the central matrix. #64B's runtime/persistence and export lines
-are coordinated separately. The main checkout and other worktrees are unchanged.
+The result panel refresh compares `memberId` derived identically from the live
+snapshot and server `initial` (both absent values are undefined). The effect runs
+only in results and retains the race-ID condition. Both host IDs are dependencies;
+unchanged-host snapshots do not retrigger it. Existing initial synchronization
+accepts only a strictly newer revision and was not modified.
 
-## Checks actually obtained locally
+A's scope release is recorded in [#36](https://github.com/PhilJordan18/incision/issues/36#issuecomment-6449012868).
+No room-channel/events, race-service/runtime, schema/migration, page.tsx or shared
+matrix edits. The original released leave block and final results effect are the
+only room-view changes. D-17/#64B hunks remain disjoint.
 
-- `npm run check:no-js`, `npm run lint`, `npm run typecheck`, `npm run build`: passed
-  during development. The last two new browser scenarios were added after that
-  first static gate. Root lint and typecheck were rerun successfully at code
-  checkpoint `5bcf823`, including all new tests.
-- `npm test`: 1,996 passed (web 661, database 131, domain 1,137, load 20, wordlists 47).
-  The first sandboxed run failed local socket tests and was stopped; the run with
-  local listening permitted passed. No code/test disabling was used.
-- Affected existing PostgreSQL files: membership, display-name, pooled-transactions,
-  races, room-settings and spectator-quota: **105 passed**.
-- New `succession.db.test.ts`: **10 passed** at server commit `9a12991`, including
-  microsecond ordering, exact ties, spectator eligibility, stale/offline exclusions,
-  presence sampled after lock, rollback on unavailable presence, concurrent/repeated
-  departures, new-host authorization, and preserved countdown/racing/results state.
-  The original new fixture omitted required randomIndex; it was corrected before
-  these passing results. No application correction was inferred from that fixture error.
-- Browser `rooms.spec.ts` transfer case: **1 passed**, spectator inherits, reload
-  preserves ownership, former host has no controls, last host closes the room.
-- Browser `host-succession.spec.ts` countdown/racing cases: **2 passed** after fixing
-  their result selector (the current UI uses a table, not a heading). Only the
-  leaver abandons; successor finishes, results persist, and next-round controls work.
-- Browser confirmation FR/EN × Abysse/Aube: **4 passed**. Axe WCAG2/2.1 A/AA,
-  no horizontal overflow at 1440/1024/390, reduced-motion environment, Escape/focus.
-  The 12 screenshots alongside this file were captured from this UI implementation.
-- Browser departure **on already displayed results**: **1 failed**, real UI defect
-  described below; retained as a regression test, not skipped or weakened.
+## Local evidence
 
-PostgreSQL tests create/drop only their random `incision_test_*` databases on the
-local test server (port5433). Browser runs use only `incision_e2e_succession36c1`
-and port3991, with marked short fixture texts. No production/corpus, Azure/Neon,
-OAuth, guest-persistence, bot or bonus qualification follows from these runs.
+- Root no-JS, lint, typecheck and build passed during implementation. Lint/types/build
+  passed again for the final application correction `38847fe`; `4b578fb` changes only
+  browser observation of the room socket. At `4b578fb`, root no-JS/lint/typecheck
+  and the10 dedicated PostgreSQL tests were rerun successfully.
+- Root `npm test`: **1,996 passed** (web661, database131, domain1137, load20, wordlists47)
+  before the final results-effect correction. No claim that these unit tests cover
+  the React effect: the targeted browser test below does.
+- PostgreSQL affected existing files: **105 passed** (membership, display-name,
+  pooled-transactions, races, room-settings, spectator-quota).
+- `succession.db.test.ts`: **10 passed** at `9a12991`: microseconds, ties,
+  spectator eligibility, offline/departed exclusions, presence after lock, rollback,
+  concurrent/idempotent departures, new-host authorization and race/phase preservation.
+- Browser: **11 distinct targeted cases passed** across the runs: rooms transfer,
+  countdown/racing departure (2), FR/EN × Abysse/Aube confirmation (4), one-room
+  navigation, existing race confirmation retaining design-rule7 checks,
+  last-human interruption and the on-results regression described below.
+- Confirmation checks: axe WCAG2/2.1 A/AA, overflow at1440/1024/390, reduced motion,
+  Escape/focus. The12 screenshots alongside this file document the preserved layout.
 
-## Blocking result-screen handover
+### Former blocker, now passing
 
-The SQL transfer succeeds and the live room recognizes the successor. However,
-`results.panel` was rendered by the server before the transfer, so its host controls
-remain absent until a refresh. Existing room-view refresh depends only on a new
-race ID, and this handover keeps the same race ID.
+`host-succession.spec.ts` — **host departure on results preserves the saved race
+and transfers next-round controls live**, passed at `4b578fb` (13.9s).
 
-Reproduction: `host-succession.spec.ts`, "host departure on results preserves the
-saved race and transfers next-round controls live". Local failure trace/context:
-`.codex-worktrees/_tools/failures/f01-6c1-results/` (not committed).
+Two successive transfers update server-rendered host controls live. RSC GETs are
+counted: one per host change (two total for the final successor). Responses are
+artificially delayed350ms. A later member arrival is observed on the room socket
+and does not add a refresh. Official result rows remain unchanged; the final
+successor starts the next round. This verifies the observed browser behavior,
+not all possible network reorderings or production behavior.
 
-The proposed minimal correction is to refresh results when the live host ID differs
-from the host ID in the server's `initial` snapshot, with both as dependencies. This
-is **not implemented or verified** at this checkpoint: room-view's results effect
-lies outside A's released leave block. Release request and reproduction:
-[6446912750](https://github.com/PhilJordan18/incision/issues/36#issuecomment-6446912750),
-[6446940634](https://github.com/PhilJordan18/incision/issues/36#issuecomment-6446940634).
+The first run of the expanded test incorrectly looked for a newly joined visitor
+in the finished race ranking; that test observation was corrected to the room
+socket. No product change was made for that fixture assertion. The original real
+stale-controls defect was reproduced before correction and is now covered.
 
-Also awaiting the requested narrow release: hostGoToRoom FR/EN wording, old departure
-assertions in existing browser tests, ActiveMembership.isHost comment and two
-remaining data-model statements. Explicit Close room behavior is unchanged.
+## Sequential reviews at 4b578fb
 
-## Reviews at code checkpoint 5bcf823
+- Code-reviewer: OK. Existing domain selection reused; shared-line scope preserved;
+  result refresh compares identical fields/types, has stable primitive dependencies,
+  and changes neither initial synchronization nor host-control rendering.
+- Functional QA: OK for C1. The previously failing acceptance path now passes;
+  targeted coverage includes transfer, no successor, concurrent departure, rollback,
+  retained race/results and newly authorized host actions.
+- Security: OK. Session identity/rate limits unchanged. No client-chosen successor;
+  SQL and authenticated presence decide. Existing host commands authorize server-side;
+  departing/non-host identities are refused in dedicated DB coverage.
+- DBA: OK. Bounded READ COMMITTED and room lock, active re-read, integer timestamps,
+  atomic transfer/departure/revision, rollback on unavailable presence. No migration.
+- UI/UX: OK for the adapted confirmation and live handover. Earlier screenshot,
+  accessibility and race-position checks remain applicable: the final correction
+  changes refresh behavior only. No design assets, logo or tokens changed.
 
-Roles applied sequentially, read-only on the code diff, without subagents:
+## Limits and handoff
 
-- Code-reviewer: **changes needed** — result panel refresh is blocking; stale copy
-  and assertions are pending coordination. No unrelated runtime/schema/CI edits.
-- Functional QA: **blocked** — seven targeted browser cases pass, one real
-  acceptance path fails. C1 must not be called ready until it passes.
-- Security: no additional identity input; session identity and rate limiting retained.
-  New host is chosen from server SQL/presence only. Old/non-host settings/close
-  attempts refused by existing server authorization in dedicated DB coverage.
-  No new secret, external request surface or production test.
-- DBA: bounded READ COMMITTED, one lobby lock, active-members re-read, exact integer
-  timestamps, atomic transfer/departure/revision, rollback rather than false closure.
-  No migration; local concurrency and existing closure/finalization tests passed.
-- UI/UX: confirmation screenshots reviewed against screen06 and its documented
-  adaptations at1440/1024/390. Existing tokens/layout/confirmation are retained,
-  wording reflects conditional transfer/closure, no logo/design asset change.
-  Race/results behavior still has the blocking scenario above; no whole-screen
-  completion claim. Screens08/10 were consulted for placement and controls.
-
-## Remaining scope
-
-#36 stays In progress and partial. C2 host disconnect/grace, guests and distributed
-presence remain outside C1. A owns SALLE-08/D-15 matrix reconciliation. No heavy work
-from14:30 Toronto on October27; the human acceptance environment is untouched.
-
-## Released copy and regression follow-up — c04d19c
-
-A's next narrow release was relayed by Philippe through the coordinating Codex.
-Applied: hostGoToRoom FR/EN, ActiveMembership.isHost comment, data-model line145,
-and existing departure assertions. data-model117/119, page.tsx, explicit Close room
-behavior/actions/tests and the results-refresh effect remain unchanged.
-
-`npm run build` passed again after the copy change. Three targeted Chromium cases
-passed on the isolated database/port: one-room departure navigation, the existing
-race confirmation (text/field positions, question focus, no unintended typing,
-continuing clock and Escape recovery retained), and a dedicated last-human departure
-that verifies `interrupted` / `room_closed`, no race_results, and closed-room admission.
-This brings successful targeted browser cases to **10**; the separate on-results
-handover remains **1 failing acceptance scenario**, not waived.
-
-The remaining explicit release request is solely for room-view's results-refresh
-effect: [6447114531](https://github.com/PhilJordan18/incision/issues/36#issuecomment-6447114531).
-No PR is ready or published at this checkpoint. Previously listed copy/comment/test
-release requests are resolved; data-model119 stays with A by explicit instruction.
+Local test fixtures only, not production, corpus, bonus or bot qualification.
+DB tests create/drop only their own random incision_test_* databases on port5433;
+browser runs use incision_e2e_succession36c1 and port3991.
+C2 disconnect/grace, guests and distributed presence remain outside C1. Presence
+linearizes when read under the lock; a later disconnect belongs to C2.
+A owns SALLE-08/D-15 matrix reconciliation and the reserved data-model119 wording;
+PR/SHA/test names will be handed over for that update. Explicit Close room is unchanged.
