@@ -143,18 +143,18 @@ export const en: Dictionary = {
     },
     leave: "Leave the room",
     leaving: "Leaving…",
-    hostLeaveNote: "If you leave as the host, the room closes for everyone: you will have to confirm.",
+    hostLeaveNote: "If you leave, the longest-present connected human member becomes host. Without a connected successor, the room closes. You will have to confirm.",
     hostGoToRoom: "You host room {code}: leaving it closes it for everyone. To leave it, go to your room: a confirmation will tell you what it does.",
     hostLeave: {
-      question: "Leave and close room {code}?",
+      question: "Leave room {code}?",
       consequences: [
-        "You are the host: leaving closes the room for everyone. Every member leaves it, and it admits nobody any more.",
+        "The longest-present connected human member becomes host, including spectators. If nobody can succeed you, the room closes for everyone and admits nobody any more.",
         "Finished races stay readable by their runners, at their page’s address.",
       ],
-      racing: "The race in progress stops for everyone, without results.",
+      racing: "If you are still racing, you give up. The race continues with the new host; without a connected successor, it stops without results.",
       backHome: "You go back to the home page.",
       warning: "Cannot be undone",
-      confirm: "Yes, leave and close",
+      confirm: "Yes, leave the room",
       cancel: "Stay in the room",
     },
     hostActions: {

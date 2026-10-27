@@ -147,18 +147,18 @@ export const fr = {
     },
     leave: "Quitter la salle",
     leaving: "Départ…",
-    hostLeaveNote: "Si tu quittes en tant qu’hôte, la salle se ferme pour tout le monde : tu devras confirmer.",
+    hostLeaveNote: "Si tu quittes, le plus ancien membre humain connecté devient hôte. Sans successeur connecté, la salle ferme. Tu devras confirmer.",
     hostGoToRoom: "Tu es l’hôte de la salle {code} : la quitter la ferme pour tout le monde. Pour la quitter, va dans ta salle : une confirmation t’en dira les conséquences.",
     hostLeave: {
-      question: "Quitter et fermer la salle {code} ?",
+      question: "Quitter la salle {code} ?",
       consequences: [
-        "Tu es l’hôte : en partant, tu fermes la salle pour tout le monde. Tous les membres la quittent, et elle n’accepte plus personne.",
+        "Le plus ancien membre humain connecté devient hôte, même s’il est spectateur. Si personne ne peut te succéder, la salle ferme pour tout le monde et n’accepte plus personne.",
         "Les courses terminées restent lisibles par leurs coureurs, à l’adresse de leur fiche.",
       ],
-      racing: "La course en cours s’arrête pour tout le monde, sans résultats.",
+      racing: "Si tu participes encore à la course, tu abandonnes. La course continue avec le nouvel hôte ; sans successeur connecté, elle s’arrête sans résultats.",
       backHome: "Tu reviens à l’accueil.",
       warning: "Action définitive",
-      confirm: "Oui, quitter et fermer",
+      confirm: "Oui, quitter la salle",
       cancel: "Rester dans la salle",
     },
     hostActions: {

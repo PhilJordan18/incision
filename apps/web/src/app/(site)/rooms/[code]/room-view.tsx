@@ -440,8 +440,8 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
 
   const participants = snapshot.members.filter((member) => member.role === "participant").length;
   // During the race, leaving is an abandon (state-machines §3), said before the click.
-  const leavingAbandons = !self.isHost && self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
-  // The host's departure closes the room for everyone (CP-06): it asks first, as « Fermer la salle » does.
+  const leavingAbandons = self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
+  // Explain succession and conditional closure before the host commits to leaving.
   const leave = (
     <div className={`flex flex-col gap-2 ${self.isHost ? "" : "max-w-xs"}`}>
       {self.isHost ? (
