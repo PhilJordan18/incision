@@ -1,14 +1,16 @@
-# F-08.4A — Server input and host-authorisation inventory
+# F-08.4 — Server input and host-authorisation inventory
 
-Card [#75](https://github.com/PhilJordan18/incision/issues/75), TECH-07 and SEC-01. Baseline: `dev` **3a1dcff**, 25 October 2026. This inventory covers the application entry points present at that commit, including merged history and display-name changes. It does not cover the forthcoming photo upload or corpus-selection branch.
+Card [#75](https://github.com/PhilJordan18/incision/issues/75), TECH-07 and SEC-01. Current inventory baseline: `dev` **b14e5d0**, 26 October 2026. It includes merged history, display-name and photo changes. Open PRs, including corpus selection #157 and room configuration #161, are not part of this baseline. Their contracts must be audited when integrated, not inferred from green checks or this older snapshot.
 
-This tranche adds boundary regression tests and records existing validation. It does not declare the complete #75 audit finished: configure, invite and kick actions do not exist yet. Their future schemas, permissions and refusal tests remain required. Nor does it equate a domain parser, a library protocol handler or an ignored payload with a Zod schema.
+F-08.4A added boundary regression tests at `3a1dcff`; F-08.4B refreshes this document only. The complete #75 audit remains unfinished: configure, invite and kick actions do not exist in this merged baseline. Their schemas, permissions and refusal tests remain required. A domain parser, a library protocol handler or an ignored payload is not equated with a Zod schema.
+
+Correction to the original inventory: `changeDisplayName` already used a Zod schema since `b9fcb18`. Its omission from the original table was a documentation error, not missing product validation. F-08.4B adds no duplicate schema or test and claims no newly fixed vulnerability.
 
 Paths below are repository-relative. Test names are source references unless explicitly included in the executed-check record at the end.
 
 ## Server Actions
 
-Discovery: all files containing `"use server"` under `apps/web/src`; five modules, ten exported actions. Previous-state arguments are not used as an identity or authorisation source.
+Discovery: all files containing `"use server"` under `apps/web/src`; six modules, eleven exported actions. Previous-state arguments are not used as an identity or authorisation source.
 
 | Entry / source | Consumed input and validation | Authorisation / refusal evidence |
 |---|---|---|
@@ -16,7 +18,8 @@ Discovery: all files containing `"use server"` under `apps/web/src`; five module
 | `signInWithProvider`, same module | Provider enum restricted to GitHub/Discord; callback path canonicalised by `safeRedirectPath`. | Public start of library OAuth flow, not an authenticated identity claim; malformed provider redirects to the configuration error. |
 | `setLocaleAction`, `components/preferences/actions.ts` | `localeSchema`: FR/EN enum; ignores invalid value before cookies/refresh. | Public preference, no account mutation. Cookie flags from validated configuration. |
 | `signOutEverywhereAction`, `app/(site)/account/actions.ts` | No consumed form payload. | Account comes from `getAccountSession`; no session redirects before revocation. `server/auth/revocation.test.ts` and existing session E2E. |
-| `updateDisplayNameAction`, `app/(site)/account/display-name-action.ts` | `changeDisplayName`: exactly one string of at most 1,024 code units, then `parseDisplayName` domain rules. | `requireAccountSession`; submitted identity ignored; update uses session account. `display-name-action.test.ts`, `server/auth/change-display-name.test.ts`. Profile source remains owned by #68. |
+| `updateDisplayNameAction`, `app/(site)/account/display-name-action.ts` | `changeDisplayName`: `submittedName = z.array(z.string().max(1024)).length(1)` applied to `form.getAll`, then `parseDisplayName` domain rules. Missing, duplicate and file fields are rejected. | `requireAccountSession`; submitted identity ignored; update uses session account. `display-name-action.test.ts`, `server/auth/change-display-name.test.ts`. |
+| `uploadPhotoAction`, `app/(site)/account/photo-action.ts` | `photoField = z.array(z.file().min(1).max(MAX_PHOTO_BYTES)).length(1)` on `form.getAll("photo")`; 2 MiB maximum. Actual raster decoding and re-encoding follow; filename and declared MIME are not trusted. | Session required before decoding/storage; only the session account is passed to `saveProfilePhoto`. `photo-action.test.ts`, `server/profile/photo-upload.test.ts`, `photo-image.test.ts`. Refusal does not revalidate the page or claim success. |
 | `joinRoomAction`, `server/rooms/actions.ts` | String code truncated to input bound, then `parseRoomCode`; `roleSchema` participant/spectator (last checkbox value; default participant). | Account session required for admission; address/code and account mutation budgets; SQL membership checks. `actions.test.ts`, `code-attempts.test.ts`, database `membership.db.test.ts`. Code validation is a domain parser, not Zod. |
 | `createRoomAction`, same module | `roleSchema`; capacity, visibility and random code are server-selected. | Session required before mutation; account becomes host through the transaction. New `action-boundaries.test.ts` rejects missing session and ignores forged account fields. |
 | `leaveRoomAction`, same module | `returnToSchema` wraps safe same-site path validation with `/` fallback; no supplied member identity consumed. | Session account determines departure; the database determines whether the host left. New tests check authentication, identity and exact safe redirect. |
@@ -27,13 +30,14 @@ Next 16.4.3's installed `dist/docs/01-app/02-guides/server-actions.md` was consu
 
 ## HTTP route handlers and pages
 
-Three route-handler modules are present; framework internals/static assets are not custom application routes.
+Four route-handler modules are present; framework internals/static assets are not custom application routes.
 
 | Entry | Validation and access boundary | Evidence / limit |
 |---|---|---|
 | `GET /api/health/live` | No request fields consumed; liveness status and deployed commit. | No authentication needed, no account data. |
 | `GET /api/health` | No request fields consumed; readiness query to SQL, generic failure. | `app/api/health/route.test.ts`; no secret/database detail in the response. |
 | `GET/POST /api/auth/[...nextauth]` | Delegates protocol parsing to Auth.js handlers in `auth.ts`. Application credential/JWT/provider callbacks validate their own inputs. | Library-managed OAuth/CSRF parsing is not an application Zod schema or a live-provider audit. `credentials.test.ts`, `session-callbacks.test.ts`, `session-token.test.ts`. |
+| `GET /api/account/photo` | No request field selects an image: the query string is not consumed by `GET`. `getAccountSession` supplies the account passed to `readProfilePhoto`. | `route.test.ts`: anonymous 401 before storage access; absent image 404; storage failure 503 without details. Successful WebP is `private, no-store`, `nosniff`, `same-origin`. Storage is mocked; these tests do not prove SQL isolation by themselves. |
 | `/rooms/[code]`, including metadata | `parseRoomCode` before code lookup; canonical redirect; account session; `load-room.ts` enforces code-attempt limits and authorised room projection. | `load-room.test.ts`, `code-attempts.test.ts`, existing code-limit E2E. Domain parser rather than Zod for the route code. |
 | `/races/[id]`, including metadata | Session before reading; `readRaceForEntrant` rejects malformed UUIDs with a regex and requires an entrant belonging to that account in SQL. | `packages/database/test/races.db.test.ts`; unknown/unauthorised race both return no result. Regex is not Zod. |
 | `/history?cursor=…` | Session account cannot be selected by the URL; `parseHistoryCursor` checks type/length then a Zod tuple, in both page and reader. | `packages/database/src/races/history.test.ts`, `test/history.db.test.ts`; pagination does not authorise another account. |
@@ -67,6 +71,12 @@ Transport: `server/realtime/socket-server.ts`; Socket.IO bounds incoming message
 - **Origin and client address:** `realtime/origin.ts` allows the configured origin and rejects cross-site/JSONP; missing Origin remains allowed. `server/http/client-address.ts` derives an address from the configured trusted proxy chain; `server.ts` overwrites the internal address header. Their tests cover parsing/spoofing boundaries. These parsers are not Zod schemas.
 - **Locale/theme headers and cookies:** `i18n/locale.ts` and theme readers select known values/fallbacks; they do not authorise access. Raw strings are not treated as account identities.
 
+### Profile image decoding (SEC-02 supporting evidence)
+
+`server/profile/photo-image.ts` checks bytes and signatures before decoding with Sharp. JPEG, PNG and WebP are allowed; SVG and animated input are refused. The decoder is bounded by 16 million pixels, an 8,192-pixel edge and a three-second timeout. Output is a metadata-stripped 256 × 256 WebP capped at 256 KiB. The upload boundary permits only one concurrent encoding operation, returns `busy` for another, and releases that slot after failure. These are existing delivered controls, not new F-08.4B changes.
+
+`photo-image.test.ts` uses real local Sharp decoding for three raster formats, metadata removal, oversized dimensions, truncated bytes and animated-image refusals. The APNG case checks rejection of an animation-control chunk; it is not a claim of exhaustive APNG fuzzing. `photo-upload.test.ts` mocks encoding/storage to check field validation, session-derived identity propagation, capacity and error handling. Neither suite is a production upload or persisted database test.
+
 ## Host-authorisation evidence and remaining scope
 
 | Operation | Delivered boundary | Status in this tranche |
@@ -78,7 +88,7 @@ Transport: `server/realtime/socket-server.ts`; Socket.IO bounds incoming message
 
 No exploitable authorisation defect was established by this tranche. The remaining **TECH-07 conformance gap** is explicit: some consumed route/form/header inputs use domain/regex/allowlist validation rather than Zod, and the `session:whoami` payload is ignored. These are not proof of unvalidated SQL or an authorisation bypass; they also do not justify marking “every input validated with Zod” complete. Harmonisation and new endpoints need scoped follow-up and coordination, not silent changes to shared sources.
 
-## Verification record
+## F-08.4A historical verification record
 
 The new `apps/web/src/server/rooms/action-boundaries.test.ts` contains eight cases: four anonymous mutation refusals, two forged-host identity/refusal cases, session-owned creation, and session-owned departure with an exact safe redirect assertion. Database calls are mocked here: these tests prove action-to-transaction identity and guard ordering, not the SQL host check itself. The existing SQL tests cited above cover the latter; they were inspected, not rerun by this tranche.
 
@@ -111,9 +121,34 @@ TECH-07 and SEC-01 remain **partiel**. The other Codex agreed to line-level owne
 
 This handoff is a remaining integration task, not a claim that the central matrix has already been edited.
 
+## F-08.4B verification — 26 October 2026
+
+This revision changes only this document. Discovery at `b14e5d0` found six `"use server"` modules, eleven exported actions and four route-handler modules; the counts and photo rows above were checked against those files. The display-name schema exists since `b9fcb18`, and photo upload validation since `7db924e` (merged by #149).
+
+The following existing suites were rerun in an isolated worktree with Node 24 under `heavy.sh`: **6 files, 31 tests passed**.
+
+```sh
+npm test --workspace @incision/web -- \
+  src/server/auth/change-display-name.test.ts \
+  'src/app/(site)/account/display-name-action.test.ts' \
+  src/server/profile/photo-upload.test.ts \
+  src/server/profile/photo-image.test.ts \
+  'src/app/(site)/account/photo-action.test.ts' \
+  src/app/api/account/photo/route.test.ts
+```
+
+No tests were added. Real decoding evidence is separated above from mocked action/storage checks. No PostgreSQL, browser, OAuth or production test was run for F-08.4B; no complete product-security audit is claimed. The historical 139-test result remains attributed to F-08.4A, not this run. This documentation-only change does not require a new application build.
+
+Architect/source review and the sequential security-boundary review found no blocking documentation finding: identities come from sessions, file constraints are represented as implemented, and error/header claims match the cited tests. Local source-link existence and `git diff --check` are checked before publication. This is an audit-evidence correction, not a vulnerability fix or additional feature delivery.
+
+Matrix handoff for A: TECH-07 should explicitly list both profile Zod schemas; SEC-02 can cite the photo boundary and decoder tests. Preserve partial TECH-07/SEC-01 coverage and do not infer configure/invite/kick validation from this baseline. `docs/EXIGENCES.md` remains unchanged because it is shared and reserved.
+
 ### Source navigation
 
 - [Room actions](../../../apps/web/src/server/rooms/actions.ts) and [new boundary tests](../../../apps/web/src/server/rooms/action-boundaries.test.ts)
 - [Race channel](../../../apps/web/src/server/realtime/race-channel.ts) and [race service](../../../apps/web/src/server/races/race-service.ts)
 - [Race protocol](../../../apps/web/src/races/protocol.ts), [bonus protocol](../../../apps/web/src/races/bonus-protocol.ts) and [room protocol](../../../apps/web/src/rooms/protocol.ts)
 - [SQL lifecycle/host checks](../../../packages/database/src/races/lifecycle.ts) and [SQL regression tests](../../../packages/database/test/races.db.test.ts)
+- [Display-name boundary](../../../apps/web/src/server/auth/change-display-name.ts) and [action tests](../../../apps/web/src/app/(site)/account/display-name-action.test.ts)
+- [Photo upload boundary](../../../apps/web/src/server/profile/photo-upload.ts), [decoder](../../../apps/web/src/server/profile/photo-image.ts) and [action tests](../../../apps/web/src/app/(site)/account/photo-action.test.ts)
+- [Photo GET route](../../../apps/web/src/app/api/account/photo/route.ts) and [route tests](../../../apps/web/src/app/api/account/photo/route.test.ts)

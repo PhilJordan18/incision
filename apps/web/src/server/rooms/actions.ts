@@ -33,6 +33,7 @@ export type JoinError =
   | "ROOM_NOT_FOUND"
   | "ROOM_NOT_ADMITTING"
   | "ROOM_FULL"
+  | "SPECTATORS_FULL"
   | "ALREADY_IN_ANOTHER_ROOM"
   | "RATE_LIMITED"
   | CodeAttemptRefusal

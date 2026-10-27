@@ -38,6 +38,7 @@ export const fr = {
       ROOM_NOT_FOUND: "Aucune salle ouverte avec ce code. Vérifie les 6 caractères.",
       ROOM_NOT_ADMITTING: "Cette salle n’accepte personne pour l’instant : une course est en cours ou elle est fermée.",
       ROOM_FULL: "Cette salle est pleine.",
+      SPECTATORS_FULL: "Cette salle accueille déjà 20 spectateurs. Réessaie lorsqu’une place se libère.",
       ALREADY_IN_ANOTHER_ROOM: "Tu es déjà dans la salle {code}.",
       RATE_LIMITED: "Trop de changements de salle d’affilée. Réessaie dans une minute.",
       CODE_RATE_LIMITED: "Trop de mauvais codes essayés depuis ce réseau. Réessaie dans une minute.",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { asDuration, MAX_DURATION_MS } from "../time";
-import { MAX_COMPUTABLE_WPM, MAX_ENTRANT_INSERTS, maxPlausibleInserts } from "./limits";
+import { asDuration, MAX_DURATION_MS, type Duration } from "../time";
+import { isValidTimeLimit, MAX_COMPUTABLE_WPM, MAX_ENTRANT_INSERTS, maxPlausibleInserts, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "./limits";
 
 describe("maxPlausibleInserts (COURSE-06)", () => {
   it("allows a burst at the start, then 25 inserts per second", () => {
@@ -25,5 +25,15 @@ describe("maxPlausibleInserts (COURSE-06)", () => {
       const wpm = (maxPlausibleInserts(asDuration(ms)) / 5) * (60_000 / ms);
       expect(wpm).toBeLessThanOrEqual(MAX_COMPUTABLE_WPM);
     }
+  });
+});
+
+describe("isValidTimeLimit (CONF-01, D-17)", () => {
+  it.each([null, TIME_LIMIT_MIN_MS, 120_000, TIME_LIMIT_MAX_MS])("accepts %s", (milliseconds) => {
+    expect(isValidTimeLimit(milliseconds === null ? null : asDuration(milliseconds))).toBe(true);
+  });
+
+  it.each([0, -30_000, TIME_LIMIT_MIN_MS - 1, TIME_LIMIT_MAX_MS + 1, 30_000.5, Number.NaN, Number.POSITIVE_INFINITY])("refuses %s", (milliseconds) => {
+    expect(isValidTimeLimit(milliseconds as Duration)).toBe(false);
   });
 });

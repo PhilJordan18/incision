@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import styles from "./logo.module.css";
 
 const SIZES = {
   header: { icon: 40, wordmark: { width: 128, height: 27 } },
@@ -16,8 +17,8 @@ export function LogoLink({ label, size = "header" }: { readonly label: string; r
   return (
     <Link href="/" aria-label={label} className="flex min-h-11 shrink-0 items-center gap-3 self-start rounded-bouton">
       <Image src="/brand/ico-red.svg" alt="" width={icon} height={icon} unoptimized />
-      <Image src="/brand/wm-white.svg" alt="" {...wordmark} unoptimized className="only-abysse" />
-      <Image src="/brand/wm-black.svg" alt="" {...wordmark} unoptimized className="only-aube" />
+      <Image src="/brand/wm-white.svg" alt="" {...wordmark} unoptimized className={styles.white} />
+      <Image src="/brand/wm-black.svg" alt="" {...wordmark} unoptimized className={styles.black} />
     </Link>
   );
 }

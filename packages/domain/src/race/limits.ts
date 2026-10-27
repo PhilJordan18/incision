@@ -24,6 +24,11 @@ export const INACTIVITY_ABANDON_MS = 120_000;
 export const TIME_LIMIT_MIN_MS = 30_000;
 export const TIME_LIMIT_MAX_MS = 600_000;
 
+/** CONF-01: null (none), or an integer number of milliseconds from TIME_LIMIT_MIN_MS to TIME_LIMIT_MAX_MS inclusive. */
+export function isValidTimeLimit(timeLimit: Duration | null): boolean {
+  return timeLimit === null || (Number.isSafeInteger(timeLimit) && timeLimit >= TIME_LIMIT_MIN_MS && timeLimit <= TIME_LIMIT_MAX_MS);
+}
+
 /** Longest race text, in graphemes: 200 words (CONF-04, D-19) of up to 19 letters plus a space each. */
 export const MAX_TEXT_GRAPHEMES = 4_000;
 

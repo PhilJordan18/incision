@@ -6,7 +6,9 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import { formatNumber } from "@/i18n/value-format";
 import type { Locale } from "@/i18n/locale";
+import { resultsDetails } from "@/i18n/results-details";
 import { formatAccuracy, formatElapsed, formatWpm, ordinal } from "@/races/format";
+import { ResultsPodium } from "./results-podium";
 
 type RaceResultsProps = {
   readonly race: RaceResultView;
@@ -29,6 +31,8 @@ const OUTCOME_STATUS = { finished: "finished", timed_out: "timedOut", abandoned:
 export function RaceResults({ race, t, locale, linkToRace = false, headingId, actions }: RaceResultsProps) {
   const ranked = race.entrants.filter((entrant) => entrant.result !== undefined);
   const self = race.entrants.find((entrant) => entrant.isSelf);
+  const details = resultsDetails[locale];
+  const record = self?.result?.outcome === "finished" ? race.personalRecord : undefined;
   const finishers = ranked.filter((entrant) => entrant.result?.outcome === "finished").length;
   // The race page is its entrants' history (HIST-02): the link is shown to them only.
   const openRace =
@@ -58,6 +62,18 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
             <span className="font-display text-[96px] leading-none font-black text-ecume sm:text-[120px]">{ordinal(self.result.rank, locale, t.results.ordinal)}</span>
             <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: formatNumber(ranked.length, locale) })}</span>
           </p>
+          {record !== undefined && (
+            <div aria-label={details.recordLabel} role="note" className={`self-start rounded-lg border bg-nuit p-3 text-sm ${record.status === "improved" || record.status === "tied" ? "border-or" : "border-houle"}`}>
+              <p className={`font-semibold ${record.status === "improved" || record.status === "tied" ? "text-or" : "text-embrun"}`}>
+                {record.status === "improved" || record.status === "tied" ? <span aria-hidden="true">★ </span> : null}
+                {details[record.status]}
+              </p>
+              {record.status !== "unavailable" && <>
+                <p className="mt-1 text-brume">{record.category.bonuses ? details.bonuses : details.noBonuses} · {details[record.category.errorMode]}</p>
+                <p className="mt-1 text-brume">{details.timing}</p>
+              </>}
+            </div>
+          )}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Tile label={t.results.columns.netWpm} value={formatWpm(self.result.netWpm, locale)} unit={t.wpm} />
             <Tile label={t.results.columns.rawWpm} value={formatWpm(self.result.rawWpm, locale)} unit={t.wpm} />
@@ -73,13 +89,15 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
 
       {actions === undefined ? openRace : actions(openRace)}
 
+      <ResultsPodium entrants={ranked} locale={locale} t={t} />
+
       {/* Scrolls sideways at 360 px: focusable and named, so the keyboard reaches every column. */}
       <div role="region" aria-label={t.results.tableLabel} tabIndex={0} className={`${card} overflow-x-auto p-0`}>
         <table className="w-full min-w-[560px] border-collapse text-left">
           <caption className="sr-only">{t.results.tableLabel}</caption>
           <thead>
             <tr className="border-b border-sillage">
-              {[t.results.columns.rank, t.results.columns.runner, t.results.columns.status, t.results.columns.time, t.results.columns.netWpm, t.results.columns.accuracy].map(
+              {[t.results.columns.rank, t.results.columns.runner, t.results.columns.status, t.results.columns.time, t.results.columns.netWpm, t.results.columns.rawWpm, t.results.columns.accuracy, details.errors].map(
                 (label, index) => (
                   <th key={label} scope="col" className={`${monoLabel} px-4 py-3 ${index >= 3 ? "text-right" : ""}`}>
                     {label}
@@ -109,7 +127,9 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{formatElapsed(result.elapsedMs, locale)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatWpm(result.netWpm, locale)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatWpm(result.rawWpm, locale)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatAccuracy(result.accuracy, locale)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatNumber(result.errors, locale)}</td>
                 </tr>
               );
             })}
@@ -117,6 +137,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
         </table>
       </div>
       <p className="text-sm text-brume">{t.results.rounding}</p>
+      <p className="text-sm text-brume">{details.errorsHelp}</p>
     </section>
   );
 }

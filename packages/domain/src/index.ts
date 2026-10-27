@@ -8,6 +8,7 @@ export * from "./identity/login";
 export * from "./ids";
 export * from "./measures/compute";
 export * from "./measures/types";
+export * from "./profile/statistics";
 export * from "./race/create";
 export * from "./race/elapsed";
 export * from "./race/keystrokes";
@@ -21,6 +22,7 @@ export * from "./race/views";
 export * from "./random/prng";
 export * from "./rooms/room-admission";
 export * from "./rooms/room-code";
+export * from "./rooms/room-configuration";
 export * from "./text/coherent";
 export { drawExtensionWords, EXTENSION_DRAW_VERSION, EXTENSION_DRAWS_PER_SLOT, EXTENSION_MIX_VERSION, EXTENSION_RESTARTS, EXTENSION_WORDS, extensionViolations, type ExtensionDraw, type ExtensionGrant, type ExtensionInput, type ExtensionRefusal, type ExtensionSettings } from "./text/extension";
 export * from "./text/generate";
@@ -39,5 +41,6 @@ export { applyBonusEffect, bonusFogActive, BONUS_FOG_MS, type BonusFog, type Bon
   type BonusEffectRefusal, type BonusEffectResult, type BonusEffectInput } from "./bonuses/effects";
 export * from "./bonuses/coordinator";
 export * from "./bonuses/coordinator-types";
+export * from "./profile/result-record";
 
 export { simulateRace, type SimulatedBot, type ScriptedHumanEvent, type SimulationInput, type SimulationResult } from "./simulation/simulate-race";
