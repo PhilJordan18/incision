@@ -44,3 +44,5 @@ export * from "./bonuses/coordinator-types";
 export * from "./profile/result-record";
 
 export { simulateRace, type SimulatedBot, type ScriptedHumanEvent, type SimulationInput, type SimulationResult } from "./simulation/simulate-race";
+export * from "./results/wpm-series";
+export * from "./results/stored-wpm-series";

@@ -17,6 +17,8 @@ import {
 } from "../schema";
 import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transaction";
 import { endedNow, interruption } from "./interruption";
+import { raceWpmSeries } from "../schema/race-wpm-series";
+import { checkedResultWpmSeries, type ResultWpmSeries } from "./wpm-series";
 
 /**
  * Lease of a race's owner, on the database clock (ADR-0004). Another process may take a race
@@ -313,6 +315,8 @@ export async function beginRacing(db: Database, ownership: RaceOwnership): Promi
 
 /** What the engine's end gives for one entrant, written as is (never recomputed in SQL). */
 export type RaceResultRow = {
+  /** Required: real samples, or an explicit non-live producer that did not collect them. */
+  readonly wpmSeries: ResultWpmSeries;
   readonly entrantId: string;
   readonly outcome: "finished" | "timed_out" | "abandoned";
   readonly rank: number;
@@ -353,12 +357,26 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
     if (entrants.length !== results.length) {
       throw new Error("Every entrant needs exactly one result");
     }
+    // After the owner CAS: a losing/replayed attempt writes nothing and validates no new data.
+    // Before either insert: malformed series rolls back the phase change too.
+    const series = results.flatMap((result) => {
+      const value = checkedResultWpmSeries(result.wpmSeries, result);
+      return value === undefined ? [] : [{ raceId: ownership.raceId, entrantId: result.entrantId, series: value }];
+    });
     const written = await tx
       .insert(raceResults)
-      .values(results.map((result) => ({ ...result, raceId: ownership.raceId })))
+      .values(results.map(({ wpmSeries, ...result }) => {
+        // The validated series belongs to its own table, not a race_results column.
+        void wpmSeries;
+        return { ...result, raceId: ownership.raceId };
+      }))
       .returning({ entrantId: raceResults.entrantId });
     if (written.length !== results.length) {
       throw new Error("Not every result was written");
+    }
+    if (series.length > 0) {
+      const inserted = await tx.insert(raceWpmSeries).values(series).returning({ entrantId: raceWpmSeries.entrantId });
+      if (inserted.length !== series.length) throw new Error("Not every WPM series was written");
     }
     await moveRoom(tx, ownership.lobbyId, ownership.raceId, "results");
     return { won: true, alreadyDone: false };
