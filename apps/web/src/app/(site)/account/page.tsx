@@ -1,4 +1,4 @@
-import { readAccountProfile, readProfilePhotoRevision } from "@incision/database";
+import { readAccountProfile, readAccountStatistics, readProfilePhotoRevision } from "@incision/database";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,10 +15,11 @@ import { DisplayNameForm } from "./display-name-form";
 import { PhotoForm } from "./photo-form";
 import { uploadPhotoAction } from "./photo-action";
 import { profilePhotoLabels } from "@/i18n/profile-photo";
+import { ProfileStatisticsPanel } from "./profile-statistics";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getRequestDictionary();
-  return { title: t.account.title };
+  return { title: t.account.title, robots: { index: false, follow: false } };
 }
 
 /** Protected on the server: no valid session, no page (the header link is only a convenience). */
@@ -30,6 +31,8 @@ export default async function AccountPage() {
   }
   const photoRevision = await readProfilePhotoRevision(authDatabase(), accountId);
   const photoLabels = profilePhotoLabels(locale);
+  // A failed statistics query is not an empty history and must not prevent profile editing.
+  const statistics = await readAccountStatistics(authDatabase(), accountId).catch(() => null);
   return (
     <>
       <PageHeading bold={t.account.headingBold} serif={t.account.headingSerif} />
@@ -49,6 +52,7 @@ export default async function AccountPage() {
         <Link href="/history" className={secondaryButton}>{getHistoryDictionary(locale).title}</Link>
         <SignOutForm labels={{ signOut: t.account.signOut, signingOut: t.account.signingOut, signOutFailed: t.account.signOutFailed }} />
       </section>
+      <ProfileStatisticsPanel data={statistics} locale={locale} />
     </>
   );
 }
