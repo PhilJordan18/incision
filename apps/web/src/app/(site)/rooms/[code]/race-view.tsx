@@ -7,6 +7,7 @@ import { RaceBonuses } from "@/components/rooms/race-bonuses";
 import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
 import { useNarrowScreen } from "@/components/use-narrow-screen";
+import { TypingLegend } from "@/components/races/typing-legend";
 import { physicalKeyboardMessages } from "@/i18n/dictionaries/physical-keyboard";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
@@ -161,6 +162,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
               onTakeControl={onTakeControl}
               overlay={countdown}
               language={state.language ?? locale}
+              locale={locale}
             />
           )}
 
@@ -394,6 +396,7 @@ function TypingZone({
   onTakeControl,
   overlay,
   language,
+  locale,
 }: {
   readonly race: RaceClient;
   readonly bonuses: BonusClient;
@@ -404,6 +407,7 @@ function TypingZone({
   readonly onTakeControl: (raceId: string) => void;
   readonly overlay: ReactNode;
   readonly language: Locale;
+  readonly locale: Locale;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const { typing, block, reveal } = state;
@@ -539,6 +543,7 @@ function TypingZone({
           </button>
         )}
       </div>
+      <TypingLegend mode={reveal?.errorMode} locale={locale} />
     </div>
   );
 }
