@@ -308,4 +308,70 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     input: { state: race({ clock: at(499_000), entrants: [runner(ALICE, { lastActivityAt: at(499_000) }), runner(BOB, { kind: "bot" })] }), event: { type: "connectionLost", entrantId: BOB, now: at(500_000) } },
     expected: { phase: "racing", changed: false, ignored: "BOT_ENTRANT", statuses: [[BOB, "racing"]], inactive: [[BOB, false]] },
   },
+  // D-17, ADR-0004 (F-04.6a): inactivity does not run while the server cannot accept answers.
+  {
+    name: "while the lease is suspended, 60 s without a keystroke shows no marker, and no inactivity deadline is due",
+    input: { state: race({ timeLimit: asDuration(600_000), inactivityPausedAt: at(50_000), clock: at(59_000) }), event: { type: "tick", now: at(60_000) } },
+    expected: { phase: "racing", changed: false, inactive: [[ALICE, false], [BOB, false]], nextDeadline: at(600_000) },
+  },
+  {
+    name: "while the lease is suspended, 120 s without a keystroke is no abandon: a marker already shown stays",
+    input: { state: race({ inactivityPausedAt: at(100_000), clock: at(119_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(99_000) })] }), event: { type: "tick", now: at(150_000) } },
+    expected: { phase: "racing", changed: false, statuses: [[ALICE, "racing"]], inactive: [[ALICE, true]] },
+  },
+  {
+    name: "a suspension reported late counts from its start: no inactivity abandon after it",
+    input: { state: race({ clock: at(100_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(100_000) })] }), event: { type: "inactivityPaused", since: at(110_000), now: at(130_000) } },
+    expected: { phase: "racing", changed: false, statuses: [[ALICE, "racing"]], inactive: [[ALICE, true]] },
+  },
+  {
+    name: "a suspension from exactly 120 s comes first: the runner could not answer at that instant, so no abandon",
+    input: { state: race({ clock: at(100_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(100_000) })] }), event: { type: "inactivityPaused", since: at(120_000), now: at(130_000) } },
+    expected: { phase: "racing", changed: false, statuses: [[ALICE, "racing"]] },
+  },
+  {
+    name: "a suspension from one millisecond after 120 s keeps the abandon acquired before it",
+    input: { state: race({ clock: at(100_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(100_000) })] }), event: { type: "inactivityPaused", since: at(120_001), now: at(130_000) } },
+    expected: { phase: "racing", changed: true, abandons: [[ALICE, "inactivity", at(120_000)]] },
+  },
+  {
+    name: "a suspension reported late still shows the marker due before it, from exactly 60 s",
+    input: { state: race({ clock: at(50_000), entrants: [runner(ALICE), runner(BOB, { lastActivityAt: at(50_000) })] }), event: { type: "inactivityPaused", since: at(60_000), now: at(70_000) } },
+    expected: { phase: "racing", changed: true, inactive: [[ALICE, true], [BOB, false]] },
+  },
+  {
+    name: "a suspension from one millisecond before 60 s shows no marker",
+    input: { state: race({ clock: at(50_000), entrants: [runner(ALICE), runner(BOB, { lastActivityAt: at(50_000) })] }), event: { type: "inactivityPaused", since: at(59_999), now: at(70_000) } },
+    expected: { phase: "racing", changed: false, inactive: [[ALICE, false], [BOB, false]] },
+  },
+  {
+    name: "the resume gives back exactly the inactivity time left: the abandon moves by the suspended time, the marker stays",
+    input: { state: race({ inactivityPausedAt: at(100_000), clock: at(130_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { lastActivityAt: at(99_000) })] }), event: { type: "inactivityResumed", now: at(130_000) } },
+    expected: { phase: "racing", changed: false, inactive: [[ALICE, true]], nextDeadline: at(150_001) },
+  },
+  {
+    name: "a resume without a suspension changes nothing",
+    input: { state: race({ clock: at(30_000) }), event: { type: "inactivityResumed", now: at(30_000) } },
+    expected: { phase: "racing", changed: false, inactive: [[ALICE, false]], nextDeadline: at(60_000) },
+  },
+  {
+    name: "the time limit keeps running during a suspension and ends the race",
+    input: { state: race({ timeLimit: asDuration(600_000), inactivityPausedAt: at(100_000), clock: at(599_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { inactive: true, lastActivityAt: at(99_000) })] }), event: { type: "tick", now: at(600_001) } },
+    expected: { phase: "ended", changed: true, statuses: [[ALICE, "timedOut"], [BOB, "timedOut"]], endedAt: at(600_000), ranking: [ALICE, BOB] },
+  },
+  {
+    name: "the 30 s grace keeps running during a suspension: a disconnection abandon, where inactivity would have come first (D-06)",
+    input: { state: race({ inactivityPausedAt: at(100_000), clock: at(106_000), entrants: [runner(ALICE, { inactive: true, disconnectedAt: at(105_000) }), runner(BOB, { lastActivityAt: at(99_000) })] }), event: { type: "tick", now: at(140_000) } },
+    expected: { phase: "racing", changed: true, abandons: [[ALICE, "disconnection", at(135_000)]] },
+  },
+  {
+    name: "a suspension during the countdown: the race still starts on time",
+    input: { state: countdown, event: { type: "inactivityPaused", since: at(-1_000), now: at(1_000) } },
+    expected: { phase: "racing", changed: true, statuses: [[ALICE, "racing"], [BOB, "racing"]] },
+  },
+  {
+    name: "a suspension after the race ended changes nothing",
+    input: { state: race({ phase: "ended", endedAt: at(2_000), clock: at(2_000), entrants: [aliceDone, runner(BOB, { status: "abandoned", abandonReason: "voluntary", endedAt: at(1_000) })] }), event: { type: "inactivityPaused", since: at(3_000), now: at(3_000) } },
+    expected: { phase: "ended", changed: false },
+  },
 ];

@@ -8,8 +8,8 @@ import type { RandomState } from "../random/prng";
 import { asInstant, MAX_INSTANT } from "../time";
 
 export type SimulatedBot = { readonly entrantId: EntrantId; readonly level: BotLevel; readonly seed: RandomState };
-/** Human actions only; the simulator owns ticks and every bot's input. */
-export type ScriptedHumanEvent = Exclude<RaceEvent, { readonly type: "tick" | "interrupt" }>;
+/** Human actions only; the simulator owns ticks and every bot's input, and never suspends a lease. */
+export type ScriptedHumanEvent = Exclude<RaceEvent, { readonly type: "tick" | "interrupt" | "inactivityPaused" | "inactivityResumed" }>;
 export type SimulationInput = {
   readonly race: CreateRaceInput;
   readonly bots: readonly SimulatedBot[];

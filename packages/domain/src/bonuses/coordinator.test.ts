@@ -269,3 +269,19 @@ describe("atomic bonus coordinator", () => {
       }
   });
 });
+
+describe("paused inactivity through the coordinator (D-17, F-04.6a)", () => {
+  it("keeps the pause in the envelope, credits the time on resume, and refuses a pause later than the clock", () => {
+    const state = ready();
+    const suspended = step(state, { type: "inactivityPaused", since: asInstant(5000), now: asInstant(6000) });
+    expect(suspended.state.race.inactivityPausedAt).toBe(5000);
+    expect(suspended.raceOutput.changed).toBe(false);
+    const later = step(suspended.state, tick(200_000));
+    expect(later.state.race.entrants.every((entrant) => entrant.status === "racing" && !entrant.inactive)).toBe(true);
+    const resumed = step(later.state, { type: "inactivityResumed", now: asInstant(200_000) });
+    expect(resumed.state.race.inactivityPausedAt).toBeUndefined();
+    expect(resumed.state.race.entrants.map((entrant) => entrant.lastActivityAt)).toEqual([198_000, 200_000]);
+    const invalid = { ...state, race: { ...state.race, inactivityPausedAt: asInstant(state.race.clock + 1) } };
+    expect(reduceBonusRace(invalid, tick(state.race.clock))).toMatchObject({ ok: false, reason: "INVALID_STATE" });
+  });
+});

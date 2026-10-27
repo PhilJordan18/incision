@@ -34,14 +34,19 @@ import { toRaceBroadcast } from "./views";
  *   `NOT_RACING` for a new well-formed batch of a known entrant.
  * - **Results.** `ended` comes exactly once, on the transition to `ended`; an interrupted race
  *   has none (D-06).
+ * - **Paused inactivity** (D-17, ADR-0004). A pause applies what was due before its `since`, then
+ *   stops inactivity; a resume gives each human still racing the inactivity time left at the pause.
  */
 export const reduceRace: ReduceRace = (state, event) => {
   const at = asInstant(event.now);
+  const since = event.type === "inactivityPaused" ? pauseStart(event.since, at) : undefined;
   if (isFinal(state)) {
     return { state, changed: false, ...handle(state, event, state.clock).reply };
   }
   const now = at < state.clock ? state.clock : at;
-  const handled = handle(applyDue(state, now), event, now);
+  // A late pause: only what was due before it applies first; the rest runs paused.
+  const dueAt = since === undefined || state.inactivityPausedAt !== undefined ? now : later(since, state.clock);
+  const handled = handle(applyDue(state, dueAt), event, now);
   const after = applyDue(handled.state, now);
   const changed = !samePublicView(state, after, now);
   const next: RaceState = { ...after, clock: now, revision: changed ? state.revision + 1 : state.revision };
@@ -60,6 +65,23 @@ type Handled = { readonly state: RaceState; readonly reply: Reply };
 
 function isFinal(state: RaceState): boolean {
   return state.phase === "ended" || state.phase === "interrupted";
+}
+
+/** A pause cannot start after the instant it is reported at. */
+function pauseStart(since: Instant, now: Instant): Instant {
+  const start = asInstant(since);
+  if (start > now) {
+    throw new RangeError(`Inactivity paused from ${start}, after the event's now ${now}`);
+  }
+  return start;
+}
+
+function later(left: Instant, right: Instant): Instant {
+  return left < right ? right : left;
+}
+
+function paused(state: RaceState): boolean {
+  return state.inactivityPausedAt !== undefined;
 }
 
 /** Applies the event to a race whose due transitions are already applied. */
@@ -83,7 +105,30 @@ function handle(state: RaceState, event: RaceEvent, now: Instant): Handled {
       return presence(state, event.entrantId, (entrant) => (entrant.disconnectedAt === undefined ? "NOT_DISCONNECTED" : connected(entrant)));
     case "present":
       return presence(state, event.entrantId, (entrant) => active(entrant, now));
+    case "inactivityPaused":
+      // The first pause holds; one earlier than the clock counts from it, so nothing applied is undone.
+      return { state: paused(state) ? state : { ...state, inactivityPausedAt: later(event.since, state.clock) }, reply: {} };
+    case "inactivityResumed":
+      return { state: resumed(state, now), reply: {} };
   }
+}
+
+/** D-17: each human still racing gets back exactly the inactivity time left at the pause. */
+function resumed(state: RaceState, now: Instant): RaceState {
+  const { inactivityPausedAt, ...running } = state;
+  if (inactivityPausedAt === undefined) {
+    return state;
+  }
+  return { ...running, entrants: state.entrants.map((entrant) => (entrant.status === "racing" && entrant.kind !== "bot" ? credited(entrant, inactivityPausedAt, now) : entrant)) };
+}
+
+/**
+ * The paused time counts from the later of the pause and the last activity: neither the countdown
+ * nor the time before a keystroke made during the pause is credited.
+ */
+function credited(entrant: EntrantState, pausedAt: Instant, now: Instant): EntrantState {
+  const from = pausedAt > entrant.lastActivityAt ? pausedAt : entrant.lastActivityAt;
+  return now > from ? { ...entrant, lastActivityAt: asInstant(entrant.lastActivityAt + (now - from)) } : entrant;
 }
 
 /**
@@ -170,6 +215,7 @@ function withEntrant(state: RaceState, index: number, entrant: EntrantState): Ra
  * 3. the time limit, inclusive, which times out whoever is still racing at its deadline and wins a
  *    tie with any other deadline (D-06);
  * 4. the inactive marker of those still racing (INACTIVITY_WARNING_MS, inclusive).
+ * While inactivity is paused, neither an inactivity abandon nor a new marker is due.
  */
 function applyDue(state: RaceState, now: Instant): RaceState {
   const started = state.phase === "countdown" && now >= state.startsAt ? { ...state, phase: "racing" as const } : state;
@@ -197,6 +243,9 @@ function applyDue(state: RaceState, now: Instant): RaceState {
     const entrants = race.entrants.map((entrant): EntrantState => (entrant.status === "racing" ? { ...entrant, status: "timedOut", endedAt: deadline } : entrant));
     return { ...race, phase: "ended", endedAt: deadline, entrants };
   }
+  if (paused(race)) {
+    return race;
+  }
   return { ...race, entrants: race.entrants.map((entrant) => (shownInactive(entrant, now) ? { ...entrant, inactive: true } : entrant)) };
 }
 
@@ -205,7 +254,8 @@ type Expiry = { readonly index: number; readonly at: number; readonly reason: Ab
 /**
  * The abandons due at `now` (strictly after their deadline, so a reaction at the deadline counts).
  * An entrant's earlier deadline wins; at the same instant the reason is `disconnection`. Bots have
- * none (D-17). Their order does not matter: each is independent, and the race's end is the latest.
+ * none (D-17), and a paused inactivity has none either. Their order does not matter: each is
+ * independent, and the race's end is the latest.
  */
 function dueExpiries(state: RaceState, now: Instant): readonly Expiry[] {
   const expiries: Expiry[] = [];
@@ -214,9 +264,11 @@ function dueExpiries(state: RaceState, now: Instant): readonly Expiry[] {
       return;
     }
     const grace = graceDeadline(entrant);
-    const idle = inactivityDeadline(entrant);
-    const expiry: Expiry = grace !== undefined && grace <= idle ? { index, at: grace, reason: "disconnection" } : { index, at: idle, reason: "inactivity" };
-    if (now > expiry.at) {
+    const idle = paused(state) ? undefined : inactivityDeadline(entrant);
+    const expiry: Expiry | undefined =
+      grace !== undefined && (idle === undefined || grace <= idle) ? { index, at: grace, reason: "disconnection" }
+        : idle === undefined ? undefined : { index, at: idle, reason: "inactivity" };
+    if (expiry !== undefined && now > expiry.at) {
       expiries.push(expiry);
     }
   });
@@ -261,7 +313,7 @@ function allTerminalAt(state: RaceState): Instant | undefined {
 /**
  * The next instant at which a `tick` would change something: the start, the time limit, and each
  * racing human's inactive marker, inactivity abandon and grace expiry (one millisecond after their
- * deadline, since a reaction at the deadline still counts).
+ * deadline, since a reaction at the deadline still counts). A paused inactivity has no deadline.
  */
 function nextDeadline(state: RaceState): Instant | undefined {
   if (state.phase !== "countdown" && state.phase !== "racing") {
@@ -276,10 +328,12 @@ function nextDeadline(state: RaceState): Instant | undefined {
     if (entrant.status !== "racing" || entrant.kind === "bot") {
       continue;
     }
-    if (!entrant.inactive) {
-      candidates.push(warningInstant(entrant));
+    if (!paused(state)) {
+      if (!entrant.inactive) {
+        candidates.push(warningInstant(entrant));
+      }
+      candidates.push(inactivityDeadline(entrant) + 1);
     }
-    candidates.push(inactivityDeadline(entrant) + 1);
     const grace = graceDeadline(entrant);
     if (grace !== undefined) {
       candidates.push(grace + 1);

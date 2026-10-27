@@ -67,7 +67,8 @@ function validRace(race: RaceState): boolean {
   if (!safe(race.clock, MAX_INSTANT) || !safe(race.startsAt, MAX_INSTANT) || !safe(race.countdownAt, race.startsAt) ||
     !safe(race.revision) || !["free", "mandatory"].includes(race.errorMode) ||
     (race.timeLimit !== null && (!safe(race.timeLimit, TIME_LIMIT_MAX_MS) || race.timeLimit < TIME_LIMIT_MIN_MS || race.startsAt + race.timeLimit > MAX_INSTANT)) ||
-    (race.endedAt !== undefined && !safe(race.endedAt, race.clock))) return false;
+    (race.endedAt !== undefined && !safe(race.endedAt, race.clock)) ||
+    (race.inactivityPausedAt !== undefined && !safe(race.inactivityPausedAt, race.clock))) return false;
   if (new Set(race.entrants.map((entrant) => entrant.entrantId)).size !== race.entrants.length) return false;
   return race.entrants.every((entrant) => entrant.target.length > 0 && entrant.target.length <= MAX_TEXT_GRAPHEMES &&
     graphemesValid(entrant.target) && entrant.typed.length <= entrant.target.length &&

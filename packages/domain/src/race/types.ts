@@ -149,6 +149,12 @@ export type RaceState = {
   readonly text: readonly string[];
   /** Frozen at creation, in registration order; spectators are never entrants. */
   readonly entrants: readonly EntrantState[];
+  /**
+   * D-17, ADR-0004: from this instant the server cannot accept answers, because the race's
+   * ownership lease is suspended; inactivity does not run until `inactivityResumed`. Private:
+   * never broadcast. Absent while the server accepts answers.
+   */
+  readonly inactivityPausedAt?: Instant;
 };
 
 export type CreateRaceInput = {
@@ -206,6 +212,10 @@ export type CreateRace = (input: CreateRaceInput) => CreateRaceResult;
  * 5. the `inactive` marker of each human still racing, once `now >= lastActivityAt +
  *    INACTIVITY_WARNING_MS`.
  *
+ * While inactivity is paused (`inactivityPausedAt`), steps 2 and 5 skip inactivity: no new marker
+ * and no abandon for `inactivity`. A marker already shown stays. The start, the grace, the time
+ * limit and their tie rules are unchanged.
+ *
  * Bots are never inactive and never disconnected (D-17). An `ended` or `interrupted` race is final:
  * no later event, a late timer included, changes it.
  */
@@ -235,7 +245,23 @@ export type RaceEvent =
    * in memory and no event is involved. The race becomes `interrupted` at the handled `now`;
    * entrant statuses stay as they were.
    */
-  | { readonly type: "interrupt"; readonly now: Instant };
+  | { readonly type: "interrupt"; readonly now: Instant }
+  /**
+   * D-17, ADR-0004: the race's ownership lease is suspended, so the server cannot accept answers
+   * from `since`, the first instant its lease stopped being authoritative. Inactivity no longer
+   * runs from `since`, even when the server learns it later: the transitions due before `since`
+   * apply first, those due after it never come from inactivity. The server reduces this event
+   * before any other event at or after `since`. A `since` earlier than the race `clock` counts
+   * from the clock: what was applied stays applied. A pause while paused keeps the first one.
+   * A `since` later than `now` is a programming error (`RangeError`). Not activity.
+   */
+  | { readonly type: "inactivityPaused"; readonly since: Instant; readonly now: Instant }
+  /**
+   * D-17, ADR-0004: the lease is held again at `now`. Each human still racing gets back exactly
+   * the inactivity time left at the pause; no reset, no new grace. A resume without a pause
+   * changes nothing. Not activity.
+   */
+  | { readonly type: "inactivityResumed"; readonly now: Instant };
 
 /** Refusals that leave the client without a usable entrant state: it reloads the race. */
 export type RaceKeystrokeRefusal = "WRONG_RACE" | "UNKNOWN_ENTRANT";
@@ -313,7 +339,8 @@ export type RaceOutput = {
   readonly ended?: RaceEnd;
   /**
    * The next instant at which a `tick` would change something, if any: the start, the time limit,
-   * and each racing human's inactive marker, inactivity abandon and grace expiry.
+   * and each racing human's inactive marker, inactivity abandon and grace expiry. While inactivity
+   * is paused, the marker and the inactivity abandon are left out until `inactivityResumed`.
    */
   readonly nextDeadline?: Instant;
 };

@@ -769,3 +769,183 @@ describe("reduceRace invariants over seeded random events", () => {
     }
   });
 });
+
+const paused = (since: number, sinceStart: number): RaceEvent => ({ type: "inactivityPaused", since: at(since), now: at(sinceStart) });
+const unpaused = (sinceStart: number): RaceEvent => ({ type: "inactivityResumed", now: at(sinceStart) });
+
+/** Reduces the events in order, from `state`. */
+function run(state: RaceState, events: readonly RaceEvent[]): RaceOutput {
+  let output: RaceOutput = { state, changed: false };
+  for (const event of events) {
+    output = reduceRace(frozen(output.state), event);
+  }
+  return output;
+}
+
+describe("reduceRace: inactivity paused while the lease is suspended (F-04.6a, D-17, ADR-0004)", () => {
+  const alone = race({ entrants: [runner(ALICE), runner(BOB, { kind: "bot" })] });
+
+  it("pauses before 60 s and resumes with exactly the remaining time, around both thresholds", () => {
+    const suspended = run(alone, [paused(50_000, 50_000), tick(60_000), tick(200_000)]);
+    expect(entrantOf(suspended, ALICE)).toMatchObject({ status: "racing", inactive: false, lastActivityAt: at(0) });
+    expect(suspended.nextDeadline).toBeUndefined();
+    const back = reduceRace(suspended.state, unpaused(200_000));
+    // 50 s were used before the pause: 10 s to the marker, 70 s to the abandon.
+    expect(entrantOf(back, ALICE)?.lastActivityAt).toBe(at(150_000));
+    expect(back.state.inactivityPausedAt).toBeUndefined();
+    expect(back.nextDeadline).toBe(at(210_000));
+    expect(entrantOf(run(back.state, [tick(209_999)]), ALICE)?.inactive).toBe(false);
+    const marked = run(back.state, [tick(210_000)]);
+    expect(marked.changed).toBe(true);
+    expect(entrantOf(marked, ALICE)?.inactive).toBe(true);
+    expect(marked.nextDeadline).toBe(at(270_001));
+    expect(entrantOf(run(marked.state, [present(ALICE, 270_000)]), ALICE)).toMatchObject({ status: "racing", inactive: false });
+    expect(entrantOf(run(marked.state, [tick(270_001)]), ALICE)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: at(270_000) });
+  });
+
+  it("leaves one millisecond to the marker for a pause one millisecond before 60 s", () => {
+    const back = run(alone, [paused(59_999, 59_999), unpaused(100_000)]);
+    expect(entrantOf(back, ALICE)).toMatchObject({ inactive: false, lastActivityAt: at(40_001) });
+    expect(back.nextDeadline).toBe(at(100_001));
+    expect(entrantOf(run(back.state, [tick(100_000)]), ALICE)?.inactive).toBe(false);
+    expect(entrantOf(run(back.state, [tick(100_001)]), ALICE)?.inactive).toBe(true);
+  });
+
+  it("after a pause from exactly 120 s, the runner can still answer at the resume, and abandons one millisecond later", () => {
+    const marked = race({ clock: at(119_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { kind: "bot" })] });
+    const back = run(marked, [paused(120_000, 125_000), tick(190_000), unpaused(200_000)]);
+    expect(entrantOf(back, ALICE)).toMatchObject({ status: "racing", inactive: true, lastActivityAt: at(80_000) });
+    expect(back.nextDeadline).toBe(at(200_001));
+    expect(entrantOf(run(back.state, [present(ALICE, 200_000)]), ALICE)).toMatchObject({ status: "racing", inactive: false });
+    expect(entrantOf(run(back.state, [tick(200_001)]), ALICE)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: at(200_000) });
+  });
+
+  it("adds repeated pauses up exactly, keeps the first of a double pause and ignores a resume without a pause", () => {
+    const first = run(alone, [paused(10_000, 10_000), paused(20_000, 25_000)]);
+    expect(first.state.inactivityPausedAt).toBe(at(10_000));
+    const back = run(first.state, [unpaused(40_000)]);
+    expect(entrantOf(back, ALICE)?.lastActivityAt).toBe(at(30_000));
+    const again = reduceRace(back.state, unpaused(41_000));
+    expect(again.state).toEqual({ ...back.state, clock: at(41_000) });
+    expect(again.changed).toBe(false);
+    // 10 s + 10 s answered before the second pause; 100 s left after it.
+    const twice = run(again.state, [paused(50_000, 50_000), unpaused(80_000)]);
+    expect(entrantOf(twice, ALICE)?.lastActivityAt).toBe(at(60_000));
+    expect(twice.nextDeadline).toBe(at(120_000));
+    expect(entrantOf(run(twice.state, [tick(180_000)]), ALICE)).toMatchObject({ status: "racing", inactive: true });
+    expect(entrantOf(run(twice.state, [tick(180_001)]), ALICE)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: at(180_000) });
+  });
+
+  it("keeps a marker shown before the pause, and never touches finished or abandoned runners", () => {
+    const carol = asEntrantId("carol");
+    const bobDone = runner(BOB, { typed: ["a", "b"], ackSeq: 1, status: "finished", endedAt: at(2_000), counters: { correctInserts: 2, totalInserts: 2 } });
+    const carolGone = runner(carol, { status: "abandoned", abandonReason: "disconnection", endedAt: at(80_000) });
+    const state = race({ clock: at(100_000), entrants: [runner(ALICE, { inactive: true }), bobDone, carolGone] });
+    const suspended = run(state, [paused(100_000, 100_000), tick(150_000)]);
+    const back = reduceRace(suspended.state, unpaused(150_000));
+    expect(entrantOf(back, ALICE)).toMatchObject({ status: "racing", inactive: true, lastActivityAt: at(50_000) });
+    expect(back.state.entrants[1]).toBe(state.entrants[1]);
+    expect(back.state.entrants[2]).toBe(state.entrants[2]);
+    expect(back.changed).toBe(false);
+  });
+
+  it("applies a late pause before the event it precedes; one later than the clock cannot undo an abandon", () => {
+    const marked = race({ clock: at(100_000), entrants: [runner(ALICE, { inactive: true }), runner(BOB, { kind: "bot" })] });
+    // The runtime reads the lease first: the pause comes before the tick at the same instant.
+    expect(entrantOf(run(marked, [paused(110_000, 130_000), tick(130_000)]), ALICE)?.status).toBe("racing");
+    // In the other order the abandon at 120 s was due: a pause reported after it counts from the clock.
+    const tooLate = run(marked, [tick(130_000), paused(110_000, 131_000)]);
+    expect(entrantOf(tooLate, ALICE)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: at(120_000) });
+    expect(tooLate.state.inactivityPausedAt).toBe(at(130_000));
+  });
+
+  it("counts from the clock a pause that starts before it", () => {
+    const state = race({ clock: at(30_000), entrants: [runner(ALICE), runner(BOB, { kind: "bot" })] });
+    const back = run(state, [paused(10_000, 30_000), unpaused(70_000)]);
+    expect(entrantOf(back, ALICE)?.lastActivityAt).toBe(at(40_000));
+  });
+
+  it("never credits the countdown, nor the time before a keystroke made during the pause", () => {
+    const countdown = race({ phase: "countdown", clock: at(-3_000), entrants: [runner(ALICE), runner(BOB, { kind: "bot" })] });
+    expect(entrantOf(run(countdown, [paused(-2_000, -2_000), unpaused(-1_000)]), ALICE)?.lastActivityAt).toBe(at(0));
+    expect(entrantOf(run(countdown, [paused(-2_000, -2_000), tick(0), unpaused(30_000)]), ALICE)?.lastActivityAt).toBe(at(30_000));
+    const typed = run(alone, [paused(10_000, 10_000), keystrokes(ALICE, 1, [insert("a")], 20_000), unpaused(50_000)]);
+    expect(entrantOf(typed, ALICE)?.lastActivityAt).toBe(at(50_000));
+    expect(typed.state.clock).toBe(at(50_000));
+  });
+
+  it("never credits a bot", () => {
+    const back = run(alone, [paused(10_000, 10_000), unpaused(50_000)]);
+    expect(back.state.entrants[1]).toEqual(alone.entrants[1]);
+  });
+
+  it("changes no public view and never broadcasts the pause", () => {
+    const output = reduceRace(alone, paused(0, 0));
+    expect(output.changed).toBe(false);
+    expect(output.state.revision).toBe(alone.revision);
+    expect(publicView(output.state, at(0))).toBe(publicView(alone, at(0)));
+    expect(JSON.stringify(toRaceBroadcast(output.state, at(0)))).not.toContain("inactivityPaused");
+  });
+
+  it("refuses a pause after its own now, or an invalid instant", () => {
+    expect(() => reduceRace(alone, paused(2_000, 1_000))).toThrow(RangeError);
+    expect(() => reduceRace(alone, { type: "inactivityPaused", since: -1 as Instant, now: at(1_000) })).toThrow(RangeError);
+  });
+
+  it("counts exactly 120 s of answerable time before an inactivity abandon, over seeded pauses", { timeout: 30_000 }, () => {
+    const random = seeded(2026);
+    const reached = new Set<string>();
+    for (let attempt = 0; attempt < 300; attempt += 1) {
+      let state = race({ entrants: [runner(ALICE)] });
+      // Suspended intervals [from, to), in ms since the start; `to` is Infinity while open.
+      const pauses: [number, number][] = [];
+      const answerable = (until: number) => until - pauses.reduce((sum, [from, to]) => sum + Math.max(0, Math.min(to, until) - from), 0);
+      let last = 0;
+      for (let step = 0; step < 80 && state.phase === "racing"; step += 1) {
+        const now = last + Math.floor(random() * 40_000);
+        const open = pauses.at(-1)?.[1] === Number.POSITIVE_INFINITY;
+        const roll = random();
+        let event: RaceEvent;
+        if (roll < 0.35) {
+          const since = last + Math.floor(random() * (now - last + 1));
+          if (!open) {
+            pauses.push([since, Number.POSITIVE_INFINITY]);
+          }
+          reached.add(open ? "double pause" : "pause");
+          event = paused(since, now);
+        } else if (roll < 0.7) {
+          if (open) {
+            pauses.at(-1)![1] = now;
+          }
+          reached.add(open ? "resume" : "resume without pause");
+          event = unpaused(now);
+        } else {
+          event = tick(now);
+        }
+        const output = reduceRace(frozen(state), event);
+        state = output.state;
+        last = now;
+        const alice = state.entrants[0]!;
+        if (alice.status === "abandoned") {
+          reached.add("abandon");
+          expect(alice.abandonReason).toBe("inactivity");
+          expect(answerable((alice.endedAt ?? 0) - 1_000_000)).toBe(120_000);
+          continue;
+        }
+        const counted = answerable(now);
+        expect(counted).toBeLessThanOrEqual(120_000);
+        expect(alice.inactive).toBe(counted >= 60_000);
+        expect(alice.lastActivityAt).toBeLessThanOrEqual(state.clock);
+        expect(state.inactivityPausedAt !== undefined).toBe(pauses.at(-1)?.[1] === Number.POSITIVE_INFINITY);
+        if (state.inactivityPausedAt === undefined) {
+          expect(output.nextDeadline).toBe(alice.inactive ? alice.lastActivityAt + 120_001 : alice.lastActivityAt + 60_000);
+        } else {
+          expect(output.nextDeadline).toBeUndefined();
+        }
+      }
+    }
+    for (const outcome of ["pause", "double pause", "resume", "resume without pause", "abandon"]) {
+      expect([...reached]).toContain(outcome);
+    }
+  });
+});
