@@ -365,8 +365,8 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     expected: { phase: "racing", changed: true, abandons: [[ALICE, "disconnection", at(135_000)]] },
   },
   {
-    name: "during a suspension, the grace's expiry is still the next deadline",
-    input: { state: race({ inactivityPausedAt: at(100_000), clock: at(106_000), entrants: [runner(ALICE, { inactive: true, disconnectedAt: at(105_000) }), runner(BOB, { lastActivityAt: at(99_000) })] }), event: { type: "tick", now: at(110_000) } },
+    name: "during a suspension, the grace's expiry is still the next deadline, before the time limit",
+    input: { state: race({ timeLimit: asDuration(600_000), inactivityPausedAt: at(100_000), clock: at(106_000), entrants: [runner(ALICE, { inactive: true, disconnectedAt: at(105_000) }), runner(BOB, { lastActivityAt: at(99_000) })] }), event: { type: "tick", now: at(110_000) } },
     expected: { phase: "racing", changed: false, statuses: [[ALICE, "racing"]], nextDeadline: at(135_001) },
   },
   {

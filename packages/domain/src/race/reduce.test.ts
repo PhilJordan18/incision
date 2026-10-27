@@ -874,6 +874,14 @@ describe("reduceRace: inactivity paused while the lease is suspended (F-04.6a, D
     expect(typed.state.clock).toBe(at(50_000));
   });
 
+  it("records no pause on a race that ends before the pause's start", () => {
+    const state = race({ timeLimit: thirtySeconds, clock: at(29_000), entrants: [runner(ALICE), runner(BOB, { kind: "bot" })] });
+    const output = reduceRace(state, inactivityPaused(30_000, 31_000));
+    expect(output.state).toMatchObject({ phase: "ended", endedAt: at(30_000) });
+    expect(output.ended?.endedAt).toBe(at(30_000));
+    expect(output.state.inactivityPausedAt).toBeUndefined();
+  });
+
   it("lets the time limit win a tie with the grace during a suspension (D-06)", () => {
     const state = race({ timeLimit: thirtySeconds, inactivityPausedAt: at(500), clock: at(1_000), entrants: [runner(ALICE, { disconnectedAt: at(0) }), runner(BOB, { kind: "bot" })] });
     expect(reduceRace(state, tick(1_000)).nextDeadline).toBe(at(30_000));

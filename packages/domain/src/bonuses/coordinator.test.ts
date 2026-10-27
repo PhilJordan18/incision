@@ -290,5 +290,7 @@ describe("paused inactivity through the coordinator (D-17, F-04.6a)", () => {
     for (const since of [6001, -5, 1.5]) {
       expect(reduceBonusRace(state, { type: "inactivityPaused", since: since as ReturnType<typeof asInstant>, now: asInstant(6000) })).toMatchObject({ ok: false, state, reason: "INVALID_TIME" });
     }
+    // A suspension detected at the very instant it starts is the most likely input.
+    expect(step(state, { type: "inactivityPaused", since: asInstant(6000), now: asInstant(6000) }).state.race.inactivityPausedAt).toBe(6000);
   });
 });
