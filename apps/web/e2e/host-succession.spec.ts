@@ -152,7 +152,7 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       await opener.click();
       const question = host.getByRole("heading", { name: /^(Quitter la salle|Leave room)/ });
       await expect(question).toBeFocused();
-      for (const width of [1440, 1024, 390]) {
+      for (const width of [1440, 1024, 390, 360]) {
         await host.setViewportSize({ width, height: 900 });
         await expectNoHorizontalScroll(host);
         await expectNoAccessibilityViolation(host);

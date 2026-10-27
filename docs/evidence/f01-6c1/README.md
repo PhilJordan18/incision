@@ -41,8 +41,8 @@ only room-view changes. D-17/#64B hunks remain disjoint.
   countdown/racing departure (2), FR/EN × Abysse/Aube confirmation (4), one-room
   navigation, existing race confirmation retaining design-rule7 checks,
   last-human interruption and the on-results regression described below.
-- Confirmation checks: axe WCAG2/2.1 A/AA, overflow at1440/1024/390, reduced motion,
-  Escape/focus. The12 screenshots alongside this file document the preserved layout.
+- Confirmation checks: axe WCAG2/2.1 A/AA, overflow at1440/1024/390/360, reduced motion,
+  Escape/focus. The16 screenshots alongside this file document the preserved layout.
 
 ### Former blocker, now passing
 
@@ -87,3 +87,10 @@ C2 disconnect/grace, guests and distributed presence remain outside C1. Presence
 linearizes when read under the lock; a later disconnect belongs to C2.
 A owns SALLE-08/D-15 matrix reconciliation and the reserved data-model119 wording;
 PR/SHA/test names will be handed over for that update. Explicit Close room is unchanged.
+
+## Final acceptance follow-up
+
+The four confirmation variants were rerun with360px included:4 passed (26.3s),
+axe/overflow/focus checks retained and four additional360px screenshots saved.
+No application code changed after4b578fb; this follow-up only expands the browser
+viewport list and evidence.
