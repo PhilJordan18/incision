@@ -116,7 +116,8 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       ordinal: raceEntrants.ordinal,
       displayName: raceEntrants.displayNameSnapshot,
       accountId: raceEntrants.accountId,
-      entrantId: raceEntrants.id,
+      seriesEntrantId: raceWpmSeries.entrantId,
+      series: raceWpmSeries.series,
       correctInputs: raceResults.correctInputs,
       totalInputs: raceResults.totalInputs,
       // Null when the entrant has no result row (left join).
@@ -135,13 +136,11 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
     })
     .from(raceEntrants)
     .leftJoin(raceResults, and(eq(raceResults.raceId, raceEntrants.raceId), eq(raceResults.entrantId, raceEntrants.id)))
+    // Read the bounded payload in the existing authorised entrant query, not an extra query.
+    .leftJoin(raceWpmSeries, and(eq(raceWpmSeries.raceId, raceEntrants.raceId), eq(raceWpmSeries.entrantId, raceEntrants.id)))
     .where(eq(raceEntrants.raceId, race.raceId))
     .orderBy(sql`${raceResults.rank} asc nulls last`, asc(raceEntrants.ordinal));
   const finished = race.state === "finished";
-  // Batch read only after authorisation; never one query per point or entrant.
-  const series = new Map((finished ? await db.select({ entrantId: raceWpmSeries.entrantId, series: raceWpmSeries.series })
-    .from(raceWpmSeries).where(eq(raceWpmSeries.raceId, race.raceId)) : [])
-    .map((row) => [row.entrantId, row.series]));
   const self = rows.find((row) => row.accountId === accountId)?.result;
   // The frozen config is used server-side only, never projected with personal settings/seeds.
   const { config, ...metadata } = race;
@@ -154,13 +153,13 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
   return {
     ...metadata,
     ...(personalRecord === undefined ? {} : { personalRecord }),
-    entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, entrantId, correctInputs, totalInputs, result }) => ({
+    entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, seriesEntrantId, series, correctInputs, totalInputs, result }) => ({
       ordinal,
       displayName,
       isSelf: entrantAccount === accountId,
       ...(finished && result !== null ? { result: {
         ...result,
-        ...(series.has(entrantId) ? { wpmSeries: checkedStoredWpmSeries(series.get(entrantId), {
+        ...(seriesEntrantId !== null ? { wpmSeries: checkedStoredWpmSeries(series, {
           ...result, correctInputs: correctInputs ?? Number.NaN, totalInputs: totalInputs ?? Number.NaN,
         }) } : {}),
       } } : {}),
