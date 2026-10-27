@@ -457,7 +457,7 @@ export class RaceRuntime implements OwnedRace {
    */
   leaseChanged(state: LeaseState): void {
     if (state === "suspended" && this.#stage === "running") {
-      this.#queue(this.#pause());
+      this.#queueLeaseEvent(this.#pause());
     } else if (state === "lost" && this.#stage === "saving") {
       // The save in flight decides: it commits (or an earlier one did, `alreadyDone`) or it loses.
       this.#options.log(`[races] ownership of ${this.ownership.raceId} lost while its results are being saved`);
@@ -466,7 +466,7 @@ export class RaceRuntime implements OwnedRace {
       this.#settle("lost");
     } else if (state === "held" && this.#stage === "running") {
       // Dated now, not when reduced: the wait until then is time the runners can answer.
-      this.#queue({ type: "inactivityResumed", now: this.#now() });
+      this.#queueLeaseEvent({ type: "inactivityResumed", now: this.#now() });
       // Broadcasts held back while the lease was suspended go out now.
       this.#scheduleProgress();
       for (const entrant of this.#entrants.values()) {
@@ -478,7 +478,8 @@ export class RaceRuntime implements OwnedRace {
 
   /**
    * Inactivity stops at the deadline that passed, read on the lease's clock and brought to the
-   * engine's in the same step: rounded up, so never after that deadline and at most 1 ms before.
+   * engine's in the same step: rounded up, so never after that deadline, and about 1 ms before at
+   * most (the two clocks are read a few microseconds apart).
    * The event itself is dated when the suspension is noticed: the WPM series may already hold a
    * sample past `since`, and a reduction never moves back before one.
    */
@@ -489,8 +490,11 @@ export class RaceRuntime implements OwnedRace {
     return { type: "inactivityPaused", since, now };
   }
 
-  /** Queues a pause or a resume, reduced by the next event or by a tick of its own, at once. */
-  #queue(event: LeaseEvent): void {
+  /**
+   * Queues a pause or a resume. The next event reduces it first; otherwise a tick of its own does,
+   * as soon as the timers allow. A non-empty queue always has that tick pending.
+   */
+  #queueLeaseEvent(event: LeaseEvent): void {
     this.#leaseEvents.push(event);
     if (this.#cancelDrain !== undefined) {
       return;
@@ -606,6 +610,7 @@ export class RaceRuntime implements OwnedRace {
    * pause or resume already queued, are reduced in order before this event (D-17).
    */
   #applyBonus(event: BonusRaceEvent, answered?: string): BonusRaceOutput | undefined {
+    // Read for its effect only: a deadline that passed is noticed here, and its pause queued.
     this.#options.lease.isAuthoritative();
     for (let queued = this.#leaseEvents.shift(); queued !== undefined; queued = this.#leaseEvents.shift()) {
       this.#reduce(queued);
@@ -613,6 +618,7 @@ export class RaceRuntime implements OwnedRace {
     return this.#reduce(event, answered);
   }
 
+  /** Reduces one event. Only `#applyBonus` calls it, after the lease read and the queue. */
   #reduce(event: BonusRaceEvent, answered?: string): BonusRaceOutput | undefined {
     if (this.#stage !== "running" && !(this.#stage === "saving" && (event.type === "keystrokes" || event.type === "activate"))) {
       return undefined;
@@ -787,6 +793,7 @@ export class RaceRuntime implements OwnedRace {
     this.#cancelWpm = undefined;
     this.#cancelTick?.();
     this.#cancelTick = undefined;
+    this.#dropLeaseEvents();
     for (const connection of this.#options.followers()) {
       connection.emit(RACE_CONFIRMING_EVENT, { raceId: this.ownership.raceId });
     }
@@ -860,7 +867,6 @@ export class RaceRuntime implements OwnedRace {
     }
     this.#stage = stage;
     this.#clearTimers();
-    this.#leaseEvents.length = 0;
     this.#control.clear();
     this.#options.lease.stop();
     this.#options.onSettled(this.ownership, stage);
@@ -869,8 +875,7 @@ export class RaceRuntime implements OwnedRace {
   #clearTimers(): void {
     this.#cancelWpm?.();
     this.#cancelWpm = undefined;
-    this.#cancelDrain?.();
-    this.#cancelDrain = undefined;
+    this.#dropLeaseEvents();
     this.#cancelTick?.();
     this.#cancelTick = undefined;
     this.#cancelProgress?.();
@@ -879,6 +884,13 @@ export class RaceRuntime implements OwnedRace {
       cancel();
     }
     this.#vacated.clear();
+  }
+
+  /** Pauses and resumes still queued no longer apply once the race is frozen or over (D-17). */
+  #dropLeaseEvents(): void {
+    this.#cancelDrain?.();
+    this.#cancelDrain = undefined;
+    this.#leaseEvents.length = 0;
   }
 
   /** Runs `write`, then retries it after each wait while it throws; undefined if every attempt threw. */
