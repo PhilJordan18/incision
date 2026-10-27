@@ -30,8 +30,8 @@ async function join(page: Page, code: string): Promise<void> {
   await expect(page.getByText(/^\[\.(Live|En direct)\]$/)).toBeVisible();
 }
 async function leave(host: Page): Promise<void> {
-  await host.getByRole("button", { name: "Leave the room", exact: true }).click();
-  await host.getByRole("button", { name: "Yes, leave the room", exact: true }).click();
+  await host.getByRole("button", { name: /^(Leave the room|Quitter la salle)$/, exact: true }).click();
+  await host.getByRole("button", { name: /^(Yes, leave the room|Oui, quitter la salle)$/, exact: true }).click();
   await expect(host).toHaveURL(/\/$/);
 }
 
@@ -107,11 +107,38 @@ test("host departure on results preserves the saved race and transfers next-roun
   if (!race) throw new Error("Missing finished race");
   const saved = await query("select * from race_results where race_id = $1 order by entrant_id", [race.id]);
   expect(saved).toHaveLength(2);
+  const observer = await member(browser, "Next successor");
+  await join(observer, code);
+  await expect(observer.getByRole("table", { name: "Ranking of the round" })).toBeVisible();
+  const refreshes = new Map<Page, number>([[successor, 0], [observer, 0]]);
+  for (const page of [successor, observer]) {
+    await page.route(`**/rooms/${code}?*`, async (route) => {
+      if (route.request().headers()["rsc"] === "1" && route.request().method() === "GET") {
+        refreshes.set(page, (refreshes.get(page) ?? 0) + 1);
+        const response = await route.fetch();
+        // Delay the server snapshot while live room updates can continue.
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        await route.fulfill({ response });
+      } else await route.continue();
+    });
+  }
   await leave(host);
   await expect(successor.getByRole("button", { name: "Prochaine manche" })).toBeEnabled();
+  await expect.poll(() => refreshes.get(observer)).toBe(1);
+  // A later unchanged-host snapshot must not request the results again.
+  const visitor = await member(browser, "Visitor");
+  await join(visitor, code);
+  await expect(successor.getByText("Visitor", { exact: true }).first()).toBeVisible();
+  await successor.waitForTimeout(800);
+  expect(refreshes.get(successor)).toBe(1);
+  expect(refreshes.get(observer)).toBe(1);
+  await leave(successor);
+  await expect(observer.getByRole("button", { name: "Next round" })).toBeEnabled();
+  await observer.waitForTimeout(800);
+  expect(refreshes.get(observer)).toBe(2);
   expect(await query("select * from race_results where race_id = $1 order by entrant_id", [race.id])).toEqual(saved);
-  await successor.getByRole("button", { name: "Prochaine manche" }).click();
-  await expect(successor.getByRole("button", { name: "Lancer la course" })).toBeVisible();
+  await observer.getByRole("button", { name: "Next round" }).click();
+  await expect(observer.getByRole("button", { name: "Start the race" })).toBeVisible();
 });
 
 for (const locale of ["fr-CA", "en-US"] as const) {
