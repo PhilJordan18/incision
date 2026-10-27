@@ -98,3 +98,23 @@ Roles applied sequentially, read-only on the code diff, without subagents:
 #36 stays In progress and partial. C2 host disconnect/grace, guests and distributed
 presence remain outside C1. A owns SALLE-08/D-15 matrix reconciliation. No heavy work
 from14:30 Toronto on October27; the human acceptance environment is untouched.
+
+## Released copy and regression follow-up — c04d19c
+
+A's next narrow release was relayed by Philippe through the coordinating Codex.
+Applied: hostGoToRoom FR/EN, ActiveMembership.isHost comment, data-model line145,
+and existing departure assertions. data-model117/119, page.tsx, explicit Close room
+behavior/actions/tests and the results-refresh effect remain unchanged.
+
+`npm run build` passed again after the copy change. Three targeted Chromium cases
+passed on the isolated database/port: one-room departure navigation, the existing
+race confirmation (text/field positions, question focus, no unintended typing,
+continuing clock and Escape recovery retained), and a dedicated last-human departure
+that verifies `interrupted` / `room_closed`, no race_results, and closed-room admission.
+This brings successful targeted browser cases to **10**; the separate on-results
+handover remains **1 failing acceptance scenario**, not waived.
+
+The remaining explicit release request is solely for room-view's results-refresh
+effect: [6447114531](https://github.com/PhilJordan18/incision/issues/36#issuecomment-6447114531).
+No PR is ready or published at this checkpoint. Previously listed copy/comment/test
+release requests are resolved; data-model119 stays with A by explicit instruction.
