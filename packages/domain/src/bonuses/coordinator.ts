@@ -30,7 +30,7 @@ export type ReduceBonusRaceResult =
 /** Serialize calls on one authoritative envelope. This is not a distributed lock or SQL transaction. */
 export function reduceBonusRace(state: BonusRaceState, event: BonusRaceEvent, content?: BonusContent): ReduceBonusRaceResult {
   if (!validBonusRace(state)) return { ok: false, state, reason: "INVALID_STATE" };
-  if (!Number.isSafeInteger(event.now) || event.now < 0 || event.now > MAX_INSTANT) return { ok: false, state, reason: "INVALID_TIME" };
+  if (!validTime(event.now) || (event.type === "inactivityPaused" && (!validTime(event.since) || event.since > event.now))) return { ok: false, state, reason: "INVALID_TIME" };
   if (state.revision === Number.MAX_SAFE_INTEGER || state.race.revision === Number.MAX_SAFE_INTEGER) return { ok: false, state, reason: "REVISION_EXHAUSTED" };
   // Expiries commit even if activation fails. Activation is a tick, never typing/presence activity.
   const raceOutput = reduceRace(state.race, event.type === "activate" ? { type: "tick", now: event.now } : event);
@@ -85,6 +85,8 @@ function sameCoordinatorState(left: BonusRaceState, right: BonusRaceState): bool
       JSON.stringify(fields) === JSON.stringify(otherFields);
   });
 }
+
+function validTime(instant: number): boolean { return Number.isSafeInteger(instant) && instant >= 0 && instant <= MAX_INSTANT; }
 
 function final(race: RaceState): boolean { return race.phase === "ended" || race.phase === "interrupted"; }
 

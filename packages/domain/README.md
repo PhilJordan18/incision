@@ -216,6 +216,37 @@ configured limit is announced before the start and shown during the race. The ru
 `tick` at the `nextDeadline` that the reducer returns: the start, the time limit, and each racing
 human's marker, abandon and grace expiry.
 
+**Paused inactivity** (D-17, ADR-0004, F-04.6a). Inactivity does not run while the server cannot
+accept an answer because the race's ownership lease is suspended. It measures the time during which
+the server accepts answers, not wall time.
+
+- **`inactivityPaused { since, now }`.** `since` is the first instant at which the lease stopped
+  being authoritative, not the instant the server noticed it. It is expressed on the race's clock
+  (the clock of `now`, not the lease's own clock) and is never later than `now`.
+  - What a tick at `since` would apply comes first. A marker due at exactly `since` is shown, since
+    60 s were answerable. An abandon due at exactly `since` is not: a pause from exactly the last
+    activity + 120 s comes before the abandon, because the runner could not answer at that instant.
+  - While paused, there is no new marker, no abandon for inactivity, and no marker or inactivity
+    deadline in `nextDeadline`. The start, the grace and the time limit stay in it.
+  - A marker already shown stays: it is frozen, not cleared.
+  - An abandon already applied is never undone. A `since` earlier than the race `clock` counts
+    from the clock.
+  - A second pause keeps the first. A `since` later than `now` is a programming error: `reduceRace`
+    throws a `RangeError`, and `reduceBonusRace` refuses it with `INVALID_TIME`, as for `now`.
+- **`inactivityResumed { now }`.** Each human still racing gets back exactly the inactivity time
+  left at the pause: no reset and no new grace window. Their last activity moves forward by the
+  suspended time, counted from the later of the pause and their last activity. Neither the
+  countdown nor the time before a keystroke made during the pause is credited. A resume without a
+  pause changes nothing.
+- **Unchanged:** the start, the time limit (it keeps running), the 30 s grace (D-06), the tie rules,
+  bots and terminal entrants.
+- Neither event is activity, and neither changes the public view by itself: `inactivityPausedAt`
+  is private.
+- **Order for the server:** read the lease before reducing any event, reduce the pause before any
+  event at or after `since`, and never reduce from inside the lease's change callback.
+- **No end in wall time is promised:** repeated suspensions can lengthen a race with no time limit.
+  Each suspension lasts at most 60 s before the lease is lost.
+
 **Interruption** (D-06):
 
 - If the room closes before the race is finalised, the race is `interrupted` and produces no
