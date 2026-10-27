@@ -8,6 +8,7 @@ import {
   createBonusRace,
   INACTIVITY_ABANDON_MS,
   INACTIVITY_WARNING_MS,
+  INITIAL_WPM_SERIES_SPACING_MS,
   RESUME_GRACE_MS,
   type BonusRaceState,
 } from "@incision/domain";
@@ -420,10 +421,11 @@ describe("RaceRuntime: inactivity paused while the lease is suspended (D-17, #16
     const { runtime, time, lease, store, alice } = setup();
     await time.advanceTo(S + 1_000);
     expect(runtime.keystrokes(alice, batch(1, "abc"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
-    // Noticed on time at 9 999 ms: its tick comes 1 ms later, after the sample due at 10 s.
-    lease.endAuthorityAt(S + 9_999, "on time");
-    await time.advanceTo(S + 12_000);
-    expect(runtime.state.inactivityPausedAt).toBe(S + 9_999);
+    // Noticed on time 1 ms before the tenth sample: its tick comes after that sample, due then.
+    const sampled = S + 10 * INITIAL_WPM_SERIES_SPACING_MS;
+    lease.endAuthorityAt(sampled - 1, "on time");
+    await time.advanceTo(sampled + 2_000);
+    expect(runtime.state.inactivityPausedAt).toBe(sampled - 1);
     expect(store.interruptOwnRace).not.toHaveBeenCalled();
   });
 
@@ -455,6 +457,7 @@ describe("RaceRuntime: inactivity paused while the lease is suspended (D-17, #16
     lease.lose();
     expect(runtime.stage).toBe("lost");
     expect(settled).toHaveBeenCalledExactlyOnceWith(ownership, "lost");
+    expect(time.pending()).toBe(0);
     await time.advanceTo(S + 300_000);
     expect(engine.reductions).toBe(reductions);
     expect(store.finalizeRace).not.toHaveBeenCalled();
@@ -468,6 +471,7 @@ describe("RaceRuntime: inactivity paused while the lease is suspended (D-17, #16
     expect(runtime.present(alice)).toBe("SUSPENDED");
     expect(await runtime.shutdown(time.now() + 5_000)).toBe("interrupted");
     expect(store.interruptOwnRace).toHaveBeenCalledExactlyOnceWith(ownership, "server_stopped");
+    expect(time.pending()).toBe(0);
     const reductions = engine.reductions;
     await time.advanceTo(S + 300_000);
     expect(engine.reductions).toBe(reductions);
@@ -508,7 +512,7 @@ describe("RaceRuntime with the real RaceLease: inactivity paused while suspended
     expect(store.interruptOwnRace).not.toHaveBeenCalled();
   });
 
-  it("gives the race up 60 s into a suspension: lost, with no abandon, no result and no timer left", async () => {
+  it("gives the race up 60 s into a suspension: lost, with no marker, no result and no timer left", async () => {
     const { runtime, time, store, settled, entrant, changes } = setup({ real: realLease(() => new Promise<boolean>(() => undefined)) });
     // Suspended at 25 s; without the pause, the marker would have come at S + 60 s.
     const givenUp = START + 25_000 + LEASE_TIMING.maxSuspensionMs;
