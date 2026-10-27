@@ -1,0 +1,52 @@
+/**
+ * A room's race configuration (F-03.1): what the host chooses between races and what every race of
+ * the room starts with. Pure model only; the server stores it, revises it and authorises the host.
+ */
+import { isValidTimeLimit } from "../race/limits";
+import { ERROR_MODES, type ErrorMode } from "../race/types";
+import { textSettingsRefusal, type CoherentTextSettings, type TextSettings, type TextSettingsRefusal } from "../text/settings";
+import type { Duration } from "../time";
+import type { TextLanguage } from "../words/types";
+
+export type RoomConfiguration = {
+  /** CONF-02 to CONF-07: the text's language is the room's, independent of the interface's. */
+  readonly text: TextSettings;
+  /** CONF-08. */
+  readonly errorMode: ErrorMode;
+  /** CONF-01: null is no limit at all (D-17); otherwise TIME_LIMIT_MIN_MS to TIME_LIMIT_MAX_MS. */
+  readonly timeLimit: Duration | null;
+};
+
+/** D-19's text: coherent, 50 words, medium; punctuation, capitals and accents on, numbers off. */
+export function defaultTextSettings(language: TextLanguage): CoherentTextSettings {
+  return {
+    kind: "coherent",
+    language,
+    wordCount: 50,
+    complexity: "medium",
+    options: { punctuation: true, numbers: false, capitals: true, accents: true },
+  };
+}
+
+/**
+ * D-19's race settings for a new room, with its text in the language given (the interface's). The
+ * other D-19 defaults (bonuses, capacity, bots, visibility) belong to their own cards.
+ */
+export function defaultRoomConfiguration(language: TextLanguage): RoomConfiguration {
+  return { text: defaultTextSettings(language), errorMode: "mandatory", timeLimit: null };
+}
+
+export type RoomConfigurationRefusal = "INVALID_TIME_LIMIT" | TextSettingsRefusal;
+
+/**
+ * Why a configuration cannot be saved, or undefined when it can: the time limit first
+ * (`isValidTimeLimit`, the rule of `createRaceRefusal`), then `textSettingsRefusal`. Values only a
+ * bug can produce throw a RangeError before any refusal.
+ */
+export function roomConfigurationRefusal({ text, errorMode, timeLimit }: RoomConfiguration): RoomConfigurationRefusal | undefined {
+  if (!ERROR_MODES.includes(errorMode)) {
+    throw new RangeError(`Invalid error mode ${String(errorMode)}`);
+  }
+  const textRefusal = textSettingsRefusal(text);
+  return isValidTimeLimit(timeLimit) ? textRefusal : "INVALID_TIME_LIMIT";
+}
