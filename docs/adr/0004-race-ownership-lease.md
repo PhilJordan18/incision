@@ -36,6 +36,7 @@ Each race records the process that runs it, the generation of that ownership, an
 
 - counts its ownership from the moment it *sent* the last renewal the database confirmed, plus 30 s, minus a 5 s safety margin, on a monotonic clock;
 - past that deadline, suspends: it accepts no keystroke and broadcasts no progress; time transitions (the start, the time limit) and departures still apply, and their writes stay fenced;
+- while suspended, pauses inactivity (D-17, #168), because nobody can answer « Tu es toujours là ? »: no new marker and no `inactivity` abandon from the deadline that passed, even when the suspension is noticed later; once held again, each runner gets back exactly the inactivity time left. The time limit and the 30 s grace keep running;
 - resumes only when a renewal is confirmed (same owner, same generation, race still active), and only up to what that renewal proves; an old answer that arrives late proves little;
 - once refused, or after a minute of suspension without any confirmation (about 85 s after the last confirmed renewal was sent), stops for good, and no later answer reactivates it;
 - keeps at most one renewal in flight, spaced 10 s apart, or 2 s apart while suspended, with a watchdog so that a renewal that never answers cannot freeze the lease;
@@ -96,7 +97,14 @@ Each race records the process that runs it, the generation of that ownership, an
   - one renewal in flight;
   - resuming only after a confirmation;
   - the A/B scenario, ignored late answers, the bound from a slow renewal (counted from its sending);
-  - a suspension reported at the deadline, a refusal while held, a second suspension after resuming, giving up exactly a minute after the suspension.
+  - a suspension reported at the deadline, a refusal while held, a second suspension after resuming, giving up exactly a minute after the suspension;
+  - the instant a suspension began, already dated when the lease reports it, kept when a renewal confirmed too late moves the deadline, and forgotten once held again (D-17).
+- `apps/web/src/server/races/race-inactivity-pause.test.ts`, with the real engine, a fake lease on its own monotonic clock, and timers that run 1 ms late at the soonest, as Node's do (D-17):
+  - a suspension noticed only at the abandon's tick, or within the handling of an event: no inactivity abandon, no reduction from inside the lease's report, the pause dated from the deadline that passed (never late, about 1 ms early at most);
+  - a pause and a resume queued back to back, two suspensions, an answer at the moved deadline;
+  - the time limit and the grace unchanged; a lease lost while a pause is applied or still queued, a server stopped while one is still queued;
+  - the results identical to a race with no suspension, and a WPM series that never moves back, even for a sample due before a queued pause is reduced, and ends on the result;
+  - the real `RaceLease` wired to the runtime: a renewal confirmed too late keeps the pause and the next one resumes it; the race given up 60 s into a suspension, with no marker and no result.
 - `apps/web/src/server/races/boot-recovery.test.ts`: the boot recovery, its retries and the stop.
 - `apps/web/src/server/races/race-runtime.test.ts`, with a fake clock and the real engine: transitions from `nextDeadline`, the controlling tab, nothing accepted or broadcast while the lease is unconfirmed, frozen results retried unchanged, `save_failed` only as the explicit give-up, nothing published while the database never answers, a lost lease never coming back, `engine_error`, the shutdown budget.
 - `apps/web/integration/race.integration.test.ts`: two processes of the production build on one database. Process A freezes (SIGSTOP) during a race; process B leaves the race alone while the lease runs, then recovers it (`owner_lost`) once it has expired; A wakes up, its renewal is refused, nothing it does is applied, and no result exists. A process stopped (SIGTERM) during a race interrupts it (`server_stopped`) and exits.

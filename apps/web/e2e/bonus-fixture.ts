@@ -61,7 +61,7 @@ export async function bonusFixture(room: PublicRoomSnapshot, enabled = true) {
         runtime = new RaceRuntime({ state: created.state, ownership: { raceId, lobbyId: "fixture", ownerId: "fixture", ownerEpoch: 1 },
           entrants: room.members.map(value => ({ entrantId: value.memberId, accountId: value.memberId, displayName: value.displayName })), language: "en",
           store: { beginRacing: async () => won, finalizeRace: async (_owner, rows) => { results = rows; return won; }, interruptOwnRace: async () => won },
-          lease: { start: () => {}, stop: () => {}, state: "held", isAuthoritative: () => true },
+          lease: { start: () => {}, stop: () => {}, state: "held", isAuthoritative: () => true, suspendedForMs: () => undefined },
           now: Date.now, schedule: (callback, delay) => { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); },
           followers: () => connections.values(), onSettled: () => {}, log: () => {}, bonusContent: () => ["sea", "port", "sail"],
         });

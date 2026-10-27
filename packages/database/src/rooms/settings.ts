@@ -19,8 +19,8 @@ export const DEFAULT_TEXT_LANGUAGE: TextLanguage = "fr";
 
 /**
  * A new room's settings: D-19's mandatory correction, texts in the creator's interface language,
- * and the first race path's 120 s. D-19's "no limit" waits for the lease-suspension fix of D-17
- * (COURSE-09).
+ * and the first race path's 120 s. D-19's "no limit" waits for the card that lifts CONF-01's
+ * restriction; its prerequisite, D-17's pause while a lease is suspended, is in place (#168).
  */
 export function initialRoomSettings(textLanguage: TextLanguage): RoomSettings {
   return { revision: 0, textLanguage, timeLimitMs: 120_000, errorMode: "mandatory" };

@@ -299,3 +299,77 @@ describe("RaceLease", () => {
     expect(time.pendingTimers).toBe(0);
   });
 });
+
+describe("RaceLease.suspendedForMs (D-17)", () => {
+  it("counts from the deadline that passed, even when the suspension is noticed late", () => {
+    let now = 0;
+    const changes: LeaseState[] = [];
+    // No timer ever fires: only a check notices the suspension, 7 s after the deadline.
+    const lease = new RaceLease({ renew: async () => true, now: () => now, schedule: () => () => undefined, acquiredAt: 0, onChange: (state) => changes.push(state) });
+    now = LOCAL_LEASE_MS - 1;
+    expect(lease.suspendedForMs()).toBeUndefined();
+    now = LOCAL_LEASE_MS + 7_000;
+    expect(lease.suspendedForMs()).toBe(7_000);
+    expect(changes).toEqual(["suspended"]);
+    now += 500;
+    expect(lease.suspendedForMs()).toBe(7_500);
+  });
+
+  it("has the suspension dated already when it reports it: read from inside onChange, as the runtime does", () => {
+    let now = 0;
+    const read: (number | undefined)[] = [];
+    const lease: RaceLease = new RaceLease({ renew: async () => true, now: () => now, schedule: () => () => undefined, acquiredAt: 0, onChange: () => read.push(lease.suspendedForMs()) });
+    now = LOCAL_LEASE_MS + 7_000;
+    expect(lease.isAuthoritative()).toBe(false);
+    expect(read).toEqual([7_000]);
+  });
+
+  it("keeps the start of the suspension when a renewal confirmed too late moves the deadline", async () => {
+    const { time, db, lease } = setup();
+    await time.advance(LEASE_TIMING.renewEveryMs);
+    // Sent at 10 s, the renewal hangs: suspended at 25 s.
+    await time.advance(LOCAL_LEASE_MS - time.now);
+    expect(lease.suspendedForMs()).toBe(0);
+    // Answered at 40 s, it proves ownership until 35 s only: still suspended, still since 25 s.
+    await time.advance(40_000 - time.now);
+    await db.answer(true);
+    expect(lease.isAuthoritative()).toBe(false);
+    expect(lease.suspendedForMs()).toBe(40_000 - LOCAL_LEASE_MS);
+  });
+
+  it("forgets a suspension once held again, and dates the next one from its own deadline", async () => {
+    const { time, db, lease } = setup();
+    await time.advance(LEASE_TIMING.renewEveryMs);
+    await db.answer("unreachable");
+    // Still held after that failure: the next renewal goes out at 20 s, and hangs.
+    const nextSentAt = time.now + LEASE_TIMING.renewEveryMs;
+    await time.advance(LOCAL_LEASE_MS + 3_000 - time.now);
+    expect(lease.suspendedForMs()).toBe(3_000);
+    // That renewal is confirmed now, at 28 s: held until 20 + 30 - 5 = 45 s.
+    await db.answer(true);
+    expect(lease.isAuthoritative()).toBe(true);
+    expect(lease.suspendedForMs()).toBeUndefined();
+    // Nothing answers any more: suspended again at 45 s, counted from there only.
+    await time.advance(nextSentAt + LOCAL_LEASE_MS + 3_000 - time.now);
+    expect(lease.suspendedForMs()).toBe(3_000);
+  });
+
+  it("has no suspension to date while held, nor once lost or stopped", async () => {
+    const held = setup();
+    await held.time.advance(LEASE_TIMING.renewEveryMs);
+    await held.db.answer(true);
+    expect(held.lease.suspendedForMs()).toBeUndefined();
+
+    const givenUp = setup();
+    await givenUp.time.advance(LOCAL_LEASE_MS + 1);
+    expect(givenUp.lease.suspendedForMs()).toBe(1);
+    await givenUp.time.advance(LEASE_TIMING.maxSuspensionMs);
+    expect(givenUp.lease.state).toBe("lost");
+    expect(givenUp.lease.suspendedForMs()).toBeUndefined();
+
+    const stopped = setup();
+    await stopped.time.advance(LOCAL_LEASE_MS + 1);
+    stopped.lease.stop();
+    expect(stopped.lease.suspendedForMs()).toBeUndefined();
+  });
+});

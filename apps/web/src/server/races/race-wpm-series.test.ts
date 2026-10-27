@@ -26,7 +26,7 @@ function setup(options: { limit?: number | null; text?: string; store?: Partial<
   const followers: RaceConnection[] = entrants.map(({ accountId }) => ({ id: accountId, accountId, emit: vi.fn() }));
   const lease = {
     state: "held" as LeaseState, start: vi.fn(), stop: vi.fn(),
-    isAuthoritative: vi.fn(() => lease.state === "held"),
+    isAuthoritative: vi.fn(() => lease.state === "held"), suspendedForMs: () => undefined,
   };
   const made = createBonusRace({ enabled: false, random: [1, 2, 3, 4], race: {
     raceId: asRaceId(ownership.raceId), text: options.text ?? "ab", errorMode: "mandatory",

@@ -3,9 +3,10 @@ import { parseRoomCode, type RoomCode, TEXT_LANGUAGES, TIME_LIMIT_MIN_MS } from 
 import { z } from "zod";
 
 /**
- * The longest time limit races run with today (F-03.1a). "No limit" and longer limits wait for
- * D-17's prerequisite (COURSE-09): a suspended lease must not run inactivity against a runner who
- * cannot answer. The database already holds the engine's whole range (none, or 30 s to 10 min).
+ * The longest time limit races run with today (F-03.1a). "No limit" and longer limits wait for the
+ * card that lifts this restriction. Their prerequisite is in place: a suspended lease no longer
+ * runs inactivity against a runner who cannot answer (D-17, COURSE-09). The database
+ * already holds the engine's whole range (none, or 30 s to 10 min).
  */
 export const RUNNABLE_TIME_LIMIT_MAX_MS = 120_000;
 

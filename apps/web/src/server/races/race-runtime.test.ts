@@ -124,6 +124,7 @@ function fakeLease() {
     get state() {
       return state;
     },
+    suspendedForMs: () => undefined,
     set: (next) => {
       state = next;
     },

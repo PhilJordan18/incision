@@ -62,7 +62,13 @@ export class RaceLease {
   /** Local monotonic deadline of the ownership this process can prove. */
   #validUntil: number;
   #inFlight = false;
+  /** When the current suspension was noticed: the give-up counts from here. */
   #suspendedSince: number | undefined;
+  /**
+   * When the current suspension began: the local deadline that passed, kept apart from
+   * `#validUntil`, which a renewal confirmed too late to resume still moves.
+   */
+  #authorityEndedAt: number | undefined;
   #cancelNext: (() => void) | undefined;
 
   constructor(private readonly options: RaceLeaseOptions) {
@@ -80,6 +86,17 @@ export class RaceLease {
     return this.state === "held";
   }
 
+  /**
+   * While suspended: for how long the lease has not been authoritative, in milliseconds of its
+   * own clock. It counts from the deadline that passed, even when a late timer or a lazy check
+   * noticed the suspension afterwards, so the runtime can date the suspension on its clock
+   * (D-17: inactivity does not run while no answer can be accepted). Undefined otherwise.
+   */
+  suspendedForMs(): number | undefined {
+    this.#checkDeadline();
+    return this.#state === "suspended" && this.#authorityEndedAt !== undefined ? this.options.now() - this.#authorityEndedAt : undefined;
+  }
+
   /** Starts the renewals. */
   start(): void {
     this.#scheduleNext(this.#timing.renewEveryMs);
@@ -92,6 +109,7 @@ export class RaceLease {
 
   #checkDeadline(): void {
     if (this.#state === "held" && this.options.now() >= this.#validUntil) {
+      this.#authorityEndedAt = this.#validUntil;
       this.#suspendedSince = this.options.now();
       this.#change("suspended");
     }
@@ -138,6 +156,7 @@ export class RaceLease {
     this.#validUntil = Math.max(this.#validUntil, sentAt + this.#timing.leaseMs - this.#timing.safetyMarginMs);
     if (this.#state === "suspended" && this.options.now() < this.#validUntil) {
       this.#suspendedSince = undefined;
+      this.#authorityEndedAt = undefined;
       this.#change("held");
     }
   }

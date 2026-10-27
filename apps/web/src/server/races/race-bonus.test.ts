@@ -34,7 +34,7 @@ async function setup(kind: BonusKind = "shortenSelf", options: { content?: Bonus
   const store = { beginRacing: vi.fn(async () => won), finalizeRace: vi.fn(async () => won), interruptOwnRace: vi.fn(async () => won) };
   const runtime = new RaceRuntime({ state: result.state, ownership: { raceId: RACE, lobbyId: "room", ownerId: "owner", ownerEpoch: 1 },
     entrants: ["actor", "leader"].map((id) => ({ entrantId: id, accountId: id, displayName: id })), language: "en", store,
-    lease: { start: () => {}, stop: () => {}, get state() { return leaseState; }, isAuthoritative: () => leaseState === "held" },
+    lease: { start: () => {}, stop: () => {}, get state() { return leaseState; }, isAuthoritative: () => leaseState === "held", suspendedForMs: () => undefined },
     now: Date.now, schedule: (callback, ms) => { const timer = setTimeout(callback, ms); return () => clearTimeout(timer); },
     followers: () => followers, onSettled: vi.fn(), log: vi.fn(), ...(options.content ? { bonusContent: options.content } : {}),
   });
