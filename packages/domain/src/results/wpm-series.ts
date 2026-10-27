@@ -7,11 +7,11 @@ export const INITIAL_WPM_SERIES_SPACING_MS = 1_000;
 
 export type WpmObservation = {
   readonly elapsed: Duration;
-  readonly counters: TypingCounters;
+  readonly counters: Readonly<TypingCounters>;
 };
 
 /** Cumulative (not instantaneous) measures, exact and unrounded. */
-export type WpmSample = WpmObservation & { readonly measures: Measures };
+export type WpmSample = WpmObservation & { readonly measures: Readonly<Measures> };
 
 /**
  * Internal server-owned state, created here, not a wire or database hydration contract.
