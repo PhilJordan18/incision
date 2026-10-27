@@ -36,6 +36,7 @@ Each race records the process that runs it, the generation of that ownership, an
 
 - counts its ownership from the moment it *sent* the last renewal the database confirmed, plus 30 s, minus a 5 s safety margin, on a monotonic clock;
 - past that deadline, suspends: it accepts no keystroke and broadcasts no progress; time transitions (the start, the time limit) and departures still apply, and their writes stay fenced;
+- while suspended, pauses inactivity (D-17, #168), because nobody can answer « Tu es toujours là ? »: no new marker and no `inactivity` abandon from the deadline that passed, even when the suspension is noticed later; once held again, each runner gets back exactly the inactivity time left. The time limit and the 30 s grace keep running;
 - resumes only when a renewal is confirmed (same owner, same generation, race still active), and only up to what that renewal proves; an old answer that arrives late proves little;
 - once refused, or after a minute of suspension without any confirmation (about 85 s after the last confirmed renewal was sent), stops for good, and no later answer reactivates it;
 - keeps at most one renewal in flight, spaced 10 s apart, or 2 s apart while suspended, with a watchdog so that a renewal that never answers cannot freeze the lease;
