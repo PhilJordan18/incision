@@ -315,6 +315,15 @@ describe("RaceLease.suspendedForMs (D-17)", () => {
     expect(lease.suspendedForMs()).toBe(7_500);
   });
 
+  it("has the suspension dated already when it reports it: read from inside onChange, as the runtime does", () => {
+    let now = 0;
+    const read: (number | undefined)[] = [];
+    const lease: RaceLease = new RaceLease({ renew: async () => true, now: () => now, schedule: () => () => undefined, acquiredAt: 0, onChange: () => read.push(lease.suspendedForMs()) });
+    now = LOCAL_LEASE_MS + 7_000;
+    expect(lease.isAuthoritative()).toBe(false);
+    expect(read).toEqual([7_000]);
+  });
+
   it("keeps the start of the suspension when a renewal confirmed too late moves the deadline", async () => {
     const { time, db, lease } = setup();
     await time.advance(LEASE_TIMING.renewEveryMs);

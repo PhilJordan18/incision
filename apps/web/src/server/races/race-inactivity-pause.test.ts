@@ -28,7 +28,7 @@ vi.mock("@incision/domain", async (importOriginal) => {
     },
   };
 });
-import type { LeaseState } from "./race-lease";
+import { LEASE_TIMING, RaceLease, type LeaseState } from "./race-lease";
 import { type LeaseView, type RaceConnection, RaceRuntime, type RaceStore } from "./race-runtime";
 
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
@@ -50,7 +50,10 @@ async function settle(): Promise<void> {
   }
 }
 
-/** A fake clock and timer queue; `jump` moves the clock without running timers. */
+/**
+ * A fake clock and timer queue; `jump` moves the clock without running timers. Like Node's, a
+ * timer runs 1 ms later at the soonest, so a zero-delay one can come after another due then.
+ */
 function fakeTime() {
   let now = START;
   let next = 0;
@@ -62,7 +65,7 @@ function fakeTime() {
     },
     schedule: (callback: () => void, delayMs: number) => {
       const id = next++;
-      timers.set(id, { at: now + Math.max(0, delayMs), callback });
+      timers.set(id, { at: now + Math.max(1, delayMs), callback });
       return () => void timers.delete(id);
     },
     async advanceTo(target: number) {
@@ -181,9 +184,32 @@ const batch = (seq: number, graphemes: string) => ({
   events: [...graphemes].map((grapheme) => ({ type: "insert" as const, grapheme })),
 });
 
-function setup({ timeLimitMs = null }: { timeLimitMs?: number | null } = {}) {
+/**
+ * The real `RaceLease`, on the same monotonic clock as `fakeLease`, taken when the race was created
+ * and renewed by `renew`. It suspends on its own timers, 25 s after its last proven renewal.
+ */
+function realLease(renew: () => Promise<boolean>) {
+  return (time: ReturnType<typeof fakeTime>) => {
+    let listener: (state: LeaseState) => void = () => undefined;
+    const changes: LeaseState[] = [];
+    const lease = new RaceLease({
+      renew,
+      now: () => time.now() - START + MONOTONIC_OFFSET,
+      schedule: time.schedule,
+      acquiredAt: MONOTONIC_OFFSET,
+      onChange: (state) => {
+        changes.push(state);
+        listener(state);
+      },
+    });
+    return { lease, changes, listen: (next: (state: LeaseState) => void) => (listener = next) };
+  };
+}
+
+function setup({ timeLimitMs = null, real }: { timeLimitMs?: number | null; real?: ReturnType<typeof realLease> } = {}) {
   const time = fakeTime();
   const lease = fakeLease(time);
+  const actual = real?.(time);
   const store = {
     beginRacing: vi.fn<RaceStore["beginRacing"]>(async () => WON),
     finalizeRace: vi.fn<RaceStore["finalizeRace"]>(async () => WON),
@@ -199,17 +225,17 @@ function setup({ timeLimitMs = null }: { timeLimitMs?: number | null } = {}) {
     entrants: [ALICE, BOB],
     language: "fr",
     store,
-    lease,
+    lease: actual?.lease ?? lease,
     now: time.now,
     schedule: time.schedule,
     followers: () => followers,
     onSettled: settled,
     log: vi.fn(),
   });
-  lease.listen((state) => runtime.leaseChanged(state));
+  (actual ?? lease).listen((state) => runtime.leaseChanged(state));
   runtime.start();
   const entrant = (id: string) => runtime.state.entrants.find((one) => one.entrantId === id);
-  return { runtime, time, lease, store, settled, alice, bob, followers, entrant };
+  return { runtime, time, lease, store, settled, alice, bob, followers, entrant, changes: actual?.changes ?? [] };
 }
 
 describe("RaceRuntime: inactivity paused while the lease is suspended (D-17, #168)", () => {
@@ -388,5 +414,113 @@ describe("RaceRuntime: inactivity paused while the lease is suspended (D-17, #16
       elapsed: 50_000,
       measures: { netWpm: row.netWpm, rawWpm: row.rawWpm, accuracy: row.accuracy },
     });
+  });
+
+  it("skips a WPM sample that falls before a queued pause is reduced: no time regression, no interruption", async () => {
+    const { runtime, time, lease, store, alice } = setup();
+    await time.advanceTo(S + 1_000);
+    expect(runtime.keystrokes(alice, batch(1, "abc"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    // Noticed on time at 9 999 ms: its tick comes 1 ms later, after the sample due at 10 s.
+    lease.endAuthorityAt(S + 9_999, "on time");
+    await time.advanceTo(S + 12_000);
+    expect(runtime.state.inactivityPausedAt).toBe(S + 9_999);
+    expect(store.interruptOwnRace).not.toHaveBeenCalled();
+  });
+
+  it("reduces a resume before a batch accepted in the same millisecond, and its tick finds nothing left", async () => {
+    const { runtime, time, lease, store, alice, entrant } = setup();
+    lease.endAuthorityAt(S + 10_000, "on time");
+    await time.advanceTo(S + 30_000);
+    lease.resume();
+    expect(runtime.keystrokes(alice, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(runtime.state.inactivityPausedAt).toBeUndefined();
+    // 20 s paused: Bob is credited up to 20 s, Alice typed at 30 s.
+    expect(entrant(ALICE.entrantId)).toMatchObject({ lastActivityAt: S + 30_000, inactive: false });
+    expect(entrant(BOB.entrantId)?.lastActivityAt).toBe(S + 20_000);
+    const reductions = engine.reductions;
+    await time.advanceTo(S + 30_001);
+    expect(engine.reductions).toBe(reductions);
+    await time.advanceTo(S + 140_001);
+    expect(entrant(BOB.entrantId)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: S + 140_000 });
+    expect(lease.record.reductionsInsideOnChange).toBe(0);
+    expect(store.interruptOwnRace).not.toHaveBeenCalled();
+  });
+
+  it("drops a pause still queued when the lease is lost in the same millisecond: nothing reduced, no result, no timer", async () => {
+    const { runtime, time, lease, store, settled, alice } = setup();
+    lease.endAuthorityAt(S + 10_000, "when read");
+    await time.advanceTo(S + 20_000);
+    expect(runtime.present(alice)).toBe("SUSPENDED");
+    const reductions = engine.reductions;
+    lease.lose();
+    expect(runtime.stage).toBe("lost");
+    expect(settled).toHaveBeenCalledExactlyOnceWith(ownership, "lost");
+    await time.advanceTo(S + 300_000);
+    expect(engine.reductions).toBe(reductions);
+    expect(store.finalizeRace).not.toHaveBeenCalled();
+    expect(time.pending()).toBe(0);
+  });
+
+  it("interrupts on shutdown with a pause still queued, and reduces nothing afterwards", async () => {
+    const { runtime, time, lease, store, alice } = setup();
+    lease.endAuthorityAt(S + 10_000, "when read");
+    await time.advanceTo(S + 20_000);
+    expect(runtime.present(alice)).toBe("SUSPENDED");
+    expect(await runtime.shutdown(time.now() + 5_000)).toBe("interrupted");
+    expect(store.interruptOwnRace).toHaveBeenCalledExactlyOnceWith(ownership, "server_stopped");
+    const reductions = engine.reductions;
+    await time.advanceTo(S + 300_000);
+    expect(engine.reductions).toBe(reductions);
+    expect(store.finalizeRace).not.toHaveBeenCalled();
+    expect(time.pending()).toBe(0);
+  });
+});
+
+describe("RaceRuntime with the real RaceLease: inactivity paused while suspended (D-17, #168)", () => {
+  it("keeps the pause through a renewal confirmed too late, and resumes on the next one", async () => {
+    let answer: "hang" | "renewed" = "hang";
+    const hanging: ((renewed: boolean) => void)[] = [];
+    const { runtime, time, store, entrant, changes } = setup({ real: realLease(() =>
+      answer === "renewed" ? Promise.resolve(true) : new Promise<boolean>((resolve) => hanging.push(resolve)),
+    ) });
+    // The renewal sent at 10 s never answers: authority ends at 25 s, S + 22 s on the engine's clock.
+    await time.advanceTo(START + 40_000);
+    expect(changes).toEqual(["suspended"]);
+    expect(runtime.state.inactivityPausedAt).toBe(S + 22_000);
+    // Answered at 40 s, it proves authority until 35 s only: still suspended.
+    hanging.shift()?.(true);
+    await settle();
+    expect(changes).toEqual(["suspended"]);
+    // The next attempt, 2 s later, is confirmed: held again at S + 39 s, 17 s paused.
+    answer = "renewed";
+    await time.advanceTo(START + 42_000);
+    expect(changes).toEqual(["suspended", "held"]);
+    // The resume is dated then, and reduced by its own tick 1 ms later.
+    await time.advanceTo(START + 42_001);
+    expect(runtime.state.inactivityPausedAt).toBeUndefined();
+    expect(entrant(ALICE.entrantId)?.lastActivityAt).toBe(S + 17_000);
+    await time.advanceTo(S + INACTIVITY_WARNING_MS + 17_000 - 1);
+    expect(entrant(ALICE.entrantId)?.inactive).toBe(false);
+    await time.advanceTo(S + INACTIVITY_WARNING_MS + 17_000);
+    expect(entrant(ALICE.entrantId)?.inactive).toBe(true);
+    await time.advanceTo(S + INACTIVITY_ABANDON_MS + 17_001);
+    expect(entrant(ALICE.entrantId)).toMatchObject({ status: "abandoned", abandonReason: "inactivity", endedAt: S + INACTIVITY_ABANDON_MS + 17_000 });
+    expect(store.interruptOwnRace).not.toHaveBeenCalled();
+  });
+
+  it("gives the race up 60 s into a suspension: lost, with no abandon, no result and no timer left", async () => {
+    const { runtime, time, store, settled, entrant, changes } = setup({ real: realLease(() => new Promise<boolean>(() => undefined)) });
+    // Suspended at 25 s; without the pause, the marker would have come at S + 60 s.
+    const givenUp = START + 25_000 + LEASE_TIMING.maxSuspensionMs;
+    await time.advanceTo(givenUp - 1);
+    expect(runtime.stage).toBe("running");
+    expect(entrant(ALICE.entrantId)).toMatchObject({ status: "racing", inactive: false });
+    await time.advanceTo(givenUp);
+    expect(changes).toEqual(["suspended", "lost"]);
+    expect(runtime.stage).toBe("lost");
+    expect(settled).toHaveBeenCalledExactlyOnceWith(ownership, "lost");
+    await time.advanceTo(START + 400_000);
+    expect(store.finalizeRace).not.toHaveBeenCalled();
+    expect(time.pending()).toBe(0);
   });
 });
