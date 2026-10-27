@@ -83,6 +83,8 @@ one-second spacing and doubles it when needed; it preserves endpoints, never int
 and keeps exact, unrounded net/raw WPM and counters. SQL bounds version, array length and
 payload size; application validation also checks chronology, counters and exact final-result
 agreement. No typed text, session identity or random seed belongs in this payload.
+The spacing describes the current sampling cadence, not a uniform grid: endpoints preserved
+by an earlier coarsening can remain closer than that cadence when they later become interior.
 
 The runtime observes post-reduction state synchronously and samples silence with a separate
 timer that neither reduces events nor performs SQL. An overdue engine deadline prevents

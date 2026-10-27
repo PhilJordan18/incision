@@ -8,6 +8,7 @@ import {
 /** Version 1 stores actual cumulative observations, never reconstructed or rounded values. */
 export type StoredWpmSeries = {
   readonly version: 1;
+  /** Current sampling cadence, not a uniform-grid promise across past coarsening boundaries. */
   readonly spacingMs: number;
   readonly points: readonly WpmSample[];
 };
@@ -53,8 +54,9 @@ export function decodeStoredWpmSeries(
       point.counters.correctInserts < previous.counters.correctInserts ||
       point.counters.totalInserts < previous.counters.totalInserts ||
       wrongInserts(point) < wrongInserts(previous) ||
-      // Only the terminal interval may be shorter than the retained resolution.
-      (index < input.points.length - 1 && point.elapsed - previous.elapsed < input.spacingMs)
+      // Earlier coarsening preserves its then-last point. That point can later be interior
+      // and closer than the current cadence, but never closer than the original cadence.
+      (index < input.points.length - 1 && point.elapsed - previous.elapsed < INITIAL_WPM_SERIES_SPACING_MS)
     )) return refused("INVALID_SERIES");
     points.push(point);
   }

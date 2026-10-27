@@ -110,6 +110,21 @@ describe("versioned stored WPM series (F-07.1b)", () => {
     }
   });
 
+  it("keeps actual short intervals left by an earlier coarsening boundary", () => {
+    for (const count of [515, 3000]) {
+      const inputs = Array.from({ length: count }, (_, index) => observation(index === 0 ? 0 : index * 1000 + 1500, index));
+      const end = inputs.at(-1)!;
+      const series = collected(inputs);
+      expect(series.spacingMs).toBeGreaterThan(1000);
+      // The collector preserves its then-last point while coarsening. A later observation
+      // can make that endpoint an interior point, closer than the NEW target cadence.
+      expect(series.points.slice(1, -1).some((point, index) => point.elapsed - series.points[index]!.elapsed < series.spacingMs)).toBe(true);
+      const stored = accepted(freezeStoredWpmSeries(series, end));
+      expect(stored.points).toEqual(series.points);
+      expect(accepted(decodeStoredWpmSeries(JSON.parse(JSON.stringify(stored)), end))).toEqual(stored);
+    }
+  });
+
   it("refuses absence, nonobjects and unknown versions rather than manufacturing an empty series", () => {
     for (const value of [null, undefined, [], "", 0]) {
       expect(decodeStoredWpmSeries(value, terminal)).toEqual({ ok: false, refusal: "INVALID_SERIES" });
