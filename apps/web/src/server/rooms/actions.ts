@@ -26,6 +26,7 @@ import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
 import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
 import { allowRoomChange, allowSettingsChange, forgiveRoomChange } from "./room-change-limiter";
 import { parseConfigureRoomForm } from "./room-settings";
+import { roomPresence } from "../realtime/room-presence";
 import { notifyMemberLeft, notifyRoomChanged } from "./room-events";
 
 export type JoinError =
@@ -194,8 +195,8 @@ export type LeaveRoomState = { readonly error?: "RATE_LIMITED" | "UNAVAILABLE" }
 
 /**
  * Leave the current room, then go on to `returnTo` (a same-site path). The host leaving
- * closes the room at the checkpoint (host succession comes with SALLE-08). Leaving during a
- * race is an immediate abandon (state-machines §3); the host leaving interrupts it (D-06).
+ * transfers hosting to the oldest connected human, or closes without a successor (SALLE-08).
+ * The existing member-left notification abandons the leaver only, unless the room closed.
  */
 export async function leaveRoomAction(_previous: LeaveRoomState, formData: FormData): Promise<LeaveRoomState> {
   const { accountId } = await requireAccountSession("/");
@@ -204,7 +205,7 @@ export async function leaveRoomAction(_previous: LeaveRoomState, formData: FormD
   }
   let left: Awaited<ReturnType<typeof leaveCurrentRoom>>;
   try {
-    left = await leaveCurrentRoom(authDatabase(), accountId);
+    left = await leaveCurrentRoom(authDatabase(), accountId, (lobbyId) => roomPresence().onlineMembers(lobbyId));
   } catch (error: unknown) {
     logFailure("leave", error);
     return { error: "UNAVAILABLE" };

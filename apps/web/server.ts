@@ -21,7 +21,7 @@ import { parseServerEnv, type ServerEnv } from "./src/server/config";
 import { assignClientAddress } from "./src/server/http/client-address";
 import { registerRaceChannel } from "./src/server/realtime/race-channel";
 import { followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
-import { RoomPresence } from "./src/server/realtime/room-presence";
+import { roomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
 import { authenticateHandshake } from "./src/server/realtime/socket-session";
@@ -118,7 +118,7 @@ async function main(): Promise<void> {
   const roomChannel = registerRoomChannel(io, {
     allowedOrigin: env.appOrigin,
     registry,
-    presence: new RoomPresence(),
+    presence: roomPresence(),
     events: roomEvents(),
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),

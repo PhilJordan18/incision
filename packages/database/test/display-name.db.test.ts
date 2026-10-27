@@ -56,7 +56,7 @@ describe("account-scoped display name update", () => {
     await updateAccountDisplayName(db, { accountId: account.accountId, displayName: "Next Room" });
     expect((await pool.query("select * from lobby_members where account_id = $1", [account.accountId])).rows).toEqual(before);
     expect((await pool.query("select * from race_entrants where account_id = $1", [account.accountId])).rows).toEqual(entrants);
-    await leaveCurrentRoom(db, account.accountId);
+    await leaveCurrentRoom(db, account.accountId, () => new Set());
     expect((await createRoomWithHost(db, { accountId: account.accountId, role: "participant", visibility: "code", capacity: 8, randomIndex: () => 1 })).ok).toBe(true);
     expect((await pool.query("select display_name from lobby_members where account_id = $1 and left_at is null", [account.accountId])).rows)
       .toEqual([{ display_name: "Next Room" }]);

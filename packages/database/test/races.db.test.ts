@@ -473,7 +473,7 @@ describe("closing the room while the race runs", () => {
   it("interrupts the race when the host leaves first, and the later transition changes nothing", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
     const { race } = await started(hostId);
-    const [left, begun] = await underRoomLock(lobbyId, [() => leaveCurrentRoom(db, hostId), () => beginRacing(db, race)]);
+    const [left, begun] = await underRoomLock(lobbyId, [() => leaveCurrentRoom(db, hostId, () => new Set()), () => beginRacing(db, race)]);
     expect(left).toMatchObject({ closed: true });
     expect(begun).toEqual({ won: false });
     expect(await raceOf(race.raceId)).toMatchObject({ state: "interrupted", interruption_reason: "room_closed" });
@@ -486,7 +486,7 @@ describe("closing the room while the race runs", () => {
     await beginRacing(db, one.race);
     const [finalised] = await underRoomLock(finishedFirst.lobbyId, [
       () => finalizeRace(db, one.race, resultsFor(one.entrants)),
-      () => leaveCurrentRoom(db, finishedFirst.hostId),
+      () => leaveCurrentRoom(db, finishedFirst.hostId, () => new Set()),
     ]);
     expect(finalised).toEqual(WON);
     expect(await raceOf(one.race.raceId)).toMatchObject({ state: "finished" });
@@ -496,7 +496,7 @@ describe("closing the room while the race runs", () => {
     const two = await started(closedFirst.hostId);
     await beginRacing(db, two.race);
     const [, lateFinal] = await underRoomLock(closedFirst.lobbyId, [
-      () => leaveCurrentRoom(db, closedFirst.hostId),
+      () => leaveCurrentRoom(db, closedFirst.hostId, () => new Set()),
       () => finalizeRace(db, two.race, resultsFor(two.entrants)),
     ]);
     expect(lateFinal).toEqual({ won: false });
@@ -510,7 +510,7 @@ describe("closing the room while the race runs", () => {
     await beginRacing(db, one.race);
     // The finalisation committed but its answer was lost; then the host left.
     await finalizeRace(db, one.race, resultsFor(one.entrants));
-    expect(await leaveCurrentRoom(db, finished.hostId)).toMatchObject({ closed: true });
+    expect(await leaveCurrentRoom(db, finished.hostId, () => new Set())).toMatchObject({ closed: true });
     expect(await finalizeRace(db, one.race, resultsFor(one.entrants))).toEqual(REPLAYED);
     expect(await interruptOwnRace(db, one.race, "save_failed")).toEqual({ won: false, resultsSaved: true });
     expect(await raceOf(one.race.raceId)).toMatchObject({ state: "finished", owner_epoch: 1 });
@@ -518,7 +518,7 @@ describe("closing the room while the race runs", () => {
     const stopped = await room("BCDEFG");
     const two = await started(stopped.hostId);
     await interruptOwnRace(db, two.race, "server_stopped");
-    expect(await leaveCurrentRoom(db, stopped.hostId)).toMatchObject({ closed: true });
+    expect(await leaveCurrentRoom(db, stopped.hostId, () => new Set())).toMatchObject({ closed: true });
     expect(await interruptOwnRace(db, two.race, "server_stopped")).toEqual(REPLAYED);
     expect(await raceOf(two.race.raceId)).toMatchObject({ state: "interrupted", interruption_reason: "server_stopped" });
   });
@@ -556,7 +556,7 @@ describe("closing the room while the race runs", () => {
     const { race, entrants } = await started(hostId);
     await beginRacing(db, race);
     const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where id = $1", [memberIds[0]])).rows[0]!.account_id;
-    await leaveCurrentRoom(db, bea);
+    await leaveCurrentRoom(db, bea, () => new Set());
     // Free again, Bea joins another room meanwhile.
     await room("BCDEFG", []);
     expect(await joinRoomByCode(db, { accountId: bea, code: code("BCDEFG"), role: "participant" })).toMatchObject({ ok: true });
@@ -834,7 +834,7 @@ describe("transaction limits and isolation", () => {
       // Each transition sets READ COMMITTED itself: the late one sees the closing and loses
       // instead of failing with a serialisation error.
       const [left, lateFinal] = await underRoomLock(lobbyId, [
-        () => leaveCurrentRoom(strict, hostId),
+        () => leaveCurrentRoom(strict, hostId, () => new Set()),
         () => finalizeRace(strict, race, resultsFor(entrants)),
       ]);
       expect(left).toMatchObject({ closed: true });
@@ -934,7 +934,7 @@ describe("the room's race, read by its members", () => {
     // Neither a stranger nor a member who left reads it here; an entrant still has its history page.
     expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: await account("Inconnu") })).toBeUndefined();
     const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where id = $1", [memberIds[0]])).rows[0]?.account_id ?? "";
-    await leaveCurrentRoom(db, bea);
+    await leaveCurrentRoom(db, bea, () => new Set());
     expect(await readRoomRaceForMember(db, { lobbyId, raceId: race.raceId, accountId: bea })).toBeUndefined();
     expect(await readRaceForEntrant(db, race.raceId, bea)).toBeDefined();
     expect(await readRoomRaceForMember(db, { lobbyId: "not-a-room", raceId: race.raceId, accountId: hostId })).toBeUndefined();
@@ -1151,7 +1151,7 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
   it("closes only the room the host's page shows, never the room the host is in since", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
     // In another tab, the host left this room (closing it) and opened a new one.
-    await leaveCurrentRoom(db, hostId);
+    await leaveCurrentRoom(db, hostId, () => new Set());
     const characters = [..."BCDEFG"].map((character) => ROOM_CODE_ALPHABET.indexOf(character));
     let draw = 0;
     const next = await createRoomWithHost(db, { accountId: hostId, role: "participant", visibility: "code", capacity: 30, randomIndex: () => characters[draw++] ?? 0 });

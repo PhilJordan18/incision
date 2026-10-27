@@ -269,7 +269,7 @@ describe("leaveCurrentRoom", () => {
     const bob = await account("Bob");
     await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" });
     const before = (await readRoomSnapshot(db, lobbyId))?.revision ?? 0;
-    expect(await leaveCurrentRoom(db, bob)).toEqual({ lobbyId, closed: false });
+    expect(await leaveCurrentRoom(db, bob, () => new Set())).toEqual({ lobbyId, closed: false });
     const after = await readRoomSnapshot(db, lobbyId);
     expect(after?.members.map((member) => member.displayName)).toEqual(["Hôte"]);
     expect(after?.revision).toBeGreaterThan(before);
@@ -277,11 +277,11 @@ describe("leaveCurrentRoom", () => {
     expect(await joinRoomByCode(db, { accountId: bob, code: code("BCDEFG"), role: "participant" })).toMatchObject({ ok: true });
   });
 
-  it("closes the room when the host leaves, and frees every member", async () => {
+  it("closes the room when the host leaves without a connected successor, and frees every member", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
     const bob = await account("Bob");
     await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" });
-    expect(await leaveCurrentRoom(db, hostId)).toEqual({ lobbyId, closed: true });
+    expect(await leaveCurrentRoom(db, hostId, () => new Set())).toEqual({ lobbyId, closed: true });
     const snapshot = await readRoomSnapshot(db, lobbyId);
     expect(snapshot).toMatchObject({ phase: "closed", members: [] });
     expect(await findActiveMembership(db, bob)).toBeUndefined();
@@ -293,13 +293,13 @@ describe("leaveCurrentRoom", () => {
     });
   });
 
-  it("closes the room even when a join commits while the host's departure waits for the room", async () => {
+  it("closes without a connected successor even when a join commits while the host's departure waits", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
     const bob = await account("Bob");
     // The departure starts first, then the join takes the room lock before it: the
     // departure's time must still come after the join (left_at >= joined_at).
     const [left, joined] = await startTogether<unknown>([
-      () => leaveCurrentRoom(db, hostId),
+      () => leaveCurrentRoom(db, hostId, () => new Set()),
       () => joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" }),
     ]);
     expect(joined).toMatchObject({ ok: true });
@@ -312,7 +312,7 @@ describe("leaveCurrentRoom", () => {
     const bob = await account("Bob");
     await joinRoomByCode(db, { accountId: bob, code: code("ABCDEF"), role: "participant" });
     const before = (await readRoomSnapshot(db, lobbyId))?.revision ?? 0;
-    const results = await startTogether([() => leaveCurrentRoom(db, bob), () => leaveCurrentRoom(db, bob)]);
+    const results = await startTogether([() => leaveCurrentRoom(db, bob, () => new Set()), () => leaveCurrentRoom(db, bob, () => new Set())]);
     expect(results.filter((result) => result !== undefined)).toEqual([{ lobbyId, closed: false }]);
     expect((await readRoomSnapshot(db, lobbyId))?.revision).toBe(before + 1);
   });
@@ -325,7 +325,7 @@ describe("leaveCurrentRoom", () => {
       const { lobbyId } = await room("ABCDEF");
       const bob = await account("Bob");
       await joinRoomByCode(strictDb, { accountId: bob, code: code("ABCDEF"), role: "participant" });
-      const results = await startTogether([() => leaveCurrentRoom(strictDb, bob), () => leaveCurrentRoom(strictDb, bob)], strict);
+      const results = await startTogether([() => leaveCurrentRoom(strictDb, bob, () => new Set()), () => leaveCurrentRoom(strictDb, bob, () => new Set())], strict);
       expect(results.filter((result) => result !== undefined)).toEqual([{ lobbyId, closed: false }]);
     } finally {
       await strict.end();
@@ -334,7 +334,7 @@ describe("leaveCurrentRoom", () => {
 
   it("closes the room once when the host leaves from two tabs", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
-    const results = await startTogether([() => leaveCurrentRoom(db, hostId), () => leaveCurrentRoom(db, hostId)]);
+    const results = await startTogether([() => leaveCurrentRoom(db, hostId, () => new Set()), () => leaveCurrentRoom(db, hostId, () => new Set())]);
     expect(results.filter((result) => result !== undefined)).toEqual([{ lobbyId, closed: true }]);
     const closed = await pool.query<{ ok: boolean }>(
       "select l.closed_at >= m.left_at as ok from lobbies l join lobby_members m on m.id = l.host_member_id where l.id = $1",
@@ -344,6 +344,6 @@ describe("leaveCurrentRoom", () => {
   });
 
   it("does nothing for an account in no room", async () => {
-    expect(await leaveCurrentRoom(db, await account("Seul"))).toBeUndefined();
+    expect(await leaveCurrentRoom(db, await account("Seul"), () => new Set())).toBeUndefined();
   });
 });

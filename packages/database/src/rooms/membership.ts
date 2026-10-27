@@ -18,6 +18,7 @@ import { accounts, type InterruptionReason, lobbies, lobbyMembers, lobbySettings
 import { boundedTransaction, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
 import { bumpRevision, closeLockedRoom } from "./room-writes";
 import { type RoomSettings, settingsColumns, settingsOf } from "./settings";
+import { transferHostToConnectedMember } from "./succession";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
 export type ActiveMembership = {
@@ -242,15 +243,15 @@ function admissionRefusalResult(refusal: AdmissionRefusal, phase: RoomPhase): Jo
 export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boolean };
 
 /**
- * The account leaves its current room. At the checkpoint, the host leaving closes the
- * room (host succession comes with SALLE-08): every remaining member leaves with it, in
- * the same transaction, so nobody stays blocked by the one-active-room index.
+ * The account leaves its current room. A departing host transfers to the oldest connected
+ * human; without a successor the room closes. Presence must be read synchronously through
+ * the required callback after the room lock, never supplied as a precomputed snapshot.
  *
  * The membership is read again under the room lock: a second tab, or the host closing
  * the room meanwhile, may already have ended it. Departure times are taken after the
  * lock (`statement_timestamp()`), so they never precede a join committed just before.
  */
-export async function leaveCurrentRoom(db: Database, accountId: string): Promise<LeaveRoomResult | undefined> {
+export async function leaveCurrentRoom(db: Database, accountId: string, online: (lobbyId: string) => ReadonlySet<string>): Promise<LeaveRoomResult | undefined> {
   // It may interrupt a race: bounded on the server like every transaction.
   return boundedTransaction(db, async (tx) => {
     const seen = await findActiveMembership(tx, accountId);
@@ -266,9 +267,10 @@ export async function leaveCurrentRoom(db: Database, accountId: string): Promise
     if (lobby === undefined || current?.memberId !== seen.memberId) {
       return undefined;
     }
-    const closesRoom = lobby.hostMemberId === current.memberId;
+    const closesRoom = lobby.hostMemberId === current.memberId &&
+      !(await transferHostToConnectedMember(tx, { lobbyId: current.lobbyId, outgoingHostId: current.memberId, online }));
     if (closesRoom && lobby.currentRaceId !== null && (lobby.phase === "countdown" || lobby.phase === "racing")) {
-      // No succession yet (SALLE-08): the race ends with the room, without results (D-06).
+      // No connected successor: preserve the existing room interruption semantics (D-06).
       await interruptRaceForClosedRoom(tx, lobby.currentRaceId);
     }
     if (closesRoom) {

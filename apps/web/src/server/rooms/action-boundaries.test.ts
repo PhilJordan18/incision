@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { roomPresence } from "@/server/realtime/room-presence";
 
 // Exercise the exported server actions directly: rendering a protected page is not an
 // authorization boundary. Database stubs expose any call made before the session guard.
@@ -102,6 +103,30 @@ describe("server-action identity boundaries (SEC-01)", () => {
     const data = form();
     data.set("returnTo", "//attacker.invalid/path");
     await expect(leaveRoomAction({}, data)).rejects.toEqual(new Error("redirect /"));
-    expect(boundary.leave).toHaveBeenCalledExactlyOnceWith(expect.anything(), "session-account");
+    expect(boundary.leave).toHaveBeenCalledExactlyOnceWith(expect.anything(), "session-account", expect.any(Function));
+  });
+
+  it("leaving reads current process presence lazily and announces a transfer without closure", async () => {
+    const presence = roomPresence();
+    boundary.leave.mockImplementation(async (_db: unknown, _accountId: string, online: (lobbyId: string) => ReadonlySet<string>) => {
+      // The socket arrives after action entry, before the database asks for its snapshot.
+      presence.add("succession-room", "successor", "socket");
+      expect(online("succession-room")).toEqual(new Set(["successor"]));
+      return { lobbyId: "succession-room", closed: false };
+    });
+    try {
+      await expect(leaveRoomAction({}, form())).rejects.toThrow("redirect /");
+      expect(boundary.left).toHaveBeenCalledExactlyOnceWith("succession-room", "session-account", false);
+      expect(boundary.changed).toHaveBeenCalledExactlyOnceWith("succession-room");
+    } finally {
+      presence.remove("succession-room", "successor", "socket");
+    }
+  });
+
+  it("a failed departure is unavailable and announces neither closure nor transfer", async () => {
+    boundary.leave.mockRejectedValue(new Error("storage unavailable"));
+    expect(await leaveRoomAction({}, form())).toEqual({ error: "UNAVAILABLE" });
+    expect(boundary.left).not.toHaveBeenCalled();
+    expect(boundary.changed).not.toHaveBeenCalled();
   });
 });
