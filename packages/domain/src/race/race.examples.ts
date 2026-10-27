@@ -335,7 +335,7 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     expected: { phase: "racing", changed: true, abandons: [[ALICE, "inactivity", at(120_000)]] },
   },
   {
-    name: "a suspension reported late still shows the marker due before it, from exactly 60 s",
+    name: "a suspension from exactly 60 s, reported late, still shows the marker: 60 s were answerable",
     input: { state: race({ clock: at(50_000), entrants: [runner(ALICE), runner(BOB, { lastActivityAt: at(50_000) })] }), event: { type: "inactivityPaused", since: at(60_000), now: at(70_000) } },
     expected: { phase: "racing", changed: true, inactive: [[ALICE, true], [BOB, false]] },
   },
@@ -363,6 +363,16 @@ export const RACE_EXAMPLES: readonly ContractExample<{ readonly state: RaceState
     name: "the 30 s grace keeps running during a suspension: a disconnection abandon, where inactivity would have come first (D-06)",
     input: { state: race({ inactivityPausedAt: at(100_000), clock: at(106_000), entrants: [runner(ALICE, { inactive: true, disconnectedAt: at(105_000) }), runner(BOB, { lastActivityAt: at(99_000) })] }), event: { type: "tick", now: at(140_000) } },
     expected: { phase: "racing", changed: true, abandons: [[ALICE, "disconnection", at(135_000)]] },
+  },
+  {
+    name: "during a suspension, the grace's expiry is still the next deadline",
+    input: { state: race({ inactivityPausedAt: at(100_000), clock: at(106_000), entrants: [runner(ALICE, { inactive: true, disconnectedAt: at(105_000) }), runner(BOB, { lastActivityAt: at(99_000) })] }), event: { type: "tick", now: at(110_000) } },
+    expected: { phase: "racing", changed: false, statuses: [[ALICE, "racing"]], nextDeadline: at(135_001) },
+  },
+  {
+    name: "a suspension during the countdown keeps the start as the next deadline",
+    input: { state: countdown, event: { type: "inactivityPaused", since: at(-2_000), now: at(-2_000) } },
+    expected: { phase: "countdown", changed: false, nextDeadline: at(0) },
   },
   {
     name: "a suspension during the countdown: the race still starts on time",

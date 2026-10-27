@@ -284,4 +284,11 @@ describe("paused inactivity through the coordinator (D-17, F-04.6a)", () => {
     const invalid = { ...state, race: { ...state.race, inactivityPausedAt: asInstant(state.race.clock + 1) } };
     expect(reduceBonusRace(invalid, tick(state.race.clock))).toMatchObject({ ok: false, reason: "INVALID_STATE" });
   });
+
+  it("refuses a pause from after its now, or from an invalid instant, as it refuses an invalid now", () => {
+    const state = ready();
+    for (const since of [6001, -5, 1.5]) {
+      expect(reduceBonusRace(state, { type: "inactivityPaused", since: since as ReturnType<typeof asInstant>, now: asInstant(6000) })).toMatchObject({ ok: false, state, reason: "INVALID_TIME" });
+    }
+  });
 });

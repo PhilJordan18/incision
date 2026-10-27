@@ -108,8 +108,10 @@ export type EntrantState = {
   readonly endedAt?: Instant;
   readonly abandonReason?: AbandonReason;
   /**
-   * D-17: the entrant's last activity, a newly applied batch or a « Je suis là » (`present`).
-   * `startsAt` at creation: nobody can type during the countdown.
+   * D-17: where the inactivity count starts: the last activity, a newly applied batch or a « Je suis
+   * là » (`present`). `startsAt` at creation: nobody can type during the countdown. A resume after a
+   * paused inactivity (`inactivityResumed`) moves it forward by the paused time, so it may be later
+   * than the runner's last action.
    */
   readonly lastActivityAt: Instant;
   /** D-17: shown inactive, from `lastActivityAt` + INACTIVITY_WARNING_MS until the next activity. */
@@ -248,12 +250,14 @@ export type RaceEvent =
   | { readonly type: "interrupt"; readonly now: Instant }
   /**
    * D-17, ADR-0004: the race's ownership lease is suspended, so the server cannot accept answers
-   * from `since`, the first instant its lease stopped being authoritative. Inactivity no longer
-   * runs from `since`, even when the server learns it later: the transitions due before `since`
-   * apply first, those due after it never come from inactivity. The server reduces this event
-   * before any other event at or after `since`. A `since` earlier than the race `clock` counts
-   * from the clock: what was applied stays applied. A pause while paused keeps the first one.
-   * A `since` later than `now` is a programming error (`RangeError`). Not activity.
+   * from `since`: the first instant its lease stopped being authoritative, on the race's clock (the
+   * clock of `now`), never later than `now`. Inactivity stops at `since`, even when the server learns
+   * it later. What a tick at `since` would apply comes first: a marker due at exactly `since` is
+   * shown (60 s were answerable), but an abandon due at exactly `since` is not, since the runner
+   * could not answer at that instant. While paused, no transition comes from inactivity. The server
+   * reduces this event before any other event at or after `since`. A `since` earlier than the race
+   * `clock` counts from the clock: what was applied stays applied. A pause while paused keeps the
+   * first one. A `since` later than `now` is a programming error (`RangeError`). Not activity.
    */
   | { readonly type: "inactivityPaused"; readonly since: Instant; readonly now: Instant }
   /**
