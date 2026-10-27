@@ -102,9 +102,9 @@ Each race records the process that runs it, the generation of that ownership, an
 - `apps/web/src/server/races/race-inactivity-pause.test.ts`, with the real engine, a fake lease on its own monotonic clock, and timers that run 1 ms late at the soonest, as Node's do (D-17):
   - a suspension noticed only at the abandon's tick, or within the handling of an event: no inactivity abandon, no reduction from inside the lease's report, the pause dated from the deadline that passed (never late, about 1 ms early at most);
   - a pause and a resume queued back to back, two suspensions, an answer at the moved deadline;
-  - the time limit and the grace unchanged, a lease lost or a server stopped while a pause is applied or still queued;
+  - the time limit and the grace unchanged; a lease lost while a pause is applied or still queued, a server stopped while one is still queued;
   - the results identical to a race with no suspension, and a WPM series that never moves back, even for a sample due before a queued pause is reduced, and ends on the result;
-  - the real `RaceLease` wired to the runtime: a renewal confirmed too late keeps the pause and the next one resumes it; the race given up 60 s into a suspension, with no abandon and no result.
+  - the real `RaceLease` wired to the runtime: a renewal confirmed too late keeps the pause and the next one resumes it; the race given up 60 s into a suspension, with no marker and no result.
 - `apps/web/src/server/races/boot-recovery.test.ts`: the boot recovery, its retries and the stop.
 - `apps/web/src/server/races/race-runtime.test.ts`, with a fake clock and the real engine: transitions from `nextDeadline`, the controlling tab, nothing accepted or broadcast while the lease is unconfirmed, frozen results retried unchanged, `save_failed` only as the explicit give-up, nothing published while the database never answers, a lost lease never coming back, `engine_error`, the shutdown budget.
 - `apps/web/integration/race.integration.test.ts`: two processes of the production build on one database. Process A freezes (SIGSTOP) during a race; process B leaves the race alone while the lease runs, then recovers it (`owner_lost`) once it has expired; A wakes up, its renewal is refused, nothing it does is applied, and no result exists. A process stopped (SIGTERM) during a race interrupts it (`server_stopped`) and exits.
