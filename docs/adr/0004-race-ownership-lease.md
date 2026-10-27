@@ -97,7 +97,12 @@ Each race records the process that runs it, the generation of that ownership, an
   - one renewal in flight;
   - resuming only after a confirmation;
   - the A/B scenario, ignored late answers, the bound from a slow renewal (counted from its sending);
-  - a suspension reported at the deadline, a refusal while held, a second suspension after resuming, giving up exactly a minute after the suspension.
+  - a suspension reported at the deadline, a refusal while held, a second suspension after resuming, giving up exactly a minute after the suspension;
+  - the instant a suspension began, kept when a renewal confirmed too late moves the deadline, and forgotten once held again (D-17).
+- `apps/web/src/server/races/race-inactivity-pause.test.ts`, with a fake lease on its own monotonic clock and the real engine (D-17):
+  - a suspension noticed only at the abandon's tick, or within the handling of an event: no inactivity abandon, no reduction from inside the lease's report, the pause dated from the deadline that passed (at most 1 ms early);
+  - a pause and a resume queued back to back, two suspensions, an answer at the moved deadline;
+  - the time limit and the grace unchanged, a lost lease while suspended, the results and the WPM series identical to a race with no suspension.
 - `apps/web/src/server/races/boot-recovery.test.ts`: the boot recovery, its retries and the stop.
 - `apps/web/src/server/races/race-runtime.test.ts`, with a fake clock and the real engine: transitions from `nextDeadline`, the controlling tab, nothing accepted or broadcast while the lease is unconfirmed, frozen results retried unchanged, `save_failed` only as the explicit give-up, nothing published while the database never answers, a lost lease never coming back, `engine_error`, the shutdown budget.
 - `apps/web/integration/race.integration.test.ts`: two processes of the production build on one database. Process A freezes (SIGSTOP) during a race; process B leaves the race alone while the lease runs, then recovers it (`owner_lost`) once it has expired; A wakes up, its renewal is refused, nothing it does is applied, and no result exists. A process stopped (SIGTERM) during a race interrupts it (`server_stopped`) and exits.

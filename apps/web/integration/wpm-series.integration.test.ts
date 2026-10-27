@@ -60,7 +60,7 @@ it("persists the runtime's frozen series atomically with the results and reads t
       finalizeRace: (ownership, results) => finalize(db, ownership, results),
       interruptOwnRace: (ownership, reason) => interruptOwnRace(db, ownership, reason),
     },
-    lease: { state: "held", start: vi.fn(), stop: vi.fn(), isAuthoritative: () => true },
+    lease: { state: "held", start: vi.fn(), stop: vi.fn(), isAuthoritative: () => true, suspendedForMs: () => undefined },
     now: () => now, followers: () => followers, onSettled: vi.fn(), log: vi.fn(),
     schedule(callback, delay) {
       const key = nextTimer++;
