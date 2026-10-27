@@ -7,6 +7,7 @@ import { format } from "@/i18n/format";
 import { formatNumber } from "@/i18n/value-format";
 import type { Locale } from "@/i18n/locale";
 import { formatAccuracy, formatElapsed, formatWpm, ordinal } from "@/races/format";
+import { ResultsPodium } from "./results-podium";
 
 type RaceResultsProps = {
   readonly race: RaceResultView;
@@ -73,13 +74,15 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
 
       {actions === undefined ? openRace : actions(openRace)}
 
+      <ResultsPodium entrants={ranked} locale={locale} t={t} />
+
       {/* Scrolls sideways at 360 px: focusable and named, so the keyboard reaches every column. */}
       <div role="region" aria-label={t.results.tableLabel} tabIndex={0} className={`${card} overflow-x-auto p-0`}>
         <table className="w-full min-w-[560px] border-collapse text-left">
           <caption className="sr-only">{t.results.tableLabel}</caption>
           <thead>
             <tr className="border-b border-sillage">
-              {[t.results.columns.rank, t.results.columns.runner, t.results.columns.status, t.results.columns.time, t.results.columns.netWpm, t.results.columns.accuracy].map(
+              {[t.results.columns.rank, t.results.columns.runner, t.results.columns.status, t.results.columns.time, t.results.columns.netWpm, t.results.columns.rawWpm, t.results.columns.accuracy].map(
                 (label, index) => (
                   <th key={label} scope="col" className={`${monoLabel} px-4 py-3 ${index >= 3 ? "text-right" : ""}`}>
                     {label}
@@ -109,6 +112,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{formatElapsed(result.elapsedMs, locale)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatWpm(result.netWpm, locale)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatWpm(result.rawWpm, locale)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatAccuracy(result.accuracy, locale)}</td>
                 </tr>
               );
