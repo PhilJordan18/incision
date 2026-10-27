@@ -94,3 +94,17 @@ The four confirmation variants were rerun with360px included:4 passed (26.3s),
 axe/overflow/focus checks retained and four additional360px screenshots saved.
 No application code changed after4b578fb; this follow-up only expands the browser
 viewport list and evidence.
+
+## CI fixture isolation follow-up — 7b2d5d3
+
+Both initial CI runs at c292031 passed121/122 browser scenarios but the existing
+explicit-close case failed at admission. The retained RSC response returned
+RATE_LIMITED: the expanded C1 test reused demo accounts and consumed their shared
+room-change budgets. Only the already released C1 test now uses fresh fixture
+accounts; production limits and the explicit-close scenario are untouched.
+
+At7b2d5d3, ESLint of rooms.spec.ts and web typecheck passed. The entire targeted
+rooms.spec.ts file passed10/10 (33.1s), including succession and explicit closure,
+on the isolated C1 database/port after A released heavy.sh. The final diff was
+reviewed sequentially: test-only identity isolation, no product/auth-policy change.
+The two failed CI runs remain historical evidence, not claimed green.
