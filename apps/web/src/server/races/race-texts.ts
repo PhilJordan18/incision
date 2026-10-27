@@ -78,7 +78,7 @@ export type CorpusTextsOptions = {
 /**
  * A read that found no active version, or failed, is not repeated sooner: the starts in between get
  * the same answer. It bounds what starts can make the database do while the corpus is missing or
- * broken, whoever sends them (the draw comes before the room's checks).
+ * broken (since F-03.1a, only the host of a waiting room gets as far as a draw).
  */
 export const CORPUS_RETRY_MS = 10_000;
 

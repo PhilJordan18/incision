@@ -3,6 +3,7 @@ import type { RoomPhase } from "@incision/domain";
 import { and, asc, count, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { findActiveMembership } from "../rooms/membership";
+import { readSettingsRevision } from "../rooms/settings";
 import { firstRow } from "../rows";
 import {
   ACTIVE_RACE_STATES,
@@ -64,6 +65,13 @@ export type StartRaceInput<Refusal extends string, Created> = {
   readonly ownerId: string;
   readonly text: string;
   readonly config: Readonly<Record<string, unknown>>;
+  /**
+   * The room whose settings the text and `config` come from (F-03.1), and their revision, read
+   * before the draw: a change saved meanwhile, or a host now in another room (another tab),
+   * refuses the start (SETTINGS_CHANGED), never a race on another room's or stale settings.
+   */
+  readonly lobbyId: string;
+  readonly settingsRevision: number;
   readonly rulesVersion: number;
   /**
    * The engine's start (`createRace`, which applies `createRaceRefusal`: the start rule, then
@@ -84,14 +92,14 @@ export type StartRaceResult<Refusal extends string, Created> =
       /** What `create` returned: the race in memory, committed with its rows. */
       readonly created: Created;
     }
-  | { readonly ok: false; readonly error: "NOT_IN_A_ROOM" | "NOT_HOST" | "ROOM_NOT_WAITING" | Refusal };
+  | { readonly ok: false; readonly error: "NOT_IN_A_ROOM" | "NOT_HOST" | "ROOM_NOT_WAITING" | "SETTINGS_CHANGED" | Refusal };
 
 /**
- * The host starts a race (COURSE-02/03): under the room lock, the room must be waiting and the
- * caller must still host it; the engine creates the race from the participants (spectators
- * never race), or refuses. One transaction freezes the text, the configuration and the
- * entrants, takes the lease, and moves the room to COUNTDOWN, which refuses every new
- * admission (SALLE-09). A second start finds the room in COUNTDOWN and changes nothing.
+ * The host starts a race (COURSE-02/03): under the room lock, the room must be waiting, the
+ * caller must still host it and the settings must be those the text was drawn with; the engine
+ * creates the race from the participants (spectators never race), or refuses. One transaction
+ * freezes the text, the configuration and the entrants, takes the lease, and moves the room to
+ * COUNTDOWN, which refuses every new admission (SALLE-09). A second start finds the room in COUNTDOWN and changes nothing.
  */
 export async function startRace<Refusal extends string, Created>(
   db: Database,
@@ -117,6 +125,10 @@ export async function startRace<Refusal extends string, Created>(
     }
     if (lobby.phase !== "waiting") {
       return { ok: false, error: "ROOM_NOT_WAITING" };
+    }
+    // Settings change under the same lock (configureRoom), and they are this room's only.
+    if (lobby.id !== input.lobbyId || (await readSettingsRevision(tx, lobby.id)) !== input.settingsRevision) {
+      return { ok: false, error: "SETTINGS_CHANGED" };
     }
     const participants = await tx
       .select({ memberId: lobbyMembers.id, accountId: lobbyMembers.accountId, displayName: lobbyMembers.displayName })

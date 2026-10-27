@@ -19,8 +19,9 @@ import {
 } from "../src/races/lifecycle";
 import { readRaceForEntrant, readRoomRaceForMember } from "../src/races/results";
 import { createRoomWithHost } from "../src/rooms/create-room";
-import { closeRoom, startNextRound } from "../src/rooms/host-actions";
+import { closeRoom, configureRoom, startNextRound } from "../src/rooms/host-actions";
 import { joinRoomByCode, leaveCurrentRoom, readRoomSnapshot } from "../src/rooms/membership";
+import { readOwnRoomSettings, type RoomSettings } from "../src/rooms/settings";
 import { raceResults } from "../src/schema";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
@@ -97,8 +98,22 @@ async function room(value: string, others: string[] = ["Bea"]): Promise<{ lobbyI
   return { lobbyId: created.room.id, hostId, memberIds };
 }
 
+/** A start as the server sends it: with the room and the settings revision read before the draw (F-03.1a). */
 async function started(hostId: string, ownerId = OWNER_A) {
-  const result = await startRace(db, { accountId: hostId, ownerId, text: "La mer est calme.", config: { language: "fr" }, rulesVersion: 1, create: atLeastTwo });
+  const drawn = await readOwnRoomSettings(db, hostId);
+  if (drawn === undefined) {
+    throw new Error("NOT_IN_A_ROOM");
+  }
+  const result = await startRace(db, {
+    accountId: hostId,
+    ownerId,
+    text: "La mer est calme.",
+    config: { language: "fr" },
+    lobbyId: drawn.lobbyId,
+    settingsRevision: drawn.settings.revision,
+    rulesVersion: 1,
+    create: atLeastTwo,
+  });
   if (!result.ok) {
     throw new Error(result.error);
   }
@@ -290,27 +305,30 @@ describe("startRace", () => {
   });
 
   it("refuses a member who does not host, an account in no room, a room not waiting, and the engine's refusal", async () => {
-    const { hostId } = await room("ABCDEF", ["Bea"]);
+    const { lobbyId, hostId } = await room("ABCDEF", ["Bea"]);
     const bea = (await pool.query<{ account_id: string }>("select account_id from lobby_members where display_name = 'Bea'")).rows[0]!.account_id;
     const outsider = await account("Dehors");
-    const call = (accountId: string) => startRace(db, { accountId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo });
+    const call = (accountId: string, drawnIn = lobbyId) =>
+      startRace(db, { accountId, ownerId: OWNER_A, text: "x", config: {}, lobbyId: drawnIn, settingsRevision: 0, rulesVersion: 1, create: atLeastTwo });
     expect(await call(bea)).toEqual({ ok: false, error: "NOT_HOST" });
     expect(await call(outsider)).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
     await started(hostId);
     expect(await call(hostId)).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
 
     const alone = await room("BCDEFG", []);
-    expect(await call(alone.hostId)).toEqual({ ok: false, error: "NOT_ENOUGH_PARTICIPANTS" });
+    expect(await call(alone.hostId, alone.lobbyId)).toEqual({ ok: false, error: "NOT_ENOUGH_PARTICIPANTS" });
     expect(await pool.query("select 1 from races where lobby_id = $1", [alone.lobbyId])).toMatchObject({ rowCount: 0 });
   });
 
   it("has the engine create the race with the very ids its rows keep, and commits what it created", async () => {
-    const { hostId } = await room("ABCDEF", ["Bea"]);
+    const { lobbyId, hostId } = await room("ABCDEF", ["Bea"]);
     const result = await startRace(db, {
       accountId: hostId,
       ownerId: OWNER_A,
       text: "La mer est calme.",
       config: {},
+      lobbyId,
+      settingsRevision: 0,
       rulesVersion: 1,
       create: (race) => ({ ok: true, race }),
     });
@@ -332,6 +350,8 @@ describe("startRace", () => {
         ownerId: OWNER_A,
         text: "x",
         config: {},
+        lobbyId,
+        settingsRevision: 0,
         rulesVersion: 1,
         create: () => {
           throw new RangeError("Invalid instant");
@@ -344,7 +364,7 @@ describe("startRace", () => {
 
   it("creates one race when the host starts twice at the same moment", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
-    const call = () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo });
+    const call = () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, lobbyId, settingsRevision: 0, rulesVersion: 1, create: atLeastTwo });
     const [first, second] = await underRoomLock(lobbyId, [call, call]);
     expect([first.ok, second.ok].sort()).toEqual([false, true]);
     expect([first, second].find((result) => !result.ok)).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
@@ -357,7 +377,7 @@ describe("startRace", () => {
     const late = await account("Tard");
     const [joinedEarly, start, joinedLate] = await underRoomLock(lobbyId, [
       () => joinRoomByCode(db, { accountId: early, code: code("ABCDEF"), role: "participant" }),
-      () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, rulesVersion: 1, create: atLeastTwo }),
+      () => startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, lobbyId, settingsRevision: 0, rulesVersion: 1, create: atLeastTwo }),
       () => joinRoomByCode(db, { accountId: late, code: code("ABCDEF"), role: "participant" }),
     ]);
     expect(joinedEarly).toMatchObject({ ok: true });
@@ -1094,11 +1114,20 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
   });
 
   it("races everyone present in the next round, including whoever joined on the results", async () => {
-    const { hostId, race } = await afterResults(["Bea"]);
+    const { lobbyId, hostId, race } = await afterResults(["Bea"]);
     const cyr = await account("Cyr");
     expect(await joinRoomByCode(db, { accountId: cyr, code: code("ABCDEF"), role: "participant" })).toMatchObject({ ok: true });
     await startNextRound(db, { accountId: hostId, raceId: race.raceId });
-    const second = await startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "La mer est calme.", config: { language: "fr" }, rulesVersion: 1, create: atLeastTwo });
+    const second = await startRace(db, {
+      accountId: hostId,
+      ownerId: OWNER_A,
+      text: "La mer est calme.",
+      config: { language: "fr" },
+      lobbyId,
+      settingsRevision: 0,
+      rulesVersion: 1,
+      create: atLeastTwo,
+    });
     expect(second.ok && second.entrants.map((entrant) => entrant.displayName)).toEqual(["Hôte", "Bea", "Cyr"]);
     expect(second.ok && (await pool.query<{ round_no: number }>("select round_no from races where id = $1", [second.race.raceId])).rows[0]?.round_no).toBe(2);
   });
@@ -1199,5 +1228,86 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
     expect(closedFirst).toEqual({ ok: true, lobbyId: second.lobbyId });
     expect(refused).toEqual({ ok: false, error: "ROOM_NOT_ADMITTING", phase: "closed" });
     expect((await pool.query("select 1 from lobby_members where lobby_id = $1 and left_at is null", [second.lobbyId])).rowCount).toBe(0);
+  });
+});
+
+describe("room settings under the room lock (F-03.1a)", () => {
+  const ENGLISH_ONE_MINUTE = { textLanguage: "en", timeLimitMs: 60_000, errorMode: "mandatory" } as const;
+  const save = (hostId: string, revision: number, value = "ABCDEF", settings: Omit<RoomSettings, "revision"> = ENGLISH_ONE_MINUTE) =>
+    configureRoom(db, { accountId: hostId, code: code(value), revision, settings });
+  /** A start whose text was drawn in `lobbyId` with the settings of `settingsRevision`. */
+  const start = (hostId: string, lobbyId: string, settingsRevision: number) =>
+    startRace(db, { accountId: hostId, ownerId: OWNER_A, text: "x", config: {}, lobbyId, settingsRevision, rulesVersion: 1, create: atLeastTwo });
+  const settingsOf = async (lobbyId: string) => (await readRoomSnapshot(db, lobbyId))?.settings;
+
+  it("orders a save and a start by the room lock: the second one is refused, in either order", async () => {
+    for (const [value, withoutRow] of [
+      ["ABCDEF", false],
+      ["CDEFGH", true],
+    ] as const) {
+      const first = await room(value);
+      if (withoutRow) {
+        // A room created by a process older than migration 0006: the save creates its row.
+        await pool.query("delete from lobby_settings where lobby_id = $1", [first.lobbyId]);
+      }
+      const [saved, refused] = await underRoomLock(first.lobbyId, [() => save(first.hostId, 0, value), () => start(first.hostId, first.lobbyId, 0)]);
+      expect(saved, value).toEqual({ ok: true, lobbyId: first.lobbyId, revision: 1 });
+      // Its text was drawn with revision 0: no race, and the server draws again with the saved settings.
+      expect(refused, value).toEqual({ ok: false, error: "SETTINGS_CHANGED" });
+      expect(await lobbyOf(first.lobbyId)).toMatchObject({ phase: "waiting", current_race_id: null });
+      expect(await pool.query("select 1 from races where lobby_id = $1", [first.lobbyId])).toMatchObject({ rowCount: 0 });
+    }
+
+    const second = await room("BCDEFG");
+    const [begun, late] = await underRoomLock(second.lobbyId, [() => start(second.hostId, second.lobbyId, 0), () => save(second.hostId, 0, "BCDEFG")]);
+    expect(begun).toMatchObject({ ok: true });
+    expect(late).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
+    expect(await settingsOf(second.lobbyId)).toEqual({ revision: 0, textLanguage: "fr", timeLimitMs: 120_000, errorMode: "mandatory" });
+  });
+
+  it("keeps one of two saves quoting the same revision (two tabs of the host), with or without a stored row", async () => {
+    for (const [value, withoutRow] of [
+      ["ABCDEF", false],
+      ["BCDEFG", true],
+    ] as const) {
+      const { lobbyId, hostId } = await room(value);
+      if (withoutRow) {
+        // A room created by a process older than migration 0006.
+        await pool.query("delete from lobby_settings where lobby_id = $1", [lobbyId]);
+      }
+      const before = await lobbyOf(lobbyId);
+      const [kept, stale] = await underRoomLock(lobbyId, [
+        () => save(hostId, 0, value),
+        () => save(hostId, 0, value, { ...ENGLISH_ONE_MINUTE, timeLimitMs: 30_000 }),
+      ]);
+      expect(kept, value).toEqual({ ok: true, lobbyId, revision: 1 });
+      expect(stale, value).toEqual({ ok: false, error: "STALE_REVISION" });
+      expect(await settingsOf(lobbyId)).toEqual({ revision: 1, ...ENGLISH_ONE_MINUTE });
+      expect((await lobbyOf(lobbyId))?.revision).toBe((before?.revision ?? 0) + 1);
+    }
+  });
+
+  it("locks the settings from the countdown to the results, then keeps them for the next round, editable again", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF");
+    expect(await save(hostId, 0)).toMatchObject({ ok: true, revision: 1 });
+    const first = await start(hostId, lobbyId, 1);
+    if (!first.ok) {
+      throw new Error(first.error);
+    }
+    expect(await save(hostId, 1)).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
+    await beginRacing(db, first.race);
+    expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "racing" });
+    expect(await save(hostId, 1)).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
+    await finalizeRace(db, first.race, resultsFor(first.entrants));
+    expect(await lobbyOf(lobbyId)).toMatchObject({ phase: "results" });
+    expect(await save(hostId, 1)).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
+    expect(await settingsOf(lobbyId)).toEqual({ revision: 1, ...ENGLISH_ONE_MINUTE });
+
+    await startNextRound(db, { accountId: hostId, raceId: first.race.raceId });
+    // Back in the waiting room: the same settings at the same revision, which the host may change again.
+    expect(await settingsOf(lobbyId)).toEqual({ revision: 1, ...ENGLISH_ONE_MINUTE });
+    expect(await save(hostId, 1, "ABCDEF", { ...ENGLISH_ONE_MINUTE, textLanguage: "fr" })).toMatchObject({ ok: true, revision: 2 });
+    expect(await start(hostId, lobbyId, 1)).toEqual({ ok: false, error: "SETTINGS_CHANGED" });
+    expect(await start(hostId, lobbyId, 2)).toMatchObject({ ok: true });
   });
 });

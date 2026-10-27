@@ -7,7 +7,13 @@ import { AttemptLimiter } from "@/server/auth/attempt-limiter";
  */
 export const ROOM_CHANGE_LIMIT = { maxFailures: 10, windowMs: 60_000 } as const;
 
-const processGlobal = globalThis as typeof globalThis & { incisionRoomChanges?: AttemptLimiter };
+/**
+ * Settings saves one account may make per minute (F-03.1), refused ones included. Counted apart from
+ * the room changes, so that adjusting the settings never spends the budget for leaving or closing.
+ */
+export const SETTINGS_CHANGE_LIMIT = { maxFailures: 30, windowMs: 60_000 } as const;
+
+const processGlobal = globalThis as typeof globalThis & { incisionRoomChanges?: AttemptLimiter; incisionSettingsChanges?: AttemptLimiter };
 
 /** One counter per process: Next bundles each server action module separately. */
 function roomChanges(): AttemptLimiter {
@@ -27,4 +33,14 @@ export function allowRoomChange(accountId: string, limiter: AttemptLimiter = roo
 /** Gives back the change counted for a join that the code limit refused before anything changed. */
 export function forgiveRoomChange(accountId: string, limiter: AttemptLimiter = roomChanges()): void {
   limiter.forgive(accountId);
+}
+
+function settingsChanges(): AttemptLimiter {
+  processGlobal.incisionSettingsChanges ??= new AttemptLimiter(SETTINGS_CHANGE_LIMIT);
+  return processGlobal.incisionSettingsChanges;
+}
+
+/** Counts one settings save of the account; false once it made too many this minute. */
+export function allowSettingsChange(accountId: string, limiter: AttemptLimiter = settingsChanges()): boolean {
+  return allowRoomChange(accountId, limiter);
 }

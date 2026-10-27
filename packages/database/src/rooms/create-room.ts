@@ -1,10 +1,11 @@
-import { canonicalDisplayName, generateRoomCode, type MemberRole, type RandomIndex, type RoomCode } from "@incision/domain";
+import { canonicalDisplayName, generateRoomCode, type MemberRole, type RandomIndex, type RoomCode, type TextLanguage } from "@incision/domain";
 import { eq } from "drizzle-orm";
 import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
 import { firstRow } from "../rows";
-import { accounts, lobbies, lobbyMembers } from "../schema";
+import { accounts, lobbies, lobbyMembers, lobbySettings } from "../schema";
 import { boundedTransaction, type Transaction } from "../transaction";
+import { DEFAULT_TEXT_LANGUAGE, initialRoomSettings } from "./settings";
 
 export const ROOM_CODE_ATTEMPTS = 5;
 
@@ -15,6 +16,8 @@ export type CreateRoomInput = {
   readonly capacity: number;
   /** Must be a CSPRNG in production (`crypto.randomInt`), see generateRoomCode. */
   readonly randomIndex: RandomIndex;
+  /** The creator's interface language, the room's first text language (D-19); DEFAULT_TEXT_LANGUAGE when not given. */
+  readonly textLanguage?: TextLanguage;
 };
 
 export type CreatedRoom = { readonly id: string; readonly code: RoomCode; readonly hostMemberId: string };
@@ -24,7 +27,7 @@ export type CreateRoomResult =
   | { readonly ok: false; readonly error: "ALREADY_IN_ROOM" | "ACCOUNT_NOT_FOUND" | "CODE_ATTEMPTS_EXHAUSTED" };
 
 /**
- * Creates a room, its creator's membership and the host link atomically (SALLE-01/02/06).
+ * Creates a room, its settings, its creator's membership and the host link atomically (SALLE-01/02/06, F-03.1).
  * A unique violation aborts the PostgreSQL transaction, so a code collision retries the
  * whole transaction with a new code, a bounded number of times. "Already in a room" is
  * detected by the database constraint, which also covers concurrent requests.
@@ -81,6 +84,8 @@ async function insertRoom(tx: Transaction, input: CreateRoomInput, code: RoomCod
   );
   // The member was created active in this transaction, so the host is an active member.
   await tx.update(lobbies).set({ hostMemberId: member.id }).where(eq(lobbies.id, lobby.id));
+  const { textLanguage, timeLimitMs, errorMode } = initialRoomSettings(input.textLanguage ?? DEFAULT_TEXT_LANGUAGE);
+  await tx.insert(lobbySettings).values({ lobbyId: lobby.id, textLanguage, timeLimitMs, errorMode });
 
   return { ok: true, room: { id: lobby.id, code, hostMemberId: member.id } };
 }

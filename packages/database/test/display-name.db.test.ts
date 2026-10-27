@@ -44,11 +44,12 @@ describe("account-scoped display name update", () => {
 
   it("preserves active room and historical entrant snapshots", async () => {
     const account = await findOrCreateOAuthAccount(db, { provider: "discord", providerSubject: "snapshot", initialDisplayName: "Room Name" });
-    expect((await createRoomWithHost(db, { accountId: account.accountId, role: "participant", visibility: "code", capacity: 8, randomIndex: () => 0 })).ok).toBe(true);
+    const created = await createRoomWithHost(db, { accountId: account.accountId, role: "participant", visibility: "code", capacity: 8, randomIndex: () => 0 });
+    if (!created.ok) throw new Error(created.error);
     const before = (await pool.query("select * from lobby_members where account_id = $1", [account.accountId])).rows;
     // One entrant is sufficient for this storage fixture; production's pure rule checks two.
     const race = await startRace(db, { accountId: account.accountId, ownerId: "00000000-0000-4000-8000-000000000001",
-      text: "La mer.", config: { language: "fr" }, rulesVersion: 1, create: () => ({ ok: true as const, race: {} }) });
+      text: "La mer.", config: { language: "fr" }, lobbyId: created.room.id, settingsRevision: 0, rulesVersion: 1, create: () => ({ ok: true as const, race: {} }) });
     expect(race.ok).toBe(true);
     const entrants = (await pool.query("select * from race_entrants where account_id = $1", [account.accountId])).rows;
     expect(entrants).toHaveLength(1);

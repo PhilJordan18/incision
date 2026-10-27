@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AttemptLimiter } from "@/server/auth/attempt-limiter";
-import { ROOM_CHANGE_LIMIT } from "./room-change-limiter";
+import { ROOM_CHANGE_LIMIT, SETTINGS_CHANGE_LIMIT } from "./room-change-limiter";
 
 // The host's actions without Next or a database: a signed-in account, the database answers mocked.
 const startNextRound = vi.hoisted(() => vi.fn());
 const closeRoom = vi.hoisted(() => vi.fn());
+const configureRoom = vi.hoisted(() => vi.fn());
 const notifyRoomChanged = vi.hoisted(() => vi.fn());
 const notifyMemberLeft = vi.hoisted(() => vi.fn());
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/i18n/server", () => ({ getRequestLocale: async () => "en" }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
     throw new Error(`redirect ${path}`);
@@ -20,11 +22,12 @@ vi.mock("@incision/database", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@incision/database")>()),
   startNextRound,
   closeRoom,
+  configureRoom,
 }));
 
-const { closeRoomAction, nextRoundAction } = await import("./actions");
+const { closeRoomAction, configureRoomAction, nextRoundAction } = await import("./actions");
 
-const processGlobal = globalThis as typeof globalThis & { incisionRoomChanges?: AttemptLimiter };
+const processGlobal = globalThis as typeof globalThis & { incisionRoomChanges?: AttemptLimiter; incisionSettingsChanges?: AttemptLimiter };
 const RACE = "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b";
 
 function nextRound(raceId?: string) {
@@ -43,12 +46,22 @@ function close(code?: string) {
   return closeRoomAction(form);
 }
 
+function configure(fields: Readonly<Record<string, string>> = {}) {
+  const form = new FormData();
+  for (const [name, value] of Object.entries({ code: "ABCDEF", revision: "2", textLanguage: "en", timeLimitSeconds: "60", ...fields })) {
+    form.set(name, value);
+  }
+  return configureRoomAction(form);
+}
+
 beforeEach(() => {
   processGlobal.incisionRoomChanges = new AttemptLimiter(ROOM_CHANGE_LIMIT);
+  processGlobal.incisionSettingsChanges = new AttemptLimiter(SETTINGS_CHANGE_LIMIT);
 });
 
 afterEach(() => {
   delete processGlobal.incisionRoomChanges;
+  delete processGlobal.incisionSettingsChanges;
   vi.clearAllMocks();
   vi.restoreAllMocks();
 });
@@ -135,5 +148,65 @@ describe("closeRoomAction", () => {
     }
     expect(await close("ABCDEF")).toEqual({ error: "RATE_LIMITED" });
     expect(closeRoom).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("configureRoomAction", () => {
+  it("saves the settings the form names for the session's account, tells the room's pages, and answers the new revision", async () => {
+    configureRoom.mockResolvedValueOnce({ ok: true, lobbyId: "L", revision: 3 });
+    expect(await configure({ code: " abcdef " })).toEqual({ revision: 3 });
+    expect(configureRoom).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
+      accountId: "alice",
+      code: "ABCDEF",
+      revision: 2,
+      settings: { textLanguage: "en", timeLimitMs: 60_000, errorMode: "mandatory" },
+    });
+    expect(notifyRoomChanged).toHaveBeenCalledExactlyOnceWith("L");
+    expect(notifyMemberLeft).not.toHaveBeenCalled();
+  });
+
+  it("refuses malformed or not yet runnable settings before the budget and the database", async () => {
+    const malformed: Readonly<Record<string, string>>[] = [{ code: "" }, { revision: "-1" }, { textLanguage: "de" }, { timeLimitSeconds: "121" }, { timeLimitSeconds: "none" }];
+    for (const fields of malformed) {
+      expect(await configure(fields), JSON.stringify(fields)).toEqual({ error: "INVALID_SETTINGS" });
+    }
+    expect(configureRoom).not.toHaveBeenCalled();
+    // The refused forms spent nothing: the whole budget is still there.
+    configureRoom.mockResolvedValue({ ok: true, lobbyId: "L", revision: 3 });
+    for (let index = 0; index < SETTINGS_CHANGE_LIMIT.maxFailures; index += 1) {
+      expect(await configure()).toEqual({ revision: 3 });
+    }
+    expect(await configure()).toEqual({ error: "RATE_LIMITED" });
+    expect(configureRoom).toHaveBeenCalledTimes(SETTINGS_CHANGE_LIMIT.maxFailures);
+  });
+
+  it("passes the database's refusals on and tells nobody; turns a failure into UNAVAILABLE", async () => {
+    for (const error of ["NOT_HOST", "NOT_IN_A_ROOM", "ROOM_NOT_WAITING", "STALE_REVISION"]) {
+      configureRoom.mockResolvedValueOnce({ ok: false, error });
+      expect(await configure()).toEqual({ error });
+    }
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    configureRoom.mockRejectedValueOnce(new Error("connection lost"));
+    expect(await configure()).toEqual({ error: "UNAVAILABLE" });
+    expect(notifyRoomChanged).not.toHaveBeenCalled();
+  });
+
+  it("counts its saves apart from the room changes, refused ones included", async () => {
+    configureRoom.mockResolvedValue({ ok: false, error: "STALE_REVISION" });
+    for (let index = 0; index < SETTINGS_CHANGE_LIMIT.maxFailures; index += 1) {
+      await configure();
+    }
+    expect(await configure()).toEqual({ error: "RATE_LIMITED" });
+    // Closing the room still has its whole budget...
+    closeRoom.mockResolvedValue({ ok: true, lobbyId: "L" });
+    expect(await close("ABCDEF")).toEqual({});
+    // ...and spending the room changes leaves the settings budget alone.
+    processGlobal.incisionSettingsChanges = new AttemptLimiter(SETTINGS_CHANGE_LIMIT);
+    for (let index = 1; index < ROOM_CHANGE_LIMIT.maxFailures; index += 1) {
+      await close("ABCDEF");
+    }
+    expect(await close("ABCDEF")).toEqual({ error: "RATE_LIMITED" });
+    configureRoom.mockResolvedValueOnce({ ok: true, lobbyId: "L", revision: 1 });
+    expect(await configure()).toEqual({ revision: 1 });
   });
 });

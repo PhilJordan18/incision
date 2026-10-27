@@ -6,6 +6,7 @@ import { ROOM_CHANGE_LIMIT } from "./room-change-limiter";
 // The join action without Next or a database: a signed-in account, from one address.
 const joinRoomByCode = vi.hoisted(() => vi.fn());
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-incision-client-address": "203.0.113.1" }) }));
+vi.mock("@/i18n/server", () => ({ getRequestLocale: async () => "en" }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
     throw new Error(`redirect ${path}`);
