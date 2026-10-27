@@ -5,6 +5,7 @@ import { ROOM_CHANGE_LIMIT } from "./room-change-limiter";
 
 const mocks = vi.hoisted(() => ({ join: vi.fn(), membership: vi.fn(), notify: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-incision-client-address": "203.0.113.33" }) }));
+vi.mock("@/i18n/server", () => ({ getRequestLocale: async () => "en" }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect ${path}`); } }));
 vi.mock("@/server/auth/session", () => ({ getAccountSession: async () => ({ accountId: "spectator" }), requireAccountSession: vi.fn() }));
 vi.mock("@/server/auth/store", () => ({ authDatabase: () => ({}) }));

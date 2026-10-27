@@ -8,6 +8,7 @@ import {
   getDatabase,
   interruptOwnRace,
   loadActiveCorpus,
+  readOwnRoomSettings,
   readRoomSnapshot,
   readSessionVersion,
   recoverAbandonedRaces,
@@ -72,6 +73,7 @@ async function main(): Promise<void> {
     ownerId: processOwnerId(),
     store: {
       startRace: (input) => startRace(databaseOf(env), input),
+      readOwnRoomSettings: (accountId) => readOwnRoomSettings(databaseOf(env), accountId),
       beginRacing: (ownership) => beginRacing(databaseOf(env), ownership),
       finalizeRace: (ownership, results) => finalizeRace(databaseOf(env), ownership, results),
       interruptOwnRace: (ownership, reason) => interruptOwnRace(databaseOf(env), ownership, reason),

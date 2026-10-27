@@ -7,6 +7,7 @@ import { io } from "socket.io-client";
 import { HostLeaveConfirm } from "@/components/rooms/host-leave-confirm";
 import { HostRoundActions } from "@/components/rooms/host-round-actions";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
+import { RoomSettingsPanel } from "@/components/rooms/room-settings-panel";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatePanel } from "@/components/ui/state-panel";
 import { card, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
@@ -14,6 +15,7 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import { formatNumber } from "@/i18n/value-format";
 import type { Locale } from "@/i18n/locale";
+import { roomStartNote } from "@/i18n/room-settings";
 import { BonusChannel } from "@/races/bonus-channel";
 import { BonusClient } from "@/races/bonus-client";
 import { RACE_BONUS_ACTIVATE_EVENT, RACE_BONUS_ANNOUNCEMENT_EVENT, RACE_BONUS_SELF_EVENT } from "@/races/bonus-protocol";
@@ -562,8 +564,10 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       )}
 
       {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
+      <RoomSettingsPanel key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
+        live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && (
-        <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants} t={tRaces} />
+        <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants} t={tRaces} note={roomStartNote(snapshot.settings, locale)} />
       )}
       {self.isHost && <HostRoundActions t={t.hostActions} code={snapshot.code} />}
 

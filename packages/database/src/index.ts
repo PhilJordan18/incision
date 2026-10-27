@@ -14,5 +14,6 @@ export * from "./races/results";
 export * from "./rooms/create-room";
 export * from "./rooms/host-actions";
 export * from "./rooms/membership";
+export * from "./rooms/settings";
 export * from "./schema";
 export * from "./tls";

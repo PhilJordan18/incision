@@ -1,4 +1,4 @@
-import { MEMBER_ROLES, ROOM_PHASES } from "@incision/domain";
+import { ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "@incision/domain";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -22,6 +22,8 @@ export const lobbyVisibility = pgEnum("lobby_visibility", ["public", "code", "pr
 /** COURSE-01 states: EN_ATTENTE, DECOMPTE, EN_COURSE, RESULTATS, FERMEE. */
 export const lobbyPhase = pgEnum("lobby_phase", ROOM_PHASES);
 export const memberRole = pgEnum("member_role", MEMBER_ROLES);
+export const textLanguage = pgEnum("text_language", TEXT_LANGUAGES);
+export const errorMode = pgEnum("error_mode", ERROR_MODES);
 
 /** Presence of an account in a room. Leaving sets `left_at`; rows are kept. */
 export const lobbyMembers = pgTable(
@@ -103,5 +105,34 @@ export const lobbies = pgTable(
       foreignColumns: [races.lobbyId, races.id],
     }).onDelete("no action"),
     check("lobbies_active_phase_has_race", sql`${table.phase} not in ('countdown', 'racing', 'results') or ${table.currentRaceId} is not null`),
+  ],
+);
+
+/**
+ * A room's race configuration (F-03.1, CONF-01/02/08/12): one row per room, written with the room
+ * (rooms of a process older than migration 0006 may lack it; readers then use the defaults). The
+ * revision increases with every change the host saves, and a start checks it under the room lock.
+ * The other text settings keep D-19's defaults until the host can choose them.
+ */
+export const lobbySettings = pgTable(
+  "lobby_settings",
+  {
+    lobbyId: uuid("lobby_id")
+      .primaryKey()
+      .references(() => lobbies.id, { onDelete: "cascade" }),
+    revision: integer().notNull().default(0),
+    /** The language of the race texts, independent of anyone's interface (CONF-02). */
+    textLanguage: textLanguage("text_language").notNull(),
+    /** Null: no time limit at all (CONF-01, D-17). */
+    timeLimitMs: integer("time_limit_ms"),
+    errorMode: errorMode("error_mode").notNull(),
+  },
+  (table) => [
+    check("lobby_settings_revision_non_negative", sql`${table.revision} >= 0`),
+    // The engine's bounds (TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS), whatever the server accepts today.
+    check(
+      "lobby_settings_time_limit_range",
+      sql`${table.timeLimitMs} is null or ${table.timeLimitMs} between ${sql.raw(String(TIME_LIMIT_MIN_MS))} and ${sql.raw(String(TIME_LIMIT_MAX_MS))}`,
+    ),
   ],
 );

@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { io as connect, type Socket } from "socket.io-client";
 import { expect, it, vi } from "vitest";
-import type { StartRaceInput } from "@incision/database";
+import { initialRoomSettings, type StartRaceInput } from "@incision/database";
 import type { BonusRaceState, CreateRaceRefusal } from "@incision/domain";
 import { RaceService } from "../races/race-service";
 import { fixedRaceTexts } from "../races/race-texts";
@@ -45,6 +45,7 @@ it("browser controller retries a lost socket acknowledgement without a second ef
     }),
     beginRacing: vi.fn(async () => won), finalizeRace: vi.fn(async () => won),
     interruptOwnRace: vi.fn(async () => won), renewRaceLease: vi.fn(async () => ({ renewed: true })),
+    readOwnRoomSettings: vi.fn(async () => ({ lobbyId: "lobby", phase: "waiting" as const, isHost: true, settings: initialRoomSettings("fr") })),
   };
   const service = new RaceService({ ownerId: "owner", store, now: () => now, monotonic: () => now,
     schedule: () => () => {}, onRoomChanged: () => {}, log: () => {}, racesOpen: true,

@@ -14,9 +14,10 @@ import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
 import { interruptRaceForClosedRoom } from "../races/interruption";
 import { firstRow } from "../rows";
-import { accounts, type InterruptionReason, lobbies, lobbyMembers, type RACE_STATES, races } from "../schema";
+import { accounts, type InterruptionReason, lobbies, lobbyMembers, lobbySettings, type RACE_STATES, races } from "../schema";
 import { boundedTransaction, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
 import { bumpRevision, closeLockedRoom } from "./room-writes";
+import { type RoomSettings, settingsColumns, settingsOf } from "./settings";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
 export type ActiveMembership = {
@@ -76,11 +77,13 @@ export type RoomSnapshot = {
   readonly members: readonly RoomMember[];
   /** Kept once the room goes back to waiting, so its members learn how that race ended. */
   readonly race?: RoomRace;
+  /** What the next race will run with (F-03.1); its revision changes with every saved change. */
+  readonly settings: RoomSettings;
 };
 
 /**
- * Room and its active members in one statement, so the revision and the members come
- * from the same snapshot (no query per member).
+ * Room, settings and active members in one statement, so the revision, the settings and the
+ * members come from the same snapshot (no query per member).
  */
 export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<RoomSnapshot | undefined> {
   const rows = await db
@@ -97,8 +100,10 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
       raceId: races.id,
       raceState: races.state,
       interruptionReason: races.interruptionReason,
+      ...settingsColumns,
     })
     .from(lobbies)
+    .leftJoin(lobbySettings, eq(lobbySettings.lobbyId, lobbies.id))
     .leftJoin(races, eq(races.id, lobbies.currentRaceId))
     .leftJoin(lobbyMembers, and(eq(lobbyMembers.lobbyId, lobbies.id), isNull(lobbyMembers.leftAt)))
     .where(eq(lobbies.id, lobbyId))
@@ -118,7 +123,16 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
     lobby.raceId === null || lobby.raceState === null
       ? undefined
       : { raceId: lobby.raceId, state: lobby.raceState, interruptionReason: lobby.interruptionReason };
-  return { lobbyId, code: lobby.code, phase: lobby.phase, capacity: lobby.capacity, revision: lobby.revision, members, ...(race === undefined ? {} : { race }) };
+  return {
+    lobbyId,
+    code: lobby.code,
+    phase: lobby.phase,
+    capacity: lobby.capacity,
+    revision: lobby.revision,
+    members,
+    ...(race === undefined ? {} : { race }),
+    settings: settingsOf(lobby),
+  };
 }
 
 export type JoinRoomInput = { readonly accountId: string; readonly code: RoomCode; readonly role: MemberRole };
