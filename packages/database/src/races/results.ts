@@ -1,6 +1,9 @@
 import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import { compareResultRecord, resultRecordCategory, type RecordCategory, type ResultRecord } from "@incision/domain";
 import { z } from "zod";
+import type { StoredWpmSeries } from "@incision/domain";
+import { raceWpmSeries } from "../schema/race-wpm-series";
+import { checkedStoredWpmSeries } from "./wpm-series";
 import type { Database } from "../client";
 import { type AbandonmentReason, type InterruptionReason, lobbies, lobbyMembers, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
 
@@ -19,6 +22,8 @@ export type EntrantResult = {
   readonly accuracy: number;
   /** Cumulative wrong insertions, including errors subsequently corrected (D-09). */
   readonly errors: number;
+  /** Absent only for historical rows without collected observations; never fabricated. */
+  readonly wpmSeries?: StoredWpmSeries;
 };
 
 export type EntrantResultView = {
@@ -111,6 +116,9 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       ordinal: raceEntrants.ordinal,
       displayName: raceEntrants.displayNameSnapshot,
       accountId: raceEntrants.accountId,
+      entrantId: raceEntrants.id,
+      correctInputs: raceResults.correctInputs,
+      totalInputs: raceResults.totalInputs,
       // Null when the entrant has no result row (left join).
       result: {
         outcome: raceResults.outcome,
@@ -130,6 +138,10 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
     .where(eq(raceEntrants.raceId, race.raceId))
     .orderBy(sql`${raceResults.rank} asc nulls last`, asc(raceEntrants.ordinal));
   const finished = race.state === "finished";
+  // Batch read only after authorisation; never one query per point or entrant.
+  const series = new Map((finished ? await db.select({ entrantId: raceWpmSeries.entrantId, series: raceWpmSeries.series })
+    .from(raceWpmSeries).where(eq(raceWpmSeries.raceId, race.raceId)) : [])
+    .map((row) => [row.entrantId, row.series]));
   const self = rows.find((row) => row.accountId === accountId)?.result;
   // The frozen config is used server-side only, never projected with personal settings/seeds.
   const { config, ...metadata } = race;
@@ -142,11 +154,16 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
   return {
     ...metadata,
     ...(personalRecord === undefined ? {} : { personalRecord }),
-    entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, result }) => ({
+    entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, entrantId, correctInputs, totalInputs, result }) => ({
       ordinal,
       displayName,
       isSelf: entrantAccount === accountId,
-      ...(finished && result !== null ? { result } : {}),
+      ...(finished && result !== null ? { result: {
+        ...result,
+        ...(series.has(entrantId) ? { wpmSeries: checkedStoredWpmSeries(series.get(entrantId), {
+          ...result, correctInputs: correctInputs ?? Number.NaN, totalInputs: totalInputs ?? Number.NaN,
+        }) } : {}),
+      } } : {}),
     })),
   };
 }

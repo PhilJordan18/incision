@@ -57,6 +57,13 @@
       "when": 1793054058399,
       "tag": "0007_lobby_settings_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793119089743,
+      "tag": "0008_race_wpm_series",
+      "breakpoints": true
     }
   ]
 }

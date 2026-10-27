@@ -3,6 +3,8 @@ import {
   asEntrantId,
   asInstant,
   asRaceId,
+  INITIAL_WPM_SERIES_SPACING_MS,
+  type StoredWpmSeries,
   type EntrantId,
   type EntrantResult,
   type EntrantState,
@@ -27,6 +29,7 @@ import type { KeystrokeBatchPayload, RaceBatchAck, RaceProgressPayload, RaceReve
 import { RACE_CONFIRMING_EVENT, RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, RACE_SELF_EVENT } from "../../races/protocol";
 import type { LeaseState, Schedule } from "./race-lease";
 import type { OwnedRace, ShutdownOutcome } from "./race-registry";
+import { RaceWpmSeries } from "./race-wpm-series";
 
 /** One open tab following the room, as the room channel admitted it (session checked, member of the room). */
 export type RaceConnection = {
@@ -147,6 +150,9 @@ export class RaceRuntime implements OwnedRace {
    */
   readonly #lost = new Set<string>();
   #cancelTick: (() => void) | undefined;
+  readonly #wpm = new RaceWpmSeries();
+  #cancelWpm: (() => void) | undefined;
+  #wpmDeadline: number | undefined;
   #cancelProgress: (() => void) | undefined;
   #progressSentAt = Number.NEGATIVE_INFINITY;
   #beginWritten = false;
@@ -566,6 +572,14 @@ export class RaceRuntime implements OwnedRace {
     const beforeBonus = this.#bonus;
     this.#bonus = bonusOutput.state;
     const output = bonusOutput.raceOutput;
+    this.#wpmDeadline = bonusOutput.nextDeadline;
+    try {
+      // Observe only the reducer's decided state, at its clock (terminal times stay exact).
+      this.#wpm.capture(output.state, output.state.clock);
+    } catch (error: unknown) {
+      this.#engineFailed(error);
+      return undefined;
+    }
     if (before.phase === "countdown" && output.state.phase !== "countdown") {
       this.#writeBegin();
     }
@@ -598,6 +612,7 @@ export class RaceRuntime implements OwnedRace {
       this.#freeze(output.ended);
     } else if (this.#stage === "running") {
       this.#scheduleTick(bonusOutput.nextDeadline);
+      this.#scheduleWpm();
     }
     return bonusOutput;
   }
@@ -631,6 +646,25 @@ export class RaceRuntime implements OwnedRace {
       this.#cancelTick = undefined;
       this.#apply({ type: "tick", now: this.#now() });
     }, Math.max(0, deadline - this.#options.now()));
+  }
+
+  /** Sample silence without emitting an event or touching the lease (D-17 owns those hooks). */
+  #scheduleWpm(): void {
+    if (this.#cancelWpm !== undefined || this.#stage !== "running" || this.#state.phase !== "racing") return;
+    this.#cancelWpm = this.#options.schedule(() => {
+      this.#cancelWpm = undefined;
+      if (this.#stage !== "running") return;
+      try {
+        const now = this.#now();
+        // A delayed deadline timer must reduce first: otherwise an observation could exceed
+        // the exact terminal time it will decide. Skip, never backfill or reduce a tick here.
+        if (this.#wpmDeadline === undefined || now < this.#wpmDeadline) this.#wpm.capture(this.#state, now);
+      } catch (error: unknown) {
+        this.#engineFailed(error);
+        return;
+      }
+      this.#scheduleWpm();
+    }, INITIAL_WPM_SERIES_SPACING_MS);
   }
 
   /** COUNTDOWN → RACING in the database, the first fenced write; keystrokes never wait for it. */
@@ -682,8 +716,15 @@ export class RaceRuntime implements OwnedRace {
   }
 
   #freeze(end: RaceEnd): void {
-    this.#results = end.results.map(toResultRow);
+    try {
+      this.#results = Object.freeze(end.results.map((result) => Object.freeze(toResultRow(result, this.#wpm.freeze(result)))));
+    } catch (error: unknown) {
+      this.#engineFailed(error);
+      return;
+    }
     this.#stage = "saving";
+    this.#cancelWpm?.();
+    this.#cancelWpm = undefined;
     this.#cancelTick?.();
     this.#cancelTick = undefined;
     for (const connection of this.#options.followers()) {
@@ -765,6 +806,8 @@ export class RaceRuntime implements OwnedRace {
   }
 
   #clearTimers(): void {
+    this.#cancelWpm?.();
+    this.#cancelWpm = undefined;
     this.#cancelTick?.();
     this.#cancelTick = undefined;
     this.#cancelProgress?.();
@@ -913,8 +956,9 @@ function bonusPrivateKey(state: BonusRaceState, entrantId: string): string {
 }
 
 /** One entrant's official result as the engine produced it, written as is (RES-05). */
-export function toResultRow(result: EntrantResult): RaceResultRow {
+export function toResultRow(result: EntrantResult, wpmSeries: StoredWpmSeries): RaceResultRow {
   return {
+    wpmSeries,
     entrantId: result.entrantId,
     outcome: OUTCOMES[result.status],
     rank: result.rank,
