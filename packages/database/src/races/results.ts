@@ -1,6 +1,9 @@
 import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import { compareResultRecord, resultRecordCategory, type RecordCategory, type ResultRecord } from "@incision/domain";
 import { z } from "zod";
+import type { StoredWpmSeries } from "@incision/domain";
+import { raceWpmSeries } from "../schema/race-wpm-series";
+import { checkedStoredWpmSeries } from "./wpm-series";
 import type { Database } from "../client";
 import { type AbandonmentReason, type InterruptionReason, lobbies, lobbyMembers, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
 
@@ -19,6 +22,8 @@ export type EntrantResult = {
   readonly accuracy: number;
   /** Cumulative wrong insertions, including errors subsequently corrected (D-09). */
   readonly errors: number;
+  /** Absent only for historical rows without collected observations; never fabricated. */
+  readonly wpmSeries?: StoredWpmSeries;
 };
 
 export type EntrantResultView = {
@@ -111,6 +116,10 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       ordinal: raceEntrants.ordinal,
       displayName: raceEntrants.displayNameSnapshot,
       accountId: raceEntrants.accountId,
+      seriesEntrantId: raceWpmSeries.entrantId,
+      series: raceWpmSeries.series,
+      correctInputs: raceResults.correctInputs,
+      totalInputs: raceResults.totalInputs,
       // Null when the entrant has no result row (left join).
       result: {
         outcome: raceResults.outcome,
@@ -127,6 +136,8 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
     })
     .from(raceEntrants)
     .leftJoin(raceResults, and(eq(raceResults.raceId, raceEntrants.raceId), eq(raceResults.entrantId, raceEntrants.id)))
+    // Read the bounded payload in the existing authorised entrant query, not an extra query.
+    .leftJoin(raceWpmSeries, and(eq(raceWpmSeries.raceId, raceEntrants.raceId), eq(raceWpmSeries.entrantId, raceEntrants.id)))
     .where(eq(raceEntrants.raceId, race.raceId))
     .orderBy(sql`${raceResults.rank} asc nulls last`, asc(raceEntrants.ordinal));
   const finished = race.state === "finished";
@@ -142,11 +153,16 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
   return {
     ...metadata,
     ...(personalRecord === undefined ? {} : { personalRecord }),
-    entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, result }) => ({
+    entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, seriesEntrantId, series, correctInputs, totalInputs, result }) => ({
       ordinal,
       displayName,
       isSelf: entrantAccount === accountId,
-      ...(finished && result !== null ? { result } : {}),
+      ...(finished && result !== null ? { result: {
+        ...result,
+        ...(seriesEntrantId !== null ? { wpmSeries: checkedStoredWpmSeries(series, {
+          ...result, correctInputs: correctInputs ?? Number.NaN, totalInputs: totalInputs ?? Number.NaN,
+        }) } : {}),
+      } } : {}),
     })),
   };
 }

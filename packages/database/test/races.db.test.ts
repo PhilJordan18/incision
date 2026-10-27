@@ -122,6 +122,7 @@ async function started(hostId: string, ownerId = OWNER_A) {
 
 function resultsFor(entrants: readonly StartedEntrant[]): RaceResultRow[] {
   return entrants.map((entrant, index) => ({
+    wpmSeries: { unavailable: "not_collected" },
     entrantId: entrant.entrantId,
     outcome: "finished",
     rank: index + 1,
@@ -419,6 +420,7 @@ describe("race transitions, guarded by race, phase and owner", () => {
     const { lobbyId, hostId } = await room("ABCDEF");
     const { race, entrants } = await started(hostId);
     const abandoned = entrants.map((entrant, index): RaceResultRow => ({
+      wpmSeries: { unavailable: "not_collected" },
       entrantId: entrant.entrantId,
       outcome: "abandoned",
       abandonmentReason: "voluntary",

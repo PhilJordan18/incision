@@ -3,3 +3,4 @@ export * from "./rooms";
 export * from "./races";
 export * from "./corpus";
 export * from "./profile-photos";
+export * from "./race-wpm-series";
