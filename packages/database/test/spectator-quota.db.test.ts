@@ -97,7 +97,7 @@ describe("D-22 spectator admission under the lobby lock", () => {
     const departed = room.spectatorIds[1];
     if (!departed) throw new Error("Missing non-host spectator");
     expect(await joinRoomByCode(db, { accountId: await account("Full"), code: room.code, role: "spectator" })).toEqual({ ok: false, error: "SPECTATORS_FULL" });
-    await leaveCurrentRoom(db, departed);
+    await leaveCurrentRoom(db, departed, () => new Set());
     expect(await joinRoomByCode(db, { accountId: await account("Replacement"), code: room.code, role: "spectator" })).toMatchObject({ ok: true });
     expect(await counts(room.lobbyId)).toEqual([{ role: "spectator", count: 20 }]);
   });

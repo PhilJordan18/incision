@@ -368,13 +368,15 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     }
   }, [racingView]);
 
-  // The results are read from the database by the server: a newly finished race asks for them.
+  // Results include server-rendered host controls: refresh after a race or a host change.
   const finishedRaceId = snapshot.phase === "results" ? snapshot.race?.raceId : undefined;
+  const liveHostId = snapshot.members.find((member) => member.isHost)?.memberId;
+  const renderedHostId = initial.members.find((member) => member.isHost)?.memberId;
   useEffect(() => {
-    if (finishedRaceId !== undefined && results?.raceId !== finishedRaceId) {
+    if (finishedRaceId !== undefined && (results?.raceId !== finishedRaceId || liveHostId !== renderedHostId)) {
       router.refresh();
     }
-  }, [finishedRaceId, results?.raceId, router]);
+  }, [finishedRaceId, results?.raceId, liveHostId, renderedHostId, router]);
 
   const onLeaving = useCallback(() => {
     leavingRef.current = true;
@@ -440,8 +442,8 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
 
   const participants = snapshot.members.filter((member) => member.role === "participant").length;
   // During the race, leaving is an abandon (state-machines §3), said before the click.
-  const leavingAbandons = !self.isHost && self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
-  // The host's departure closes the room for everyone (CP-06): it asks first, as « Fermer la salle » does.
+  const leavingAbandons = self.role === "participant" && (snapshot.phase === "countdown" || snapshot.phase === "racing");
+  // Explain succession and conditional closure before the host commits to leaving.
   const leave = (
     <div className={`flex flex-col gap-2 ${self.isHost ? "" : "max-w-xs"}`}>
       {self.isHost ? (

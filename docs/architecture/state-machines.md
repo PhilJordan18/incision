@@ -60,11 +60,11 @@ In this diagram, INSCRIT means registered and ACTIF means active. Orthogonal con
 
 ## 4. Host
 
-Voluntary departure: transfer to the most senior human **still connected to the network**, participant or spectator; ties broken by stable identifier. A bot is never eligible. If no human remains, close the room.
+Voluntary departure: transfer to the most senior human **still connected to the network**, participant or spectator; ties broken by stable identifier. A bot is never eligible. If no connected human remains, close the room. C1 implements this for persisted accounts, with the room locked and presence sampled synchronously after the active SQL members. The selection and writes are atomic relative to other room mutations; a later socket loss is a C2 concern. See [the adapter contract and limits](host-succession.md).
 
 Interpretation of SALLE-08: a guest already present can inherit the role, since they are human; AUTH-03 forbids **creating**, not explicitly inheriting. This interpretation is recorded in EXIGENCES and may be adjusted if the teacher specifies "authenticated account". Do not add a preferred successor that bypasses the imposed seniority.
 
-Short disconnection: keep the role for the 30 seconds; host actions stay unavailable during this absence. Expiry: same handling as a departure. Selecting and writing the new host are atomic. Closing a tab does not trigger a succession if another connection of the same member is active.
+**C2 target, not yet implemented for host succession:** short disconnection keeps the role for the 30 seconds; host actions stay unavailable during this absence. Expiry: same handling as a departure. Selecting and writing the new host are atomic. Closing a tab does not trigger a succession if another connection of the same member is active.
 
 ## 5. Ranking and bonuses
 

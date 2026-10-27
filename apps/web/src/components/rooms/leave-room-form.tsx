@@ -11,7 +11,7 @@ type LeaveRoomFormProps = {
   readonly pendingLabel: string;
   readonly errors: Readonly<Record<NonNullable<LeaveRoomState["error"]>, string>>;
   readonly returnTo?: string;
-  /** Id of the note saying what leaving does (the host closes the room). */
+  /** Id of the note explaining the consequences of leaving. */
   readonly describedBy?: string;
   /** Told when the person submits, before the server answers. */
   readonly onLeaving?: () => void;

@@ -138,14 +138,14 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(other.getByText(`Tu es déjà dans la salle ${otherCode}.`)).toBeVisible();
     // Bruno hosts his room: leaving it would close it, so the panel sends him to it, where leaving asks first.
     await expect(other.getByRole("button", { name: `Quitter la salle ${otherCode} et revenir ici` })).toHaveCount(0);
-    await expect(other.getByText(`Tu es l’hôte de la salle ${otherCode} : la quitter la ferme pour tout le monde.`, { exact: false })).toBeVisible();
+    await expect(other.getByText(`Tu es l’hôte de la salle ${otherCode}.`, { exact: false })).toBeVisible();
     await other.goto("/rooms/new");
     await expect(other.getByText(`Tu es déjà dans la salle ${otherCode}.`)).toBeVisible();
     await expect(other.getByRole("button", { name: /Quitter/ })).toHaveCount(0);
     await other.getByRole("link", { name: "Aller à ma salle" }).click();
     await expect(other).toHaveURL(new RegExp(`/rooms/${otherCode}$`));
     await other.getByRole("button", { name: "Quitter la salle" }).click();
-    await other.getByRole("button", { name: "Oui, quitter et fermer" }).click();
+    await other.getByRole("button", { name: "Oui, quitter la salle" }).click();
     await expect(other).toHaveURL(/\/$/);
     await other.goto(`/rooms/${code}`);
     await other.getByRole("button", { name: "Rejoindre la salle" }).click();
@@ -159,22 +159,39 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(crew(host)).toHaveCount(1);
   });
 
-  test("closes the room for everyone when the host leaves, and says so to latecomers", async ({ browser }) => {
-    const host = await signedInPage(browser, alice);
+  test("transfers hosting to a connected spectator, then closes when the last host leaves", async ({ browser }) => {
+    // This extra succession/last-host departure must not spend the shared demo accounts'
+    // per-minute room-change budgets and make unrelated closure scenarios rate limited.
+    const { forgeSessionCookie, SESSION_COOKIE } = await import("./support");
+    async function isolatedMember(displayName: string): Promise<Page> {
+      const [account] = await query<{ id: string; session_version: number }>(
+        "insert into accounts (display_name) values ($1) returning id, session_version", [displayName],
+      );
+      if (!account) throw new Error("Missing succession fixture account");
+      const context = await browser.newContext({ locale: "fr-CA" });
+      contexts.push(context);
+      const value = await forgeSessionCookie({ sub: account.id, sessionVersion: account.session_version, authTime: Math.floor(Date.now() / 1000) });
+      await context.addCookies([{ name: SESSION_COOKIE, value, url: test.info().project.use.baseURL ?? "" }]);
+      return context.newPage();
+    }
+    const host = await isolatedMember("Succession host");
     const code = await createRoom(host, "spectator");
     await expect(crew(host).first()).toContainText("spectateur");
-    const guest = await signedInPage(browser, bruno);
+    const guest = await isolatedMember("Succession spectator");
     await guest.goto(`/rooms/${code}`);
     await guest.getByLabel("Je participe à la course (sinon : spectateur)").uncheck();
     await guest.getByRole("button", { name: "Rejoindre la salle" }).click();
     await expect(crew(guest)).toHaveCount(2);
-    await expect(crew(guest).filter({ hasText: bruno.displayName })).toContainText("spectateur");
+    await expect(crew(guest).filter({ hasText: "Succession spectator" })).toContainText("spectateur");
 
-    // The host's departure closes the room: it asks first, with the consequences; Escape keeps the room.
+    await expect(guest.getByText("[.En direct]")).toBeVisible();
+    await expect(crew(host).filter({ hasText: "Succession spectator" })).toContainText("en ligne");
+
+    // The host confirms conditional succession or closure; Escape keeps the room.
     const leave = host.getByRole("button", { name: "Quitter la salle" });
     await leave.click();
-    await expect(host.getByRole("heading", { name: `Quitter et fermer la salle ${code} ?` })).toBeFocused();
-    await expect(host.getByText("Tu es l’hôte : en partant, tu fermes la salle pour tout le monde.", { exact: false })).toBeVisible();
+    await expect(host.getByRole("heading", { name: `Quitter la salle ${code} ?` })).toBeFocused();
+    await expect(host.getByText("Le plus ancien membre humain connecté devient hôte, même s’il est spectateur.", { exact: false })).toBeVisible();
     await host.keyboard.press("Escape");
     await expect(leave).toBeFocused();
     await expect(crew(guest)).toHaveCount(2);
@@ -188,14 +205,26 @@ test.describe("rooms by code with live presence (CP-06)", () => {
       }
       await route.continue();
     });
-    await host.getByRole("button", { name: "Oui, quitter et fermer" }).click();
+    await host.getByRole("button", { name: "Oui, quitter la salle" }).click();
     await expect(host.getByRole("button", { name: "Rester dans la salle" })).toBeDisabled();
     await host.keyboard.press("Escape");
-    await expect(host.getByRole("heading", { name: `Quitter et fermer la salle ${code} ?` })).toBeVisible();
+    await expect(host.getByRole("heading", { name: `Quitter la salle ${code} ?` })).toBeVisible();
     release();
     await expect(host).toHaveURL(/\/$/);
-    await expect(guest.getByRole("heading", { level: 1 })).toHaveText(/Salle fermée/i);
-    await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();
+    await expect(crew(guest)).toHaveCount(1);
+    await expect(crew(guest).first()).toContainText("Hôte");
+    await expect(guest.getByRole("button", { name: "Fermer la salle", exact: true })).toBeVisible();
+    await expect(guest.getByRole("button", { name: "Modifier les réglages" })).toBeVisible();
+    // A reload preserves the new host; the former host has no host controls.
+    await guest.reload();
+    await expect(guest.getByText("[.En direct]")).toBeVisible();
+    await expect(crew(guest).first()).toContainText("Hôte");
+    await host.goto(`/rooms/${code}`);
+    await expect(host.getByRole("button", { name: "Fermer la salle", exact: true })).toHaveCount(0);
+    // No connected successor: the last host's confirmed departure closes the room.
+    await guest.getByRole("button", { name: "Quitter la salle", exact: true }).click();
+    await guest.getByRole("button", { name: "Oui, quitter la salle" }).click();
+    await expect(guest).toHaveURL(/\/$/);
 
     // An old link to the room shows the closed state, without a join button.
     await guest.goto(`/rooms/${code}`);

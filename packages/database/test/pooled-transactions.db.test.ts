@@ -382,7 +382,7 @@ describe("room and account transactions", () => {
 
     const waits: [string, string, () => Promise<unknown>][] = [
       ["admission", "select 1 from lobbies for update", () => joinRoomByCode(db, { accountId: guest, code: room.code, role: "participant" })],
-      ["departure", "select 1 from lobbies for update", () => leaveCurrentRoom(db, host)],
+      ["departure", "select 1 from lobbies for update", () => leaveCurrentRoom(db, host, () => new Set())],
       ["creation", "lock table lobbies in share mode", async () => roomOf(await account("Autre"), db)],
       [
         "first OAuth sign-in",

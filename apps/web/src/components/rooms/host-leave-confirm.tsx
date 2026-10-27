@@ -11,12 +11,12 @@ type HostLeaveConfirmProps = {
   readonly t: Dictionary["rooms"];
   /** Unique on the page: names the question's heading. */
   readonly id: string;
-  /** The room the host would leave, and so close. */
+  /** The room the host would leave. */
   readonly code: string;
   /** The button that asks first (« Quitter la salle »). */
   readonly openLabel: string;
   readonly describedBy?: string;
-  /** A race counts down or runs in that room: it stops without results. */
+  /** A race counts down or runs: explain abandonment and conditional interruption. */
   readonly racing?: boolean;
   /** Where the focus goes once the host stays (see ConfirmClosing). */
   readonly focusAfterKeeping?: (opener: HTMLButtonElement | null) => void;
@@ -25,12 +25,12 @@ type HostLeaveConfirmProps = {
 };
 
 /**
- * The host leaving closes the room for everyone (CP-06): wherever « Quitter » is offered to the
- * host, it asks first with the same consequences as « Fermer la salle » (decided on 12 October).
+ * A host confirms succession, or closure when no connected human remains (SALLE-08).
+ * Keep this question below the typing field so confirmation never shifts the race text.
  */
 export function HostLeaveConfirm({ t, id, code, openLabel, describedBy, racing = false, focusAfterKeeping, onLeaving, onFailed }: HostLeaveConfirmProps) {
   const [busy, setBusy] = useState(false);
-  // The heaviest consequence right after the closing itself; the host then goes home.
+  // Explain the race consequence immediately after succession or closure.
   const [closing, kept] = t.hostLeave.consequences;
   const consequences = [closing, ...(racing ? [t.hostLeave.racing] : []), kept, t.hostLeave.backHome];
   return (

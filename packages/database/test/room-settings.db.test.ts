@@ -161,7 +161,7 @@ describe("room settings (F-03.1)", () => {
     });
     expect((await readOwnRoomSettings(db, hostId))?.settings.revision).toBe(0);
     // A host who left closed the room: nothing to save in it any more.
-    await leaveCurrentRoom(db, hostId);
+    await leaveCurrentRoom(db, hostId, () => new Set());
     expect(await configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings: ENGLISH_ONE_MINUTE })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
     expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ revision: 0, textLanguage: "fr", timeLimitMs: 120_000, errorMode: "mandatory" });
   });
@@ -186,7 +186,7 @@ describe("room settings (F-03.1)", () => {
     const first = await room("ABCDEF", { textLanguage: "en" });
     const drawnWith = await readOwnRoomSettings(db, first.hostId);
     // During the draw, the host leaves that room (closing it) in another tab and creates a French one: revision 0 too.
-    await leaveCurrentRoom(db, first.hostId);
+    await leaveCurrentRoom(db, first.hostId, () => new Set());
     const second = await room("BCDEFG", { host: first.hostId });
     expect(drawnWith).toMatchObject({ lobbyId: first.lobbyId, settings: { revision: 0, textLanguage: "en" } });
     expect(await start(first.hostId, first.lobbyId, 0)).toEqual({ ok: false, error: "SETTINGS_CHANGED" });
