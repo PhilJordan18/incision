@@ -160,18 +160,32 @@ test.describe("rooms by code with live presence (CP-06)", () => {
   });
 
   test("transfers hosting to a connected spectator, then closes when the last host leaves", async ({ browser }) => {
-    const host = await signedInPage(browser, alice);
+    // This extra succession/last-host departure must not spend the shared demo accounts'
+    // per-minute room-change budgets and make unrelated closure scenarios rate limited.
+    const { forgeSessionCookie, SESSION_COOKIE } = await import("./support");
+    async function isolatedMember(displayName: string): Promise<Page> {
+      const [account] = await query<{ id: string; session_version: number }>(
+        "insert into accounts (display_name) values ($1) returning id, session_version", [displayName],
+      );
+      if (!account) throw new Error("Missing succession fixture account");
+      const context = await browser.newContext({ locale: "fr-CA" });
+      contexts.push(context);
+      const value = await forgeSessionCookie({ sub: account.id, sessionVersion: account.session_version, authTime: Math.floor(Date.now() / 1000) });
+      await context.addCookies([{ name: SESSION_COOKIE, value, url: test.info().project.use.baseURL ?? "" }]);
+      return context.newPage();
+    }
+    const host = await isolatedMember("Succession host");
     const code = await createRoom(host, "spectator");
     await expect(crew(host).first()).toContainText("spectateur");
-    const guest = await signedInPage(browser, bruno);
+    const guest = await isolatedMember("Succession spectator");
     await guest.goto(`/rooms/${code}`);
     await guest.getByLabel("Je participe à la course (sinon : spectateur)").uncheck();
     await guest.getByRole("button", { name: "Rejoindre la salle" }).click();
     await expect(crew(guest)).toHaveCount(2);
-    await expect(crew(guest).filter({ hasText: bruno.displayName })).toContainText("spectateur");
+    await expect(crew(guest).filter({ hasText: "Succession spectator" })).toContainText("spectateur");
 
     await expect(guest.getByText("[.En direct]")).toBeVisible();
-    await expect(crew(host).filter({ hasText: bruno.displayName })).toContainText("en ligne");
+    await expect(crew(host).filter({ hasText: "Succession spectator" })).toContainText("en ligne");
 
     // The host confirms conditional succession or closure; Escape keeps the room.
     const leave = host.getByRole("button", { name: "Quitter la salle" });
