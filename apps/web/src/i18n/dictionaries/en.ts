@@ -144,7 +144,7 @@ export const en: Dictionary = {
     leave: "Leave the room",
     leaving: "Leaving…",
     hostLeaveNote: "If you leave, the longest-present connected human member becomes host. Without a connected successor, the room closes. You will have to confirm.",
-    hostGoToRoom: "You host room {code}: leaving it closes it for everyone. To leave it, go to your room: a confirmation will tell you what it does.",
+    hostGoToRoom: "You host room {code}. To leave it, go to your room: you will confirm transfer to the longest-present connected human member, or closure without a connected successor.",
     hostLeave: {
       question: "Leave room {code}?",
       consequences: [

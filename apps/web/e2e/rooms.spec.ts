@@ -138,14 +138,14 @@ test.describe("rooms by code with live presence (CP-06)", () => {
     await expect(other.getByText(`Tu es déjà dans la salle ${otherCode}.`)).toBeVisible();
     // Bruno hosts his room: leaving it would close it, so the panel sends him to it, where leaving asks first.
     await expect(other.getByRole("button", { name: `Quitter la salle ${otherCode} et revenir ici` })).toHaveCount(0);
-    await expect(other.getByText(`Tu es l’hôte de la salle ${otherCode} : la quitter la ferme pour tout le monde.`, { exact: false })).toBeVisible();
+    await expect(other.getByText(`Tu es l’hôte de la salle ${otherCode}.`, { exact: false })).toBeVisible();
     await other.goto("/rooms/new");
     await expect(other.getByText(`Tu es déjà dans la salle ${otherCode}.`)).toBeVisible();
     await expect(other.getByRole("button", { name: /Quitter/ })).toHaveCount(0);
     await other.getByRole("link", { name: "Aller à ma salle" }).click();
     await expect(other).toHaveURL(new RegExp(`/rooms/${otherCode}$`));
     await other.getByRole("button", { name: "Quitter la salle" }).click();
-    await other.getByRole("button", { name: "Oui, quitter et fermer" }).click();
+    await other.getByRole("button", { name: "Oui, quitter la salle" }).click();
     await expect(other).toHaveURL(/\/$/);
     await other.goto(`/rooms/${code}`);
     await other.getByRole("button", { name: "Rejoindre la salle" }).click();

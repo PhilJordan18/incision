@@ -66,6 +66,29 @@ for (const phase of ["countdown", "racing"] as const) {
   });
 }
 
+test("last connected human leaving during a race closes and interrupts without official results", async ({ browser }) => {
+  const host = await member(browser, "Captain");
+  const guest = await member(browser, "Runner");
+  const code = await create(host);
+  await join(guest, code);
+  await host.getByRole("button", { name: "Start the race" }).click();
+  await expect(host.getByLabel("Your typing")).toBeEnabled({ timeout: 6_000 });
+  const [race] = await query<{ id: string }>("select current_race_id as id from lobbies where code = $1", [code]);
+  if (!race) throw new Error("Missing active race");
+  // The other runner leaves first; the host is still racing, so the round is not finalized.
+  await guest.getByRole("button", { name: "Leave the room", exact: true }).click();
+  await expect(guest).toHaveURL(/\/$/);
+  await expect(host.getByLabel("Your typing")).toBeEnabled();
+  await leave(host);
+  expect(await query("select state, interruption_reason from races where id = $1", [race.id])).toEqual([
+    { state: "interrupted", interruption_reason: "room_closed" },
+  ]);
+  expect(await query("select * from race_results where race_id = $1", [race.id])).toEqual([]);
+  await guest.goto(`/rooms/${code}`);
+  await expect(guest.getByRole("heading", { level: 1 })).toHaveText(/Room closed/i);
+  await expect(guest.getByRole("button", { name: "Join the room" })).toHaveCount(0);
+});
+
 test("host departure on results preserves the saved race and transfers next-round controls live", async ({ browser }) => {
   const host = await member(browser, "Captain");
   const successor = await member(browser, "Successor", "fr-CA");

@@ -148,7 +148,7 @@ export const fr = {
     leave: "Quitter la salle",
     leaving: "Départ…",
     hostLeaveNote: "Si tu quittes, le plus ancien membre humain connecté devient hôte. Sans successeur connecté, la salle ferme. Tu devras confirmer.",
-    hostGoToRoom: "Tu es l’hôte de la salle {code} : la quitter la ferme pour tout le monde. Pour la quitter, va dans ta salle : une confirmation t’en dira les conséquences.",
+    hostGoToRoom: "Tu es l’hôte de la salle {code}. Pour la quitter, va dans ta salle : tu confirmeras la transmission au plus ancien membre humain connecté, ou la fermeture sans successeur connecté.",
     hostLeave: {
       question: "Quitter la salle {code} ?",
       consequences: [

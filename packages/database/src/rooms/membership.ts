@@ -25,7 +25,7 @@ export type ActiveMembership = {
   readonly lobbyId: string;
   readonly code: string;
   readonly memberId: string;
-  /** Leaving closes the room at the checkpoint (SALLE-08 comes later). */
+  /** The current host; voluntary departure transfers hosting or closes without a successor. */
   readonly isHost: boolean;
 };
 

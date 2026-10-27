@@ -315,7 +315,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await host.getByRole("button", { name: "Start the race" }).click();
     const field = host.getByLabel("Your typing");
     const text = host.locator(".course-texte");
-    const question = host.getByRole("heading", { name: `Leave and close room ${code}?` });
+    const question = host.getByRole("heading", { name: `Leave room ${code}?` });
     const leave = host.getByRole("button", { name: "Leave the room" });
 
     // Asked during the countdown; the text and the field keep their place in the page.
@@ -360,14 +360,15 @@ test.describe("the first complete race (F-04.0)", () => {
     await host.keyboard.press("Escape");
     await expect(leave).toBeFocused();
 
-    // Confirmed: the race stops for everyone, without results, and the host goes home.
+    // Confirmed: the connected guest inherits; the race continues and the host goes home.
     await leave.click();
     await expect(question).toBeFocused();
-    await expect(host.getByText("The race in progress stops for everyone, without results.")).toBeVisible();
+    await expect(host.getByText("If you are still racing, you give up. The race continues with the new host; without a connected successor, it stops without results.")).toBeVisible();
     await expectNoAccessibilityViolation(host);
-    await host.getByRole("button", { name: "Yes, leave and close" }).click();
+    await host.getByRole("button", { name: "Yes, leave the room" }).click();
     await expect(host).toHaveURL(/\/$/);
-    await expect(guest.getByText(`L’hôte a fermé la salle ${code} pour tout le monde.`)).toBeVisible();
+    await expect(guest.getByLabel("Ta frappe")).toBeEnabled();
+    await expect(guest.getByText("Si tu quittes, le plus ancien membre humain connecté devient hôte.", { exact: false })).toBeVisible();
   });
 
   test("an idle player is asked if they are still there after 60 s; the button or a keystroke clears it for everyone (D-17)", async ({ browser }) => {
