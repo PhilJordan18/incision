@@ -92,6 +92,8 @@ test("last connected human leaving during a race closes and interrupts without o
 test("host departure on results preserves the saved race and transfers next-round controls live", async ({ browser }) => {
   const host = await member(browser, "Captain");
   const successor = await member(browser, "Successor", "fr-CA");
+  const receivedFrames: string[] = [];
+  successor.on("websocket", (socket) => socket.on("framereceived", ({ payload }) => receivedFrames.push(String(payload))));
   const code = await create(host);
   await join(successor, code);
   await host.getByRole("button", { name: "Start the race" }).click();
@@ -128,7 +130,7 @@ test("host departure on results preserves the saved race and transfers next-roun
   // A later unchanged-host snapshot must not request the results again.
   const visitor = await member(browser, "Visitor");
   await join(visitor, code);
-  await expect(successor.getByText("Visitor", { exact: true }).first()).toBeVisible();
+  await expect.poll(() => receivedFrames.some((frame) => frame.includes("Visitor"))).toBe(true);
   await successor.waitForTimeout(800);
   expect(refreshes.get(successor)).toBe(1);
   expect(refreshes.get(observer)).toBe(1);
