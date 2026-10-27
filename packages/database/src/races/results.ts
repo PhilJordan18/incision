@@ -1,4 +1,6 @@
 import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
+import { compareResultRecord, resultRecordCategory, type RecordCategory, type ResultRecord } from "@incision/domain";
+import { z } from "zod";
 import type { Database } from "../client";
 import { type AbandonmentReason, type InterruptionReason, lobbies, lobbyMembers, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
 
@@ -15,6 +17,8 @@ export type EntrantResult = {
   readonly netWpm: number;
   readonly rawWpm: number;
   readonly accuracy: number;
+  /** Cumulative wrong insertions, including errors subsequently corrected (D-09). */
+  readonly errors: number;
 };
 
 export type EntrantResultView = {
@@ -37,6 +41,8 @@ export type RaceResultView = {
   readonly endedAt: Date | null;
   /** Ranked first (by rank), then by start order. */
   readonly entrants: readonly EntrantResultView[];
+  /** Only the authenticated reader's record; absent for a spectator or non-finisher. */
+  readonly personalRecord?: ResultRecord;
 };
 
 /**
@@ -93,6 +99,7 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       countdownAt: races.countdownAt,
       startedAt: races.startedAt,
       endedAt: races.endedAt,
+      config: races.configSnapshot,
     })
     .from(races)
     .where(condition);
@@ -115,6 +122,7 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
         netWpm: raceResults.netWpm,
         rawWpm: raceResults.rawWpm,
         accuracy: raceResults.accuracy,
+        errors: sql<number>`${raceResults.totalInputs} - ${raceResults.correctInputs}`.mapWith(Number),
       },
     })
     .from(raceEntrants)
@@ -122,8 +130,18 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
     .where(eq(raceEntrants.raceId, race.raceId))
     .orderBy(sql`${raceResults.rank} asc nulls last`, asc(raceEntrants.ordinal));
   const finished = race.state === "finished";
+  const self = rows.find((row) => row.accountId === accountId)?.result;
+  // The frozen config is used server-side only, never projected with personal settings/seeds.
+  const { config, ...metadata } = race;
+  const category = resultRecordCategory(config);
+  const personalRecord = finished && self?.outcome === "finished"
+    ? category === undefined ? { status: "unavailable" } as const
+      : compareResultRecord({ category, netWpm: self.netWpm,
+        ...await previousRecords(db, { raceId: race.raceId, accountId, category }) })
+    : undefined;
   return {
-    ...race,
+    ...metadata,
+    ...(personalRecord === undefined ? {} : { personalRecord }),
     entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, result }) => ({
       ordinal,
       displayName,
@@ -131,4 +149,35 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       ...(finished && result !== null ? { result } : {}),
     })),
   };
+}
+
+const previousRecordSchema = z.object({
+  previousBest: z.number().finite().nonnegative().nullable(),
+  historyComplete: z.boolean(),
+});
+
+/**
+ * One aggregate row for the reader, never a query per entrant or an unbounded history transfer.
+ * Compare timestamps inside PostgreSQL (microseconds, not JS Date milliseconds). Only races
+ * ending strictly earlier are prior: simultaneous ends do not arbitrarily order by UUID.
+ * Later results cannot erase a record on an older race. As a read projection, this assumes
+ * historical results/configurations are retained; a later backfill can revise the evidence.
+ * Current entrants are authenticated accounts, not guests/bots; a future kind must filter here.
+ */
+async function previousRecords(db: Database, input: {
+  readonly raceId: string; readonly accountId: string; readonly category: RecordCategory;
+}): Promise<z.infer<typeof previousRecordSchema>> {
+  const result = await db.execute(sql`
+    select max(rr.net_wpm) filter (where r.config_snapshot->'bonuses' = ${JSON.stringify(input.category.bonuses)}::jsonb
+      and r.config_snapshot->>'errorMode' = ${input.category.errorMode}) as "previousBest",
+      coalesce(bool_and(coalesce(jsonb_typeof(r.config_snapshot->'bonuses') = 'boolean'
+        and r.config_snapshot->>'errorMode' in ('mandatory', 'free'), false)), true) as "historyComplete"
+    from race_entrants e
+    join race_results rr on rr.race_id = e.race_id and rr.entrant_id = e.id
+    join races r on r.id = e.race_id
+    join races current_race on current_race.id = ${input.raceId}::uuid
+    where e.account_id = ${input.accountId}::uuid and r.state = 'finished' and rr.outcome = 'finished'
+      and r.ended_at < current_race.ended_at
+  `);
+  return previousRecordSchema.parse(result.rows[0]);
 }

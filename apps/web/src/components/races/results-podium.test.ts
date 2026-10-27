@@ -9,7 +9,7 @@ import { RaceResults } from "./race-results";
 function entrant(rank: number, outcome: "finished" | "timed_out" | "abandoned" = "finished"): EntrantResultView {
   return { ordinal: rank, displayName: `Sailor-${rank}`, isSelf: rank === 2,
     result: { rank, outcome, abandonmentReason: outcome === "abandoned" ? "voluntary" : null,
-      elapsedMs: 1000, position: 3, length: 3, netWpm: rank * 10, rawWpm: 12.5, accuracy: 90 } };
+      elapsedMs: 1000, position: 3, length: 3, netWpm: rank * 10, rawWpm: 12.5, accuracy: 90, errors: 1 } };
 }
 function podium(entrants: readonly EntrantResultView[], locale: "en" | "fr" = "en") {
   return renderToStaticMarkup(createElement(ResultsPodium, { entrants, locale, t: getDictionary(locale).races }));
@@ -49,7 +49,7 @@ describe("persisted results podium", () => {
       expect(html).toContain(t.results.noVictory); expect(html).toContain(t.results.spectator);
       const table = html.slice(html.indexOf("<table"));
       expect(table).toContain(t.results.columns.rawWpm);
-      expect(table.match(/<th scope="col"/g)).toHaveLength(7);
+      expect(table.match(/<th scope="col"/g)).toHaveLength(8);
     }
   });
 });
