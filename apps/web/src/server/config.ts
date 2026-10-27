@@ -35,7 +35,7 @@ const serverEnvSchema = z
     AUTH_DISCORD_SECRET: nonEmpty.optional(),
     /** Reverse proxies in front of the app whose X-Forwarded-For entry is trusted: 1 on App Service. */
     TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(2).optional(),
-    /** `allowed`: races run the short test fixtures instead of the chosen texts (local test builds). */
+    /** `allowed`: races run the short test fixtures instead of the corpus (local test builds). */
     RACE_FIXTURE_TEXTS: z.literal("allowed", { error: 'must be "allowed" or unset' }).optional(),
     /** Only `true` lets new races start; any other value closes them without stopping the start-up. */
     RACES_ENABLED: z.string().optional(),
@@ -80,7 +80,7 @@ export type ServerEnv = {
   /** HTTPS public URL: Auth.js then names its cookies `__Secure-…` (also the JWT key salt). */
   readonly secureCookies: boolean;
   readonly trustedProxyHops: number;
-  /** Races run the short test fixtures (RACE_FIXTURE_TEXTS=allowed) instead of the chosen texts (race-texts.ts). */
+  /** Races run the short test fixtures (RACE_FIXTURE_TEXTS=allowed) instead of the corpus in the database. */
   readonly fixtureRaceTexts: boolean;
   /** Whether new races may start (RACES_ENABLED, races-switch.ts); never which texts they run. */
   readonly racesSwitch: RacesSwitch;

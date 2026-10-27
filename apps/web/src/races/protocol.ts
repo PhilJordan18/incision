@@ -63,6 +63,8 @@ export const RACE_START_ERRORS = [
   "RATE_LIMITED",
   /** New races are closed on this server (RACES_ENABLED is not `true`). */
   "RACES_CLOSED",
+  /** No passage of the corpus serves the race's settings in its language (or no corpus is active): no race is written. */
+  "NO_COMPATIBLE_PASSAGE",
   "UNAVAILABLE",
 ] as const;
 export type RaceStartError = (typeof RACE_START_ERRORS)[number];

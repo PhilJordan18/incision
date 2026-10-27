@@ -238,6 +238,7 @@ export const fr = {
       RATE_LIMITED: "Patiente un instant avant de relancer.",
       RACES_CLOSED: "Les courses sont temporairement fermées sur ce site. La salle reste ouverte : réessaie plus tard.",
       UNAVAILABLE: "La course n’a pas pu démarrer, le serveur ne répond pas. Réessaie.",
+      NO_COMPATIBLE_PASSAGE: "Aucun texte n’est disponible pour cette course pour le moment. La salle reste ouverte : réessaie plus tard.",
     },
     preparing: "Préparation de la course…",
     countdownLabel: "Départ dans",

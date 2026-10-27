@@ -1,8 +1,8 @@
 # Corpus contract fixture (tests only)
 
 Not the corpus. A fixture written by session A to test the import contract of F-02.3a
-(`src/corpus/`): one version, `contract-2026-10-21`, holding the two passages already shipped in
-`apps/web/src/server/races/race-texts.ts` (same ids, same typed text), with their exact source text
+(`src/corpus/`): one version, `contract-2026-10-21`, holding the two passages F-04.0 shipped in
+`apps/web/src/server/races/race-texts.ts` until F-02.3b (same ids, same typed text), with their exact source text
 and the provenance, measures and editorial notes recorded in session B's registry on October 12.
 
 - **Measures.** B measured these two passages on October 12 under normalisation version 1. The

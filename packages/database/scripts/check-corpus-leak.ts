@@ -5,22 +5,18 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { CORPUS_FOLDER } from "../src/corpus/files";
 import { corpusFileSchema } from "../src/corpus/format";
-import { DELIVERY_PASSAGE_IDS } from "../src/corpus/import";
 
 // Usage: npm run db:check-corpus-leak -w @incision/database -- [--web <apps/web folder>] [--archive <zip>]
 // Philippe's decision 3 of October 21: the corpus is import input only. Fails when a passage of
 // the corpus (or of the contract fixture) appears anywhere in a build's `.next` (cache aside) or
 // in `public/`. With --archive, also fails when a release archive holds the corpus or test files,
 // or a passage in its `.next`, its `public/` or the sources it ships (packages/*/src, apps/web/src).
-// One exception, until F-02.3b: the two delivery passages may appear in race-texts.ts, the server
-// source that runs them today (through tsx, outside the Next build). Local check, not in CI.
+// No exception since F-02.3b: the server draws every text from the database. Local check, not in CI.
 const PACKAGE = path.join(import.meta.dirname, "..");
 const ROOT = path.join(PACKAGE, "..", "..");
 const CONTRACT_FIXTURE = path.join(PACKAGE, "test", "fixtures", "corpus-contract");
-const RACE_TEXTS = path.join("apps", "web", "src", "server", "races", "race-texts.ts");
 const TEXT_FILE = /\.(js|mjs|cjs|ts|tsx|css|html|json|txt|map|rsc|body|meta|xml|svg)$/;
 const PIECES_PER_PASSAGE = 3;
-const DELIVERY: ReadonlySet<string> = new Set(DELIVERY_PASSAGE_IDS);
 
 function filesUnder(folder: string, skip?: string): string[] {
   if (!existsSync(folder)) return [];
@@ -53,13 +49,13 @@ function fingerprints(): { pieces: Map<string, string>; unseen: string[] } {
   return { pieces, unseen };
 }
 
-/** Leaks in `files` (paths under `base`); `allowed` says where a passage may be. */
-function scan(files: readonly string[], pieces: ReadonlyMap<string, string>, base: string, allowed: (file: string, id: string) => boolean = () => false): string[] {
+/** Leaks in `files` (paths under `base`). */
+function scan(files: readonly string[], pieces: ReadonlyMap<string, string>, base: string): string[] {
   const leaks: string[] = [];
   for (const file of files) {
     const content = readFileSync(file, "utf8");
     for (const [piece, id] of pieces) {
-      if (content.includes(piece) && !allowed(path.relative(base, file), id)) leaks.push(`${path.relative(base, file)} holds passage ${id}`);
+      if (content.includes(piece)) leaks.push(`${path.relative(base, file)} holds passage ${id}`);
     }
   }
   return leaks;
@@ -98,7 +94,7 @@ function main(): void {
         throw new Error(`unzip failed (${result.status ?? result.signal})`);
       }
       const shipped = [...buildFiles(path.join(unpacked, "apps", "web")), ...filesUnder(path.join(unpacked, "apps", "web", "src")), ...filesUnder(path.join(unpacked, "packages"))];
-      leaks.push(...scan(shipped, pieces, unpacked, (file, id) => file === RACE_TEXTS && DELIVERY.has(id)).map((leak) => `archive: ${leak}`));
+      leaks.push(...scan(shipped, pieces, unpacked).map((leak) => `archive: ${leak}`));
       console.log(`[corpus-leak] ${entries.length} archive entries listed, ${shipped.length} shipped files checked`);
     } finally {
       rmSync(unpacked, { recursive: true, force: true });

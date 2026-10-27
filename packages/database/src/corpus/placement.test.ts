@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { TEXT_LANGUAGES } from "@incision/domain";
 import { describe, expect, it } from "vitest";
 import { CORPUS_FOLDER } from "./files";
 import { DELIVERY_PASSAGE_IDS } from "./import";
@@ -11,6 +12,20 @@ import { DELIVERY_PASSAGE_IDS } from "./import";
  */
 const PACKAGE = path.join(import.meta.dirname, "..", "..");
 const ROOT = path.join(PACKAGE, "..", "..");
+const CONTRACT = path.join(PACKAGE, "test", "fixtures", "corpus-contract", "contract-2026-10-21");
+
+/** The web application's own sources: its `src`, its server and its Next configuration. */
+function webSources(): string[] {
+  const web = path.join(ROOT, "apps", "web");
+  return [
+    ...readdirSync(path.join(web, "src"), { recursive: true, encoding: "utf8" }).map((file) => path.join(web, "src", file)),
+    path.join(web, "server.ts"),
+    path.join(web, "next.config.ts"),
+  ].filter((file) => /\.(ts|tsx)$/.test(file));
+}
+
+const contractPassages = () =>
+  TEXT_LANGUAGES.flatMap((language) => (JSON.parse(readFileSync(path.join(CONTRACT, `${language}.json`), "utf8")) as { passages: { id: string; text: string }[] }).passages);
 
 describe("where the corpus files live", () => {
   it("outside every folder the release archive copies from a package", () => {
@@ -24,12 +39,7 @@ describe("where the corpus files live", () => {
   });
 
   it("never imported by the web application, nor exported by the package", () => {
-    const web = path.join(ROOT, "apps", "web");
-    const sources = [
-      ...readdirSync(path.join(web, "src"), { recursive: true, encoding: "utf8" }).map((file) => path.join(web, "src", file)),
-      path.join(web, "server.ts"),
-      path.join(web, "next.config.ts"),
-    ].filter((file) => /\.(ts|tsx)$/.test(file));
+    const sources = webSources();
     expect(sources.length).toBeGreaterThan(10);
     const importers = sources.filter((file) => /@incision\/database\/corpus|database\/(src\/)?corpus\b/.test(readFileSync(file, "utf8")));
     expect(importers).toEqual([]);
@@ -39,9 +49,14 @@ describe("where the corpus files live", () => {
 });
 
 describe("the delivery passages", () => {
-  it("are exactly the texts F-04.0 ships in race-texts.ts, so the import keeps requiring the right ids", () => {
-    const raceTexts = readFileSync(path.join(ROOT, "apps", "web", "src", "server", "races", "race-texts.ts"), "utf8");
-    const shipped = [...raceTexts.matchAll(/\bid: "((?:fr|en)-[0-9a-z-]+)"/g)].map((match) => match[1]);
-    expect(shipped.toSorted()).toEqual([...DELIVERY_PASSAGE_IDS].toSorted());
+  it("are the two passages F-04.0 shipped, whose identity the contract fixture keeps", () => {
+    expect(contractPassages().map((passage) => passage.id).toSorted()).toEqual([...DELIVERY_PASSAGE_IDS].toSorted());
+  });
+
+  it("are in no source of the web application: since F-02.3b every race text comes from the database", () => {
+    // Three pieces of each typed text, at its start, middle and end, as the leak check looks for them.
+    const pieces = contractPassages().flatMap(({ text }) => [0, 0.5, 0.8].map((at) => text.slice(Math.floor(text.length * at), Math.floor(text.length * at) + 40)));
+    expect(pieces.every((piece) => piece.length === 40)).toBe(true);
+    expect(webSources().filter((file) => pieces.some((piece) => readFileSync(file, "utf8").includes(piece)))).toEqual([]);
   });
 });

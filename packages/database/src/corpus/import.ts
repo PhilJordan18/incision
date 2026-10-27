@@ -6,8 +6,8 @@ import type { CheckedCorpus } from "./check";
 import { PASSAGE_ID_PATTERN } from "./format";
 
 /**
- * The passages F-04.0 shipped (`apps/web/src/server/races/race-texts.ts`), which stored races
- * name: every version must bring them until they are stored (F-02.3a criterion).
+ * The passages F-04.0 shipped in `race-texts.ts` until F-02.3b, which stored races name: every
+ * version must bring them until they are stored (F-02.3a criterion).
  */
 export const DELIVERY_PASSAGE_IDS = ["fr-verne-vingt-mille-lieues-p1-ch14-pacifique", "en-stevenson-treasure-island-ch07-map"] as const;
 

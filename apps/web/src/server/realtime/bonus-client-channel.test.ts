@@ -4,6 +4,7 @@ import { expect, it, vi } from "vitest";
 import type { StartRaceInput } from "@incision/database";
 import type { BonusRaceState, CreateRaceRefusal } from "@incision/domain";
 import { RaceService } from "../races/race-service";
+import { fixedRaceTexts } from "../races/race-texts";
 import { connectionOf, registerRaceChannel } from "./race-channel";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
@@ -47,7 +48,7 @@ it("browser controller retries a lost socket acknowledgement without a second ef
   };
   const service = new RaceService({ ownerId: "owner", store, now: () => now, monotonic: () => now,
     schedule: () => () => {}, onRoomChanged: () => {}, log: () => {}, racesOpen: true,
-    texts: { fr: { id: "socket-fixture", text: TEXT }, en: { id: "socket-fixture", text: TEXT } },
+    texts: fixedRaceTexts({ fr: { id: "socket-fixture", text: TEXT }, en: { id: "socket-fixture", text: TEXT } }),
   });
   const following = new Set<string>();
   registerRaceChannel(io, { allowedOrigin: origin, registry, races: service, followedRoom: socket => following.has(socket.id) ? "room" : undefined });

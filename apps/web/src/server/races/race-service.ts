@@ -26,7 +26,7 @@ import {
 import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
-import type { RaceText } from "./race-texts";
+import type { RaceTextDraw, RaceTextSource } from "./race-texts";
 import { BonusActivationLimiter } from "./bonus-limiter";
 
 /** A tab admitted into a room by the room channel, with the language its pages use. */
@@ -58,8 +58,11 @@ export type RaceServiceOptions = {
   readonly schedule: Schedule;
   /** A room's race changed in the database (started, saved, interrupted): its members get a fresh snapshot. */
   readonly onRoomChanged: (lobbyId: string) => void;
-  /** The texts races run, per interface language (the host's at the start, D-19). */
-  readonly texts: Readonly<Record<Locale, RaceText>>;
+  /**
+   * Where race texts come from: the corpus (CorpusTexts, F-02.3b), or the fixed test fixtures
+   * (RACE_FIXTURE_TEXTS=allowed, local test builds only).
+   */
+  readonly texts: RaceTextSource;
   /**
    * New races may start (RACES_ENABLED=true, races-switch.ts). Otherwise every start is refused
    * here, before the database; races already running, rooms and results are not affected.
@@ -173,13 +176,24 @@ export class RaceService {
     }
     this.#starting.add(connection.accountId);
     try {
-      return await this.#start(connection, this.#options.texts[connection.locale]);
+      // The text's language is the server's (CONF-02): the host's interface language at the start
+      // until F-03.1 lets the host choose (D-19), then the race's for good.
+      const drawn = await this.#options.texts.draw(connection.locale);
+      // Refused before any write: no race is written, the room stays as it was.
+      if (!drawn.ok) {
+        return { ok: false, error: drawn.reason };
+      }
+      // The draw may have waited for the corpus while the process began stopping.
+      if (this.#registry.stopping) {
+        return { ok: false, error: "UNAVAILABLE" };
+      }
+      return await this.#start(connection, drawn);
     } finally {
       this.#starting.delete(connection.accountId);
     }
   }
 
-  async #start(connection: RoomConnection, { id: textId, text }: RaceText): Promise<RaceStartAck> {
+  async #start(connection: RoomConnection, { text, record }: Extract<RaceTextDraw, { ok: true }>): Promise<RaceStartAck> {
     const { store, ownerId } = this.#options;
     const timeLimit = asDuration(FIRST_RACE_SETTINGS.timeLimitMs);
     const acquiredAt = this.#options.monotonic();
@@ -189,7 +203,7 @@ export class RaceService {
         accountId: connection.accountId,
         ownerId,
         text,
-        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, language: connection.locale, text: textId, bonuses: false },
+        config: { errorMode: FIRST_RACE_SETTINGS.errorMode, timeLimitMs: FIRST_RACE_SETTINGS.timeLimitMs, ...record, bonuses: false },
         rulesVersion: RULES_VERSION,
         // Under the room lock: a refusal changes nothing, an exception rolls the start back.
         create: ({ raceId, entrants }) => {
@@ -224,7 +238,7 @@ export class RaceService {
       return { ok: false, error: "UNAVAILABLE" };
     }
     const ownership: RaceOwnership = started.race;
-    const runtime = this.#runtime({ ownership, state: started.created, entrants: started.entrants, acquiredAt, language: connection.locale });
+    const runtime = this.#runtime({ ownership, state: started.created, entrants: started.entrants, acquiredAt, language: record.language });
     if (!this.#registry.add(runtime)) {
       // The process began stopping during the start.
       await this.#interrupt(ownership, "server_stopped");
