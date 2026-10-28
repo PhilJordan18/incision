@@ -20,9 +20,9 @@ async function fixture(browser: Browser, locale: string, javaScriptEnabled = tru
     countdown_at,started_at,ended_at,owner_id,lease_expires_at)
     values ($1,1,'finished',1,'sea','{"bonuses":false,"errorMode":"mandatory"}',
     '2026-10-28T09:59:57Z','2026-10-28T10:00:00Z','2026-10-28T10:00:02Z',$1,'2026-10-28T10:01:00Z')`, [id]);
-  for (let n = 0; n < 2; n++) {
-    const [entrant] = await query<{ id: string }>(`insert into race_entrants(race_id,account_id,ordinal,display_name_snapshot)
-      values ($1,$2,$3,$4) returning id`, [id, accounts[n]!.id, n + 1, n === 0 ? "Chart Alice" : "Chart Bob"]);
+  for (let n = 0; n < 3; n++) {
+    const [entrant] = await query<{ id: string }>(`insert into race_entrants(race_id,account_id,ordinal,display_name_snapshot,kind,bot_level)
+      values ($1,$2,$3,$4,$5,$6) returning id`, [id, accounts[n]?.id ?? null, n + 1, ["Chart Alice", "Chart Bob", "Chart Captain"][n], n === 2 ? "bot" : "human", n === 2 ? "intermediate" : null]);
     const elapsed = 2000;
     const counters = { correctInserts: 3, totalInserts: 5 + n };
     const measures = computeMeasures(counters, asDuration(elapsed));
@@ -43,9 +43,10 @@ test("real stored charts and only the reader's heatmap render without JavaScript
   const owner = await fixture(browser, "en", false);
   await owner.page.goto(`/races/${owner.id}`);
   const speed = owner.page.getByRole("region", { name: "Speed during the race", exact: true });
-  await expect(speed.locator("svg").first().locator("polyline")).toHaveCount(2);
+  await expect(speed.locator("svg").first().locator("polyline")).toHaveCount(3);
+  await expect(speed).toContainText("Bot · Captain — intermediate");
   await speed.locator("summary").click();
-  await expect(speed.getByRole("table")).toHaveCount(2);
+  await expect(speed.getByRole("table")).toHaveCount(3);
   await expect(speed.getByRole("table").first()).toContainText("30");
   const heatmap = owner.page.getByRole("region", { name: "Your missed characters", exact: true });
   await expect(heatmap).toContainText("Total errors : 2");
@@ -72,10 +73,16 @@ for (const locale of ["fr", "en"]) test(`charts, accessible tables and keyboard 
       await expectNoHorizontalScroll(owner.page);
       if (width === 320) {
         await expectNoAccessibilityViolation(owner.page);
+        const graph = speed.getByRole("region", { name: locale === "fr" ? "Courbes des MPM nets de tous les participants" : "Net WPM curves for all participants", exact: true }).first();
+        await graph.focus();
+        await owner.page.keyboard.press("ArrowRight");
+        await expect.poll(() => graph.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
+        expect(await graph.evaluate((node) => getComputedStyle(node).outlineStyle)).not.toBe("none");
         const keyboard = heatmap.getByRole("region", { name: locale === "fr" ? "Repère AZERTY" : "AZERTY reference", exact: true });
         await keyboard.focus(); await expect(keyboard).toBeFocused();
         await owner.page.keyboard.press("Tab");
         await expect(keyboard.locator('[tabindex="0"]').first()).toBeFocused();
+        expect(await keyboard.locator('[tabindex="0"]').first().evaluate((node) => getComputedStyle(node).outlineStyle)).not.toBe("none");
         const tableRegion = speed.getByRole("region", { name: /— Chart Alice$/ });
         await tableRegion.focus();
         await owner.page.keyboard.press("ArrowRight");

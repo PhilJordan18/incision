@@ -4,6 +4,7 @@ import { raceCharts } from "@/i18n/race-charts";
 import type { Locale } from "@/i18n/locale";
 import { formatNumber } from "@/i18n/value-format";
 import { formatElapsed } from "@/races/format";
+import { BotIdentityLabel } from "./bot-identity-label";
 
 type Copy = (typeof raceCharts)[Locale];
 const title = "font-display text-3xl font-extrabold uppercase";
@@ -23,6 +24,7 @@ export function RaceCharts({ race, locale }: { readonly race: RaceResultView; re
       <ol className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
         {race.entrants.map((entrant) => <li key={entrant.ordinal} className={entrant.isSelf ? "text-moi" : "text-embrun"}>
           {formatNumber(entrant.ordinal, locale)}. {entrant.displayName}{entrant.isSelf ? ` (${t.you})` : ""}
+          <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
           {entrant.result?.wpmSeries === undefined ? ` — ${t.missing}` : ""}
         </li>)}
       </ol>
@@ -32,6 +34,7 @@ export function RaceCharts({ race, locale }: { readonly race: RaceResultView; re
         <div className="space-y-6">
           {race.entrants.map((entrant) => <section key={entrant.ordinal} aria-label={`${t.runner} ${entrant.displayName}`}>
             <h3 className="mb-2 font-semibold">{entrant.displayName}{entrant.isSelf ? ` (${t.you})` : ""}</h3>
+            <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
             {entrant.result?.wpmSeries === undefined ? <p>{t.missing}</p> : <>
               <SpeedPlot entrants={[entrant]} locale={locale} t={t} />
               <div role="region" aria-label={`${t.values} — ${entrant.displayName}`} tabIndex={0} className="max-h-96 overflow-auto rounded-bouton border border-houle">
@@ -83,7 +86,9 @@ function SpeedPlot({ entrants, locale, t }: { readonly entrants: readonly Entran
       return <g key={entrant.ordinal}>
         <polyline fill="none" strokeWidth={2} strokeDasharray={entrant.isSelf ? undefined : `${2 + entrant.ordinal % 4 * 3} 3`} className={color}
           points={points.map((point) => `${x(point.elapsed)},${y(point.measures.netWpm)}`).join(" ")} />
-        <circle cx={x(last.elapsed)} cy={y(last.measures.netWpm)} r={3} className={entrant.isSelf ? "fill-moi" : "fill-embrun"} />
+        {entrant.kind === "bot"
+          ? <rect x={x(last.elapsed) - 3} y={y(last.measures.netWpm) - 3} width={6} height={6} rx={1} className="fill-embrun" />
+          : <circle cx={x(last.elapsed)} cy={y(last.measures.netWpm)} r={3} className={entrant.isSelf ? "fill-moi" : "fill-embrun"} />}
         <text x={x(last.elapsed) + 5} y={y(last.measures.netWpm) - 6} className="fill-ecume text-xs">{formatNumber(entrant.ordinal, locale)}</text>
       </g>;
     })}
