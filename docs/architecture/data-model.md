@@ -73,6 +73,40 @@ An initial seed allows a reproducible demo with non-real local accounts. The cor
 
 ## Delivered schema
 
+### F-07.3A: private expected-grapheme aggregates (migration 0010)
+
+`race_key_errors` stores one versioned JSON aggregate per `(race_id, entrant_id)`,
+with a composite foreign key to `race_results` and cascading deletion. Version 1
+contains unique NFC expected graphemes and positive cumulative error counts. This
+replaces the proposed one-row-per-key layout above. It stores neither the typed
+text nor the chronological keystroke stream. Corrections do not erase mistakes;
+case, accents and spaces stay distinct. These are expected text graphemes, not
+physical keyboard scan codes; the keyboard input length limit does not apply.
+
+Application validation checks exact safe counters against `MAX_ENTRANT_INSERTS`,
+single graphemes, uniqueness and sum equality with the official error count.
+Thus the number of nonzero entries cannot exceed that count. There is no arbitrary
+4000-key cap: replacement texts can introduce new keys during a long race. SQL
+checks the version/container and the result relationship. No public input accepts
+an aggregate: the server constructs it from the authoritative engine result.
+
+The live runtime freezes the aggregate together with its final result, before
+retries. Finalisation writes results, WPM series and key errors in the same fenced
+transaction. Older internal producers may omit the new field; legacy rows are not
+backfilled. An absent row means not collected, while an empty array means collected
+with zero errors. Corrupt stored values fail validation rather than becoming zero.
+
+The existing authorised result query joins key errors only when the entrant's
+account equals the authenticated reader. No other entrant's aggregate is fetched,
+even for an active room spectator. The returned `personalKeyErrors` is separate
+from the collective entrant results. Existing race/account and room admission
+checks remain in place; bots without accounts can never satisfy this private join.
+
+Apply the additive migration before enabling the new reader/writer. A code rollback
+keeps the table and its data; the previous application ignores it. No table drop,
+backfill, recipe migration or remote migration is part of this tranche. Migration
+0010 follows the coordinated preparatory bot migration 0009.
+
 ### F-07.1B: bounded WPM series (migration 0008)
 
 `race_wpm_series` stores one versioned JSON value per `(race_id, entrant_id)`, referencing

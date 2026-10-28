@@ -87,7 +87,8 @@ it("persists the runtime's frozen series atomically with the results and reads t
     for (const follower of followers) {
       expect(runtime.keystrokes(follower, {
         raceId: started.race.raceId, seq: 1, textVersion: 0,
-        events: [{ type: "insert", grapheme: "a" }, { type: "insert", grapheme: "b" }],
+        events: [...(follower.accountId === alice.id ? [{ type: "insert" as const, grapheme: "x" }, { type: "deleteBackward" as const }] : []),
+          { type: "insert", grapheme: "a" }, { type: "insert", grapheme: "b" }],
       })).toMatchObject({ ok: true, result: { outcome: "applied" } });
     }
     await runtime.whenSaved();
@@ -97,9 +98,11 @@ it("persists the runtime's frozen series atomically with the results and reads t
     expect(view?.entrants).toHaveLength(2);
     for (const entrant of view?.entrants ?? []) {
       expect(entrant.result?.wpmSeries?.points.map((point) => point.elapsed)).toEqual([0, 1000, 2000]);
-      expect(entrant.result?.wpmSeries?.points.at(-1)?.measures).toEqual({ netWpm: 12, rawWpm: 12, accuracy: 100 });
+      expect(entrant.result?.wpmSeries?.points.at(-1)?.measures).toEqual({ netWpm: 12, rawWpm: entrant.isSelf ? 18 : 12, accuracy: entrant.isSelf ? 200 / 3 : 100 });
       expect(entrant.result?.elapsedMs).toBe(2000);
     }
+    expect(view?.personalKeyErrors).toEqual({ version: 1, keys: [{ grapheme: "a", count: 1 }] });
+    expect((await readRaceForEntrant(db, started.race.raceId, bob.id))?.personalKeyErrors).toEqual({ version: 1, keys: [] });
     expect(timers.size).toBe(0);
   } finally {
     runtime.retire();
