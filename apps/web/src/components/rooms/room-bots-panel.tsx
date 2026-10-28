@@ -48,7 +48,7 @@ export function RoomBotsPanel({ snapshot, host, live, locale, refresh }: {
     {(snapshot.bots?.length ?? 0) === 0 ? <p className="text-brume">{t.empty}</p> : <ul className="flex flex-col gap-3">
       {snapshot.bots?.map((bot, index) => <li key={bot.botId} className="flex flex-col gap-2 border-b border-houle pb-3">
         <p><span aria-hidden="true" className="mr-2 inline-block h-3 w-3 bg-brume" />{t.label} {index + 1} · {t.levels[bot.level]}</p>
-        {host && <div className="flex flex-wrap gap-2">
+        {host && <div className="flex flex-wrap items-end gap-2">
           <form key={`${bot.botId}-${bot.level}`} onSubmit={(event) => { event.preventDefault(); submit(new FormData(event.currentTarget)); }} className="flex min-w-0 max-w-full flex-wrap items-end gap-2">
             <input type="hidden" name="kind" value="level" /><input type="hidden" name="botId" value={bot.botId} />
             <label className={`${fieldLabel} min-w-0 max-w-full`}>{t.level} {index + 1}<select name="level" defaultValue={bot.level} disabled={!enabled} className={`${textField} block max-w-full`}>{options}</select></label>

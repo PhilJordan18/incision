@@ -70,9 +70,25 @@ test("bot controls are accessible in both languages and themes at reference widt
       for (const width of [1440, 1024, 390, 360]) {
         await page.setViewportSize({ width, height: 1000 });
         await expectNoHorizontalScroll(page); await expectNoAccessibilityViolation(page);
-        await page.screenshot({ path: `../../docs/evidence/f05-2a-room-bots/${locale}-${theme}-${width}.png`, fullPage: true });
+        const row = panel(page).getByRole("listitem");
+        const select = await row.getByRole("combobox").boundingBox();
+        const change = await row.getByRole("button", { name: /^(Changer le niveau|Change level)$/ }).boundingBox();
+        const remove = await row.getByRole("button", { name: /^(Retirer|Remove) Bot 1$/ }).boundingBox();
+        if (!select || !change || !remove) throw new Error("Missing bot controls");
+        for (const control of [select, change, remove]) expect(control.height).toBeGreaterThanOrEqual(44);
+        expect(remove.height).toBeCloseTo(change.height, 0);
+        if (width >= 1024) {
+          expect(Math.abs(remove.y + remove.height - select.y - select.height)).toBeLessThan(1);
+          expect(Math.abs(remove.y - change.y)).toBeLessThan(1);
+        }
+        await page.screenshot({ path: `../../docs/evidence/f05-2-bot-controls-alignment/${locale}-${theme}-${width}.png`, fullPage: true });
       }
     }
+    const row = panel(page).getByRole("listitem");
+    await row.getByRole("combobox").focus(); await page.keyboard.press("Tab");
+    await expect(row.getByRole("button", { name: /^(Changer le niveau|Change level)$/ })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(row.getByRole("button", { name: /^(Retirer|Remove) Bot 1$/ })).toBeFocused();
     const selector = panel(page).getByRole("combobox", { name: /^(Niveau du bot|Bot level)$/ });
     await selector.focus(); await selector.press("Tab");
     await expect(panel(page).getByRole("button", { name: /^(Ajouter un bot|Add a bot)$/ })).toBeFocused();
