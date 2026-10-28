@@ -51,7 +51,7 @@ export const FIXTURE_RACE_TEXTS: Readonly<Record<TextLanguage, RaceText>> = {
 
 /** Where the races of this process take their texts: the corpus, or fixed texts in tests. */
 export type RaceTextSource = {
-  draw(language: TextLanguage): Promise<RaceTextDraw>;
+  draw(language: TextLanguage, wordCount: number): Promise<RaceTextDraw>;
 };
 
 /** Fixed texts, whole, one per language: the test fixtures follow no setting. */
@@ -86,7 +86,7 @@ const cryptoSeed = (): RandomState => asRandomState(Array.from(crypto.getRandomV
 
 /**
  * The texts races run (F-02.3b): a passage of the active corpus version, drawn and cut by the
- * engine (`generateRaceText`) with D-19's defaults in the race's language. The version is loaded
+ * engine (`generateRaceText`) with the room's word count and D-19's other defaults. The version is loaded
  * from PostgreSQL once per process, checked against its fingerprints and frozen; a version
  * imported later serves after the next restart (docs/DEPLOYMENT.md). While no version is active,
  * or after a failed load, a start reads again, at most once per CORPUS_RETRY_MS. A refused draw
@@ -115,7 +115,7 @@ export class CorpusTexts implements RaceTextSource {
     }
   }
 
-  async draw(language: TextLanguage): Promise<RaceTextDraw> {
+  async draw(language: TextLanguage, wordCount: number): Promise<RaceTextDraw> {
     let corpus: ActiveCorpus | undefined;
     try {
       corpus = await this.#active();
@@ -125,7 +125,7 @@ export class CorpusTexts implements RaceTextSource {
     if (corpus === undefined) {
       return { ok: false, reason: "NO_COMPATIBLE_PASSAGE" };
     }
-    const settings = defaultCoherentSettings(language);
+    const settings = { ...defaultCoherentSettings(language), wordCount };
     try {
       const result = generateRaceText({ settings, passages: corpus.passages, state: (this.#options.seed ?? cryptoSeed)() });
       if (!result.ok) {

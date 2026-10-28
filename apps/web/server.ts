@@ -97,7 +97,7 @@ async function main(): Promise<void> {
   console.log(
     corpusTexts === undefined
       ? "[races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus"
-      : "[races] race texts: drawn from the active corpus (D-19: coherent, 50 words, medium)",
+      : "[races] race texts: drawn from the active corpus (coherent, room word count, medium)",
   );
   // Loaded now, without delaying the server; a failure is retried by a later start, at most every CORPUS_RETRY_MS.
   if (corpusTexts !== undefined && env.databaseUrl !== undefined) {

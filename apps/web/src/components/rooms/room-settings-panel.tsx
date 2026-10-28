@@ -2,7 +2,7 @@
 
 import { unstable_rethrow } from "next/navigation";
 import { useCallback, useId, useRef, useState, useTransition } from "react";
-import { TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS } from "@incision/domain";
+import { TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import { card, discreetButton, fieldLabel, monoLabel, secondaryButton, textField } from "@/components/ui/styles";
 import type { Locale } from "@/i18n/locale";
 import { roomSettingsCopy } from "@/i18n/room-settings";
@@ -87,6 +87,7 @@ export function RoomSettingsPanel({ code, settings, host, live, locale, refresh 
       {settings === undefined ? <p className="text-brume">{t.unavailable}</p> : (
         <dl className="flex flex-wrap gap-4 text-sm" aria-live="polite" aria-atomic="true">
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.language}</dt><dd>{settings.textLanguage === "fr" ? t.french : t.english}</dd></div>
+          <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.wordCount}</dt><dd>{settings.wordCount}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.duration}</dt><dd>{settings.timeLimitMs === null ? t.unlimited : settings.timeLimitMs / 1000}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.mode}</dt><dd>{settings.errorMode === "mandatory" ? t.mandatory : t.free}</dd></div>
         </dl>
@@ -129,6 +130,12 @@ export function RoomSettingsPanel({ code, settings, host, live, locale, refresh 
                   onChange={(event) => setDraft({ ...draft, seconds: event.target.value })} />
               </label>
             </div>
+            <label className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-words`}>{t.wordCount}
+              <input id={`${id}-words`} className={textField} type="number" min={MIN_TEXT_WORDS} max={MAX_TEXT_WORDS}
+                step="1" required value={draft.wordCount} aria-describedby={`${id}-words-hint`}
+                onChange={(event) => setDraft({ ...draft, wordCount: event.target.value })} />
+              <span id={`${id}-words-hint`} className="text-sm font-normal text-brume">{t.wordCountHint}</span>
+            </label>
           </fieldset>
           <p id={`${id}-hint`} className="text-sm text-brume">{t.hint}</p>
           {conflict && <p role="alert" className="text-sm text-or">⚠ {t.conflict}</p>}

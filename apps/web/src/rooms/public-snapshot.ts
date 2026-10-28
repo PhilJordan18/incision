@@ -20,6 +20,7 @@ export function publicSnapshot(snapshot: RoomSnapshot, online: ReadonlySet<strin
     settings: {
       revision: snapshot.settings.revision,
       textLanguage: snapshot.settings.textLanguage,
+      wordCount: snapshot.settings.wordCount,
       timeLimitMs: snapshot.settings.timeLimitMs,
       errorMode: snapshot.settings.errorMode,
     },

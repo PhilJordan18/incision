@@ -42,6 +42,7 @@ function form(): FormData {
   value.set("revision", "0");
   // The text language of the settings form; a new room's comes from the request instead (mocked "en").
   value.set("textLanguage", "fr");
+  value.set("wordCount", "50");
   value.set("timeLimitSeconds", "60");
   value.set("errorMode", "mandatory");
   return value;
@@ -83,7 +84,7 @@ describe("server-action identity boundaries (SEC-01)", () => {
       name: "configure",
       invoke: configureRoomAction,
       mutation: boundary.configure,
-      expected: { accountId: "session-account", code: "ABCDEF", revision: 0, settings: { textLanguage: "fr", timeLimitMs: 60_000, errorMode: "mandatory" } },
+      expected: { accountId: "session-account", code: "ABCDEF", revision: 0, settings: { textLanguage: "fr", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" } },
     },
   ])("$name ignores a forged host identity and preserves the transactional refusal", async ({ invoke, mutation, expected }) => {
     mutation.mockResolvedValue({ ok: false, error: "NOT_HOST" });

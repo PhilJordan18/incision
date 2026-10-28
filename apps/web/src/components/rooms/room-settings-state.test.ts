@@ -3,7 +3,7 @@ import { awaitingSettings, draftConflict, editableSettings, requiresSettingsRefr
 import { roomSettingsCopy, roomStartNote } from "@/i18n/room-settings";
 import { parseConfigureRoomForm } from "@/server/rooms/room-settings";
 
-const saved: SavedRoomSettings & { timeLimitMs: number } = { revision: 7, textLanguage: "fr", timeLimitMs: 120_000, errorMode: "mandatory" };
+const saved: SavedRoomSettings & { timeLimitMs: number } = { revision: 7, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory" };
 
 describe("waiting-room settings state", () => {
   it("blocks stale authority and unknown outcomes until a read, even before the snapshot catches up", () => {
@@ -13,11 +13,11 @@ describe("waiting-room settings state", () => {
   it("pins the settings revision, not the unrelated room revision", () => {
     const draft = { ...settingsDraft(saved), textLanguage: "en" as const, seconds: "60" };
     const form = settingsForm("ABCDEF", draft);
-    expect([...form.entries()]).toEqual([["code", "ABCDEF"], ["revision", "7"], ["textLanguage", "en"], ["timeLimitSeconds", "60"], ["errorMode", "mandatory"]]);
-    expect(parseConfigureRoomForm(form)?.settings).toEqual({ textLanguage: "en", timeLimitMs: 60_000, errorMode: "mandatory" });
+    expect([...form.entries()]).toEqual([["code", "ABCDEF"], ["revision", "7"], ["textLanguage", "en"], ["wordCount", "50"], ["timeLimitSeconds", "60"], ["errorMode", "mandatory"]]);
+    expect(parseConfigureRoomForm(form)?.settings).toEqual({ textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" });
     expect(draftConflict(draft, { ...saved })).toBe(false);
     expect(draftConflict(draft, { ...saved, revision: 8 })).toBe(true);
-    expect(draft).toEqual({ revision: 7, textLanguage: "en", seconds: "60", errorMode: "mandatory" });
+    expect(draft).toEqual({ revision: 7, textLanguage: "en", wordCount: "50", seconds: "60", errorMode: "mandatory" });
   });
   it("handles ack before snapshot, snapshot before ack, and a newer snapshot without rollback", () => {
     expect(awaitingSettings(8, saved)).toBe(true);
@@ -47,13 +47,26 @@ describe("waiting-room settings state", () => {
       expect(validDraft(draft)).toBe(true);
       expect(parseConfigureRoomForm(settingsForm("ABCDEF", draft))).toEqual({
         code: "ABCDEF", revision: saved.revision,
-        settings: { textLanguage: "fr", errorMode: "free", timeLimitMs },
+        settings: { textLanguage: "fr", wordCount: 50, errorMode: "free", timeLimitMs },
       });
     }
   });
   it("accepts only the server's whole-second range", () => {
     for (const seconds of ["", "29", "601", "30.5", "3e1", "-30", " 60", "0030"]) expect(validDraft({ ...settingsDraft(saved), seconds })).toBe(false);
     for (const seconds of ["none", "30", "60", "120", "121", "600"]) expect(validDraft({ ...settingsDraft(saved), seconds })).toBe(true);
+  });
+  it("round-trips the word-count bounds and refuses malformed drafts without clamping", () => {
+    for (const wordCount of ["10", "50", "200"]) {
+      const draft = { ...settingsDraft(saved), wordCount };
+      expect(validDraft(draft)).toBe(true);
+      expect(parseConfigureRoomForm(settingsForm("ABCDEF", draft))?.settings.wordCount).toBe(Number(wordCount));
+    }
+    for (const wordCount of ["", "9", "201", "10.5", "2e1", "-10", " 50", "0050", "50\n"]) {
+      const draft = { ...settingsDraft(saved), wordCount };
+      expect(validDraft(draft), wordCount).toBe(false);
+      expect(parseConfigureRoomForm(settingsForm("ABCDEF", draft)), wordCount).toBeUndefined();
+    }
+    for (const wordCount of [9, 201, 50.5, NaN]) expect(editableSettings({ ...saved, wordCount })).toBe(false);
   });
   it("uses the real duration and mode in the start note in both languages", () => {
     for (const locale of ["fr", "en"] as const) {

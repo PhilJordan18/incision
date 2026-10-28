@@ -1,4 +1,4 @@
-import { BOT_LEVELS, ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES } from "@incision/domain";
+import { BOT_LEVELS, ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import { z } from "zod";
 
 /** The states of a race and the reasons it ended without results (`races`, ADR-0004, D-06). */
@@ -60,6 +60,7 @@ export const roomSnapshotSchema = z.object({
     .object({
       revision: z.number().int().nonnegative(),
       textLanguage: z.enum(TEXT_LANGUAGES),
+      wordCount: z.number().int().min(MIN_TEXT_WORDS).max(MAX_TEXT_WORDS),
       /** Null: no time limit. */
       timeLimitMs: z.number().int().positive().nullable(),
       errorMode: z.enum(ERROR_MODES),

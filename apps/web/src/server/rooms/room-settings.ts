@@ -1,11 +1,12 @@
 import type { RoomSettings } from "@incision/database";
-import { parseRoomCode, type RoomCode, TEXT_LANGUAGES, TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS } from "@incision/domain";
+import { parseRoomCode, type RoomCode, TEXT_LANGUAGES, TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import { z } from "zod";
 
 /** Both CONF-08 modes share the full CONF-01 duration range. */
 export function isRunnable(settings: RoomSettings): boolean {
-  const { timeLimitMs, errorMode } = settings;
-  return (errorMode === "mandatory" || errorMode === "free") && (timeLimitMs === null || (Number.isSafeInteger(timeLimitMs)
+  const { timeLimitMs, errorMode, wordCount } = settings;
+  return Number.isInteger(wordCount) && wordCount >= MIN_TEXT_WORDS && wordCount <= MAX_TEXT_WORDS
+    && (errorMode === "mandatory" || errorMode === "free") && (timeLimitMs === null || (Number.isSafeInteger(timeLimitMs)
     && timeLimitMs >= TIME_LIMIT_MIN_MS && timeLimitMs <= TIME_LIMIT_MAX_MS));
 }
 
@@ -23,11 +24,12 @@ const digits = (maxLength: number) =>
 const configureRoomFieldsSchema = z.object({
   revision: digits(9),
   textLanguage: z.enum(TEXT_LANGUAGES),
+  wordCount: digits(3).pipe(z.number().int().min(MIN_TEXT_WORDS).max(MAX_TEXT_WORDS)),
   errorMode: z.enum(["mandatory", "free"]),
   timeLimitSeconds: z.union([z.literal("none").transform(() => null), digits(3).pipe(z.number().min(TIME_LIMIT_MIN_MS / 1000).max(TIME_LIMIT_MAX_MS / 1000))]),
 });
 
-const FIELDS = ["revision", "textLanguage", "timeLimitSeconds", "errorMode"] as const;
+const FIELDS = ["revision", "textLanguage", "wordCount", "timeLimitSeconds", "errorMode"] as const;
 
 export type ConfigureRoomRequest = {
   readonly code: RoomCode;
@@ -53,6 +55,6 @@ export function parseConfigureRoomForm(formData: FormData): ConfigureRoomRequest
   if (code === undefined || !code.ok || !fields.success) {
     return undefined;
   }
-  const { revision, textLanguage, timeLimitSeconds, errorMode } = fields.data;
-  return { code: code.code, revision, settings: { textLanguage, timeLimitMs: timeLimitSeconds === null ? null : timeLimitSeconds * 1000, errorMode } };
+  const { revision, textLanguage, wordCount, timeLimitSeconds, errorMode } = fields.data;
+  return { code: code.code, revision, settings: { textLanguage, wordCount, timeLimitMs: timeLimitSeconds === null ? null : timeLimitSeconds * 1000, errorMode } };
 }

@@ -1,4 +1,4 @@
-import { TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS } from "@incision/domain";
+import { TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
 import type { ConfigureRoomError } from "@/server/rooms/actions";
 
@@ -7,17 +7,19 @@ export type SettingsDraft = {
   readonly revision: number;
   readonly textLanguage: "fr" | "en";
   readonly seconds: string;
+  readonly wordCount: string;
   readonly errorMode: SavedRoomSettings["errorMode"];
 };
 
 /** This tranche exposes only settings the current server can save. Never coerce future values. */
 export function editableSettings(settings: SavedRoomSettings | undefined): settings is SavedRoomSettings {
-  return settings !== undefined && (settings.errorMode === "mandatory" || settings.errorMode === "free") && (settings.timeLimitMs === null || (Number.isInteger(settings.timeLimitMs / 1000) && settings.timeLimitMs >= TIME_LIMIT_MIN_MS
+  return settings !== undefined && Number.isInteger(settings.wordCount) && settings.wordCount >= MIN_TEXT_WORDS && settings.wordCount <= MAX_TEXT_WORDS
+    && (settings.errorMode === "mandatory" || settings.errorMode === "free") && (settings.timeLimitMs === null || (Number.isInteger(settings.timeLimitMs / 1000) && settings.timeLimitMs >= TIME_LIMIT_MIN_MS
     && settings.timeLimitMs <= TIME_LIMIT_MAX_MS));
 }
 
 export function settingsDraft(settings: SavedRoomSettings): SettingsDraft {
-  return { revision: settings.revision, textLanguage: settings.textLanguage, seconds: settings.timeLimitMs === null ? "none" : String(settings.timeLimitMs / 1000), errorMode: settings.errorMode };
+  return { revision: settings.revision, textLanguage: settings.textLanguage, wordCount: String(settings.wordCount), seconds: settings.timeLimitMs === null ? "none" : String(settings.timeLimitMs / 1000), errorMode: settings.errorMode };
 }
 
 export function draftConflict(draft: SettingsDraft | null, settings: SavedRoomSettings | undefined): boolean {
@@ -25,7 +27,8 @@ export function draftConflict(draft: SettingsDraft | null, settings: SavedRoomSe
 }
 
 export function validDraft(draft: SettingsDraft): boolean {
-  return (draft.errorMode === "mandatory" || draft.errorMode === "free") && (draft.seconds === "none" || (/^\d{1,3}$/.test(draft.seconds) && Number(draft.seconds) >= TIME_LIMIT_MIN_MS / 1000
+  return /^\d{1,3}$/.test(draft.wordCount) && Number(draft.wordCount) >= MIN_TEXT_WORDS && Number(draft.wordCount) <= MAX_TEXT_WORDS
+    && (draft.errorMode === "mandatory" || draft.errorMode === "free") && (draft.seconds === "none" || (/^\d{1,3}$/.test(draft.seconds) && Number(draft.seconds) >= TIME_LIMIT_MIN_MS / 1000
     && Number(draft.seconds) <= TIME_LIMIT_MAX_MS / 1000));
 }
 
@@ -45,6 +48,7 @@ export function settingsForm(code: string, draft: SettingsDraft): FormData {
   form.set("code", code);
   form.set("revision", String(draft.revision));
   form.set("textLanguage", draft.textLanguage);
+  form.set("wordCount", draft.wordCount);
   form.set("timeLimitSeconds", draft.seconds);
   form.set("errorMode", draft.errorMode);
   return form;

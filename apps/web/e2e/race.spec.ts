@@ -316,7 +316,7 @@ test.describe("the first complete race (F-04.0)", () => {
     const settings = host.getByRole("region", { name: "Race settings", exact: true });
     await settings.getByRole("button", { name: "Edit settings", exact: true }).click();
     await settings.getByRole("checkbox", { name: "No limit", exact: true }).uncheck();
-    await settings.getByRole("spinbutton").fill("120");
+    await settings.getByRole("spinbutton", { name: /Durée maximale|Time limit/ }).fill("120");
     await settings.getByRole("button", { name: "Save settings", exact: true }).click();
     await expect(settings.getByRole("status")).toHaveText("Settings saved.");
     await host.getByRole("button", { name: "Start the race" }).click();
