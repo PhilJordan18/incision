@@ -1,6 +1,6 @@
 # F-03.1d1 — coherent text length
 
-Status: scoped implementation verified locally, ready for the human delivery gate. No push or merge.
+Status: scoped implementation verified locally; Philippe authorized delivery on October 28, 2026. Merging remains a human action.
 
 ## Scope and isolation
 
@@ -37,9 +37,17 @@ The production build and full unit run precede a server-log wording adjustment i
 - Database review: generated additive SQL, not-null default50 and CHECK10–200; empty/populated/repeat migration tests and rejected SQL bounds. Historical results/series/key-error rows were not populated by the new migration test, so their restoration is not claimed.
 - UI review: existing tokens/styles and translated labels; responsive/axe browser checks and inspected screenshots as above. Human acceptance remains pending.
 
-## Remaining before delivery
+## Visual evidence
 
-- Human `deliver` approval before push/PR; no push or merge performed.
+- [FR Abysse, 1440 px](screenshots/settings-fr-CA-abysse-1440.png)
+- [FR Aube, 1024 px](screenshots/settings-fr-CA-aube-1024.png)
+- [EN Aube, 390 px](screenshots/settings-en-US-aube-390.png)
+
+Selected screenshots are preserved here; the full generated browser artifact directory was archived outside the checkout before delivery.
+
+## Remaining
+
+- Remote CI and human acceptance before Philippe decides whether to merge.
 - Human recipe integration is a later controlled step with a fresh preserved backup, not a reset of the current recipe.
 
 ## Parallel card #42A
