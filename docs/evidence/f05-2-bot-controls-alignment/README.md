@@ -17,6 +17,13 @@ Only the fix commit and these new proofs should be carried onto updated dev for 
 The screenshots show the #176 waiting-room baseline, not a new verification of #178's
 race-start behavior. No published PR branch or shared recipe was modified.
 
+For delivery, `codex/fix-59-bot-controls-delivery` starts from updated `dev` `25f0614`
+after the human merges of #176/#177. Only the correction and its proof commits were
+ported (`b1d7c90`, `7f6cf9a`); no prerequisite replay is included in this PR.
+On this updated base, the no-JS guard, web lint/types, 22 focused unit tests and root
+production build pass again. The three browser scenarios pass in 51.3 s; the adjacent
+captures were regenerated on this base. The delivery PR records the final root checks.
+
 ## Verification
 
 - `npm run check:no-js`: pass.
