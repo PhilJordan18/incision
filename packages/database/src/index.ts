@@ -9,6 +9,7 @@ export * from "./identity/password";
 export * from "./local-database";
 export * from "./pool";
 export * from "./races/lifecycle";
+export * from "./races/key-errors";
 export * from "./races/history";
 export * from "./races/profile-statistics";
 export * from "./races/results";

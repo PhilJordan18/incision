@@ -19,6 +19,8 @@ import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transac
 import { endedNow, interruption } from "./interruption";
 import { raceWpmSeries } from "../schema/race-wpm-series";
 import { checkedResultWpmSeries, type ResultWpmSeries } from "./wpm-series";
+import { checkedKeyErrors, type StoredKeyErrors } from "./key-errors";
+import { raceKeyErrors } from "../schema/race-key-errors";
 
 /**
  * Lease of a race's owner, on the database clock (ADR-0004). Another process may take a race
@@ -317,6 +319,8 @@ export async function beginRacing(db: Database, ownership: RaceOwnership): Promi
 export type RaceResultRow = {
   /** Required: real samples, or an explicit non-live producer that did not collect them. */
   readonly wpmSeries: ResultWpmSeries;
+  /** Absent for older non-live producers. The live runtime always supplies collected data. */
+  readonly keyErrors?: StoredKeyErrors;
   readonly entrantId: string;
   readonly outcome: "finished" | "timed_out" | "abandoned";
   readonly rank: number;
@@ -363,11 +367,15 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
       const value = checkedResultWpmSeries(result.wpmSeries, result);
       return value === undefined ? [] : [{ raceId: ownership.raceId, entrantId: result.entrantId, series: value }];
     });
+    const keyErrors = results.flatMap((result) => result.keyErrors === undefined ? [] : [{
+      raceId: ownership.raceId, entrantId: result.entrantId, aggregate: checkedKeyErrors(result.keyErrors, result),
+    }]);
     const written = await tx
       .insert(raceResults)
-      .values(results.map(({ wpmSeries, ...result }) => {
+      .values(results.map(({ wpmSeries, keyErrors, ...result }) => {
         // The validated series belongs to its own table, not a race_results column.
         void wpmSeries;
+        void keyErrors;
         return { ...result, raceId: ownership.raceId };
       }))
       .returning({ entrantId: raceResults.entrantId });
@@ -377,6 +385,10 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
     if (series.length > 0) {
       const inserted = await tx.insert(raceWpmSeries).values(series).returning({ entrantId: raceWpmSeries.entrantId });
       if (inserted.length !== series.length) throw new Error("Not every WPM series was written");
+    }
+    if (keyErrors.length > 0) {
+      const inserted = await tx.insert(raceKeyErrors).values(keyErrors).returning({ entrantId: raceKeyErrors.entrantId });
+      if (inserted.length !== keyErrors.length) throw new Error("Not every key error aggregate was written");
     }
     await moveRoom(tx, ownership.lobbyId, ownership.raceId, "results");
     return { won: true, alreadyDone: false };
