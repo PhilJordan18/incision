@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { BOT_LEVELS, type BotLevel } from "@incision/domain";
 import {
   type AnyPgColumn,
   bigint,
@@ -110,9 +111,10 @@ export const raceEntrants = pgTable(
       .notNull()
       .references(() => races.id, { onDelete: "cascade" }),
     memberId: uuid("member_id").references(() => lobbyMembers.id, { onDelete: "set null" }),
-    accountId: uuid("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "restrict" }),
+    accountId: uuid("account_id").references(() => accounts.id, { onDelete: "restrict" }),
+    /** Frozen independently of the mutable room bot roster. Legacy entrants are human. */
+    kind: text().$type<"human" | "bot">().notNull().default("human"),
+    botLevel: text("bot_level").$type<BotLevel>(),
     ordinal: smallint().notNull(),
     displayNameSnapshot: text("display_name_snapshot").notNull(),
   },
@@ -122,6 +124,7 @@ export const raceEntrants = pgTable(
     unique("race_entrants_member_race_unique").on(table.memberId, table.raceId),
     // Also the account's history index.
     unique("race_entrants_account_race_unique").on(table.accountId, table.raceId),
+    check("race_entrants_identity_kind", sql`(${table.kind} = 'human' and ${table.accountId} is not null and ${table.botLevel} is null) or (${table.kind} = 'bot' and ${table.accountId} is null and ${table.memberId} is null and ${table.botLevel} is not null and ${table.botLevel} in (${sql.raw(BOT_LEVELS.map((level) => `'${level}'`).join(", "))}))`),
     check("race_entrants_ordinal_range", sql`${table.ordinal} between 1 and 30`),
     check(
       "race_entrants_display_name_length",
