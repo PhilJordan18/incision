@@ -106,6 +106,18 @@ export function RoomSettingsPanel({ code, settings, host, live, locale, refresh 
               </select>
             </label>
             <div className="flex flex-col gap-2">
+              <label className={fieldLabel} htmlFor={`${id}-mode`}>{t.mode}</label>
+              <select id={`${id}-mode`} className={textField} value={draft.errorMode}
+                aria-describedby={`${id}-mode-hint`}
+                onChange={(event) => {
+                  const errorMode = event.target.value;
+                  if (errorMode === "mandatory" || errorMode === "free") setDraft({ ...draft, errorMode });
+                }}>
+                <option value="mandatory">{t.mandatory}</option><option value="free">{t.free}</option>
+              </select>
+              <span id={`${id}-mode-hint`} className="text-sm font-normal text-brume">{t.modeHint}</span>
+            </div>
+            <div className="flex flex-col gap-2">
               <label className="flex min-h-11 items-center gap-3" htmlFor={`${id}-unlimited`}>
                 <input id={`${id}-unlimited`} type="checkbox" checked={draft.seconds === "none"}
                   onChange={(event) => setDraft({ ...draft, seconds: event.target.checked ? "none" : String(TIME_LIMIT_MIN_MS / 1000) })} />

@@ -13,11 +13,11 @@ describe("waiting-room settings state", () => {
   it("pins the settings revision, not the unrelated room revision", () => {
     const draft = { ...settingsDraft(saved), textLanguage: "en" as const, seconds: "60" };
     const form = settingsForm("ABCDEF", draft);
-    expect([...form.entries()]).toEqual([["code", "ABCDEF"], ["revision", "7"], ["textLanguage", "en"], ["timeLimitSeconds", "60"]]);
+    expect([...form.entries()]).toEqual([["code", "ABCDEF"], ["revision", "7"], ["textLanguage", "en"], ["timeLimitSeconds", "60"], ["errorMode", "mandatory"]]);
     expect(parseConfigureRoomForm(form)?.settings).toEqual({ textLanguage: "en", timeLimitMs: 60_000, errorMode: "mandatory" });
     expect(draftConflict(draft, { ...saved })).toBe(false);
     expect(draftConflict(draft, { ...saved, revision: 8 })).toBe(true);
-    expect(draft).toEqual({ revision: 7, textLanguage: "en", seconds: "60" });
+    expect(draft).toEqual({ revision: 7, textLanguage: "en", seconds: "60", errorMode: "mandatory" });
   });
   it("handles ack before snapshot, snapshot before ack, and a newer snapshot without rollback", () => {
     expect(awaitingSettings(8, saved)).toBe(true);
@@ -27,7 +27,7 @@ describe("waiting-room settings state", () => {
     expect(awaitingSettings(8, undefined)).toBe(true);
   });
   it("does not invent defaults or convert unsupported stored values", () => {
-    for (const settings of [undefined, { ...saved, timeLimitMs: 600_001 }, { ...saved, errorMode: "free" as const }, { ...saved, timeLimitMs: 30_500 }]) {
+    for (const settings of [undefined, { ...saved, timeLimitMs: 600_001 }, { ...saved, timeLimitMs: 30_500 }]) {
       expect(editableSettings(settings)).toBe(false);
     }
     expect(editableSettings({ ...saved, timeLimitMs: 30_000 })).toBe(true);
@@ -38,6 +38,18 @@ describe("waiting-room settings state", () => {
     expect(unlimited.seconds).toBe("none");
     expect(parseConfigureRoomForm(settingsForm("ABCDEF", unlimited))?.settings.timeLimitMs).toBeNull();
     expect(draftConflict(settingsDraft(saved), undefined)).toBe(true);
+  });
+  it("round-trips free typing without changing its duration or revision", () => {
+    for (const timeLimitMs of [null, 30_000, 600_000]) {
+      const free = { ...saved, errorMode: "free" as const, timeLimitMs };
+      expect(editableSettings(free)).toBe(true);
+      const draft = settingsDraft(free);
+      expect(validDraft(draft)).toBe(true);
+      expect(parseConfigureRoomForm(settingsForm("ABCDEF", draft))).toEqual({
+        code: "ABCDEF", revision: saved.revision,
+        settings: { textLanguage: "fr", errorMode: "free", timeLimitMs },
+      });
+    }
   });
   it("accepts only the server's whole-second range", () => {
     for (const seconds of ["", "29", "601", "30.5", "3e1", "-30", " 60", "0030"]) expect(validDraft({ ...settingsDraft(saved), seconds })).toBe(false);

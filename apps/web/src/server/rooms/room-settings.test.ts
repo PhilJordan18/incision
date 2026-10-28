@@ -13,7 +13,7 @@ function form(fields: Readonly<Record<string, string | readonly string[]>>): For
   return value;
 }
 
-const VALID = { code: "ABCDEF", revision: "3", textLanguage: "en", timeLimitSeconds: "90" } as const;
+const VALID = { code: "ABCDEF", revision: "3", textLanguage: "en", timeLimitSeconds: "90", errorMode: "mandatory" } as const;
 
 describe("parseConfigureRoomForm", () => {
   it("reads the code, the revision, the language and the limit in seconds, with mandatory correction", () => {
@@ -66,12 +66,21 @@ describe("parseConfigureRoomForm", () => {
     expect(parseConfigureRoomForm(withFile)).toBeUndefined();
   });
 
-  it("ignores what the host cannot choose yet: the error mode and a limit in milliseconds", () => {
+  it("accepts free typing without accepting a forged limit in milliseconds", () => {
     expect(parseConfigureRoomForm(form({ ...VALID, errorMode: "free", timeLimitMs: "600000", $ACTION_ID_x: "" }))?.settings).toEqual({
       textLanguage: "en",
       timeLimitMs: 90_000,
-      errorMode: "mandatory",
+      errorMode: "free",
     });
+  });
+
+  it("refuses unknown modes instead of silently selecting mandatory correction", () => {
+    for (const errorMode of ["", "FREE", "unknown", " mandatory "]) {
+      expect(parseConfigureRoomForm(form({ ...VALID, errorMode }))).toBeUndefined();
+    }
+    const withFile = form(VALID);
+    withFile.set("errorMode", new Blob(["free"]));
+    expect(parseConfigureRoomForm(withFile)).toBeUndefined();
   });
 });
 
@@ -84,12 +93,14 @@ describe("isRunnable", () => {
     expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MAX_MS }))).toBe(true);
   });
 
-  it("refuses invalid limits and free typing while allowing unlimited races", () => {
+  it("refuses invalid limits while allowing both modes and unlimited races", () => {
     expect(isRunnable(settings({ timeLimitMs: null }))).toBe(true);
     expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MAX_MS + 1 }))).toBe(false);
     expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MAX_MS }))).toBe(true);
     expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MIN_MS - 1 }))).toBe(false);
-    expect(isRunnable(settings({ errorMode: "free" }))).toBe(false);
+    for (const timeLimitMs of [null, TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS]) {
+      expect(isRunnable(settings({ errorMode: "free", timeLimitMs }))).toBe(true);
+    }
     for (const timeLimitMs of [NaN, Infinity, 30_000.5, -1]) expect(isRunnable(settings({ timeLimitMs }))).toBe(false);
   });
 });

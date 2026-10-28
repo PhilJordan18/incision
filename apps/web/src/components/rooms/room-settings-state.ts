@@ -7,16 +7,17 @@ export type SettingsDraft = {
   readonly revision: number;
   readonly textLanguage: "fr" | "en";
   readonly seconds: string;
+  readonly errorMode: SavedRoomSettings["errorMode"];
 };
 
 /** This tranche exposes only settings the current server can save. Never coerce future values. */
 export function editableSettings(settings: SavedRoomSettings | undefined): settings is SavedRoomSettings {
-  return settings !== undefined && settings.errorMode === "mandatory" && (settings.timeLimitMs === null || (Number.isInteger(settings.timeLimitMs / 1000) && settings.timeLimitMs >= TIME_LIMIT_MIN_MS
+  return settings !== undefined && (settings.errorMode === "mandatory" || settings.errorMode === "free") && (settings.timeLimitMs === null || (Number.isInteger(settings.timeLimitMs / 1000) && settings.timeLimitMs >= TIME_LIMIT_MIN_MS
     && settings.timeLimitMs <= TIME_LIMIT_MAX_MS));
 }
 
 export function settingsDraft(settings: SavedRoomSettings): SettingsDraft {
-  return { revision: settings.revision, textLanguage: settings.textLanguage, seconds: settings.timeLimitMs === null ? "none" : String(settings.timeLimitMs / 1000) };
+  return { revision: settings.revision, textLanguage: settings.textLanguage, seconds: settings.timeLimitMs === null ? "none" : String(settings.timeLimitMs / 1000), errorMode: settings.errorMode };
 }
 
 export function draftConflict(draft: SettingsDraft | null, settings: SavedRoomSettings | undefined): boolean {
@@ -24,8 +25,8 @@ export function draftConflict(draft: SettingsDraft | null, settings: SavedRoomSe
 }
 
 export function validDraft(draft: SettingsDraft): boolean {
-  return draft.seconds === "none" || (/^\d{1,3}$/.test(draft.seconds) && Number(draft.seconds) >= TIME_LIMIT_MIN_MS / 1000
-    && Number(draft.seconds) <= TIME_LIMIT_MAX_MS / 1000);
+  return (draft.errorMode === "mandatory" || draft.errorMode === "free") && (draft.seconds === "none" || (/^\d{1,3}$/.test(draft.seconds) && Number(draft.seconds) >= TIME_LIMIT_MIN_MS / 1000
+    && Number(draft.seconds) <= TIME_LIMIT_MAX_MS / 1000));
 }
 
 /** Acknowledgement alone is not the new snapshot. A newer snapshot also satisfies the ack. */
@@ -45,5 +46,6 @@ export function settingsForm(code: string, draft: SettingsDraft): FormData {
   form.set("revision", String(draft.revision));
   form.set("textLanguage", draft.textLanguage);
   form.set("timeLimitSeconds", draft.seconds);
+  form.set("errorMode", draft.errorMode);
   return form;
 }
