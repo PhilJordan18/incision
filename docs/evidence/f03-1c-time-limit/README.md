@@ -90,3 +90,21 @@ D-19 is advanced only for the no-limit default in new rooms; quick play and othe
 missing settings are not implied. CONF-08 free mode and CONF-04–07 controls remain
 separate. Keep parent #45 open. Publishing awaits Philippe's `deliver`; no CI result
 is available for this unpushed branch.
+
+## Post-publication CI correction
+
+Philippe explicitly authorized delivery, and PR #174 was opened toward dev at
+`0249fcf`. Both initial CI runs passed all stages before the browser suite, then
+failed on the same existing departure-confirmation scenario: it expected a running
+countdown clock in a newly created room, which now correctly defaults to no limit
+and displays an em dash. All 129 other browser tests passed in both runs, including
+the eight settings scenarios.
+
+After explicit release of this test by the free-mode session, its setup now saves
+120 seconds through the real host settings UI before starting. The clock-progression
+assertion is preserved and now also requires a numeric clock. Product code, default
+settings, CI configuration and all other assertions are unchanged.
+
+The exact targeted scenario passed locally (7.8s; complete run13.2s) against the
+existing production build, dedicated port3992/databaseincision_e2e_time45. No full
+local browser rerun. New CI results are tracked on PR #174. No merge or recipe change.
