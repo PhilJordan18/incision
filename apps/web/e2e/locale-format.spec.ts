@@ -87,7 +87,8 @@ test("locale formats stay consistent through a race, server results and hydratio
     await expect(page.locator("main")).toContainText(round);
     const response = await page.request.get(raceUrl, { headers: { "Accept-Language": locale } });
     expect(await response.text()).toContain(round);
-    const data = await page.getByRole("table").innerText();
+    const ranking = page.getByRole("region", { name: locale === "fr" ? "Classement de la manche" : "Ranking of the round", exact: true });
+    const data = await ranking.getByRole("table").innerText();
     expect(data).toMatch(locale === "fr" ? /100\s%/u : /100%/u);
     expect(data).toMatch(locale === "fr" ? /0:\d{2},\d/ : /0:\d{2}\.\d/);
     for (const theme of ["abysse", "aube"] as const) {
@@ -96,7 +97,7 @@ test("locale formats stay consistent through a race, server results and hydratio
       await page.reload();
       await page.getByRole("heading", { level: 1 }).focus();
       await page.keyboard.press("Tab");
-      await expect(page.locator("main [role=region]")).toBeFocused();
+      await expect(ranking).toBeFocused();
       for (const width of [1440, 1024, 390, 360]) {
         await page.setViewportSize({ width, height: 900 });
         await expectNoHorizontalScroll(page);

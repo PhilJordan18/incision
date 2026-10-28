@@ -4,6 +4,7 @@ import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 import { RaceResults } from "@/components/races/race-results";
+import { RaceCharts } from "@/components/races/race-charts";
 import { StatePanel } from "@/components/ui/state-panel";
 import { discreetButton, secondaryButton } from "@/components/ui/styles";
 import { format } from "@/i18n/format";
@@ -79,6 +80,7 @@ export default async function RacePageView({ params }: PageProps<"/races/[id]">)
         return (
           <div className="flex flex-col gap-6">
             <RaceResults race={page.race} t={t.races} locale={locale} headingId="race-heading" />
+            <RaceCharts race={page.race} locale={locale} />
             <div>{home}</div>
           </div>
         );
