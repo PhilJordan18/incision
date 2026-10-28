@@ -2,6 +2,10 @@
 
 Card #66, RES-03. Local verification on 2026-10-28 at `46c9dd0`,
 then integration of #178's evidence-only commit as `8f3d8e2` (same product code).
+Delivery is rebuilt on the actual #178 head (`c497eca`) as
+`codex/f-07-3b-race-charts-delivery`: the app/packages/tools trees are identical to
+the verified `59b243d` tree. This preserves #176's evidence and avoids a documentary
+conflict caused by parallel cherry-pick ancestry. No published history was rewritten.
 Depends on #66A / PR #177 and the bot identity schema / labels from #59B.
 No merge, production change or recipe3880 change was performed.
 
