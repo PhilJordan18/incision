@@ -13,7 +13,7 @@ import { authDatabase } from "@/server/auth/store";
 import { SignOutForm } from "./sign-out-form";
 import { DisplayNameForm } from "./display-name-form";
 import { PhotoForm } from "./photo-form";
-import { uploadPhotoAction } from "./photo-action";
+import { photoStatus } from "@/profile/photo-contract";
 import { profilePhotoLabels } from "@/i18n/profile-photo";
 import { ProfileStatisticsPanel } from "./profile-statistics";
 
@@ -23,7 +23,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** Protected on the server: no valid session, no page (the header link is only a convenience). */
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { readonly searchParams: Promise<{ photo?: string | string[] }> }) {
+  const initialPhotoStatus = photoStatus((await searchParams).photo);
   const { accountId } = await requireAccountSession("/account");
   const [{ t, locale }, profile] = await Promise.all([getRequestDictionary(), readAccountProfile(authDatabase(), accountId)]);
   if (profile === undefined) {
@@ -42,7 +43,7 @@ export default async function AccountPage() {
           : <span aria-hidden="true" className="grid h-[180px] w-[180px] place-items-center rounded-full bg-mer font-display text-7xl text-ecume">
             {Array.from(profile.displayName)[0]}
           </span>}
-        <PhotoForm labels={photoLabels} uploadAction={uploadPhotoAction} />
+        <PhotoForm labels={photoLabels} initialStatus={initialPhotoStatus} />
         <div className="flex flex-col gap-1">
           <p className={monoLabel}>{t.account.displayNameLabel}</p>
           <p className="break-all text-2xl font-semibold">{profile.displayName}</p>

@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { encodeProfilePhoto, MAX_PHOTO_BYTES } from "./photo-image";
 
-export type PhotoState = { readonly status: "idle" | "saved" | "invalid" | "unavailable" | "busy" };
+import type { PhotoState } from "@/profile/photo-contract";
+export type { PhotoState } from "@/profile/photo-contract";
 const photoField = z.array(z.file().min(1).max(MAX_PHOTO_BYTES)).length(1);
 
 // Bound memory and native decoding work for this single-process deployment. No unbounded waiting queue.

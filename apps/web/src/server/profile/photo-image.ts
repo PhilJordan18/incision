@@ -1,6 +1,7 @@
 import sharp from "sharp";
 
-export const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+import { MAX_PHOTO_BYTES } from "@/profile/photo-contract";
+export { MAX_PHOTO_BYTES } from "@/profile/photo-contract";
 export const MAX_PHOTO_PIXELS = 16_000_000;
 export const MAX_PHOTO_EDGE = 8192;
 export const MAX_STORED_PHOTO_BYTES = 256 * 1024;
