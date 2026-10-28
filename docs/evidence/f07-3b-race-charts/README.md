@@ -37,6 +37,9 @@ informed. Tests continue exclusively against disposable databases on port 3892.
 - Full `npm test`: 2,158 passed (764 web, 146 database, 1,181 domain, 20 load, 47 word lists). Includes eight chart rendering tests.
 - Production Playwright: `race-charts.spec.ts`, `race-charts-live.spec.ts`, `results-podium.spec.ts`, `bot-races.spec.ts`: 9/9 passed. The live test finishes a real human/bot race, deliberately makes and corrects one error, then reads both stored curves and the personal count after reload. Results are not seeded in that test.
 - SQL regression: bot races, profile statistics and WPM-series persistence/privacy: 16/16 passed on disposable PostgreSQL databases.
+- After the CI catalog-comparison correction, full SQL verification on `f73bebf`:
+  266 passed, 9 existing PgBouncer checks skipped because no pooled test target
+  was configured. Database lint and types also passed. No product code changed.
 - Disposable local server 3892 and database `incision_e2e_66b_charts`, through the shared heavy lock. Not the human recipe.
 - The first integrated type check correctly caught the missing demo seed fields after taking only the bot schema commit. The coordinated complete bot contract (`9d5e6eb`) supplied these fields; full gates were rerun successfully. No check was disabled.
 
