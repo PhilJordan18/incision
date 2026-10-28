@@ -1,4 +1,4 @@
-import { ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES } from "@incision/domain";
+import { BOT_LEVELS, ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES } from "@incision/domain";
 import { z } from "zod";
 
 /** The states of a race and the reasons it ended without results (`races`, ADR-0004, D-06). */
@@ -32,6 +32,8 @@ export const roomSnapshotSchema = z.object({
   phase: z.enum(ROOM_PHASES),
   capacity: z.number(),
   revision: z.number(),
+  /** Absent only on servers predating bot admission. */
+  bots: z.array(z.object({ botId: z.uuid(), level: z.enum(BOT_LEVELS) })).max(30).optional(),
   members: z.array(
     z.object({
       memberId: z.string(),

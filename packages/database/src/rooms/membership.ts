@@ -18,6 +18,8 @@ import { accounts, type InterruptionReason, lobbies, lobbyMembers, lobbySettings
 import { boundedTransaction, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
 import { bumpRevision, closeLockedRoom } from "./room-writes";
 import { type RoomSettings, settingsColumns, settingsOf } from "./settings";
+import { lobbyBots } from "../schema/room-bots";
+import type { RoomBot } from "./bots";
 import { transferHostToConnectedMember } from "./succession";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
@@ -76,6 +78,7 @@ export type RoomSnapshot = {
   readonly revision: number;
   /** Active members, oldest first. */
   readonly members: readonly RoomMember[];
+  readonly bots: readonly RoomBot[];
   /** Kept once the room goes back to waiting, so its members learn how that race ended. */
   readonly race?: RoomRace;
   /** What the next race will run with (F-03.1); its revision changes with every saved change. */
@@ -102,6 +105,8 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
       raceState: races.state,
       interruptionReason: races.interruptionReason,
       ...settingsColumns,
+      // Correlated aggregate keeps bots and membership at the same statement snapshot.
+      bots: sql<RoomBot[]>`coalesce((select jsonb_agg(jsonb_build_object('botId', ${lobbyBots.id}, 'level', ${lobbyBots.level}) order by ${lobbyBots.createdAt}, ${lobbyBots.id}) from ${lobbyBots} where ${lobbyBots.lobbyId} = ${lobbies.id}), '[]'::jsonb)`,
     })
     .from(lobbies)
     .leftJoin(lobbySettings, eq(lobbySettings.lobbyId, lobbies.id))
@@ -131,6 +136,7 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
     capacity: lobby.capacity,
     revision: lobby.revision,
     members,
+    bots: lobby.bots,
     ...(race === undefined ? {} : { race }),
     settings: settingsOf(lobby),
   };
@@ -191,10 +197,12 @@ async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput):
       .from(lobbyMembers)
       .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, role), isNull(lobbyMembers.leftAt))),
   ).value;
+  const [bots] = role === "participant"
+    ? await tx.select({ value: count() }).from(lobbyBots).where(eq(lobbyBots.lobbyId, lobby.id)) : [];
   const refusal = admissionRefusal({
     phase: lobby.phase,
     role,
-    activeParticipants: role === "participant" ? activeInRole : 0,
+    activeParticipants: role === "participant" ? activeInRole + (bots?.value ?? 0) : 0,
     activeSpectators: role === "spectator" ? activeInRole : 0,
     capacity: lobby.capacity,
   });
