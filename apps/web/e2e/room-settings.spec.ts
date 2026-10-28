@@ -207,6 +207,13 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(host.locator(".course-bloque")).toHaveCount(1);
     await expect(host.locator(".course-juste")).toHaveCount(0);
     await expect(field).toHaveAttribute("aria-invalid", "true");
+    await field.press("Backspace");
+    await field.pressSequentially(nextText, { delay: 70 });
+    await member.getByRole("button", { name: /^(Abandonner la course|Give up the race)$/ }).click();
+    await member.getByRole("button", { name: /^(Oui, abandonner|Yes, give up)$/ }).click();
+    await expect(host.getByRole("heading", { level: 1 })).toContainText(/Fin de la|End of the/i);
+    // The previous free-mode finish must not become the mandatory-mode benchmark.
+    await expect(host.getByText(/Première référence|First reference/)).toBeVisible();
   });
 
   test(`explicit unlimited and duration boundaries persist for ${locale}`, async ({ browser }) => {
