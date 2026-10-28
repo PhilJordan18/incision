@@ -9,6 +9,7 @@ import { readRoomSnapshot } from "../src/rooms/membership";
 import { startNextRound } from "../src/rooms/host-actions";
 import { finalizeRace, startRace, type RaceResultRow } from "../src/races/lifecycle";
 import { readRaceForEntrant } from "../src/races/results";
+import { readAccountStatistics } from "../src/races/profile-statistics";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let temporary: TemporaryDatabase; let pool: pg.Pool; let db: Database;
@@ -63,6 +64,8 @@ describe("persistent human and bot race roster", () => {
     expect(JSON.stringify(saved)).not.toContain('"grapheme":"b"');
     expect(await readRaceForEntrant(db, started.race.raceId, started.entrants[1]!.entrantId)).toBeUndefined();
     expect((await pool.query("select * from accounts")).rowCount).toBe(1);
+    expect((await readAccountStatistics(db, host.accountId)).summary).toMatchObject({ raceCount: 1, victories: 0 });
+    expect((await readAccountStatistics(db, started.entrants[1]!.entrantId)).summary).toMatchObject({ raceCount: 0, victories: 0 });
   });
   it("refuses a spectator host with bots only through the existing domain start rule", async () => {
     const host = await room("spectator");

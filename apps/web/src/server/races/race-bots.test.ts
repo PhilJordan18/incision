@@ -103,4 +103,12 @@ describe("server bot driver through the authoritative reducer", () => {
     runtime.roomClosed(); await advance(30_000);
     expect(timers.size).toBe(0); expect(store.finalizeRace).not.toHaveBeenCalled();
   });
+  it("stops all bot work on server shutdown and writes interruption instead of results", async () => {
+    const { runtime, advance, timers, store, bot } = setup(); runtime.start(); await advance(COUNTDOWN_MS + 100);
+    await runtime.shutdown(); const before = bot().counters.totalInserts;
+    await advance(30_000);
+    expect(timers.size).toBe(0); expect(bot().counters.totalInserts).toBe(before);
+    expect(store.interruptOwnRace).toHaveBeenCalledWith(expect.anything(), "server_stopped");
+    expect(store.finalizeRace).not.toHaveBeenCalled();
+  });
 });
