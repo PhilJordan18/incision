@@ -58,14 +58,21 @@ for (const [mode, locale] of [["mandatory", "fr-CA"], ["free", "en-US"]] as cons
     await page.reload(); await expect(page.getByRole("table").getByText(/Bot ·/)).toBeVisible();
     for (const theme of ["abysse", "aube"]) {
       await page.evaluate((value) => document.documentElement.dataset.theme = value, theme);
-      for (const width of [1440, 1024, 390]) {
+      for (const width of [1440, 1024, 390, 360]) {
         await page.setViewportSize({ width, height: 1000 });
         await expectNoHorizontalScroll(page); await expectNoAccessibilityViolation(page);
         await page.screenshot({ path: `../../docs/evidence/f05-2b-bot-races/${locale}-${theme}-${width}.png`, fullPage: true });
       }
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.goto(`/races/${race.id}`); await expect(page.getByRole("table").getByText(/Bot ·/)).toBeVisible();
+    const raceLink = page.getByRole("link", { name: /^(Voir la fiche de la course|Open the race page)$/ });
+    for (let tab = 0; tab < 30 && !(await raceLink.evaluate((element) => element === document.activeElement)); tab++) {
+      await page.keyboard.press("Tab");
+    }
+    await expect(raceLink).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/races/${race.id}$`));
+    await expect(page.getByRole("table").getByText(/Bot ·/)).toBeVisible();
     await page.goto(`/rooms/${code}`);
     await page.getByRole("button", { name: /^(Prochaine manche|Next round)$/ }).click();
     await expect(bots.getByRole("listitem")).toContainText(/impossible/);
