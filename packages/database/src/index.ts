@@ -1,4 +1,5 @@
 export * from "./client";
+export * from "./rooms/bots";
 export * from "./corpus/defaults";
 export * from "./corpus/load";
 export * from "./errors";

@@ -64,6 +64,13 @@
       "when": 1793119089743,
       "tag": "0008_race_wpm_series",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793198503354,
+      "tag": "0009_room_bots",
+      "breakpoints": true
     }
   ]
 }

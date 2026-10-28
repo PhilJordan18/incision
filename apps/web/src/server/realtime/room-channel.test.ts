@@ -73,6 +73,7 @@ beforeEach(async () => {
     capacity: 30,
     revision: 1,
     members: [member("member-a", ALICE, "Alice", true), member("member-b", BOB, "Bob")],
+    bots: [],
     settings: SETTINGS,
   });
   snapshots.set("lobby-2", {
@@ -82,6 +83,7 @@ beforeEach(async () => {
     capacity: 30,
     revision: 1,
     members: [member("member-c", CLO, "Clo", true)],
+    bots: [],
     settings: SETTINGS,
   });
   findActiveMembership = vi.fn(async (accountId: string) => memberships.get(accountId));

@@ -1,5 +1,7 @@
 "use client";
 
+import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -566,6 +568,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       )}
 
       {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
+      <RoomBotsPanel snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
       <RoomSettingsPanel key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && (
@@ -617,7 +620,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
             <h2 id="crew-heading" className="font-display text-3xl font-extrabold uppercase">
               {t.membersHeading}
             </h2>
-            <p className="font-mono text-sm text-brume">{format(t.membersCount, { count: formatNumber(participants, locale), capacity: formatNumber(snapshot.capacity, locale) })}</p>
+            <p className="font-mono text-sm text-brume">{format(t.membersCount, { count: formatNumber(participants + (snapshot.bots?.length ?? 0), locale), capacity: formatNumber(snapshot.capacity, locale) })}</p>
           </div>
           <ul className="flex flex-col divide-y divide-sillage">
             {snapshot.members.map((member) => (
