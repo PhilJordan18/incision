@@ -40,6 +40,7 @@ export async function seedHistory(db: Database, corpus: CheckedCorpus): Promise<
       const entrants: (typeof raceEntrants.$inferSelect)[] = fixture.participants.map((participant, i) => ({
         id: participant.entrantId, raceId: id, memberId: null, accountId: HISTORY_ACCOUNTS[i]!.id, ordinal: i + 1,
         displayNameSnapshot: HISTORY_ACCOUNTS[i]!.displayName,
+        kind: "human", botLevel: null,
       }));
       const results: (typeof raceResults.$inferSelect)[] = simulation.end.results.map((result) => ({
         raceId: id, entrantId: result.entrantId, rank: result.rank, outcome: result.status === "timedOut" ? "timed_out" : result.status,

@@ -4,6 +4,7 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/locale";
 import { resultsPodiumLabels } from "@/i18n/results-podium";
 import { formatWpm, ordinal } from "@/races/format";
+import { BotIdentityLabel } from "./bot-identity-label";
 
 const STATUS = { finished: "finished", timed_out: "timedOut", abandoned: "abandoned" } as const;
 
@@ -30,6 +31,7 @@ export function ResultsPodium({ entrants, locale, t }: {
           <p className="mt-1 font-display text-5xl font-extrabold">{ordinal(result.rank, locale, t.results.ordinal)}</p>
           <p className="mt-3 break-words text-lg font-semibold [overflow-wrap:anywhere]">{entrant.displayName}
             {entrant.isSelf && <span className="font-normal text-brume"> ({t.you})</span>}</p>
+          <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
           <p className="mt-2 text-sm text-embrun">{t.status[STATUS[result.outcome]]}
             {result.abandonmentReason === null ? "" : ` (${t.abandonReasons[result.abandonmentReason]})`}</p>
           <p className="mt-3 font-mono text-sm">{t.results.columns.netWpm}: {formatWpm(result.netWpm, locale)} {t.wpm}</p>

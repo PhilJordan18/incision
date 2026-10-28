@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import { compareResultRecord, resultRecordCategory, type RecordCategory, type ResultRecord } from "@incision/domain";
 import { z } from "zod";
-import type { StoredWpmSeries } from "@incision/domain";
+import type { BotLevel, StoredWpmSeries } from "@incision/domain";
 import { raceWpmSeries } from "../schema/race-wpm-series";
 import { checkedStoredWpmSeries } from "./wpm-series";
 import { checkedKeyErrors, type StoredKeyErrors } from "./key-errors";
@@ -29,6 +29,9 @@ export type EntrantResult = {
 };
 
 export type EntrantResultView = {
+  /** Always populated by the SQL reader; optional for older non-live view producers. */
+  readonly kind?: "human" | "bot";
+  readonly botLevel?: BotLevel | null;
   readonly ordinal: number;
   readonly displayName: string;
   /** The account reading the race. */
@@ -120,6 +123,8 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       ordinal: raceEntrants.ordinal,
       displayName: raceEntrants.displayNameSnapshot,
       accountId: raceEntrants.accountId,
+      kind: raceEntrants.kind,
+      botLevel: raceEntrants.botLevel,
       seriesEntrantId: raceWpmSeries.entrantId,
       series: raceWpmSeries.series,
       keyErrorsEntrantId: raceKeyErrors.entrantId,
@@ -166,9 +171,11 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
     ...metadata,
     ...(personalRecord === undefined ? {} : { personalRecord }),
     ...(personalKeyErrors === undefined ? {} : { personalKeyErrors }),
-    entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, seriesEntrantId, series, correctInputs, totalInputs, result }) => ({
+    entrants: rows.map(({ ordinal, displayName, kind, botLevel, accountId: entrantAccount, seriesEntrantId, series, correctInputs, totalInputs, result }) => ({
       ordinal,
       displayName,
+      kind,
+      botLevel,
       isSelf: entrantAccount === accountId,
       ...(finished && result !== null ? { result: {
         ...result,

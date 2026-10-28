@@ -78,6 +78,13 @@
       "when": 1793198763930,
       "tag": "0010_race_key_errors",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793200041234,
+      "tag": "0011_race_bot_identities",
+      "breakpoints": true
     }
   ]
 }

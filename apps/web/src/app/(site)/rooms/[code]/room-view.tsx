@@ -572,7 +572,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       <RoomSettingsPanel key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && (
-        <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants} t={tRaces} note={roomStartNote(snapshot.settings, locale)} />
+        <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants === 0 ? 0 : participants + (snapshot.bots?.length ?? 0)} t={tRaces} note={roomStartNote(snapshot.settings, locale)} />
       )}
       {self.isHost && <HostRoundActions t={t.hostActions} code={snapshot.code} />}
 

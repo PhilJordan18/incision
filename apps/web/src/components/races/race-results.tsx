@@ -9,6 +9,7 @@ import type { Locale } from "@/i18n/locale";
 import { resultsDetails } from "@/i18n/results-details";
 import { formatAccuracy, formatElapsed, formatWpm, ordinal } from "@/races/format";
 import { ResultsPodium } from "./results-podium";
+import { BotIdentityLabel } from "./bot-identity-label";
 
 type RaceResultsProps = {
   readonly race: RaceResultView;
@@ -117,6 +118,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
                   <td className="px-4 py-3 font-mono">{ordinal(result.rank, locale, t.results.ordinal)}</td>
                   <th scope="row" className="px-4 py-3 font-semibold">
                     {entrant.displayName}
+                    <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
                     {entrant.isSelf ? <span className="font-normal text-brume"> ({t.you})</span> : null}
                   </th>
                   <td className="px-4 py-3 whitespace-nowrap text-embrun">

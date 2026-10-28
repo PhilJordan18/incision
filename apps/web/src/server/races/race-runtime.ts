@@ -3,6 +3,12 @@ import {
   asEntrantId,
   asInstant,
   asRaceId,
+  asRandomState,
+  createBot,
+  stepBot,
+  type BotState,
+  type BotLevel,
+  type RandomState,
   INITIAL_WPM_SERIES_SPACING_MS,
   type StoredWpmSeries,
   type EntrantId,
@@ -51,8 +57,10 @@ export type RaceConnection = {
 
 export type RaceEntrant = {
   readonly entrantId: string;
-  readonly accountId: string;
+  readonly accountId: string | null;
   readonly displayName: string;
+  readonly kind?: "human" | "bot";
+  readonly botLevel?: BotLevel | null;
 };
 
 /** The fenced writes of ADR-0004 (`@incision/database`), for this race's owner and generation. */
@@ -81,6 +89,8 @@ export type RaceRuntimeOptions = {
   /** Trusted, pure approved-content provider; absent means append is unavailable, never a fallback. */
   readonly bonusContent?: BonusContent;
   readonly entrants: readonly RaceEntrant[];
+  /** Server-only source; injected seeds allow deterministic adapter tests. Never public. */
+  readonly botSeed?: () => RandomState;
   /** The language of the race's text (the host's at the start, D-19), for the pages to mark it. */
   readonly language: Locale;
   readonly store: RaceStore;
@@ -169,6 +179,9 @@ export class RaceRuntime implements OwnedRace {
   #progressSentAt = Number.NEGATIVE_INFINITY;
   #beginWritten = false;
   #saving: Promise<void> | undefined;
+  readonly #bots = new Map<string, BotState>();
+  #cancelBots: (() => void) | undefined;
+  #drivingBots = false;
 
   constructor(options: RaceRuntimeOptions) {
     this.#options = options;
@@ -176,6 +189,13 @@ export class RaceRuntime implements OwnedRace {
     this.#bonus = options.state;
     this.#timing = { ...TIMING, ...options.timing };
     this.#entrants = new Map(options.entrants.map((entrant) => [entrant.entrantId, entrant]));
+    for (const entrant of options.entrants) {
+      if (entrant.kind !== "bot") continue;
+      if (entrant.accountId !== null || entrant.botLevel == null) throw new RangeError("Invalid bot entrant identity");
+      const seed = options.botSeed?.() ?? asRandomState(Array.from(crypto.getRandomValues(new Uint32Array(4))));
+      this.#bots.set(entrant.entrantId, createBot({ raceId: asRaceId(this.ownership.raceId), entrantId: asEntrantId(entrant.entrantId),
+        level: entrant.botLevel, seed, startsAt: this.#state.startsAt }));
+    }
   }
 
   get lease(): { readonly stop: () => void } {
@@ -202,7 +222,7 @@ export class RaceRuntime implements OwnedRace {
     }
     this.#apply({ type: "tick", now: this.#now() });
     for (const entrant of this.#entrants.values()) {
-      if (!this.#hasTab(entrant.accountId)) {
+      if (entrant.accountId !== null && !this.#hasTab(entrant.accountId)) {
         this.#connectionLost(entrant.entrantId);
       }
     }
@@ -457,6 +477,8 @@ export class RaceRuntime implements OwnedRace {
    */
   leaseChanged(state: LeaseState): void {
     if (state === "suspended" && this.#stage === "running") {
+      this.#cancelBots?.();
+      this.#cancelBots = undefined;
       this.#queueLeaseEvent(this.#pause());
     } else if (state === "lost" && this.#stage === "saving") {
       // The save in flight decides: it commits (or an earlier one did, `alreadyDone`) or it loses.
@@ -562,14 +584,15 @@ export class RaceRuntime implements OwnedRace {
     return undefined;
   }
 
-  #hasTab(accountId: string): boolean {
+  #hasTab(accountId: string | null): boolean {
     for (const _ of this.#connectionsOf(accountId)) {
       return true;
     }
     return false;
   }
 
-  *#connectionsOf(accountId: string): Iterable<RaceConnection> {
+  *#connectionsOf(accountId: string | null): Iterable<RaceConnection> {
+    if (accountId === null) return;
     for (const connection of this.#options.followers()) {
       if (connection.accountId === accountId) {
         yield connection;
@@ -677,6 +700,7 @@ export class RaceRuntime implements OwnedRace {
     } else if (this.#stage === "running") {
       this.#scheduleTick(bonusOutput.nextDeadline);
       this.#scheduleWpm();
+      this.#scheduleBots();
     }
     return bonusOutput;
   }
@@ -731,6 +755,57 @@ export class RaceRuntime implements OwnedRace {
       }
       this.#scheduleWpm();
     }, INITIAL_WPM_SERIES_SPACING_MS);
+  }
+
+  /** One timer for the roster; the pure engine owns each bot's next deadline. */
+  #scheduleBots(): void {
+    if (this.#drivingBots) return;
+    this.#cancelBots?.();
+    this.#cancelBots = undefined;
+    if (this.#stage !== "running" || !this.#options.lease.isAuthoritative()) return;
+    let deadline = Number.POSITIVE_INFINITY;
+    for (const [id, bot] of this.#bots) {
+      if (this.#state.entrants.find((entrant) => entrant.entrantId === id)?.status !== "racing") continue;
+      deadline = Math.min(deadline, bot.plan?.dueAt ?? Math.max(bot.startsAt, this.#options.now()));
+    }
+    if (!Number.isFinite(deadline)) return;
+    this.#cancelBots = this.#options.schedule(() => {
+      this.#cancelBots = undefined;
+      this.#driveBots();
+    }, Math.max(0, deadline - this.#options.now()));
+  }
+
+  /** Apply due transitions first, then at most one actual-time insert per bot, with no catch-up. */
+  #driveBots(): void {
+    if (this.#stage !== "running" || !this.#options.lease.isAuthoritative()) return;
+    this.#drivingBots = true;
+    try {
+      const now = this.#now();
+      this.#apply({ type: "tick", now });
+      for (const [id, previous] of this.#bots) {
+        if (this.#stage !== "running" || !this.#options.lease.isAuthoritative()) break;
+        const entrant = this.#state.entrants.find((one) => one.entrantId === id);
+        if (entrant === undefined) throw new RangeError("Missing bot entrant");
+        const context = { raceId: this.#state.raceId, phase: this.#state.phase, errorMode: this.#state.errorMode, entrant };
+        const step = stepBot(previous, now, context);
+        this.#bots.set(id, step.bot);
+        if (step.batch === undefined) continue;
+        const output = this.#apply({ type: "keystrokes", batch: step.batch, now });
+        if (output === undefined) break;
+        const reply = output.keystrokes;
+        if (reply?.outcome === "refused" && (reply.reason === "WRONG_RACE" || reply.reason === "UNKNOWN_ENTRANT")) {
+          throw new RangeError("Bot adapter identity mismatch");
+        }
+        const updated = this.#state.entrants.find((one) => one.entrantId === id);
+        if (updated === undefined) throw new RangeError("Missing bot after reduction");
+        this.#bots.set(id, stepBot(step.bot, now, { ...context, phase: this.#state.phase, entrant: updated, reply }).bot);
+      }
+    } catch (error) {
+      this.#engineFailed(error);
+    } finally {
+      this.#drivingBots = false;
+      this.#scheduleBots();
+    }
   }
 
   /** COUNTDOWN → RACING in the database, the first fenced write; keystrokes never wait for it. */
@@ -873,6 +948,8 @@ export class RaceRuntime implements OwnedRace {
   }
 
   #clearTimers(): void {
+    this.#cancelBots?.();
+    this.#cancelBots = undefined;
     this.#cancelWpm?.();
     this.#cancelWpm = undefined;
     this.#dropLeaseEvents();

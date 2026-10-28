@@ -19,20 +19,19 @@ export type AccountStatistics = { readonly summary: ProfileStatistics; readonly 
  * One statement / MVCC snapshot for lifetime aggregates and the latest 30 results.
  * Identity is supplied by the checked server session, never a page parameter.
  * At most 180 grouped rows and 30 points cross the database boundary.
- * Current race_entrants only represents authenticated humans (non-null account FK).
- * Guest/bot persistence must introduce an explicit kind and update this projection;
- * neither display names nor synthetic account names are used to guess that kind.
+ * Only authenticated human entrants contribute to personal statistics. A bot opponent
+ * cannot satisfy the other-human condition for a victory; names never decide identity.
  */
 export async function readAccountStatistics(db: Database, accountId: string): Promise<AccountStatistics> {
   const result = await db.execute(sql`
     with eligible as (
       select r.id as race_id, r.ended_at, rr.outcome, rr.rank, rr.net_wpm, rr.accuracy,
         exists (select 1 from race_entrants other
-          where other.race_id = r.id and other.account_id <> e.account_id) as other_human
+          where other.race_id = r.id and other.kind = 'human' and other.account_id <> e.account_id) as other_human
       from race_entrants e
       join races r on r.id = e.race_id
       join race_results rr on rr.race_id = r.id and rr.entrant_id = e.id
-      where e.account_id = ${accountId}::uuid and r.state = 'finished'
+      where e.account_id = ${accountId}::uuid and e.kind = 'human' and r.state = 'finished'
     ), grouped as (
       select outcome, rank, other_human, count(*)::double precision as count,
         avg(net_wpm) as average_net_wpm, avg(accuracy) as average_accuracy, max(net_wpm) as best_net_wpm

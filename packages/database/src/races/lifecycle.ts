@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { RoomPhase } from "@incision/domain";
+import type { BotLevel, RoomPhase } from "@incision/domain";
+import { lobbyBots } from "../schema/room-bots";
 import { and, asc, count, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { findActiveMembership } from "../rooms/membership";
@@ -50,8 +51,10 @@ export type Interruption = { readonly won: true; readonly alreadyDone: boolean }
 
 export type StartedEntrant = {
   readonly entrantId: string;
-  readonly memberId: string;
-  readonly accountId: string;
+  readonly memberId: string | null;
+  readonly accountId: string | null;
+  readonly kind?: "human" | "bot";
+  readonly botLevel?: BotLevel | null;
   readonly ordinal: number;
   readonly displayName: string;
 };
@@ -59,7 +62,7 @@ export type StartedEntrant = {
 /** The race as the engine is asked to create it, with the ids its rows will keep. */
 export type RaceToCreate = {
   readonly raceId: string;
-  readonly entrants: readonly { readonly entrantId: string; readonly kind: "human" }[];
+  readonly entrants: readonly { readonly entrantId: string; readonly kind: "human" | "bot" }[];
 };
 
 export type StartRaceInput<Refusal extends string, Created> = {
@@ -148,10 +151,17 @@ export async function startRace<Refusal extends string, Created>(
         accountId: participant.accountId,
         ordinal: index + 1,
         displayName: participant.displayName,
+        kind: "human",
+        botLevel: null,
       }),
     );
-    // Every member is an account today: guests and bots come with their own cards.
-    const created = input.create({ raceId, entrants: entrants.map(({ entrantId }) => ({ entrantId, kind: "human" as const })) });
+    const bots = await tx.select({ level: lobbyBots.level }).from(lobbyBots)
+      .where(eq(lobbyBots.lobbyId, lobby.id)).orderBy(asc(lobbyBots.createdAt), asc(lobbyBots.id));
+    for (const [index, bot] of bots.entries()) {
+      entrants.push({ entrantId: randomUUID(), memberId: null, accountId: null, ordinal: entrants.length + 1,
+        displayName: `Bot ${index + 1}`, kind: "bot", botLevel: bot.level });
+    }
+    const created = input.create({ raceId, entrants: entrants.map(({ entrantId, kind }) => ({ entrantId, kind: kind ?? "human" })) });
     if (!created.ok) {
       return { ok: false, error: created.reason };
     }
@@ -186,6 +196,8 @@ export async function startRace<Refusal extends string, Created>(
           raceId: race.id,
           memberId: entrant.memberId,
           accountId: entrant.accountId,
+          kind: entrant.kind ?? "human",
+          botLevel: entrant.botLevel ?? null,
           ordinal: entrant.ordinal,
           displayNameSnapshot: entrant.displayName,
         })),
