@@ -310,7 +310,7 @@ export class RaceService {
   }: {
     readonly ownership: RaceOwnership;
     readonly state: BonusRaceState;
-    readonly entrants: readonly { entrantId: string; accountId: string; displayName: string }[];
+    readonly entrants: readonly import("./race-runtime").RaceEntrant[];
     readonly acquiredAt: number;
     readonly language: Locale;
   }): RaceRuntime {
