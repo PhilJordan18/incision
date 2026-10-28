@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "report": "tsx src/report.ts",
+    "export:candidate": "tsx src/export.ts",
     "bundle-check": "tsx src/bundle-check.ts"
   },
   "devDependencies": {
