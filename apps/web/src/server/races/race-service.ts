@@ -238,11 +238,11 @@ export class RaceService {
     connection: RoomConnection,
     { text, record }: Extract<RaceTextDraw, { ok: true }>,
     lobbyId: string,
-    settings: OwnRoomSettings["settings"] & { readonly timeLimitMs: number },
+    settings: OwnRoomSettings["settings"],
   ): Promise<RaceStartAck | "SETTINGS_CHANGED"> {
     const { store, ownerId } = this.#options;
     const { revision, timeLimitMs, errorMode } = settings;
-    const timeLimit = asDuration(timeLimitMs);
+    const timeLimit = timeLimitMs === null ? null : asDuration(timeLimitMs);
     const acquiredAt = this.#options.monotonic();
     let started: StartRaceResult<CreateRaceRefusal, BonusRaceState>;
     try {

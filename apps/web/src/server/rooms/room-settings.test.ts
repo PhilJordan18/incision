@@ -1,7 +1,7 @@
 import { initialRoomSettings, type RoomSettings } from "@incision/database";
 import { TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "@incision/domain";
 import { describe, expect, it } from "vitest";
-import { isRunnable, parseConfigureRoomForm, RUNNABLE_TIME_LIMIT_MAX_MS } from "./room-settings";
+import { isRunnable, parseConfigureRoomForm } from "./room-settings";
 
 function form(fields: Readonly<Record<string, string | readonly string[]>>): FormData {
   const value = new FormData();
@@ -28,11 +28,11 @@ describe("parseConfigureRoomForm", () => {
     expect(parseConfigureRoomForm(form({ ...VALID, code: " abcdef " }))?.code).toBe("ABCDEF");
   });
 
-  it("accepts the limits races run with today, 30 s to 120 s, and nothing beyond", () => {
+  it("accepts the limits races run with today, 30 s to 600 s, and nothing beyond", () => {
     expect(parseConfigureRoomForm(form({ ...VALID, timeLimitSeconds: String(TIME_LIMIT_MIN_MS / 1000) }))?.settings.timeLimitMs).toBe(TIME_LIMIT_MIN_MS);
-    expect(parseConfigureRoomForm(form({ ...VALID, timeLimitSeconds: String(RUNNABLE_TIME_LIMIT_MAX_MS / 1000) }))?.settings.timeLimitMs).toBe(RUNNABLE_TIME_LIMIT_MAX_MS);
-    // "No limit" and the engine's longer limits wait for D-17: refused, never replaced by another limit.
-    for (const seconds of ["29", "121", String(TIME_LIMIT_MAX_MS / 1000), "0", "", "none", "null"]) {
+    expect(parseConfigureRoomForm(form({ ...VALID, timeLimitSeconds: String(TIME_LIMIT_MAX_MS / 1000) }))?.settings.timeLimitMs).toBe(TIME_LIMIT_MAX_MS);
+    expect(parseConfigureRoomForm(form({ ...VALID, timeLimitSeconds: "none" }))?.settings.timeLimitMs).toBeNull();
+    for (const seconds of ["29", "601", "0", "", "null"]) {
       expect(parseConfigureRoomForm(form({ ...VALID, timeLimitSeconds: seconds })), seconds).toBeUndefined();
     }
   });
@@ -78,17 +78,18 @@ describe("parseConfigureRoomForm", () => {
 describe("isRunnable", () => {
   const settings = (changes: Partial<RoomSettings>): RoomSettings => ({ ...initialRoomSettings("fr"), ...changes });
 
-  it("runs mandatory correction with a 30 s to 120 s limit, a new room's settings included", () => {
+  it("runs mandatory correction with a 30 s to 600 s limit, a new room's settings included", () => {
     expect(isRunnable(initialRoomSettings("en"))).toBe(true);
     expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MIN_MS }))).toBe(true);
-    expect(isRunnable(settings({ timeLimitMs: RUNNABLE_TIME_LIMIT_MAX_MS }))).toBe(true);
+    expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MAX_MS }))).toBe(true);
   });
 
-  it("does not run yet what the database holds beyond: no limit, longer limits (D-17), free typing (F-04.3)", () => {
-    expect(isRunnable(settings({ timeLimitMs: null }))).toBe(false);
-    expect(isRunnable(settings({ timeLimitMs: RUNNABLE_TIME_LIMIT_MAX_MS + 1 }))).toBe(false);
-    expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MAX_MS }))).toBe(false);
+  it("refuses invalid limits and free typing while allowing unlimited races", () => {
+    expect(isRunnable(settings({ timeLimitMs: null }))).toBe(true);
+    expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MAX_MS + 1 }))).toBe(false);
+    expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MAX_MS }))).toBe(true);
     expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MIN_MS - 1 }))).toBe(false);
     expect(isRunnable(settings({ errorMode: "free" }))).toBe(false);
+    for (const timeLimitMs of [NaN, Infinity, 30_000.5, -1]) expect(isRunnable(settings({ timeLimitMs }))).toBe(false);
   });
 });

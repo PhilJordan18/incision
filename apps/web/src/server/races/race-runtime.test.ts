@@ -931,6 +931,24 @@ describe("RaceRuntime: lost connections, inactivity and the confirmed abandon (F
     expect(entrant(runtime, "e-bob")).toMatchObject({ status: "abandoned", abandonReason: "disconnection" });
   });
 
+  it("keeps an active unlimited race running beyond ten minutes, then ends on voluntary abandons", async () => {
+    const { runtime, time, alice, bob, store } = setup({ state: created("abc", null) });
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    for (let interval = 0; interval < 14; interval++) {
+      await time.advance(50_000);
+      expect(runtime.present(alice.connection)).toBe("ok");
+      expect(runtime.present(bob.connection)).toBe("ok");
+    }
+    expect(entrant(runtime, "e-alice")?.status).toBe("racing");
+    expect(entrant(runtime, "e-bob")?.status).toBe("racing");
+    expect(store.finalizeRace).not.toHaveBeenCalled();
+    expect(runtime.abandon(alice.connection)).toBe("ok");
+    expect(runtime.abandon(bob.connection)).toBe("ok");
+    await settle();
+    expect(store.finalizeRace).toHaveBeenCalledOnce();
+  });
+
   it("shows an idle entrant inactive, lets « Je suis là » or a keystroke reset it, and abandons it at 120 s otherwise", async () => {
     const { runtime, time, alice, bob, spectator } = setup({ state: created("abc", null) });
     runtime.start();

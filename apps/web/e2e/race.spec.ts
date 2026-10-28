@@ -312,6 +312,13 @@ test.describe("the first complete race (F-04.0)", () => {
     const { page: guest } = await signedIn(browser, "Matelot", { locale: "fr-CA" });
     const code = await openRoom(host);
     await join(guest, code);
+    // This scenario checks a running countdown clock; new rooms otherwise have no time limit.
+    const settings = host.getByRole("region", { name: "Race settings", exact: true });
+    await settings.getByRole("button", { name: "Edit settings", exact: true }).click();
+    await settings.getByRole("checkbox", { name: "No limit", exact: true }).uncheck();
+    await settings.getByRole("spinbutton").fill("120");
+    await settings.getByRole("button", { name: "Save settings", exact: true }).click();
+    await expect(settings.getByRole("status")).toHaveText("Settings saved.");
     await host.getByRole("button", { name: "Start the race" }).click();
     const field = host.getByLabel("Your typing");
     const text = host.locator(".course-texte");
@@ -339,6 +346,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(host.locator("dt", { hasText: "Accuracy" }).locator("xpath=following-sibling::dd")).toHaveText("—");
     // The race goes on meanwhile, on the server's clock.
     const clock = host.locator("dt", { hasText: "Time" }).locator("xpath=following-sibling::dd");
+    await expect(clock).toHaveText(/^\d+:\d{2}$/);
     const shown = (await clock.textContent()) ?? "";
     await expect(clock).not.toHaveText(shown);
     await expect(host.getByRole("region", { name: "Crew racing" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("racing");

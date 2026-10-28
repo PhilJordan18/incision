@@ -1,19 +1,12 @@
 import type { RoomSettings } from "@incision/database";
-import { parseRoomCode, type RoomCode, TEXT_LANGUAGES, TIME_LIMIT_MIN_MS } from "@incision/domain";
+import { parseRoomCode, type RoomCode, TEXT_LANGUAGES, TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS } from "@incision/domain";
 import { z } from "zod";
 
-/**
- * The longest time limit races run with today (F-03.1a). "No limit" and longer limits wait for the
- * card that lifts this restriction. Their prerequisite is in place: a suspended lease no longer
- * runs inactivity against a runner who cannot answer (D-17, COURSE-09). The database
- * already holds the engine's whole range (none, or 30 s to 10 min).
- */
-export const RUNNABLE_TIME_LIMIT_MAX_MS = 120_000;
-
-/** Settings a race starts with today: a 30 s to 120 s limit and mandatory correction (free typing waits for F-04.3). */
-export function isRunnable(settings: RoomSettings): settings is RoomSettings & { readonly timeLimitMs: number } {
+/** Supported race settings: the full CONF-01 duration range; free typing remains separate. */
+export function isRunnable(settings: RoomSettings): boolean {
   const { timeLimitMs, errorMode } = settings;
-  return errorMode === "mandatory" && timeLimitMs !== null && timeLimitMs >= TIME_LIMIT_MIN_MS && timeLimitMs <= RUNNABLE_TIME_LIMIT_MAX_MS;
+  return errorMode === "mandatory" && (timeLimitMs === null || (Number.isSafeInteger(timeLimitMs)
+    && timeLimitMs >= TIME_LIMIT_MIN_MS && timeLimitMs <= TIME_LIMIT_MAX_MS));
 }
 
 /** Decimal digits only, as a form sends a number: no sign, exponent, spaces or fraction. */
@@ -30,7 +23,7 @@ const digits = (maxLength: number) =>
 const configureRoomFieldsSchema = z.object({
   revision: digits(9),
   textLanguage: z.enum(TEXT_LANGUAGES),
-  timeLimitSeconds: digits(3).pipe(z.number().min(TIME_LIMIT_MIN_MS / 1000).max(RUNNABLE_TIME_LIMIT_MAX_MS / 1000)),
+  timeLimitSeconds: z.union([z.literal("none").transform(() => null), digits(3).pipe(z.number().min(TIME_LIMIT_MIN_MS / 1000).max(TIME_LIMIT_MAX_MS / 1000))]),
 });
 
 const FIELDS = ["revision", "textLanguage", "timeLimitSeconds"] as const;
@@ -60,5 +53,5 @@ export function parseConfigureRoomForm(formData: FormData): ConfigureRoomRequest
     return undefined;
   }
   const { revision, textLanguage, timeLimitSeconds } = fields.data;
-  return { code: code.code, revision, settings: { textLanguage, timeLimitMs: timeLimitSeconds * 1000, errorMode: "mandatory" } };
+  return { code: code.code, revision, settings: { textLanguage, timeLimitMs: timeLimitSeconds === null ? null : timeLimitSeconds * 1000, errorMode: "mandatory" } };
 }

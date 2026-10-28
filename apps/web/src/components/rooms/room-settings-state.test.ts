@@ -27,16 +27,21 @@ describe("waiting-room settings state", () => {
     expect(awaitingSettings(8, undefined)).toBe(true);
   });
   it("does not invent defaults or convert unsupported stored values", () => {
-    for (const settings of [undefined, { ...saved, timeLimitMs: null }, { ...saved, timeLimitMs: 180_000 }, { ...saved, errorMode: "free" as const }, { ...saved, timeLimitMs: 30_500 }]) {
+    for (const settings of [undefined, { ...saved, timeLimitMs: 600_001 }, { ...saved, errorMode: "free" as const }, { ...saved, timeLimitMs: 30_500 }]) {
       expect(editableSettings(settings)).toBe(false);
     }
     expect(editableSettings({ ...saved, timeLimitMs: 30_000 })).toBe(true);
     expect(editableSettings(saved)).toBe(true);
+    expect(editableSettings({ ...saved, timeLimitMs: null })).toBe(true);
+    expect(editableSettings({ ...saved, timeLimitMs: 600_000 })).toBe(true);
+    const unlimited = settingsDraft({ ...saved, timeLimitMs: null });
+    expect(unlimited.seconds).toBe("none");
+    expect(parseConfigureRoomForm(settingsForm("ABCDEF", unlimited))?.settings.timeLimitMs).toBeNull();
     expect(draftConflict(settingsDraft(saved), undefined)).toBe(true);
   });
   it("accepts only the server's whole-second range", () => {
-    for (const seconds of ["", "29", "121", "30.5", "3e1", "-30", " 60", "0030"]) expect(validDraft({ ...settingsDraft(saved), seconds })).toBe(false);
-    for (const seconds of ["30", "60", "120"]) expect(validDraft({ ...settingsDraft(saved), seconds })).toBe(true);
+    for (const seconds of ["", "29", "601", "30.5", "3e1", "-30", " 60", "0030"]) expect(validDraft({ ...settingsDraft(saved), seconds })).toBe(false);
+    for (const seconds of ["none", "30", "60", "120", "121", "600"]) expect(validDraft({ ...settingsDraft(saved), seconds })).toBe(true);
   });
   it("uses the real duration and mode in the start note in both languages", () => {
     for (const locale of ["fr", "en"] as const) {

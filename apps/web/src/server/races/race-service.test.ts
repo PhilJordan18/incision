@@ -8,7 +8,7 @@ import { CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts, type RaceTextDraw, typ
 const START = 1_800_000_000_000;
 const LOBBY = "lobby-1";
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
-/** A new room's settings (F-03.1): French texts, 120 s, mandatory correction. */
+/** An existing room keeps its saved 120 s limit after the D-19 default changes. */
 const INITIAL_SETTINGS: RoomSettings = { revision: 0, textLanguage: "fr", timeLimitMs: 120_000, errorMode: "mandatory" };
 const PARTICIPANTS = [
   { entrantId: "e-host", accountId: "a-host", memberId: "m-host", ordinal: 1, displayName: "Hôte" },
@@ -178,6 +178,15 @@ describe("RaceService", () => {
     expect(bea.reveal()?.selfEntrantId).toBe("e-bea");
   });
 
+  it.each([null, 30_000, 121_000, 600_000])("freezes the actual duration %s at start, without substituting a ceiling", async (timeLimitMs) => {
+    const { service, store, created } = harness({ settings: { timeLimitMs } });
+    const host = tab("t-host", "a-host");
+    service.follow(LOBBY, host.connection);
+    expect(await service.start(host.connection, {})).toEqual({ ok: true });
+    expect(store.startRace.mock.calls[0]?.[0].config["timeLimitMs"]).toBe(timeLimitMs);
+    expect(created[0]?.timeLimit).toBe(timeLimitMs);
+  });
+
   it("runs the texts it is given, never the fixtures in their place, and records which one", async () => {
     const texts = { fr: { id: "fr-injected", text: "Texte injecté pour ce test." }, en: { id: "en-injected", text: "Text injected for this test." } };
     const { service, store } = harness({ texts: fixedRaceTexts(texts) });
@@ -330,8 +339,8 @@ describe("RaceService", () => {
     }
   });
 
-  it("refuses, without drawing, settings races do not run yet: no limit, beyond 120 s, or free typing", async () => {
-    for (const settings of [{ timeLimitMs: null }, { timeLimitMs: 120_001 }, { timeLimitMs: 600_000 }, { errorMode: "free" }] as const) {
+  it("refuses invalid limits and unsupported free typing without drawing", async () => {
+    for (const settings of [{ timeLimitMs: 29_999 }, { timeLimitMs: 600_001 }, { errorMode: "free" }] as const) {
       const draw = vi.fn(async (): Promise<RaceTextDraw> => ({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" }));
       const logged: string[] = [];
       const base = harness({ settings, texts: { draw } });

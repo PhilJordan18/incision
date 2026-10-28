@@ -27,14 +27,16 @@ const panel = (page: Page) => page.getByRole("region", { name: /^(Réglages de l
 async function edit(page: Page, language: "fr" | "en", seconds: string) {
   await panel(page).getByRole("button", { name: /^(Modifier les réglages|Edit settings)$/ }).click();
   await panel(page).getByRole("combobox").selectOption(language);
-  await panel(page).getByRole("spinbutton").fill(seconds);
+  await panel(page).getByRole("checkbox", { name: /^(Aucune limite|No limit)$/ }).setChecked(seconds === "none");
+  if (seconds !== "none") await panel(page).getByRole("spinbutton").fill(seconds);
 }
 async function save(page: Page) {
   await panel(page).getByRole("button", { name: /^(Enregistrer les réglages|Save settings)$/ }).click();
   await expect(panel(page).getByRole("status")).toHaveText(/^(Réglages enregistrés\.|Settings saved\.)$/);
 }
 
-test("saved language and duration reach another member, survive reload and govern the real start", async ({ browser }) => {
+for (const duration of ["60", "600", "none"]) {
+test(`saved language and duration ${duration} reach another member, survive reload and govern the real start`, async ({ browser }) => {
   const { page: host } = await account(browser, "SettingsHost");
   const { page: member } = await account(browser, "SettingsMember");
   const code = await open(host);
@@ -42,21 +44,21 @@ test("saved language and duration reach another member, survive reload and gover
   await member.getByRole("button", { name: "Rejoindre la salle", exact: true }).click();
   await expect(member.getByText("[.En direct]", { exact: true })).toBeVisible();
   await expect(panel(member).getByRole("button", { name: "Modifier les réglages" })).toHaveCount(0);
-  await edit(host, "en", "60");
+  await edit(host, "en", duration);
   await expect(panel(host).locator("dd").first()).toHaveText("Français"); // no optimistic summary
   await save(host);
   await expect(panel(member).locator("dd").first()).toHaveText("Anglais");
-  await expect(panel(member).locator("dd").nth(1)).toHaveText("60");
+  await expect(panel(member).locator("dd").nth(1)).toHaveText(duration === "none" ? "Aucune limite" : duration);
   await host.reload();
   await expect(host.getByText("[.En direct]", { exact: true })).toBeVisible();
-  await expect(panel(host).locator("dd").nth(1)).toHaveText("60");
-  await expect(host.locator("#start-note")).toContainText("60 s");
+  await expect(panel(host).locator("dd").nth(1)).toHaveText(duration === "none" ? "Aucune limite" : duration);
+  await expect(host.locator("#start-note")).toContainText(duration === "none" ? "Aucune limite" : `${duration} s`);
   await host.getByRole("button", { name: "Lancer la course", exact: true }).click();
   await expect(host.locator(".course-texte")).toBeVisible({ timeout: 10_000 });
   await expect(panel(host)).toHaveCount(0);
   const [race] = await query<{ text: string; config: Record<string, unknown> }>(
     "select text_snapshot as text, config_snapshot as config from races r join lobbies l on l.current_race_id = r.id where l.code = $1", [code]);
-  expect(race?.config).toMatchObject({ language: "en", timeLimitMs: 60_000, errorMode: "mandatory" });
+  expect(race?.config).toMatchObject({ language: "en", timeLimitMs: duration === "none" ? null : Number(duration) * 1000, errorMode: "mandatory" });
   expect(await host.locator(".course-texte").textContent()).toBe(race?.text);
   if (process.env.E2E_SETTINGS_CORPUS !== undefined) {
     expect(race?.config.corpusVersion).toBe(process.env.E2E_SETTINGS_CORPUS);
@@ -73,9 +75,11 @@ test("saved language and duration reach another member, survive reload and gover
   }
   await host.getByRole("button", { name: "Prochaine manche", exact: true }).click();
   await expect(panel(host).locator("dd").first()).toHaveText("Anglais");
-  await expect(panel(host).locator("dd").nth(1)).toHaveText("60");
-  await expect(panel(member).locator("dd").nth(1)).toHaveText("60");
+  await expect(panel(host).locator("dd").nth(1)).toHaveText(duration === "none" ? "Aucune limite" : duration);
+  await expect(panel(member).locator("dd").nth(1)).toHaveText(duration === "none" ? "Aucune limite" : duration);
 });
+
+}
 
 test("another host tab cannot silently overwrite a draft; cancel and explicit reload restore focus", async ({ browser }) => {
   const { page: first, context } = await account(browser, "SettingsTabs");
@@ -145,3 +149,32 @@ test("a lost action response preserves the draft and offers a read, not an autom
   await edit(page, "en", "45");
   await save(page);
 });
+
+for (const locale of ["fr-CA", "en-US"]) {
+  test(`explicit unlimited and duration boundaries persist for ${locale}`, async ({ browser }) => {
+    const { page } = await account(browser, `Duration${locale}`, locale);
+    const code = await open(page);
+    await expect(panel(page).locator("dd").nth(1)).toHaveText(/^(Aucune limite|No limit)$/);
+    for (const seconds of ["30", "600", "none"]) {
+      await edit(page, "en", seconds);
+      const unlimited = panel(page).getByRole("checkbox", { name: /^(Aucune limite|No limit)$/ });
+      await unlimited.focus();
+      await unlimited.press("Space");
+      await expect(unlimited).toBeChecked({ checked: seconds !== "none" });
+      await unlimited.press("Space");
+      await expect(unlimited).toBeChecked({ checked: seconds === "none" });
+      if (seconds !== "none") {
+        for (const invalid of ["29", "601"]) {
+          await panel(page).getByRole("spinbutton").fill(invalid);
+          await expect(panel(page).getByRole("button", { name: /^(Enregistrer les réglages|Save settings)$/ })).toBeDisabled();
+        }
+        await panel(page).getByRole("spinbutton").fill(seconds);
+      } else await expect(panel(page).getByRole("spinbutton")).toBeDisabled();
+      await save(page);
+      await page.reload();
+      await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+      const [row] = await query<{ time_limit_ms: number | null }>("select s.time_limit_ms from lobby_settings s join lobbies l on l.id=s.lobby_id where l.code=$1", [code]);
+      expect(row?.time_limit_ms).toBe(seconds === "none" ? null : Number(seconds) * 1000);
+    }
+  });
+}
