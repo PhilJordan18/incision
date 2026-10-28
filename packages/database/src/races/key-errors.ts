@@ -10,7 +10,7 @@ export type StoredKeyErrors = {
 const counter = z.number().int().min(0).max(MAX_ENTRANT_INSERTS);
 const shape = z.strictObject({
   version: z.literal(1),
-  keys: z.array(z.strictObject({ grapheme: z.string().min(1), count: counter.min(1) })),
+  keys: z.array(z.strictObject({ grapheme: z.string().min(1), count: counter.min(1) })).max(MAX_ENTRANT_INSERTS),
 });
 
 /** Validates exact counts, NFC and uniqueness, without exposing any payload in failures. */
@@ -36,6 +36,6 @@ export function checkedKeyErrors(input: unknown, result: { readonly correctInput
 
 /** Freeze the engine map; sorting is by code units, independent of the reader's locale. */
 export function keyErrorsFromEngine(missedKeys: Readonly<Record<string, number>>): StoredKeyErrors {
-  return { version: 1, keys: Object.entries(missedKeys).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
-    .map(([grapheme, count]) => ({ grapheme, count })) };
+  return Object.freeze({ version: 1, keys: Object.freeze(Object.entries(missedKeys).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+    .map(([grapheme, count]) => Object.freeze({ grapheme, count }))) });
 }

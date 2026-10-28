@@ -1,4 +1,4 @@
-import { describeDatabaseError, type Interruption, type RaceOwnership, type RaceResultRow, type Transition } from "@incision/database";
+import { describeDatabaseError, keyErrorsFromEngine, type Interruption, type RaceOwnership, type RaceResultRow, type Transition } from "@incision/database";
 import {
   asEntrantId,
   asInstant,
@@ -1034,8 +1034,7 @@ function bonusPrivateKey(state: BonusRaceState, entrantId: string): string {
 export function toResultRow(result: EntrantResult, wpmSeries: StoredWpmSeries): RaceResultRow {
   return {
     wpmSeries,
-    keyErrors: Object.freeze({ version: 1, keys: Object.freeze(Object.entries(result.missedKeys)
-      .map(([grapheme, count]) => Object.freeze({ grapheme, count }))) }),
+    keyErrors: keyErrorsFromEngine(result.missedKeys),
     entrantId: result.entrantId,
     outcome: OUTCOMES[result.status],
     rank: result.rank,
