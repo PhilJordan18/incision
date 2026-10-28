@@ -73,6 +73,24 @@ An initial seed allows a reproducible demo with non-real local accounts. The cor
 
 ## Delivered schema
 
+### F-03.1d1: coherent text length (migration 0012)
+
+`lobby_settings.word_count` is a non-null smallint, default 50, checked between
+10 and 200. This additive migration preserves every previous settings field and
+does not change historical races, accounts or photos. Apply it before starting the
+new application; the previous application can ignore the added column. Rolling
+back application code does not require dropping the column or its saved values.
+The CHECK validation takes a table lock during migration; schedule deployment
+accordingly rather than claiming a lock-free production change.
+
+The existing host/phase/revision transaction saves the new field, and room
+snapshots expose it to every member. A coherent draw uses that count with the
+remaining D-19 defaults. A new race freezes `config_snapshot.wordCount` and, for
+corpus draws, `textSettings.wordCount`, alongside its exact text. Historical JSON
+is not backfilled. A missing compatible passage refuses the start. This section
+supersedes the older F-03.1a description below for word count only; random text,
+complexity and text options remain separate cards.
+
 ### F-07.3A: private expected-grapheme aggregates (migration 0010)
 
 `race_key_errors` stores one versioned JSON aggregate per `(race_id, entrant_id)`,
