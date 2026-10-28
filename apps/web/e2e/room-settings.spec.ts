@@ -26,7 +26,7 @@ async function open(page: Page) {
 const panel = (page: Page) => page.getByRole("region", { name: /^(Réglages de la course|Race settings)$/ });
 async function edit(page: Page, language: "fr" | "en", seconds: string) {
   await panel(page).getByRole("button", { name: /^(Modifier les réglages|Edit settings)$/ }).click();
-  await panel(page).getByRole("combobox").selectOption(language);
+  await panel(page).getByRole("combobox", { name: /Text language|Langue du texte/ }).selectOption(language);
   await panel(page).getByRole("checkbox", { name: /^(Aucune limite|No limit)$/ }).setChecked(seconds === "none");
   if (seconds !== "none") await panel(page).getByRole("spinbutton").fill(seconds);
 }
@@ -96,7 +96,7 @@ test("another host tab cannot silently overwrite a draft; cancel and explicit re
   await panel(first).getByRole("button", { name: "Recharger les réglages" }).click();
   await expect(first.getByText("[.En direct]", { exact: true })).toBeVisible();
   await edit(first, "en", "60");
-  await panel(first).getByRole("combobox").press("Escape");
+  await panel(first).getByRole("combobox", { name: /Text language|Langue du texte/ }).press("Escape");
   await expect(panel(first).getByRole("button", { name: "Modifier les réglages" })).toBeFocused();
   await expect(panel(first).locator("dd").nth(1)).toHaveText("90");
   await edit(first, "en", "60");
@@ -151,6 +151,71 @@ test("a lost action response preserves the draft and offers a read, not an autom
 });
 
 for (const locale of ["fr-CA", "en-US"]) {
+  test(`free typing survives reload, finishes with an error and switches back to mandatory for ${locale}`, async ({ browser }) => {
+    test.setTimeout(90_000);
+    const { page: host } = await account(browser, `FreeHost${locale}`, locale);
+    const { page: member } = await account(browser, `FreeMember${locale}`, locale);
+    const code = await open(host);
+    await member.goto(`/rooms/${code}`);
+    await member.getByRole("button", { name: /^(Rejoindre la salle|Join the room)$/ }).click();
+    await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+    await edit(host, "en", "none");
+    const mode = panel(host).getByRole("combobox", { name: /^(Mode de frappe|Typing mode)$/ });
+    await mode.selectOption("free");
+    await mode.focus();
+    await expect(mode).toBeFocused();
+    await save(host);
+    await expect(panel(member).locator("dd").nth(2)).toHaveText(/^(Frappe libre|Free typing)$/);
+    await host.reload();
+    await expect(panel(host).locator("dd").nth(2)).toHaveText(/^(Frappe libre|Free typing)$/);
+    await host.getByRole("button", { name: /^(Lancer la course|Start the race)$/ }).click();
+    const field = host.getByLabel(/^(Ta frappe|Your typing)$/);
+    await expect(field).toBeEnabled({ timeout: 10_000 });
+    const text = (await host.locator(".course-texte").textContent())!;
+    const wrong = text[0] === "x" ? "y" : "x";
+    await field.pressSequentially(wrong + text.slice(1, 3), { delay: 70 });
+    await expect(host.locator(".course-erreur")).toHaveCount(1);
+    await expect(host.locator(".course-juste")).toHaveCount(2);
+    await expect(host.locator(".course-bloque")).toHaveCount(0);
+    await expect(member.getByRole("progressbar", { name: `FreeHost${locale}` })).not.toHaveAttribute("value", "0");
+    await host.reload();
+    await expect(field).toBeEnabled({ timeout: 10_000 });
+    await expect(host.locator(".course-erreur")).toHaveCount(1);
+    await expect(host.locator(".course-juste")).toHaveCount(2);
+    await field.pressSequentially(text.slice(3), { delay: 70 });
+    await member.getByRole("button", { name: /^(Abandonner la course|Give up the race)$/ }).click();
+    await member.getByRole("button", { name: /^(Oui, abandonner|Yes, give up)$/ }).click();
+    await expect(host.getByRole("heading", { level: 1 })).toContainText(/Fin de la|End of the/i);
+    const [result] = await query<{ config: Record<string, unknown>; position: number; length: number; correct_inputs: string; total_inputs: string; accuracy: number }>(
+      "select r.config_snapshot as config, rr.position, rr.length, rr.correct_inputs, rr.total_inputs, rr.accuracy from races r join lobbies l on l.current_race_id=r.id join race_results rr on rr.race_id=r.id where l.code=$1 and rr.outcome='finished'", [code]);
+    expect(result?.config).toMatchObject({ errorMode: "free", timeLimitMs: null });
+    expect(result?.position).toBe(text.length);
+    expect(result?.length).toBe(text.length);
+    expect(Number(result?.total_inputs)).toBe(text.length);
+    expect(Number(result?.correct_inputs)).toBe(text.length - 1);
+    expect(result?.accuracy).toBeCloseTo((text.length - 1) / text.length * 100, 6);
+    await expect(host.getByText(/Première référence|First reference/)).toBeVisible();
+    await host.getByRole("button", { name: /^(Prochaine manche|Next round)$/ }).click();
+    await edit(host, "en", "none");
+    await panel(host).getByRole("combobox", { name: /^(Mode de frappe|Typing mode)$/ }).selectOption("mandatory");
+    await save(host);
+    await expect(panel(member).locator("dd").nth(2)).toHaveText(/^(Correction obligatoire|Mandatory correction)$/);
+    await host.getByRole("button", { name: /^(Lancer la course|Start the race)$/ }).click();
+    await expect(field).toBeEnabled({ timeout: 10_000 });
+    const nextText = (await host.locator(".course-texte").textContent())!;
+    await field.pressSequentially((nextText[0] === "x" ? "y" : "x") + nextText[1], { delay: 70 });
+    await expect(host.locator(".course-bloque")).toHaveCount(1);
+    await expect(host.locator(".course-juste")).toHaveCount(0);
+    await expect(field).toHaveAttribute("aria-invalid", "true");
+    await field.press("Backspace");
+    await field.pressSequentially(nextText, { delay: 70 });
+    await member.getByRole("button", { name: /^(Abandonner la course|Give up the race)$/ }).click();
+    await member.getByRole("button", { name: /^(Oui, abandonner|Yes, give up)$/ }).click();
+    await expect(host.getByRole("heading", { level: 1 })).toContainText(/Fin de la|End of the/i);
+    // The previous free-mode finish must not become the mandatory-mode benchmark.
+    await expect(host.getByText(/Première référence|First reference/)).toBeVisible();
+  });
+
   test(`explicit unlimited and duration boundaries persist for ${locale}`, async ({ browser }) => {
     const { page } = await account(browser, `Duration${locale}`, locale);
     const code = await open(page);

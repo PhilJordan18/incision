@@ -1,7 +1,7 @@
 import type { Interruption, OwnRoomSettings, RaceToCreate, RoomSettings, StartRaceInput, StartRaceResult, Transition } from "@incision/database";
 import { asRandomState, COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
-import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, type RaceProgressPayload, type RaceRevealPayload } from "../../races/protocol";
+import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, RACE_SELF_EVENT, type RaceProgressPayload, type RaceRevealPayload, type RaceSelfPayload } from "../../races/protocol";
 import { CONTROL_WINDOW, ENTRANT_ACTION_WINDOW, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
 import { CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts, type RaceTextDraw, type RaceTextSource } from "./race-texts";
 
@@ -187,6 +187,33 @@ describe("RaceService", () => {
     expect(created[0]?.timeLimit).toBe(timeLimitMs);
   });
 
+  it.each([null, 30_000, 600_000])("runs free typing with duration %s and keeps corrected mistakes in the counters", async (timeLimitMs) => {
+    const { service, store, created, advance } = harness({ settings: { errorMode: "free", timeLimitMs } });
+    const host = tab("free-host", "a-host");
+    const observer = tab("free-observer", "a-host");
+    service.follow(LOBBY, host.connection);
+    service.follow(LOBBY, observer.connection);
+    expect(await service.start(host.connection, {})).toEqual({ ok: true });
+    expect(store.startRace.mock.calls[0]?.[0].config).toMatchObject({ errorMode: "free", timeLimitMs });
+    expect(created[0]).toMatchObject({ errorMode: "free", timeLimit: timeLimitMs });
+    expect(host.reveal()?.reveal.errorMode).toBe("free");
+    advance(COUNTDOWN_MS + 1000);
+    const target = host.reveal()!.reveal.text;
+    const wrong = target[0] === "x" ? "y" : "x";
+    const snapshot = () => (observer.received.filter(({ event }) => event === RACE_SELF_EVENT).at(-1)?.payload as RaceSelfPayload).snapshot;
+    expect(service.keystrokes(host.connection, batch(1, wrong))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(snapshot()).toMatchObject({ typed: [wrong], pendingError: false, counters: { totalInserts: 1, correctInserts: 0 } });
+    advance(100);
+    expect(service.keystrokes(host.connection, batch(2, target[1]!))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(snapshot()).toMatchObject({ typed: [wrong, target[1]], counters: { totalInserts: 2, correctInserts: 1 } });
+    advance(100);
+    expect(service.keystrokes(host.connection, { ...batch(3, wrong), events: [{ type: "deleteBackward" }, { type: "deleteBackward" }] })).toMatchObject({ ok: true });
+    expect(snapshot()).toMatchObject({ typed: [], counters: { totalInserts: 2, correctInserts: 1 } });
+    advance(100);
+    expect(service.keystrokes(host.connection, batch(4, target[0]!))).toMatchObject({ ok: true });
+    expect(snapshot()).toMatchObject({ typed: [target[0]], counters: { totalInserts: 3, correctInserts: 2 } });
+  });
+
   it("runs the texts it is given, never the fixtures in their place, and records which one", async () => {
     const texts = { fr: { id: "fr-injected", text: "Texte injecté pour ce test." }, en: { id: "en-injected", text: "Text injected for this test." } };
     const { service, store } = harness({ texts: fixedRaceTexts(texts) });
@@ -339,8 +366,8 @@ describe("RaceService", () => {
     }
   });
 
-  it("refuses invalid limits and unsupported free typing without drawing", async () => {
-    for (const settings of [{ timeLimitMs: 29_999 }, { timeLimitMs: 600_001 }, { errorMode: "free" }] as const) {
+  it("refuses invalid limits without drawing", async () => {
+    for (const settings of [{ timeLimitMs: 29_999 }, { timeLimitMs: 600_001 }] as const) {
       const draw = vi.fn(async (): Promise<RaceTextDraw> => ({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" }));
       const logged: string[] = [];
       const base = harness({ settings, texts: { draw } });

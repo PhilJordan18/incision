@@ -85,6 +85,17 @@ function start(accountId: string, lobbyId: string, settingsRevision: number) {
 }
 
 describe("room settings (F-03.1)", () => {
+  it("persists free typing for both members and refuses a stale switch back", async () => {
+    const { lobbyId, hostId, guestId } = await room("ABCDEF");
+    const settings = { ...ENGLISH_ONE_MINUTE, errorMode: "free" as const };
+    expect(await configureRoom(db, { accountId: guestId, code: code("ABCDEF"), revision: 0, settings })).toEqual({ ok: false, error: "NOT_HOST" });
+    expect(await configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings })).toMatchObject({ ok: true, revision: 1 });
+    for (const accountId of [hostId, guestId]) {
+      expect((await readOwnRoomSettings(db, accountId))?.settings).toEqual({ ...settings, revision: 1 });
+    }
+    expect(await configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings: ENGLISH_ONE_MINUTE })).toEqual({ ok: false, error: "STALE_REVISION" });
+    expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ ...settings, revision: 1 });
+  });
   it("are written with the room: the creator's language, no limit, mandatory correction, revision 0", async () => {
     const { lobbyId } = await room("ABCDEF", { textLanguage: "en" });
     const rows = await pool.query("select lobby_id, revision, text_language, time_limit_ms, error_mode from lobby_settings");

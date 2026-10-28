@@ -48,7 +48,7 @@ function close(code?: string) {
 
 function configure(fields: Readonly<Record<string, string>> = {}) {
   const form = new FormData();
-  for (const [name, value] of Object.entries({ code: "ABCDEF", revision: "2", textLanguage: "en", timeLimitSeconds: "60", ...fields })) {
+  for (const [name, value] of Object.entries({ code: "ABCDEF", revision: "2", textLanguage: "en", timeLimitSeconds: "60", errorMode: "mandatory", ...fields })) {
     form.set(name, value);
   }
   return configureRoomAction(form);
@@ -152,6 +152,14 @@ describe("closeRoomAction", () => {
 });
 
 describe("configureRoomAction", () => {
+  it("saves free typing using the session identity, not a client-supplied identity", async () => {
+    configureRoom.mockResolvedValueOnce({ ok: true, lobbyId: "L", revision: 3 });
+    expect(await configure({ errorMode: "free", accountId: "forged" })).toEqual({ revision: 3 });
+    expect(configureRoom).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
+      accountId: "alice", code: "ABCDEF", revision: 2,
+      settings: { textLanguage: "en", timeLimitMs: 60_000, errorMode: "free" },
+    });
+  });
   it("saves the settings the form names for the session's account, tells the room's pages, and answers the new revision", async () => {
     configureRoom.mockResolvedValueOnce({ ok: true, lobbyId: "L", revision: 3 });
     expect(await configure({ code: " abcdef " })).toEqual({ revision: 3 });
@@ -175,7 +183,7 @@ describe("configureRoomAction", () => {
   });
 
   it("refuses malformed or out-of-range settings before the budget and the database", async () => {
-    const malformed: Readonly<Record<string, string>>[] = [{ code: "" }, { revision: "-1" }, { textLanguage: "de" }, { timeLimitSeconds: "601" }, { timeLimitSeconds: "null" }];
+    const malformed: Readonly<Record<string, string>>[] = [{ code: "" }, { revision: "-1" }, { textLanguage: "de" }, { timeLimitSeconds: "601" }, { timeLimitSeconds: "null" }, { errorMode: "unknown" }];
     for (const fields of malformed) {
       expect(await configure(fields), JSON.stringify(fields)).toEqual({ error: "INVALID_SETTINGS" });
     }

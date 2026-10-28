@@ -43,6 +43,7 @@ function form(): FormData {
   // The text language of the settings form; a new room's comes from the request instead (mocked "en").
   value.set("textLanguage", "fr");
   value.set("timeLimitSeconds", "60");
+  value.set("errorMode", "mandatory");
   return value;
 }
 

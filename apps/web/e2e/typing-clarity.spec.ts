@@ -24,7 +24,8 @@ async function signedIn(browser: Browser, options: { name: string; locale: "fr-C
 
 for (const locale of ["fr-CA", "en-US"] as const) {
   for (const theme of ["abysse", "aube"] as const) {
-    test(`typing guidance and refused edits in an ordinary race: ${locale} ${theme}`, async ({ browser }) => {
+    for (const errorMode of ["mandatory", "free"] as const) {
+    test(`typing guidance and refused edits in an ordinary race: ${locale} ${theme} ${errorMode}`, async ({ browser }) => {
       test.setTimeout(90_000);
       const french = locale === "fr-CA";
       const host = await signedIn(browser, { name: "Captain", locale: "en-US", theme });
@@ -42,12 +43,19 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       const guide = runner.getByRole("region", { name: french ? "Repères de frappe" : "Typing guide" });
       await expect(guide).toHaveCount(0);
       await expect(runner.locator(".course-texte")).toHaveCount(0);
+      if (errorMode === "free") {
+        const settings = host.getByRole("region", { name: "Race settings", exact: true });
+        await settings.getByRole("button", { name: "Edit settings", exact: true }).click();
+        await settings.getByRole("combobox", { name: "Typing mode", exact: true }).selectOption("free");
+        await settings.getByRole("button", { name: "Save settings", exact: true }).click();
+        await expect(settings.getByRole("status")).toHaveText("Settings saved.");
+      }
       await host.getByRole("button", { name: "Start the race" }).click();
       const field = runner.getByLabel(french ? "Ta frappe" : "Your typing", { exact: true });
       await expect(field).toBeEnabled({ timeout: 6000 });
       await expect(field).toBeFocused();
-      await expect(guide).toContainText(french ? "Correction obligatoire" : "Mandatory correction");
-      await expect(guide).toContainText(french ? "corrige le caractère" : "correct the character");
+      await expect(guide).toContainText(errorMode === "mandatory" ? (french ? "Correction obligatoire" : "Mandatory correction") : (french ? "Frappe libre" : "Free typing"));
+      await expect(guide).toContainText(errorMode === "mandatory" ? (french ? "corrige le caractère" : "correct the character") : (french ? "compte dans la précision" : "counts towards accuracy"));
       await expect(field).toHaveAttribute("autocorrect", "off");
       await expect(field).toHaveAttribute("spellcheck", "false");
       const progress = host.getByRole("progressbar", { name: "Runner" });
@@ -114,9 +122,10 @@ for (const locale of ["fr-CA", "en-US"] as const) {
         }
         await expectNoAccessibilityViolation(runner);
         await expectNoHorizontalScroll(runner);
-        if (width !== 360) await runner.screenshot({ path: test.info().outputPath(`typing-${locale}-${theme}-${width}.png`), fullPage: true });
+        if (width !== 360) await runner.screenshot({ path: test.info().outputPath(`typing-${locale}-${theme}-${errorMode}-${width}.png`), fullPage: true });
       }
       expect(errors).toEqual([]);
     });
+    }
   }
 }
