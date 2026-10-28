@@ -50,6 +50,16 @@ only port 3893 and `incision_e2e_bots59b_20261028`. They use fixture passage tex
 authenticated test account, but no seeded race results: the actual server engine types,
 finishes and persists the bot. This does not qualify corpus selection or bot calibration.
 
+### CI follow-up
+
+The first two CI runs on `c497eca` failed the catalogue comparison: PostgreSQL prints
+the new text default as `'human'::text`, while Drizzle's snapshot stores `'human'`.
+The SQL schema and constraints matched. The comparison now renders literal text casts
+as PostgreSQL does, retaining the exact literal and leaving SQL expressions unchanged;
+a focused regression test covers distinct values, escaped quotes and existing casts.
+No migration, workflow or application behavior changed. Catalogue/schema/migration/bot
+SQL checks: 49/49 pass in four files. CI must be checked again on the correction commit.
+
 ## Acceptance checks and sequential reviews
 
 - Code: one timer for all bots; actual-time reduction; deadline-first ordering; no direct
