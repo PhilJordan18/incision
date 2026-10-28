@@ -82,6 +82,11 @@ Same Codex session, not independent reviewers:
 
 ## Still to verify
 
+CI follow-up: the full browser suite exposed an old locale-format test selecting
+every region in `main`. Charts add legitimate named regions, making that selector
+ambiguous. The test now targets the exact translated ranking region and its table;
+the Tab focus assertion remains unchanged. No runtime/UI behaviour is changed.
+
 - CI on the delivered head.
 - Human review: finish a race with a bot; open its race page; compare the final
   graph/table value with the result; make and correct a deliberate error and check
