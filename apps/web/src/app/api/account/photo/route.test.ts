@@ -53,7 +53,12 @@ it("rejects unauthenticated uploads before reading their body", async () => {
 });
 it("returns an ordinary refusal for more than3MB without decoding or saving", async () => {
   const form = new FormData(); form.set("photo", new File([new Uint8Array(4 * 1024 * 1024)], "p.png"));
-  expect(await (await POST(uploadRequest(form))).json()).toEqual({ status: "invalid" });
+  const encoded = uploadRequest(form);
+  // Model incoming network bytes, not Undici's outgoing File encoder: in Node24.21
+  // that encoder can enqueue after cancellation and reject outside its stream promise.
+  // Actual incoming streams and cancellation remain covered by photo-body.test.ts.
+  const incoming = new Request(encoded.url, { method: "POST", headers: encoded.headers, body: await encoded.arrayBuffer() });
+  expect(await (await POST(incoming)).json()).toEqual({ status: "invalid" });
   expect(mocks.upload).not.toHaveBeenCalled(); expect(mocks.save).not.toHaveBeenCalled();
   expect(mocks.revalidate).not.toHaveBeenCalled();
 });

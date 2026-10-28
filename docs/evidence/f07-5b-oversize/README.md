@@ -77,3 +77,24 @@ IA proposals are handed to Claude A separately; their files were not overwritten
 Human check after this version is prepared: save a valid photo, select a file over
 3MB and confirm the inline refusal without “Avarie”; reload and verify the previous
 photo remains. No need to alter the existing human recipe environment for this PR.
+
+## CI runtime follow-up
+
+Both initial CI runs at `a0272e5` failed with an unhandled Undici stream rejection
+on Node 24.21.0 despite all 702 web assertions passing. The same failure was
+reproduced locally on that runtime. The oversized route test constructed an outgoing
+FormData/File encoder and then cancelled it as if it were incoming network data;
+that encoder could enqueue after cancellation. The fixture now supplies encoded
+incoming bytes. No production code, global error handler, dependency or CI setting
+changed. Stream byte limits, reads and cancellation assertions remain in
+`photo-body.test.ts`.
+
+After the fixture correction:
+- Node 24.21.0: all 702 web unit tests passed with no unhandled rejection.
+- Node 24.21.0: all seven photo browser tests passed again (37s), using the existing
+  production build on isolated port3992/databaseincision_e2e_photo68refusal. This
+  includes actual HTTP oversized uploads, native forms and prior-image preservation.
+- Node 24.13.0: all 29 focused photo unit tests passed again.
+
+The application remains at `12cb5aa`; this follow-up changes only a test fixture
+and this evidence record. CI on the new commit is reported separately on the PR.
