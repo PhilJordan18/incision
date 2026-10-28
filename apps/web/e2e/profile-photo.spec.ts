@@ -89,3 +89,42 @@ test("photo form is accessible in both locales/themes and reference widths", asy
     await context.close();
   }
 });
+
+for (const javaScriptEnabled of [true, false]) for (const locale of ["fr", "en"] as const) {
+  test(`oversized photos are controlled and preserve the prior photo: JS=${javaScriptEnabled} ${locale}`, async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ javaScriptEnabled, locale });
+    try {
+      const page = await context.newPage();
+      const words = locale === "fr" ? FRENCH : ENGLISH;
+      await signInWithCredentials(page, account.login, account.password, words);
+      const input = page.locator("#profile-photo");
+      const save = page.getByRole("button", { name: locale === "fr" ? "Enregistrer la photo" : "Save photo", exact: true });
+      const original = await photo("jpeg");
+      const maximum = Buffer.concat([original, Buffer.alloc(2 * 1024 * 1024 - original.length)]);
+      await input.setInputFiles({ name: "maximum.jpg", mimeType: "image/jpeg", buffer: maximum });
+      await save.click();
+      await expect(page.getByText(locale === "fr" ? "Photo enregistrée." : "Photo saved.", { exact: true })).toBeVisible();
+      const previous = await (await page.request.get("/api/account/photo")).body();
+      let uploads = 0;
+      page.on("request", (request) => { if (request.method() === "POST" && request.url().includes("/api/account/photo")) uploads += 1; });
+      for (const bytes of [2 * 1024 * 1024 + 1, 4 * 1024 * 1024]) {
+        await input.setInputFiles({ name: "too-large.png", mimeType: "image/png", buffer: Buffer.alloc(bytes) });
+        if (javaScriptEnabled) await expect(page.locator("#profile-photo-error")).toBeVisible();
+        await save.click();
+        await expect(page.locator("#profile-photo-error")).toContainText(locale === "fr" ? "Ta photo précédente est conservée" : "Your previous photo is kept");
+        await expect(input).toHaveAttribute("aria-invalid", "true");
+        await expect(page.getByRole("heading", { name: /Avarie/i })).toHaveCount(0);
+        expect(await (await page.request.get("/api/account/photo")).body()).toEqual(previous);
+      }
+      expect(uploads).toBe(javaScriptEnabled ? 0 : 2);
+      // Bypass all client checks, including the input's accept/size hints.
+      const refused = await page.request.post("/api/account/photo", {
+        headers: { Origin: baseURL!, Accept: "application/json" },
+        multipart: { photo: { name: "bypass.png", mimeType: "image/png", buffer: Buffer.alloc(4 * 1024 * 1024) } },
+      });
+      expect(refused.status()).toBe(200);
+      expect(await refused.json()).toEqual({ status: "invalid" });
+      expect(await (await page.request.get("/api/account/photo")).body()).toEqual(previous);
+    } finally { await context.close(); }
+  });
+}
