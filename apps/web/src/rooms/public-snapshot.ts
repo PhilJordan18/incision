@@ -8,6 +8,7 @@ export function publicSnapshot(snapshot: RoomSnapshot, online: ReadonlySet<strin
     phase: snapshot.phase,
     capacity: snapshot.capacity,
     revision: snapshot.revision,
+    bots: snapshot.bots.map(({ botId, level }) => ({ botId, level })),
     members: snapshot.members.map(({ memberId, displayName, role, isHost }) => ({
       memberId,
       displayName,
