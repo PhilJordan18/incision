@@ -71,6 +71,13 @@
       "when": 1793198503354,
       "tag": "0009_room_bots",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793198763930,
+      "tag": "0010_race_key_errors",
+      "breakpoints": true
     }
   ]
 }

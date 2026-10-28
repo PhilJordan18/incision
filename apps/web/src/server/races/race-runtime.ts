@@ -1034,6 +1034,8 @@ function bonusPrivateKey(state: BonusRaceState, entrantId: string): string {
 export function toResultRow(result: EntrantResult, wpmSeries: StoredWpmSeries): RaceResultRow {
   return {
     wpmSeries,
+    keyErrors: Object.freeze({ version: 1, keys: Object.freeze(Object.entries(result.missedKeys)
+      .map(([grapheme, count]) => Object.freeze({ grapheme, count }))) }),
     entrantId: result.entrantId,
     outcome: OUTCOMES[result.status],
     rank: result.rank,

@@ -4,6 +4,8 @@ import { z } from "zod";
 import type { StoredWpmSeries } from "@incision/domain";
 import { raceWpmSeries } from "../schema/race-wpm-series";
 import { checkedStoredWpmSeries } from "./wpm-series";
+import { checkedKeyErrors, type StoredKeyErrors } from "./key-errors";
+import { raceKeyErrors } from "../schema/race-key-errors";
 import type { Database } from "../client";
 import { type AbandonmentReason, type InterruptionReason, lobbies, lobbyMembers, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
 
@@ -48,6 +50,8 @@ export type RaceResultView = {
   readonly entrants: readonly EntrantResultView[];
   /** Only the authenticated reader's record; absent for a spectator or non-finisher. */
   readonly personalRecord?: ResultRecord;
+  /** Only the authenticated entrant's aggregate; absent for legacy races and spectators. */
+  readonly personalKeyErrors?: StoredKeyErrors;
 };
 
 /**
@@ -118,6 +122,8 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       accountId: raceEntrants.accountId,
       seriesEntrantId: raceWpmSeries.entrantId,
       series: raceWpmSeries.series,
+      keyErrorsEntrantId: raceKeyErrors.entrantId,
+      keyErrors: raceKeyErrors.aggregate,
       correctInputs: raceResults.correctInputs,
       totalInputs: raceResults.totalInputs,
       // Null when the entrant has no result row (left join).
@@ -138,9 +144,15 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
     .leftJoin(raceResults, and(eq(raceResults.raceId, raceEntrants.raceId), eq(raceResults.entrantId, raceEntrants.id)))
     // Read the bounded payload in the existing authorised entrant query, not an extra query.
     .leftJoin(raceWpmSeries, and(eq(raceWpmSeries.raceId, raceEntrants.raceId), eq(raceWpmSeries.entrantId, raceEntrants.id)))
+    // Enforce privacy in SQL: another entrant's aggregate never leaves the database.
+    .leftJoin(raceKeyErrors, and(eq(raceKeyErrors.raceId, raceEntrants.raceId), eq(raceKeyErrors.entrantId, raceEntrants.id), eq(raceEntrants.accountId, accountId)))
     .where(eq(raceEntrants.raceId, race.raceId))
     .orderBy(sql`${raceResults.rank} asc nulls last`, asc(raceEntrants.ordinal));
   const finished = race.state === "finished";
+  const ownRow = rows.find((row) => row.accountId === accountId);
+  const personalKeyErrors = finished && ownRow?.keyErrorsEntrantId != null
+    ? checkedKeyErrors(ownRow.keyErrors, { correctInputs: ownRow.correctInputs ?? Number.NaN, totalInputs: ownRow.totalInputs ?? Number.NaN })
+    : undefined;
   const self = rows.find((row) => row.accountId === accountId)?.result;
   // The frozen config is used server-side only, never projected with personal settings/seeds.
   const { config, ...metadata } = race;
@@ -153,6 +165,7 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
   return {
     ...metadata,
     ...(personalRecord === undefined ? {} : { personalRecord }),
+    ...(personalKeyErrors === undefined ? {} : { personalKeyErrors }),
     entrants: rows.map(({ ordinal, displayName, accountId: entrantAccount, seriesEntrantId, series, correctInputs, totalInputs, result }) => ({
       ordinal,
       displayName,

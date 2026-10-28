@@ -55,7 +55,8 @@ async function fixture() {
     const elapsedMs = 10_000 + index * 123;
     const counters = { correctInserts: 4, totalInserts: 5 };
     results.push({ entrantId, rank: index + 1, outcome: "finished", position: 4, length: 4, elapsedMs,
-      correctInputs: 4, totalInputs: 5, ...computeMeasures(counters, asDuration(elapsedMs)), wpmSeries: realSeries(elapsedMs, 4, 5) });
+      correctInputs: 4, totalInputs: 5, ...computeMeasures(counters, asDuration(elapsedMs)), wpmSeries: realSeries(elapsedMs, 4, 5),
+      keyErrors: { version: 1, keys: [{ grapheme: index === 0 ? "é" : "B", count: 1 }] } });
   }
   const ownership: RaceOwnership = { raceId, lobbyId, ownerId, ownerEpoch: 1 };
   return { ownership, results, accounts };
@@ -68,6 +69,42 @@ async function counts(raceId: string) {
 }
 
 describe("atomic, authorized WPM series persistence", () => {
+  it("persists private aggregates, exposes only self, and never leaks to spectators", async () => {
+    const { ownership, results, accounts } = await fixture();
+    await finalizeRace(db, ownership, results);
+    for (const index of [0, 1]) {
+      const personal = await readRaceForEntrant(db, ownership.raceId, accounts[index]!);
+      expect(personal?.personalKeyErrors).toEqual(results[index]?.keyErrors);
+      expect(personal?.entrants.every((entrant) => !("keyErrors" in (entrant.result ?? {})))).toBe(true);
+      expect((await readRoomRaceForMember(db, { ...ownership, accountId: accounts[index]! }))?.personalKeyErrors).toEqual(results[index]?.keyErrors);
+    }
+    expect((await readRoomRaceForMember(db, { ...ownership, accountId: accounts[2]! }))?.personalKeyErrors).toBeUndefined();
+    expect(await readRaceForEntrant(db, ownership.raceId, accounts[3]!)).toBeUndefined();
+    // Corrupting Bob's data must not affect Alice or spectators: it is not fetched for them.
+    await pool.query("update race_key_errors set aggregate=$2 where entrant_id=$1", [results[1]!.entrantId, { version: 1, keys: [{ grapheme: "B", count: 9 }] }]);
+    expect((await readRaceForEntrant(db, ownership.raceId, accounts[0]!))?.personalKeyErrors).toEqual(results[0]?.keyErrors);
+    expect((await readRoomRaceForMember(db, { ...ownership, accountId: accounts[2]! }))?.personalKeyErrors).toBeUndefined();
+    await expect(readRaceForEntrant(db, ownership.raceId, accounts[1]!)).rejects.toThrow("official counters");
+  });
+
+  it("rolls back results, series, aggregates and room phase on invalid key counts", async () => {
+    const { ownership, results } = await fixture();
+    await expect(finalizeRace(db, ownership, results.map((result, index) => index ? { ...result, keyErrors: { version: 1, keys: [] } } : result))).rejects.toThrow("official counters");
+    expect(await counts(ownership.raceId)).toEqual({ state: "countdown", results: 0, series: 0 });
+    expect((await pool.query("select * from race_key_errors")).rowCount).toBe(0);
+    expect((await pool.query("select phase from lobbies where id=$1", [ownership.lobbyId])).rows[0]?.phase).toBe("countdown");
+    await finalizeRace(db, ownership, results);
+    expect((await pool.query("select * from race_key_errors")).rowCount).toBe(2);
+  });
+
+  it("does not invent private aggregates for a historical producer", async () => {
+    const { ownership, results, accounts } = await fixture();
+    const legacy = results.map(({ keyErrors, ...result }) => { void keyErrors; return result; });
+    await finalizeRace(db, ownership, legacy);
+    expect((await readRaceForEntrant(db, ownership.raceId, accounts[0]!))?.personalKeyErrors).toBeUndefined();
+    expect((await pool.query("select * from race_key_errors")).rowCount).toBe(0);
+  });
+
   it("writes once with results, reads exact measures for entrants and active room spectators only", async () => {
     const { ownership, results, accounts } = await fixture();
     expect(await finalizeRace(db, ownership, results)).toEqual({ won: true, alreadyDone: false });
@@ -83,6 +120,7 @@ describe("atomic, authorized WPM series persistence", () => {
     expect(await counts(ownership.raceId)).toEqual({ state: "finished", results: 2, series: 2 });
     const stored = await pool.query<{ series: unknown }>("select series from race_wpm_series where race_id=$1 and entrant_id=$2", [ownership.raceId, results[0]!.entrantId]);
     expect(stored.rows[0]?.series).toEqual(results[0]?.wpmSeries);
+    expect((await pool.query("select aggregate from race_key_errors where entrant_id=$1", [results[0]!.entrantId])).rows[0]?.aggregate).toEqual(results[0]?.keyErrors);
   });
 
   it("rolls back phase, all results and all series for a mismatched terminal series", async () => {
@@ -136,6 +174,7 @@ describe("atomic, authorized WPM series persistence", () => {
     } finally { await blocker.query("rollback"); blocker.release(); }
     expect((await Promise.all([first, second])).map((result) => result.won && result.alreadyDone).sort()).toEqual([false, true]);
     expect(await counts(ownership.raceId)).toEqual({ state: "finished", results: 2, series: 2 });
+    expect((await pool.query("select * from race_key_errors")).rowCount).toBe(2);
   });
 
   it("bounds JSON in SQL and refuses a corrupt stored row on authorized reads", async () => {

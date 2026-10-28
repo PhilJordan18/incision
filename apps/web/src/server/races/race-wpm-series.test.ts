@@ -77,6 +77,21 @@ function seriesOf(row: RaceResultRow | undefined): StoredWpmSeries {
 }
 
 describe("runtime WPM collection and terminal freeze", () => {
+  it("freezes cumulative expected-key errors, including corrected mistakes", async () => {
+    const app = setup(); app.runtime.start(); await app.advance(4000);
+    expect(app.type(0, "x")).toMatchObject({ ok: true });
+    expect(app.runtime.keystrokes(app.followers[0]!, { raceId: ownership.raceId, seq: 2, textVersion: 0,
+      events: [{ type: "deleteBackward" }, { type: "insert", grapheme: "a" }, { type: "insert", grapheme: "b" }],
+    })).toMatchObject({ ok: true });
+    app.type(1); await app.runtime.whenSaved();
+    const alice = app.rows().find((row) => row.entrantId === "alice");
+    const bob = app.rows().find((row) => row.entrantId === "bob");
+    expect(alice?.keyErrors).toEqual({ version: 1, keys: [{ grapheme: "a", count: 1 }] });
+    expect(bob?.keyErrors).toEqual({ version: 1, keys: [] });
+    expect(Object.isFrozen(alice?.keyErrors)).toBe(true);
+    expect(Object.isFrozen(alice?.keyErrors?.keys)).toBe(true);
+    expect(Object.isFrozen(alice?.keyErrors?.keys[0])).toBe(true);
+  });
   it("captures silence without reduction, lease checks, SQL or broadcast from the sample timer", async () => {
     const app = setup();
     app.runtime.start();
