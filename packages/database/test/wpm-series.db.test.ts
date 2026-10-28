@@ -155,6 +155,7 @@ describe("atomic, authorized WPM series persistence", () => {
     await interruptOwnRace(db, ownership, "server_stopped");
     expect(await finalizeRace(db, ownership, results)).toEqual({ won: false });
     expect(await counts(ownership.raceId)).toEqual({ state: "interrupted", results: 0, series: 0 });
+    expect((await pool.query("select * from race_key_errors")).rowCount).toBe(0);
   });
 
   it("serialises competing finalisations behind the held room lock without duplicating series", async () => {
@@ -179,6 +180,10 @@ describe("atomic, authorized WPM series persistence", () => {
 
   it("bounds JSON in SQL and refuses a corrupt stored row on authorized reads", async () => {
     const { ownership, results, accounts } = await fixture(); await finalizeRace(db, ownership, results);
+    for (const aggregate of [null, {}, { version: 2, keys: [] }, { version: 1, keys: null }]) {
+      await expect(pool.query("update race_key_errors set aggregate=$2::jsonb where race_id=$1", [ownership.raceId, JSON.stringify(aggregate)])).rejects.toMatchObject({ code: "23514" });
+    }
+    await expect(pool.query("insert into race_key_errors(race_id,entrant_id,aggregate) values($1,$2,$3)", [ownership.raceId, randomUUID(), JSON.stringify(results[0]!.keyErrors)])).rejects.toMatchObject({ code: "23503" });
     for (const series of [null, { version: 2, points: [0] }, { version: 1, points: [] }, { version: 1, points: Array(513).fill(0) }]) {
       await expect(pool.query("update race_wpm_series set series=$2::jsonb where race_id=$1", [ownership.raceId, JSON.stringify(series)])).rejects.toMatchObject({ code: "23514" });
     }
