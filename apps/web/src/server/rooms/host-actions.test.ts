@@ -165,8 +165,17 @@ describe("configureRoomAction", () => {
     expect(notifyMemberLeft).not.toHaveBeenCalled();
   });
 
-  it("refuses malformed or not yet runnable settings before the budget and the database", async () => {
-    const malformed: Readonly<Record<string, string>>[] = [{ code: "" }, { revision: "-1" }, { textLanguage: "de" }, { timeLimitSeconds: "121" }, { timeLimitSeconds: "none" }];
+  it.each(["none", "30", "121", "600"])("saves the supported duration %s through the authenticated host transaction", async (seconds) => {
+    configureRoom.mockResolvedValue({ ok: true, lobbyId: "L", revision: 3 });
+    expect(await configure({ timeLimitSeconds: seconds })).toEqual({ revision: 3 });
+    expect(configureRoom).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      settings: { textLanguage: "en", timeLimitMs: seconds === "none" ? null : Number(seconds) * 1000, errorMode: "mandatory" },
+    }));
+    expect(notifyRoomChanged).toHaveBeenCalledExactlyOnceWith("L");
+  });
+
+  it("refuses malformed or out-of-range settings before the budget and the database", async () => {
+    const malformed: Readonly<Record<string, string>>[] = [{ code: "" }, { revision: "-1" }, { textLanguage: "de" }, { timeLimitSeconds: "601" }, { timeLimitSeconds: "null" }];
     for (const fields of malformed) {
       expect(await configure(fields), JSON.stringify(fields)).toEqual({ error: "INVALID_SETTINGS" });
     }

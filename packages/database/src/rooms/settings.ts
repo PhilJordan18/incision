@@ -17,14 +17,13 @@ export type RoomSettings = {
 /** The text language when the creator's is unknown (a tool, a room of a process older than 0006): the site's default. */
 export const DEFAULT_TEXT_LANGUAGE: TextLanguage = "fr";
 
-/**
- * A new room's settings: D-19's mandatory correction, texts in the creator's interface language,
- * and the first race path's 120 s. D-19's "no limit" waits for the card that lifts CONF-01's
- * restriction; its prerequisite, D-17's pause while a lease is suspended, is in place (#168).
- */
+/** D-19 defaults for new rooms only; existing rows are never rewritten. */
 export function initialRoomSettings(textLanguage: TextLanguage): RoomSettings {
-  return { revision: 0, textLanguage, timeLimitMs: 120_000, errorMode: "mandatory" };
+  return { revision: 0, textLanguage, timeLimitMs: null, errorMode: "mandatory" };
 }
+
+/** Preserve the former fallback for rooms created by a process older than migration 0006. */
+const LEGACY_ROOM_SETTINGS: RoomSettings = { revision: 0, textLanguage: DEFAULT_TEXT_LANGUAGE, timeLimitMs: 120_000, errorMode: "mandatory" };
 
 /** The settings columns, read with a room through a left join. */
 export const settingsColumns = {
@@ -43,12 +42,12 @@ type SettingsColumns = {
 
 /**
  * The settings of a left-joined row. A room created by a process older than migration 0006, while
- * a release rolls out, has no row: it races with the initial settings until its host saves some.
+ * a release rolls out, has no row: it keeps its legacy 120 s limit until its host saves new settings.
  */
 export function settingsOf(row: SettingsColumns): RoomSettings {
   const { settingsRevision, textLanguage, timeLimitMs, errorMode } = row;
   return settingsRevision === null || textLanguage === null || errorMode === null
-    ? initialRoomSettings(DEFAULT_TEXT_LANGUAGE)
+    ? { ...LEGACY_ROOM_SETTINGS }
     : { revision: settingsRevision, textLanguage, timeLimitMs, errorMode };
 }
 
@@ -58,7 +57,7 @@ export function settingsOf(row: SettingsColumns): RoomSettings {
  */
 export async function readSettingsRevision(tx: Queryable, lobbyId: string): Promise<number> {
   const [row] = await tx.select({ revision: lobbySettings.revision }).from(lobbySettings).where(eq(lobbySettings.lobbyId, lobbyId));
-  return row?.revision ?? initialRoomSettings(DEFAULT_TEXT_LANGUAGE).revision;
+  return row?.revision ?? LEGACY_ROOM_SETTINGS.revision;
 }
 
 /** The room an account occupies and its settings, as read before a start: checked again under the room lock. */

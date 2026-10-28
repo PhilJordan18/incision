@@ -1264,7 +1264,7 @@ describe("room settings under the room lock (F-03.1a)", () => {
     const [begun, late] = await underRoomLock(second.lobbyId, [() => start(second.hostId, second.lobbyId, 0), () => save(second.hostId, 0, "BCDEFG")]);
     expect(begun).toMatchObject({ ok: true });
     expect(late).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
-    expect(await settingsOf(second.lobbyId)).toEqual({ revision: 0, textLanguage: "fr", timeLimitMs: 120_000, errorMode: "mandatory" });
+    expect(await settingsOf(second.lobbyId)).toEqual({ revision: 0, textLanguage: "fr", timeLimitMs: null, errorMode: "mandatory" });
   });
 
   it("keeps one of two saves quoting the same revision (two tabs of the host), with or without a stored row", async () => {

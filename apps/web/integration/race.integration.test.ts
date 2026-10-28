@@ -137,7 +137,7 @@ describe("an integrated race (F-04.0)", () => {
     const beforeReveal = g.received.slice(0, g.received.findIndex((message) => message.event === "race:reveal"));
     expect(JSON.stringify(beforeReveal)).not.toContain(text.join(""));
     expect(text.join("")).toBe("Texte de test : la mer est calme, le vent se lève.");
-    expect(reveal.reveal).toMatchObject({ errorMode: "mandatory", timeLimit: 120_000 });
+    expect(reveal.reveal).toMatchObject({ errorMode: "mandatory", timeLimit: null });
     expect(reveal.selfEntrantId).not.toBeNull();
     await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "countdown");
 
@@ -398,7 +398,7 @@ describe("an integrated race (F-04.0)", () => {
     expect(stored?.text).toBe(cut);
     expect(stored?.config).toMatchObject({
       errorMode: "mandatory",
-      timeLimitMs: 120_000,
+      timeLimitMs: null,
       language: "fr",
       text: passage?.id,
       corpusVersion: "contract-2026-10-21",

@@ -2,12 +2,11 @@
 
 import { unstable_rethrow } from "next/navigation";
 import { useCallback, useId, useRef, useState, useTransition } from "react";
-import { TIME_LIMIT_MIN_MS } from "@incision/domain";
+import { TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS } from "@incision/domain";
 import { card, discreetButton, fieldLabel, monoLabel, secondaryButton, textField } from "@/components/ui/styles";
 import type { Locale } from "@/i18n/locale";
 import { roomSettingsCopy } from "@/i18n/room-settings";
 import { configureRoomAction, type ConfigureRoomState } from "@/server/rooms/actions";
-import { RUNNABLE_TIME_LIMIT_MAX_MS } from "@/server/rooms/room-settings";
 import { awaitingSettings, draftConflict, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings, type SettingsDraft } from "./room-settings-state";
 
 type Props = {
@@ -106,11 +105,18 @@ export function RoomSettingsPanel({ code, settings, host, live, locale, refresh 
                 <option value="fr">{t.french}</option><option value="en">{t.english}</option>
               </select>
             </label>
-            <label className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-seconds`}>{t.duration}
-              <input id={`${id}-seconds`} className={textField} type="number" min={TIME_LIMIT_MIN_MS / 1000}
-                max={RUNNABLE_TIME_LIMIT_MAX_MS / 1000} step="1" required value={draft.seconds}
-                onChange={(event) => setDraft({ ...draft, seconds: event.target.value })} />
-            </label>
+            <div className="flex flex-col gap-2">
+              <label className="flex min-h-11 items-center gap-3" htmlFor={`${id}-unlimited`}>
+                <input id={`${id}-unlimited`} type="checkbox" checked={draft.seconds === "none"}
+                  onChange={(event) => setDraft({ ...draft, seconds: event.target.checked ? "none" : String(TIME_LIMIT_MIN_MS / 1000) })} />
+                {t.unlimited}
+              </label>
+              <label className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-seconds`}>{t.duration}
+                <input id={`${id}-seconds`} className={textField} type="number" min={TIME_LIMIT_MIN_MS / 1000}
+                  max={TIME_LIMIT_MAX_MS / 1000} step="1" required={draft.seconds !== "none"} disabled={draft.seconds === "none"} value={draft.seconds === "none" ? "" : draft.seconds}
+                  onChange={(event) => setDraft({ ...draft, seconds: event.target.value })} />
+              </label>
+            </div>
           </fieldset>
           <p id={`${id}-hint`} className="text-sm text-brume">{t.hint}</p>
           {conflict && <p role="alert" className="text-sm text-or">⚠ {t.conflict}</p>}

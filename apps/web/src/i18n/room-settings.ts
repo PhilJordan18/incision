@@ -12,9 +12,9 @@ const fr = {
   unsupported: "Ces réglages sont affichés tels qu’enregistrés, mais ne peuvent pas encore être modifiés ici.",
   disconnected: "Attends la reconnexion avant de modifier les réglages.",
   conflict: "Les réglages ont changé dans un autre onglet. Ton brouillon est conservé. Recharge les réglages avant de modifier à nouveau.",
-  hint: "De 30 à 120 secondes. Seuls les réglages enregistrés seront utilisés au départ, pas ton brouillon.",
+  hint: "Aucune limite, ou de 30 à 600 secondes. Seuls les réglages enregistrés seront utilisés au départ, pas ton brouillon.",
   errors: {
-    INVALID_SETTINGS: "Choisis une langue et une durée entière entre 30 et 120 secondes.",
+    INVALID_SETTINGS: "Choisis une langue et aucune limite ou une durée entière entre 30 et 600 secondes.",
     RATE_LIMITED: "Trop de modifications. Attends une minute avant de réessayer.",
     NOT_IN_A_ROOM: "Tu ne fais plus partie de cette salle. Recharge la salle.",
     NOT_HOST: "Seul l’hôte peut modifier les réglages. Recharge la salle.",
@@ -31,9 +31,9 @@ const en: typeof fr = {
   unsupported: "These settings are shown as saved, but cannot yet be edited here.",
   disconnected: "Wait for reconnection before editing settings.",
   conflict: "Settings changed in another tab. Your draft is preserved. Reload settings before editing again.",
-  hint: "From 30 to 120 seconds. Only saved settings will be used at the start, not your draft.",
+  hint: "No limit, or from 30 to 600 seconds. Only saved settings will be used at the start, not your draft.",
   errors: {
-    INVALID_SETTINGS: "Choose a language and a whole duration between 30 and 120 seconds.",
+    INVALID_SETTINGS: "Choose a language and no limit or a whole duration between 30 and 600 seconds.",
     RATE_LIMITED: "Too many changes. Wait a minute before trying again.",
     NOT_IN_A_ROOM: "You are no longer in this room. Reload the room.",
     NOT_HOST: "Only the host can edit settings. Reload the room.",
