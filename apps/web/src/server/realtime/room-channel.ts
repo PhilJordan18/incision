@@ -115,9 +115,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       return;
     }
     const members = new Set(snapshot.members.map((member) => member.memberId));
-    // Everyone following the room gets the snapshot, including the members who just left
-    // or whose room closed: that is how their pages learn it. Then they stop following.
-    io.to(channelOf(lobbyId)).emit(ROOM_SNAPSHOT_EVENT, publicSnapshot(snapshot, presence.onlineMembers(lobbyId)));
+    const publicView = publicSnapshot(snapshot, presence.onlineMembers(lobbyId));
     lastBroadcast.set(lobbyId, Math.max(snapshot.revision, lastBroadcast.get(lobbyId) ?? -1));
     for (const socket of await io.in(channelOf(lobbyId)).fetchSockets()) {
       const watched = watchedRoomOf(socket.data);
@@ -127,7 +125,13 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
         presence.remove(lobbyId, watched.memberId, socket.id);
         socket.data.room = undefined;
         dependencies.races?.unfollow(socket.id);
+        if (socket.data.guestSession !== undefined) {
+          // Ended guest presence receives no further room data, even on an old tab.
+          socket.disconnect(true);
+          continue;
+        }
       }
+      socket.emit(ROOM_SNAPSHOT_EVENT, publicView);
     }
   }
 

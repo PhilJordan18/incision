@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   beginRacing,
   endDisconnectedGuestPresence,
+  maintainGuestRetention,
   endDisconnectedHostPresence,
   runGuestMemberCommand,
   finalizeRace,
@@ -28,6 +29,7 @@ import { assignClientAddress } from "./src/server/http/client-address";
 import { registerRaceChannel } from "./src/server/realtime/race-channel";
 import { followedMember, followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
 import { GuestCommandGate } from "./src/server/realtime/guest-command-gate";
+import { GuestRetentionWorker } from "./src/server/identity/guest-retention-worker";
 import { temporaryRoomResults } from "./src/server/races/temporary-room-results";
 import { HostPresenceGrace } from "./src/server/realtime/host-presence-grace";
 import { currentSession, currentGuestSession } from "./src/server/realtime/socket-server";
@@ -131,15 +133,17 @@ async function main(): Promise<void> {
       console.error("[races] departure not applied to the race:", error instanceof Error ? error.name : "unknown error");
     }
   });
+  roomEvents().on("closed", (lobbyId) => { temporaryRoomResults().discard(lobbyId); races.roomClosed(lobbyId); });
+  roomEvents().on("guestLeft", (lobbyId, memberId, closed) => {
+    temporaryRoomResults().forgetMember(lobbyId, memberId);
+    if (closed) { temporaryRoomResults().discard(lobbyId); races.roomClosed(lobbyId); }
+    else races.guestMemberLeft(lobbyId, memberId);
+  });
   roomEvents().on("changed", (lobbyId) => {
     void temporaryRoomResults().reconcile(lobbyId, () => readRoomSnapshot(databaseOf(env), lobbyId))
       .catch(() => console.error("[races] temporary display cleanup unavailable"));
   });
-  const hostGrace = new HostPresenceGrace({
-    now: Date.now,
-    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
-    online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
-    membersOnline: (lobbyId) => {
+  const authorizedOnlineMembers = (lobbyId: string): ReadonlySet<string> => {
       const members = new Set<string>();
       for (const socket of io.sockets.sockets.values()) {
         const member = followedMember(socket);
@@ -148,7 +152,12 @@ async function main(): Promise<void> {
         if (currentSession(socket, guard) !== undefined || currentGuestSession(socket, guard) !== undefined) members.add(member.memberId);
       }
       return members;
-    },
+    };
+  const hostGrace = new HostPresenceGrace({
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
+    membersOnline: authorizedOnlineMembers,
     end: (input) => endDisconnectedHostPresence(databaseOf(env), input),
     departed: ({ lobbyId, memberId }, result) => {
       temporaryRoomResults().forgetMember(lobbyId, memberId);
@@ -209,6 +218,23 @@ async function main(): Promise<void> {
     });
   }
 
+  const guestRetention = env.databaseUrl === undefined ? undefined : new GuestRetentionWorker({
+    run: () => maintainGuestRetention(databaseOf(env), authorizedOnlineMembers),
+    schedule: (callback, delay) => { const timer = setTimeout(callback, delay); timer.unref(); return () => clearTimeout(timer); },
+    committed: (report) => {
+      for (const member of report.departed) {
+        roomEvents().emit("guestLeft", member.lobbyId, member.memberId, member.closed);
+        notifyRoomChanged(member.lobbyId);
+      }
+      for (const lobbyId of report.purgedRooms) temporaryRoomResults().discard(lobbyId);
+    },
+    failed: () => {
+      // Earlier transactions in a failed batch may already have committed departures.
+      temporaryRoomResults().clear();
+      console.error("[guests] retention batch unavailable; next bounded batch scheduled");
+    },
+  });
+
   httpServer.listen(env.port, () => {
     console.log(`[server] ${env.isProduction ? "production" : "development"} on port ${env.port}`);
   });
@@ -218,6 +244,7 @@ async function main(): Promise<void> {
     console.log("[server] SIGTERM received, closing");
     guestGrace.stop();
     hostGrace.stop();
+    guestRetention?.stop();
     temporaryRoomResults().clear();
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
     // Own races first (ADR-0004): no new start, then each one ends through its own shutdown

@@ -1,3 +1,4 @@
+import { retireUnreferencedGuest } from "../identity/guest-retirement";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { guestSessions, lobbies, lobbyMembers } from "../schema";
@@ -49,6 +50,7 @@ export async function endDisconnectedHostPresence(db: Database, input: HostDepar
     }
     if (member.guestSessionId !== null) {
       await tx.delete(lobbyMembers).where(eq(lobbyMembers.id, member.id));
+      await retireUnreferencedGuest(tx, member.guestSessionId);
     } else if (transferred) {
       await tx.update(lobbyMembers).set({ leftAt: sql`statement_timestamp()` }).where(eq(lobbyMembers.id, member.id));
     }

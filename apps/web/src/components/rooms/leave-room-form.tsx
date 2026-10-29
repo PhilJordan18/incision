@@ -6,7 +6,10 @@ import { FormAlert } from "@/components/ui/form-alert";
 import { discreetButton } from "@/components/ui/styles";
 import { leaveRoomAction, type LeaveRoomState } from "@/server/rooms/actions";
 
+import { guestLeaveRoomAction } from "@/server/rooms/guest-actions";
+
 type LeaveRoomFormProps = {
+  readonly guest?: boolean;
   readonly label: string;
   readonly pendingLabel: string;
   readonly errors: Readonly<Record<NonNullable<LeaveRoomState["error"]>, string>>;
@@ -25,6 +28,7 @@ type LeaveRoomFormProps = {
 
 /** Leaves the current room on the server, then goes to `returnTo` (home by default). */
 export function LeaveRoomForm({
+  guest = false,
   label,
   pendingLabel,
   errors,
@@ -35,7 +39,7 @@ export function LeaveRoomForm({
   buttonClassName = `${discreetButton} self-start`,
   onPendingChange,
 }: LeaveRoomFormProps) {
-  const [state, formAction, pending] = useActionState<LeaveRoomState, FormData>(leaveRoomAction, {});
+  const [state, formAction, pending] = useActionState<LeaveRoomState, FormData>(guest ? guestLeaveRoomAction : leaveRoomAction, {});
   useEffect(() => {
     onPendingChange?.(pending);
   }, [pending, onPendingChange]);

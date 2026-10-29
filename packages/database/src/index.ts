@@ -29,3 +29,9 @@ export { endDisconnectedHostPresence, type HostDepartureInput, type HostDepartur
 export { readGuestRoomSettings } from "./rooms/guest-host";
 
 export { readRoomRaceForGuest } from "./races/results";
+
+export { leaveGuestRoom } from "./rooms/membership";
+
+export { maintainGuestRetention, type GuestRetentionReport } from "./identity/guest-retention";
+
+export { prepareGuestAccountSignIn } from "./identity/guest-account-transition";

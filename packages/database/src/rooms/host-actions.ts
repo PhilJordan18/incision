@@ -3,7 +3,9 @@ import { eq, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { lobbies, lobbySettings } from "../schema";
 import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transaction";
-import { findActiveMembership } from "./membership";
+import type { GuestSessionProof, GuestSessionRow } from "../identity/guest-sessions";
+import { lockLiveGuest, renewGuestAfterHostAction } from "./guest-host";
+import { findActiveHumanMembership, findActiveMembership } from "./membership";
 import { bumpRevision, closeLockedRoom } from "./room-writes";
 import { readSettingsRevision, type RoomSettings } from "./settings";
 
@@ -14,10 +16,13 @@ import { readSettingsRevision, type RoomSettings } from "./settings";
  * tab, a departure or another host action may have committed meanwhile.
  */
 
+export type RoomHostActor = { readonly accountId: string; readonly guestProof?: never } |
+  { readonly accountId: null; readonly guestProof: GuestSessionProof };
+
 export type HostRefusal = "NOT_IN_A_ROOM" | "NOT_HOST";
 
 export type NextRoundResult =
-  | { readonly ok: true; readonly lobbyId: string; readonly alreadyDone: boolean }
+  | { readonly ok: true; readonly lobbyId: string; readonly alreadyDone: boolean; readonly guestSession?: GuestSessionRow }
   /** NOT_ON_RESULTS: the room does not show this race's results (another race, or none). */
   | { readonly ok: false; readonly error: HostRefusal | "NOT_ON_RESULTS" };
 
@@ -27,7 +32,7 @@ export type CloseRoomResult =
   | { readonly ok: false; readonly error: HostRefusal | "ROOM_RACING" };
 
 export type ConfigureRoomResult =
-  | { readonly ok: true; readonly lobbyId: string; readonly revision: number }
+  | { readonly ok: true; readonly lobbyId: string; readonly revision: number; readonly guestSession?: GuestSessionRow }
   /**
    * ROOM_NOT_WAITING: settings are locked from the countdown to the results (state-machines §1).
    * STALE_REVISION: the page did not show the settings saved last (another tab of the host).
@@ -40,8 +45,11 @@ type LockedRoom = { readonly lobbyId: string; readonly phase: RoomPhase; readonl
  * The room of the account, locked, if the account is its host; otherwise why not. With `code`,
  * only that room: a page left open on a room the account has since left never acts on its next one.
  */
-async function lockOwnRoom(tx: Transaction, accountId: string, code?: RoomCode): Promise<LockedRoom | HostRefusal> {
-  const seen = await findActiveMembership(tx, accountId);
+async function lockOwnRoom(tx: Transaction, actor: RoomHostActor, code?: RoomCode): Promise<LockedRoom | HostRefusal> {
+  const membership = () => actor.accountId === null
+    ? findActiveHumanMembership(tx, { kind: "guest", guestSessionId: actor.guestProof.id })
+    : findActiveMembership(tx, actor.accountId);
+  const seen = await membership();
   if (seen === undefined || (code !== undefined && seen.code !== code)) {
     return "NOT_IN_A_ROOM";
   }
@@ -50,7 +58,8 @@ async function lockOwnRoom(tx: Transaction, accountId: string, code?: RoomCode):
     .from(lobbies)
     .where(eq(lobbies.id, seen.lobbyId))
     .for("update");
-  const current = await findActiveMembership(tx, accountId);
+  if (actor.accountId === null && !await lockLiveGuest(tx, actor.guestProof)) return "NOT_IN_A_ROOM";
+  const current = await membership();
   if (lobby === undefined || current?.lobbyId !== seen.lobbyId) {
     return "NOT_IN_A_ROOM";
   }
@@ -66,11 +75,11 @@ async function lockOwnRoom(tx: Transaction, accountId: string, code?: RoomCode):
  * race id makes a late or repeated request harmless: once the room waits after that race, it is
  * already done; once another race started, it is refused.
  */
-export async function startNextRound(db: Database, input: { readonly accountId: string; readonly raceId: string }): Promise<NextRoundResult> {
+export async function startNextRound(db: Database, input: RoomHostActor & { readonly raceId: string }): Promise<NextRoundResult> {
   return boundedTransaction(
     db,
     async (tx): Promise<NextRoundResult> => {
-      const room = await lockOwnRoom(tx, input.accountId);
+      const room = await lockOwnRoom(tx, input);
       if (typeof room === "string") {
         return { ok: false, error: room };
       }
@@ -88,7 +97,9 @@ export async function startNextRound(db: Database, input: { readonly accountId: 
         .update(lobbies)
         .set({ phase: "waiting", revision: sql`${lobbies.revision} + 1` })
         .where(eq(lobbies.id, room.lobbyId));
-      return { ok: true, lobbyId: room.lobbyId, alreadyDone: false };
+      return { ok: true, lobbyId: room.lobbyId, alreadyDone: false,
+        ...(input.accountId === null ? { guestSession: await renewGuestAfterHostAction(tx, input.guestProof.id) } : {}),
+      };
     },
     READ_COMMITTED,
   );
@@ -99,11 +110,11 @@ export async function startNextRound(db: Database, input: { readonly accountId: 
  * (state-machines §1): every member leaves with it. Its races stay readable by their entrants
  * (HIST-02).
  */
-export async function closeRoom(db: Database, input: { readonly accountId: string; readonly code: RoomCode }): Promise<CloseRoomResult> {
+export async function closeRoom(db: Database, input: RoomHostActor & { readonly code: RoomCode }): Promise<CloseRoomResult> {
   return boundedTransaction(
     db,
     async (tx): Promise<CloseRoomResult> => {
-      const room = await lockOwnRoom(tx, input.accountId, input.code);
+      const room = await lockOwnRoom(tx, input, input.code);
       if (typeof room === "string") {
         return { ok: false, error: room };
       }
@@ -126,8 +137,7 @@ export async function closeRoom(db: Database, input: { readonly accountId: strin
  */
 export async function configureRoom(
   db: Database,
-  input: {
-    readonly accountId: string;
+  input: RoomHostActor & {
     readonly code: RoomCode;
     readonly revision: number;
     readonly settings: Omit<RoomSettings, "revision">;
@@ -136,7 +146,7 @@ export async function configureRoom(
   return boundedTransaction(
     db,
     async (tx): Promise<ConfigureRoomResult> => {
-      const room = await lockOwnRoom(tx, input.accountId, input.code);
+      const room = await lockOwnRoom(tx, input, input.code);
       if (typeof room === "string") {
         return { ok: false, error: room };
       }
@@ -153,7 +163,9 @@ export async function configureRoom(
         .values({ ...saved, lobbyId: room.lobbyId })
         .onConflictDoUpdate({ target: lobbySettings.lobbyId, set: saved });
       await bumpRevision(tx, room.lobbyId);
-      return { ok: true, lobbyId: room.lobbyId, revision: saved.revision };
+      return { ok: true, lobbyId: room.lobbyId, revision: saved.revision,
+        ...(input.accountId === null ? { guestSession: await renewGuestAfterHostAction(tx, input.guestProof.id) } : {}),
+      };
     },
     READ_COMMITTED,
   );

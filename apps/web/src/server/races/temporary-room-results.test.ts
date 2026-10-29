@@ -50,4 +50,16 @@ describe("temporary room results", () => {
     expect(cache.apply("room", view).entrants[0]?.result).not.toBe(first.entrants[0]?.result);
     cache.clear(); expect(cache.apply("room", view)).toBe(view);
   });
+  it("evicts an unverifiable display on SQL failure, without deleting a newer generation", async () => {
+    const cache = setup();
+    await expect(cache.reconcile("room", async () => { throw new Error("offline"); })).rejects.toThrow("offline");
+    expect(cache.apply("room", view)).toBe(view);
+    cache.save({ ownership, entrants, results });
+    let release = () => {}; const pending = new Promise<void>((resolve) => { release = resolve; });
+    const cleanup = cache.reconcile("room", async () => { await pending; throw new Error("offline"); });
+    cache.save({ ownership: { ...ownership, raceId: "new-race" }, entrants, results });
+    release(); await expect(cleanup).rejects.toThrow("offline");
+    expect(cache.apply("room", { ...view, raceId: "new-race" }).entrants[0]?.result).toBeDefined();
+  });
+
 });

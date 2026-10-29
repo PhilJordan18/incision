@@ -51,7 +51,7 @@ export async function touchGuestSession(db: Database, proof: GuestSessionProof):
 
 /**
  * Bounded cleanup for unreferenced expired identities only, not a room/history purge.
- * No scheduler invokes this yet. The RESTRICT FK also guards concurrent references.
+ * The local retention worker invokes this; RESTRICT also guards concurrent references.
  */
 export async function purgeUnusedGuestSessions(db: Database): Promise<number> {
   return boundedTransaction(db, async (tx) => {

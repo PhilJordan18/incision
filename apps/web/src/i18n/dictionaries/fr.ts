@@ -53,6 +53,8 @@ export const fr = {
     },
   },
   signIn: {
+    guestDepartureNote: "Quitter termine ta présence invitée. En course, tu abandonnes. Si tu es hôte, le plus ancien humain connecté te succède ; sans successeur, la salle ferme. Aucun résultat invité ne rejoint ton compte.",
+    guestDepartureConfirm: "Confirmer le départ pour me connecter",
     title: "Connexion",
     headingBold: "Bon",
     headingSerif: "retour",
@@ -78,6 +80,7 @@ export const fr = {
       passwordTooLong: "Le mot de passe compte au plus 128 caractères.",
       invalidCredentials: "Nom d’utilisateur ou mot de passe incorrect.",
       rateLimited: "Trop de tentatives. Réessaie dans quelques minutes.",
+      guestPresence: "Quitte d’abord ta salle invitée avant de te connecter à un compte. Tes résultats invités ne seront pas transférés.",
       providerFailed: "La connexion avec le fournisseur a été annulée ou a échoué. Réessaie.",
       unavailable: "La connexion est impossible pour le moment. Réessaie plus tard.",
     },

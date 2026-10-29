@@ -1,4 +1,33 @@
-# #31 — guest realtime identity: partial integration evidence
+# #31 — guest integration evidence
+
+## Current status — October 29, 2026 (Toronto)
+
+PR #187 remains **draft; #31 is incomplete and public guest entry stays closed**.
+Latest published evidence head at this update: `cca2be895130d69d5fc20e8ce9ad972291cb0f0b`;
+latest verified executable: `c6ab3fc3212b7140ecbccba8909efcea1664e436`.
+
+Implemented and locally verified: internal guest admission/identity and realtime
+commands, accepted activity, non-host outside-race grace, account/guest host
+succession (#36C2), inherited guest host race starts, and room-scoped temporary
+results without durable metrics for guest-only races. On c6ab3fc: root gates and
+2,333 unit tests passed; 337 SQL passed / 9 existing PgBouncer skips; 3 targeted
+E2Es passed. Earlier C2 E2Es have their own exact SHA below.
+
+New local increment awaiting exact-commit gates: inherited configure/next/close
+actions, explicit departure, account-transition admission fence and sign-in UI,
+identity retirement, bounded local retention, and cache eviction on SQL failure.
+Targeted checks passed; the final report below will pin their verified SHA.
+
+Still to implement: browser coordination, avatar/public guest entry and room UI,
+and complete FR/EN/a11y journey verification. The coordinator has now confirmed the shared
+action/closure/settings files for guest identity wiring only; B retains lists and
+calibration. No new configuration feature or rule is authorized here.
+
+Sections below are chronological evidence. **Their historical limits apply to
+those commits, not to the current cumulative implementation.** No central matrix
+or board, migration, dependency, recipe or remote resource has been changed.
+
+## Historical initial realtime increment (superseded by later increments)
 
 This is an internal integration unit, **not completion of C/E/G/F or #31**.
 Public guest admission and guest race commands are not enabled. No central board,
@@ -542,3 +571,41 @@ Coordinator action proposed: record C2, guest host start and internal temporary
 results as locally verified in draft187; keep #31 in progress. Confirm shared
 host-action file availability before that final coupled wiring. This evidence
 does not modify the board and does not request a merge.
+
+
+## Guest lifetime increment — implementation, October 29, 2026
+
+Shared actions/closure/settings paths were explicitly released to this unit by the
+coordinator. Only identity authorization is extended; settings semantics remain
+10–200 words. No migration or dependency is introduced.
+
+- Accepted guest configure/next-round actions renew SQL activity atomically; stale
+  revisions and duplicate next-round submissions do not. Close and explicit leave
+  retire guest membership/session, with existing host succession and race semantics.
+- Account login refuses active guest presence in both actions and the Auth.js
+  callback. The final callback locks the guest identity against admission: an unused
+  identity is retired, an admitted identity requires explicit departure. No results
+  or account data are copied. SQL/configuration failures do not permit login.
+- The sign-in screen explains departure consequences and provides an explicit
+  translated confirmation. Guest cookies remain HttpOnly; no proof enters props.
+- The local maintenance worker runs non-overlapping batches of at most 50 expired
+  presences / 50 closed rooms, plus 100 unused expired identities, every 30 seconds
+  after completion. Closed rooms become eligible at 23 hours, a technical margin
+  under D-07's 24-hour maximum. No open room is purged. Account races survive room
+  deletion with their collective entrants/results/series unchanged; no-account
+  race metadata is removed with the room. No external scheduler is configured.
+- SQL failures evict unverifiable temporary displays, including failures after
+  partial maintenance commits. Removed guest sockets are disconnected before the
+  next room snapshot. No history or missing ephemeral result is reconstructed.
+
+Operational limit: outage or sustained cleanup backlog can delay physical deletion;
+server-side expiry and authorization still deny access. These are bounded batches,
+not a proof of a hard deletion SLA during database unavailability. Public guest entry
+remains closed pending the remaining browser/UI integration and cumulative review.
+
+Verification pending on the committed implementation. Intermediate targeted results:
+42 unit checks, 40 room-channel checks, 10 host-action/transition SQL checks, and one
+local Chromium departure/login test passed. The browser test exercised a direct
+Auth.js callback and axe/no-overflow at 390/1024/1440 px. It preceded the final SQL
+transition fence and must be rerun with the rebuilt application. A missing fixture
+admission caused the first new room-channel test to fail; the fixture was corrected.

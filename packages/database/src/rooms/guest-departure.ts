@@ -1,3 +1,4 @@
+import { retireUnreferencedGuest } from "../identity/guest-retirement";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { RoomPhase } from "@incision/domain";
 import type { Database } from "../client";
@@ -44,6 +45,7 @@ export async function endDisconnectedGuestPresence(db: Database, input: GuestDep
     // Guest entrants already persist no member FK or name (0014). Remove the live
     // name/reference rather than retaining a guest membership history.
     await tx.delete(lobbyMembers).where(eq(lobbyMembers.id, input.memberId));
+    await retireUnreferencedGuest(tx, member.guestId);
     await bumpRevision(tx, input.lobbyId);
     return { kind: "departed" };
   }, READ_COMMITTED);

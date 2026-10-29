@@ -9,6 +9,8 @@ import { signIn } from "@/auth";
 import { safeRedirectPath } from "@/server/auth/safe-redirect";
 import { type SignInErrorKey, signInErrorKey } from "@/server/auth/sign-in-errors";
 
+import { guestPresenceBlocksSignIn } from "@/server/identity/guest-transition";
+
 const FIELD_ERRORS = ["loginRequired", "loginTooLong", "passwordRequired", "passwordTooLong"] as const;
 type FieldError = (typeof FIELD_ERRORS)[number];
 
@@ -36,6 +38,7 @@ export async function signInWithCredentials(_previous: CredentialsFormState, for
     return { fieldErrors, login };
   }
   try {
+    if (await guestPresenceBlocksSignIn()) return { error: "guestPresence", login };
     await signIn("credentials", { login, password, redirectTo: safeRedirectPath(formData.get("callbackUrl")) });
   } catch (error: unknown) {
     // A successful sign-in throws Next's redirect, which must propagate.
@@ -75,6 +78,7 @@ export async function signInWithProvider(formData: FormData): Promise<void> {
   if (!provider.success) {
     redirect("/sign-in?error=Configuration");
   }
+  if (await guestPresenceBlocksSignIn()) redirect("/sign-in?error=GuestPresence");
   try {
     await signIn(provider.data, { redirectTo: safeRedirectPath(formData.get("callbackUrl")) });
   } catch (error: unknown) {

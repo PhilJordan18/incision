@@ -1,5 +1,6 @@
 "use server";
 
+import { temporaryRoomResults } from "../races/temporary-room-results";
 import { randomInt } from "node:crypto";
 import {
   type CloseRoomResult,
@@ -250,6 +251,7 @@ export async function nextRoundAction(formData: FormData): Promise<HostActionSta
   if (!result.ok) {
     return { error: result.error };
   }
+  temporaryRoomResults().discard(result.lobbyId);
   notifyRoomChanged(result.lobbyId);
   return {};
 }

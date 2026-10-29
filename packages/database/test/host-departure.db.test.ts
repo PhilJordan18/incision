@@ -84,7 +84,7 @@ describe("host network departure transaction", () => {
     expect(await end(f, new Set([next.memberId]))).toEqual({ kind: "departed", closed: false, accountId: null });
     expect((await pool.query("select host_member_id,phase,revision from lobbies")).rows[0]).toMatchObject({ host_member_id: next.memberId, phase: "waiting" });
     expect((await pool.query("select * from lobby_members where id=$1", [f.memberId])).rows).toEqual([]);
-    expect((await pool.query("select * from guest_sessions")).rows).toEqual(before);
+    expect((await pool.query("select * from guest_sessions")).rows).toEqual(before.filter((row) => row.id !== f.proof.id));
     expect(await end(f)).toEqual({ kind: "gone" });
   });
 

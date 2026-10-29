@@ -82,7 +82,8 @@ describe("non-host guest departure transaction", () => {
     expect((await pool.query("select * from accounts")).rows).toEqual(accounts);
     expect((await pool.query("select * from lobby_members where account_id is not null")).rows).toEqual(accountMembers);
     expect((await pool.query("select * from lobby_bots")).rows).toEqual(bots);
-    const again = await join(f.proof); expect(again).toMatchObject({ ok: true, alreadyMember: false });
+    expect(await join(f.proof)).toMatchObject({ ok: false, error: "INVALID_GUEST_SESSION" });
+    const again = await join(await guest()); expect(again).toMatchObject({ ok: true, alreadyMember: false });
     if (again.ok) expect(again.memberId).not.toBe(f.memberId);
   });
 

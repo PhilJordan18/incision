@@ -48,11 +48,18 @@ export class TemporaryRoomResults {
     }
   }
 
-  /** A delayed read cannot erase a newer race's display. SQL failures retain it for retry. */
+  /** A delayed read cannot erase a newer display. Unverifiable displays are evicted. */
   async reconcile(lobbyId: string, read: () => Promise<Pick<RoomSnapshot, "phase" | "race"> | undefined>): Promise<void> {
     const display = this.#rooms.get(lobbyId);
     if (display === undefined) return;
-    const room = await read();
+    let room: Awaited<ReturnType<typeof read>>;
+    try { room = await read(); }
+    catch (error: unknown) {
+      // Privacy-first failure bound: no stale member mapping waits indefinitely
+      // for another notification. Never invent/recover missing ephemeral results.
+      if (this.#rooms.get(lobbyId) === display) this.#rooms.delete(lobbyId);
+      throw error;
+    }
     if (this.#rooms.get(lobbyId) === display &&
       (room?.phase !== "results" || room.race?.raceId !== display.raceId)) this.#rooms.delete(lobbyId);
   }

@@ -18,6 +18,7 @@ const BOB = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 const CLO = "5c4d3e2f-1a0b-4c9d-8e7f-6a5b4c3d2e1f";
 const ACCOUNTS: Record<string, string> = { "session=alice": ALICE, "session=bob": BOB, "session=clo": CLO };
 
+let channel: ReturnType<typeof registerRoomChannel>;
 let httpServer: HttpServer;
 let io: Server;
 let baseUrl: string;
@@ -122,7 +123,7 @@ beforeEach(async () => {
     departed: ({ lobbyId }) => events.emit("changed", lobbyId),
     failed: () => { throw new Error("Unexpected guest departure failure"); },
   });
-  registerRoomChannel(io, {
+  channel = registerRoomChannel(io, {
     allowedOrigin: baseUrl,
     registry,
     presence,
@@ -679,6 +680,21 @@ describe("guest room watch", () => {
     const snapshot = snapshotOf("lobby-1");
     snapshots.set("lobby-1", { ...snapshot, members: [...snapshot.members, { memberId: "guest-member", accountId: null, displayName: "Guest", role: "participant", isHost: false }] });
   }
+
+  it("disconnects a departed guest before sending any newer private room snapshot", async () => {
+    admitGuest();
+    const client = await open("session=guest");
+    expect(await watch(client)).toMatchObject({ ok: true });
+    await channel.whenIdle();
+    const received = vi.fn(); client.on(ROOM_SNAPSHOT_EVENT, received);
+    const previous = snapshotOf("lobby-1");
+    snapshots.set("lobby-1", { ...previous, revision: previous.revision + 1,
+      members: previous.members.filter((member) => member.memberId !== "guest-member") });
+    events.emit("changed", "lobby-1");
+    await until(() => !client.connected);
+    expect(received).not.toHaveBeenCalled();
+    expect(presence.onlineMembers("lobby-1").has("guest-member")).toBe(false);
+  });
 
   it("uses guest membership despite a matching account UUID, without leaking the proof", async () => {
     admitGuest();

@@ -69,6 +69,13 @@ export class SessionRegistry {
     }
   }
 
+  revokeGuest(sessionId: string): void {
+    for (const [socketId, entry] of this.#guests) {
+      if (entry.sessionId !== sessionId) continue;
+      clearTimeout(entry.timer); this.#guests.delete(socketId); entry.socket.disconnect(true);
+    }
+  }
+
   isGuestCurrent(socketId: string, sessionId: string): boolean {
     const entry = this.#guests.get(socketId);
     return entry !== undefined && entry.sessionId === sessionId && entry.expiresAt > this.#now();

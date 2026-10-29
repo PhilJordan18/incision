@@ -50,6 +50,8 @@ export const en: Dictionary = {
     },
   },
   signIn: {
+    guestDepartureNote: "Leaving ends your guest presence. During a race, you abandon it. If you host, the oldest connected human takes over; without a successor, the room closes. No guest results move to your account.",
+    guestDepartureConfirm: "Confirm departure to sign in",
     title: "Sign in",
     headingBold: "Welcome",
     headingSerif: "back",
@@ -74,6 +76,7 @@ export const en: Dictionary = {
       passwordTooLong: "The password has at most 128 characters.",
       invalidCredentials: "Incorrect username or password.",
       rateLimited: "Too many attempts. Try again in a few minutes.",
+      guestPresence: "Leave your guest room before signing in to an account. Your guest results will not be transferred.",
       providerFailed: "Signing in with the provider was cancelled or failed. Try again.",
       unavailable: "Signing in is not possible right now. Try again later.",
     },
