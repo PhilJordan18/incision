@@ -415,3 +415,47 @@ coordination, avatar/public admission UI and full FR/EN/a11y journey verificatio
 Do not mark #31 complete or open public admission from this evidence. Coordinator
 owns the board/matrix updates; proposed status is C2 verified locally in draft187,
 #31 still in progress, no new scope requested.
+
+## Inherited guest host: race start — October 29, 2026 (Toronto)
+
+Executable/reviewed SHA: `261ae0ccb7366a0de7685f676221af98ffa232b5`.
+This continues the approved #31 mandate on the same branch, after C2. A guest
+host can now use the existing internal `race:start` command. The shared start
+transaction accepts either an account ID or the server-derived guest proof;
+there is no account impersonation or payload-supplied guest identity.
+
+The settings read is read-only and validates the guest proof/expiry. Start locks
+the room then the guest session, rechecks membership/host/expiry/settings, and
+renews only after a successful mutation in the same transaction. Refusals and
+rollback do not renew. Duplicate tabs share start budgets. Expired guest
+participants are not frozen into a new race. Existing account start, settings
+revision and engine refusal semantics are preserved. The SQL-renewed deadline
+updates the socket registry; the activity event exposes no credential.
+
+Executed on this SHA:
+
+- Root check:no-js, lint, typecheck, test and build: passed, **2,321 unit tests**
+  (web895/database146/domain1198/load20/wordlists62).
+  Logs: `/tmp/guest-host-final-{nojs,lint,types,unit,build}.log`.
+- SQL `guest-host-start`, `anonymous-guest-results`, `races`: **66 passed**, no skips
+  in this selection; `/tmp/guest-host-final-db.log`. Seven new SQL cases include
+  proof forgery, expiry, stale settings, rollback, duplicate starts, a host change
+  while waiting for the room lock, and expired participant exclusion.
+- Playwright `guest-race-commands.spec.ts`: **2 passed**, production build/local
+  synthetic database; `/tmp/guest-host-final-e2e.log`. Both account and guest host
+  starts reach the real engine, then exercise guest typing, duplicate rejection,
+  accepted activity and cookie refresh.
+- An initial typecheck found the guest connection factory's overly broad union
+  return type. It was narrowed to its actual null-account return; no suppression
+  or runtime cast was added. The final checks above passed after that correction.
+
+Manual sequential code/security/DBA/functional-QA review on 261ae0c: OK for this
+increment; shared actor authorization, no private credential emission, bounded
+transactions and rollback inspected. Not an external independent audit. No UI,
+remote database, PgBouncer or deployment qualification is claimed. No migration,
+dependency or configuration rule changed.
+
+Remaining guest host commands (settings/next round/explicit close) require the
+shared host-action files; availability was requested from the coordinator to
+avoid B's configuration work. Race start is implemented, not the entire host UI.
+Temporary results, retention, transitions and public entry remain in progress.
