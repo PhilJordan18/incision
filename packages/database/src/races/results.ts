@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, type SQL, sql } from "drizzle-orm";
 import { compareResultRecord, resultRecordCategory, type RecordCategory, type ResultRecord } from "@incision/domain";
 import { z } from "zod";
 import type { BotLevel, StoredWpmSeries } from "@incision/domain";
@@ -6,6 +6,10 @@ import { raceWpmSeries } from "../schema/race-wpm-series";
 import { checkedStoredWpmSeries } from "./wpm-series";
 import { checkedKeyErrors, type StoredKeyErrors } from "./key-errors";
 import { raceKeyErrors } from "../schema/race-key-errors";
+import type { GuestSessionProof } from "../identity/guest-sessions";
+import { lockLiveGuest } from "../rooms/guest-host";
+import { boundedTransaction, READ_COMMITTED, type Queryable } from "../transaction";
+import { guestSessions } from "../schema/guest-sessions";
 import type { Database } from "../client";
 import { type AbandonmentReason, type InterruptionReason, lobbies, lobbyMembers, RACE_OUTCOMES, RACE_STATES, raceEntrants, raceResults, races } from "../schema";
 
@@ -98,12 +102,33 @@ export async function readRoomRaceForMember(
   return readRaceView(db, accountId, sql`${races.id} = ${raceId} and exists (${roomRace})`);
 }
 
+/** Guest access is room-scoped, never historical; hold room/session locks through the projection. */
+export async function readRoomRaceForGuest(db: Database, input: {
+  readonly lobbyId: string; readonly raceId: string; readonly proof: GuestSessionProof;
+}): Promise<{ readonly memberId: string; readonly view: RaceResultView } | undefined> {
+  if (!UUID.test(input.lobbyId) || !UUID.test(input.raceId)) return undefined;
+  return boundedTransaction(db, async (tx) => {
+    const [room] = await tx.select({ phase: lobbies.phase, raceId: lobbies.currentRaceId }).from(lobbies)
+      .where(eq(lobbies.id, input.lobbyId)).for("update");
+    if (room?.phase !== "results" || room.raceId !== input.raceId || !await lockLiveGuest(tx, input.proof)) return undefined;
+    const [member] = await tx.select({ id: lobbyMembers.id }).from(lobbyMembers).where(and(
+      eq(lobbyMembers.lobbyId, input.lobbyId), eq(lobbyMembers.guestSessionId, input.proof.id), isNull(lobbyMembers.leftAt),
+    ));
+    if (member === undefined) return undefined;
+    const view = await readRaceView(tx, null, eq(races.id, input.raceId));
+    const [live] = await tx.select({ id: guestSessions.id }).from(guestSessions).where(and(
+      eq(guestSessions.id, input.proof.id), gt(guestSessions.expiresAt, sql`statement_timestamp()`),
+    ));
+    return view === undefined || live === undefined ? undefined : { memberId: member.id, view };
+  }, READ_COMMITTED);
+}
+
 /**
  * Results are written once, with the move to RESULTS, and shown only for a finished race: a
  * finalisation committing between the two reads cannot pair a race in progress with results.
  * `condition` is the access check: always a condition, never none (which would read any race).
  */
-async function readRaceView(db: Database, accountId: string, condition: SQL): Promise<RaceResultView | undefined> {
+async function readRaceView(db: Queryable, accountId: string | null, condition: SQL): Promise<RaceResultView | undefined> {
   const [race] = await db
     .select({
       raceId: races.id,
@@ -152,19 +177,19 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
     // Read the bounded payload in the existing authorised entrant query, not an extra query.
     .leftJoin(raceWpmSeries, and(eq(raceWpmSeries.raceId, raceEntrants.raceId), eq(raceWpmSeries.entrantId, raceEntrants.id)))
     // Enforce privacy in SQL: another entrant's aggregate never leaves the database.
-    .leftJoin(raceKeyErrors, and(eq(raceKeyErrors.raceId, raceEntrants.raceId), eq(raceKeyErrors.entrantId, raceEntrants.id), eq(raceEntrants.accountId, accountId)))
+    .leftJoin(raceKeyErrors, and(eq(raceKeyErrors.raceId, raceEntrants.raceId), eq(raceKeyErrors.entrantId, raceEntrants.id), accountId === null ? sql`false` : eq(raceEntrants.accountId, accountId)))
     .where(eq(raceEntrants.raceId, race.raceId))
     .orderBy(sql`${raceResults.rank} asc nulls last`, asc(raceEntrants.ordinal));
   const finished = race.state === "finished";
-  const ownRow = rows.find((row) => row.accountId === accountId);
+  const ownRow = accountId === null ? undefined : rows.find((row) => row.accountId === accountId);
   const personalKeyErrors = finished && ownRow?.keyErrorsEntrantId != null
     ? checkedKeyErrors(ownRow.keyErrors, { correctInputs: ownRow.correctInputs ?? Number.NaN, totalInputs: ownRow.totalInputs ?? Number.NaN })
     : undefined;
-  const self = rows.find((row) => row.accountId === accountId)?.result;
+  const self = ownRow?.result;
   // The frozen config is used server-side only, never projected with personal settings/seeds.
   const { config, ...metadata } = race;
   const category = resultRecordCategory(config);
-  const personalRecord = finished && self?.outcome === "finished"
+  const personalRecord = accountId !== null && finished && self?.outcome === "finished"
     ? category === undefined ? { status: "unavailable" } as const
       : compareResultRecord({ category, netWpm: self.netWpm,
         ...await previousRecords(db, { raceId: race.raceId, accountId, category }) })
@@ -179,7 +204,7 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
       kind: kind === "guest" ? "human" : kind,
       ...(kind === "guest" ? { anonymous: true } : {}),
       botLevel,
-      isSelf: entrantAccount === accountId,
+      isSelf: accountId !== null && entrantAccount === accountId,
       ...(finished && result !== null ? { result: {
         ...result,
         ...(seriesEntrantId !== null ? { wpmSeries: checkedStoredWpmSeries(series, {
@@ -203,7 +228,7 @@ const previousRecordSchema = z.object({
  * historical results/configurations are retained; a later backfill can revise the evidence.
  * Current entrants are authenticated accounts, not guests/bots; a future kind must filter here.
  */
-async function previousRecords(db: Database, input: {
+async function previousRecords(db: Queryable, input: {
   readonly raceId: string; readonly accountId: string; readonly category: RecordCategory;
 }): Promise<z.infer<typeof previousRecordSchema>> {
   const result = await db.execute(sql`

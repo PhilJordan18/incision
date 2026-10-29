@@ -6,7 +6,7 @@ import { createDatabase, type Database } from "../src/client";
 import { createGuestSession } from "../src/identity/guest-sessions";
 import { runMigrations } from "../src/migrations";
 import { finalizeRace, interruptOwnRace, startRace, type RaceResultRow } from "../src/races/lifecycle";
-import { readRaceForEntrant } from "../src/races/results";
+import { readRaceForEntrant, readRoomRaceForGuest } from "../src/races/results";
 import { readAccountStatistics } from "../src/races/profile-statistics";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
@@ -40,8 +40,8 @@ async function fixture(accountParticipates = true) {
   return { input, accountId, guestId, guestMemberId, lobbyId };
 }
 
-async function started() {
-  const f = await fixture(); const result = await startRace(db, f.input);
+async function started(accountParticipates = true) {
+  const f = await fixture(accountParticipates); const result = await startRace(db, f.input);
   if (!result.ok) throw new Error(result.error);
   const results: RaceResultRow[] = result.entrants.map((entrant, index) => {
     const elapsedMs = 10_000 + index * 1000;
@@ -144,10 +144,59 @@ describe("anonymous guest persistence for races with account participants", () =
     for (const table of ["race_results", "race_wpm_series", "race_key_errors"]) expect((await pool.query(`select count(*)::int as n from ${table}`)).rows[0]?.n).toBe(0);
   });
 
-  it("does not invent persistence for guest-only races, even with an account spectator hosting", async () => {
-    const f = await fixture(false);
-    expect(await startRace(db, f.input)).toEqual({ ok: false, error: "GUEST_RESULTS_REQUIRE_ACCOUNT" });
-    expect((await pool.query("select count(*)::int as n from races")).rows[0]?.n).toBe(0);
-    expect((await pool.query("select phase from lobbies")).rows[0]?.phase).toBe("waiting");
+  it("finalizes guest-only races without any durable metrics, even with an account spectator", async () => {
+    const f = await started(false);
+    expect(await finalizeRace(db, f.race, f.results)).toEqual({ won: true, alreadyDone: false });
+    expect(await finalizeRace(db, f.race, [])).toEqual({ won: true, alreadyDone: true });
+    for (const table of ["race_results", "race_wpm_series", "race_key_errors"]) {
+      expect((await pool.query(`select count(*)::int as n from ${table}`)).rows[0].n).toBe(0);
+    }
+    expect((await pool.query("select phase from lobbies")).rows[0].phase).toBe("results");
+    expect(await readRaceForEntrant(db, f.race.raceId, f.accountId)).toBeUndefined();
   });
+
+  it("rejects malformed ephemeral results atomically and preserves the active race", async () => {
+    const f = await started(false);
+    for (const patch of [{ entrantId: randomUUID() }, { rank: 0 }, { netWpm: Infinity }, { correctInputs: 100 }, { position: 0 }]) {
+      await expect(finalizeRace(db, f.race, f.results.map((row) => ({ ...row, ...patch })))).rejects.toThrow();
+      expect((await pool.query("select state from races")).rows[0].state).toBe("countdown");
+    }
+    expect(await finalizeRace(db, f.race, f.results)).toEqual({ won: true, alreadyDone: false });
+  });
+
+  it("serializes ephemeral finalizations without durable result rows", async () => {
+    const f = await started(false);
+    const results = await Promise.all([finalizeRace(db, f.race, f.results), finalizeRace(db, f.race, f.results)]);
+    expect(results).toContainEqual({ won: true, alreadyDone: false });
+    expect(results).toContainEqual({ won: true, alreadyDone: true });
+    expect((await pool.query("select * from race_results")).rows).toEqual([]);
+  });
+  it("gives guests only a current-room view with no account heatmap, record or activity renewal", async () => {
+    const f = await started(); await finalizeRace(db, f.race, f.results);
+    const proof = { id: f.guestId, secretDigest: "a".repeat(64) };
+    const input = { lobbyId: f.lobbyId, raceId: f.race.raceId, proof };
+    const before = (await pool.query("select * from guest_sessions")).rows;
+    const found = await readRoomRaceForGuest(db, input);
+    expect(found?.memberId).toBe(f.guestMemberId);
+    expect(found?.view.entrants).toHaveLength(2);
+    expect(found?.view.personalKeyErrors).toBeUndefined(); expect(found?.view.personalRecord).toBeUndefined();
+    expect(found?.view.entrants.every((entrant) => !entrant.isSelf)).toBe(true);
+    expect((await pool.query("select * from guest_sessions")).rows).toEqual(before);
+    expect(await readRoomRaceForGuest(db, { ...input, proof: { ...proof, secretDigest: "b".repeat(64) } })).toBeUndefined();
+    expect(await readRoomRaceForGuest(db, { ...input, lobbyId: randomUUID() })).toBeUndefined();
+    await pool.query("update lobbies set phase='waiting' where id=$1", [f.lobbyId]);
+    expect(await readRoomRaceForGuest(db, input)).toBeUndefined();
+    await pool.query("update lobbies set phase='results' where id=$1", [f.lobbyId]);
+    await pool.query("update lobby_members set left_at=now() where id=$1", [f.guestMemberId]);
+    expect(await readRoomRaceForGuest(db, input)).toBeUndefined();
+  });
+
+  it("refuses an expired guest while preserving account history", async () => {
+    const f = await started(); await finalizeRace(db, f.race, f.results);
+    const before = await readRaceForEntrant(db, f.race.raceId, f.accountId);
+    await pool.query("update guest_sessions set created_at=now()-interval '2 days',last_seen_at=now()-interval '25 hours',expires_at=now()-interval '1 hour'");
+    expect(await readRoomRaceForGuest(db, { lobbyId: f.lobbyId, raceId: f.race.raceId, proof: { id: f.guestId, secretDigest: "a".repeat(64) } })).toBeUndefined();
+    expect(await readRaceForEntrant(db, f.race.raceId, f.accountId)).toEqual(before);
+  });
+
 });

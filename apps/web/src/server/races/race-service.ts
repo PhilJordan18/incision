@@ -65,6 +65,7 @@ export type RaceServiceOptions = {
   readonly monotonic: () => number;
   readonly schedule: Schedule;
   /** A room's race changed in the database (started, saved, interrupted): its members get a fresh snapshot. */
+  readonly onSavedResults?: (input: { readonly ownership: RaceOwnership; readonly entrants: readonly import("@incision/database").StartedEntrant[]; readonly results: readonly import("@incision/database").RaceResultRow[] }) => void;
   readonly onGuestActivity?: (session: GuestSessionRow) => void;
   readonly onRoomChanged: (lobbyId: string) => void;
   /**
@@ -328,7 +329,7 @@ export class RaceService {
   }: {
     readonly ownership: RaceOwnership;
     readonly state: BonusRaceState;
-    readonly entrants: readonly import("./race-runtime").RaceEntrant[];
+    readonly entrants: readonly import("@incision/database").StartedEntrant[];
     readonly acquiredAt: number;
     readonly language: Locale;
   }): RaceRuntime {
@@ -367,6 +368,8 @@ export class RaceService {
       schedule,
       followers: () => this.#followers.get(ownership.lobbyId)?.values() ?? [],
       onSettled: (settled, outcome) => {
+        const results = runtime.resultsForDisplay();
+        if (outcome === "saved" && results !== undefined) this.#options.onSavedResults?.({ ownership: settled, entrants, results });
         this.#registry.remove(settled);
         this.#options.onRoomChanged(settled.lobbyId);
         if (outcome === "lost") {

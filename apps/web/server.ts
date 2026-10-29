@@ -28,6 +28,7 @@ import { assignClientAddress } from "./src/server/http/client-address";
 import { registerRaceChannel } from "./src/server/realtime/race-channel";
 import { followedMember, followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
 import { GuestCommandGate } from "./src/server/realtime/guest-command-gate";
+import { temporaryRoomResults } from "./src/server/races/temporary-room-results";
 import { HostPresenceGrace } from "./src/server/realtime/host-presence-grace";
 import { currentSession, currentGuestSession } from "./src/server/realtime/socket-server";
 import { GuestPresenceGrace } from "./src/server/realtime/guest-presence-grace";
@@ -100,6 +101,7 @@ async function main(): Promise<void> {
       return () => clearTimeout(timer);
     },
     onRoomChanged: notifyRoomChanged,
+    onSavedResults: (input) => temporaryRoomResults().save(input),
     onGuestActivity: (session) => registry.refreshGuest(session.id, session.expiresAt.getTime()),
     onRaceLost: (lobbyId) => roomEvents().emit("raceLost", lobbyId),
     texts: corpusTexts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
@@ -122,11 +124,16 @@ async function main(): Promise<void> {
   // A departure committed by a server action ends the leaver's race, or the race if the room closed.
   // It runs inside that action: a failure here must not turn the committed departure into an error.
   roomEvents().on("left", (lobbyId, accountId, closed) => {
+    if (closed) temporaryRoomResults().discard(lobbyId);
     try {
       races.memberLeft(lobbyId, accountId, { roomClosed: closed });
     } catch (error: unknown) {
       console.error("[races] departure not applied to the race:", error instanceof Error ? error.name : "unknown error");
     }
+  });
+  roomEvents().on("changed", (lobbyId) => {
+    void temporaryRoomResults().reconcile(lobbyId, () => readRoomSnapshot(databaseOf(env), lobbyId))
+      .catch(() => console.error("[races] temporary display cleanup unavailable"));
   });
   const hostGrace = new HostPresenceGrace({
     now: Date.now,
@@ -144,6 +151,8 @@ async function main(): Promise<void> {
     },
     end: (input) => endDisconnectedHostPresence(databaseOf(env), input),
     departed: ({ lobbyId, memberId }, result) => {
+      temporaryRoomResults().forgetMember(lobbyId, memberId);
+      if (result.closed) temporaryRoomResults().discard(lobbyId);
       try {
         if (result.closed) races.roomClosed(lobbyId);
         else if (result.accountId === null) races.guestMemberLeft(lobbyId, memberId);
@@ -158,6 +167,7 @@ async function main(): Promise<void> {
     online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
     end: (input) => endDisconnectedGuestPresence(databaseOf(env), input),
     departed: ({ lobbyId, memberId }) => {
+      temporaryRoomResults().forgetMember(lobbyId, memberId);
       try { races.guestMemberLeft(lobbyId, memberId); }
       finally { notifyRoomChanged(lobbyId); }
     },
@@ -208,6 +218,7 @@ async function main(): Promise<void> {
     console.log("[server] SIGTERM received, closing");
     guestGrace.stop();
     hostGrace.stop();
+    temporaryRoomResults().clear();
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
     // Own races first (ADR-0004): no new start, then each one ends through its own shutdown
     // (its frozen results saved, or interrupted as server_stopped); their rooms are told before

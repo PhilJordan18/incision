@@ -1092,6 +1092,11 @@ export class RaceRuntime implements OwnedRace {
     }
   }
 
+  /** Server-only display projection after the fenced finalization was confirmed. */
+  resultsForDisplay(): readonly RaceResultRow[] | undefined {
+    return this.#stage === "saved" ? this.#results : undefined;
+  }
+
   /** For tests: resolves once the frozen results are settled. */
   async whenSaved(): Promise<void> {
     await this.#saving;
