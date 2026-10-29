@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseWordListSource } from "../../../packages/domain/src/words/data/format";
-import { exportCandidate, serializeCandidate, sha256 } from "../src/candidate";
+import { exportCandidate, serializeCandidate, sha256, verifiedCreditsDigest } from "../src/candidate";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
@@ -43,17 +43,31 @@ describe("candidate serialization", () => {
 });
 
 describe("candidate export", () => {
+  it("refuses incomplete or modified upstream credits", () => {
+    const full = readFileSync(join(import.meta.dirname, "../notices/wordfreq-3.1.1.md"), "utf8");
+    expect(verifiedCreditsDigest(full)).toBe(sha256(full));
+    for (const changed of ["", full.slice(0, full.indexOf("## Citations to work")), full.replace("Marc Brysbaert", "Anonymous")]) {
+      expect(() => verifiedCreditsDigest(changed)).toThrow("pinned upstream excerpt");
+    }
+  });
   it("exports identical bytes with accurate provenance, without auxiliary dictionaries", () => {
     const { root, pins, options } = fixture();
     exportCandidate(options, pins);
     exportCandidate({ ...options, outDir: join(root, "second") }, pins);
-    expect(readdirSync(options.outDir).sort()).toEqual(["NOTICE.txt", "en.words.txt", "manifest.json"]);
+    expect(readdirSync(options.outDir).sort()).toEqual(["NOTICE.txt", "en.words.txt", "manifest.json", "wordfreq-3.1.1.md"]);
     for (const name of readdirSync(options.outDir)) expect(readFileSync(join(options.outDir, name))).toEqual(readFileSync(join(root, "second", name)));
     const manifest = JSON.parse(readFileSync(join(options.outDir, "manifest.json"), "utf8"));
     expect(manifest.status).toBe("candidate-not-approved");
     expect(manifest.source.sha256).toBe(Object.values(pins)[0]);
     expect(manifest.output.sha256).toBe(sha256(readFileSync(join(options.outDir, "en.words.txt"))));
     expect(manifest.noticeSha256).toBe(sha256(readFileSync(join(options.outDir, "NOTICE.txt"))));
+    const credits = readFileSync(join(options.outDir, "wordfreq-3.1.1.md"));
+    expect(manifest.exporterVersion).toBe(2);
+    expect(manifest.policyVersion).toBe(1);
+    expect(manifest.upstreamCredits.sha256).toBe(sha256(credits));
+    expect(manifest.upstreamCredits.wheelSha256).toBe("4b1c6ecffc6198be3396d5cf871c4423ca71c907c231348d352dd54d62b97473");
+    expect(credits).toEqual(readFileSync(join(import.meta.dirname, "../notices/wordfreq-3.1.1.md")));
+    expect(credits.toString()).toContain("SUBTLEX-UK: A new and improved word frequency database for British English.");
     expect(manifest.counts).toEqual({ input: 4, accepted: 2, duplicates: 1, rejected: { frequency: 0, syntax: 1, alphabet: 0 } });
     expect(existsSync(`${options.outDir}.lock`)).toBe(false);
   });
