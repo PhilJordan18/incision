@@ -170,7 +170,7 @@ describe("internal guest admission", () => {
       values($1,1,1,'x','{}',now(),gen_random_uuid(),now()) returning id`, [lobbyId])).rows[0]!.id;
     await pool.query("update lobbies set current_race_id=$2 where id=$1", [lobbyId, race]);
     for (const phase of ["countdown", "racing", "closed"]) {
-      await pool.query("update lobbies set phase=$2,closed_at=case when $2::text='closed' then now() else null end where id=$1", [lobbyId, phase]);
+      await pool.query("update lobbies set phase=$2,closed_at=case when $3 then now() else null end where id=$1", [lobbyId, phase, phase == 'closed']);
       expect(await join(proof)).toEqual({ ok: false, error: "ROOM_NOT_ADMITTING", phase });
     }
     await pool.query("update lobbies set phase='results',closed_at=null where id=$1", [lobbyId]);
