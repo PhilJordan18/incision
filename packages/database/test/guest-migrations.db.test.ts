@@ -51,7 +51,12 @@ it.each([
     await pool.query("insert into race_key_errors(race_id,entrant_id,aggregate) values($1,$2,$3)", [race,entrant,{ version: 1, keys: [{ grapheme: "a", count: 1 }] }]);
     const db = createDatabase(pool);
     const protectedTables = ["accounts", "races", "race_entrants", "race_results", "race_wpm_series", "race_key_errors", "lobby_members", "lobby_settings", "profile_photos"];
-    const storedBefore = await Promise.all(protectedTables.map(async (table) => (await pool.query(`select * from ${table}`)).rows));
+    const storedBefore = await Promise.all(protectedTables.map(async (table) => {
+      const rows = (await pool.query(`select * from ${table}`)).rows;
+      // 0013 adds this nullable column; its explicit expected value is not data loss.
+      return table === "lobby_members" && predecessor === "0012_third_human_cannonball"
+        ? rows.map((row) => ({ ...row, guest_session_id: null })) : rows;
+    }));
     const before = await readRaceForEntrant(db, race, account);
     const stats = await readAccountStatistics(db, account);
     const resultRows = (await pool.query("select * from race_results")).rows;
