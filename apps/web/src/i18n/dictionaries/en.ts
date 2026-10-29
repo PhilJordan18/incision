@@ -136,6 +136,7 @@ export const en: Dictionary = {
     signOutFailed: "Signing out failed. Try again.",
   },
   rooms: {
+    guestLabel: "Guest",
     newTitle: "Create a room",
     newHeadingBold: "Prepare the",
     newHeadingSerif: "crossing",

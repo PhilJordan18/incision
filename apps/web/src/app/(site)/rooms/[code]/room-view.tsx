@@ -2,6 +2,7 @@
 
 import { GuestActivityRefresh, withGuestCookieLock } from "@/identity/guest-browser";
 import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
+import { GuestAvatar } from "@/components/rooms/guest-avatar";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
 
 import Link from "next/link";
@@ -649,6 +650,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
             {snapshot.members.map((member) => (
               <li key={member.memberId} className="flex flex-wrap items-center gap-3 py-3">
                 <span aria-hidden="true" className={`size-2.5 rounded-full ${member.online ? "bg-juste" : "bg-voile"}`} />
+                {member.isGuest && <GuestAvatar compact nickname={member.displayName} label={t.guestLabel} />}
                 <span className="font-semibold">
                   {member.displayName}
                   {member.memberId === selfMemberId ? <span className="font-normal text-brume"> ({t.you})</span> : null}

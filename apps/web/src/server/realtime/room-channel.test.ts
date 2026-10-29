@@ -701,6 +701,7 @@ describe("guest room watch", () => {
     const client = await open("session=guest");
     const ack = await watch(client);
     expect(ack).toMatchObject({ ok: true, selfMemberId: "guest-member" });
+    expect(ack).toMatchObject({ snapshot: { members: expect.arrayContaining([expect.objectContaining({ memberId: "guest-member", isGuest: true })]) } });
     expect(findActiveMembership).not.toHaveBeenCalled();
     expect(findGuestMembership).toHaveBeenCalledExactlyOnceWith(ALICE);
     expect(readGuest).toHaveBeenCalledExactlyOnceWith({ id: ALICE, secretDigest: "synthetic-digest" });

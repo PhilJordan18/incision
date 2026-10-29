@@ -36,6 +36,7 @@ test("first-cookie tabs share one presence, race, preserve account results and i
   await Promise.all([fillGuest(page, host.code), fillGuest(second, host.code)]);
   await Promise.all([enter(page), enter(second)]);
   await Promise.all([live(page), live(second)]);
+  await expect(host.page.getByRole("img", { name: "Invité", exact: true })).toBeVisible();
   const cookie = (await context.cookies()).find((cookie) => cookie.name === "incision.guest");
   expect(cookie?.httpOnly).toBe(true);
   const guestId = cookie?.value.split(".")[1];
@@ -101,13 +102,13 @@ for (const locale of ["fr-CA", "en-US"]) for (const theme of ["abysse", "aube"])
     const host = await hostRoom(browser);
     const { page } = await visitor(browser, locale, theme);
     await fillGuest(page, host.code, "Noa Marin");
-    for (const width of [390, 1024, 1440]) {
+    for (const width of [360, 390, 1024, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       await expectNoHorizontalScroll(page); await expectNoAccessibilityViolation(page);
       await page.screenshot({ path: `/tmp/guest-entry-${locale}-${theme}-${width}.png`, fullPage: true });
     }
     await enter(page); await live(page);
-    for (const width of [390, 1024, 1440]) {
+    for (const width of [360, 390, 1024, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       await expectNoHorizontalScroll(page); await expectNoAccessibilityViolation(page);
       await page.screenshot({ path: `/tmp/guest-room-${locale}-${theme}-${width}.png`, fullPage: true });

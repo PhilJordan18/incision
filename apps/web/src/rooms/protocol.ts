@@ -40,6 +40,8 @@ export const roomSnapshotSchema = z.object({
       displayName: z.string(),
       role: z.enum(MEMBER_ROLES),
       isHost: z.boolean(),
+      /** Public kind only, never an account/session identifier. Absent on older snapshots. */
+      isGuest: z.boolean().optional(),
       /** At least one open socket of this member right now. */
       online: z.boolean(),
     }),

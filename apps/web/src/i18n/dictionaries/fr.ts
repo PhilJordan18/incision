@@ -140,6 +140,7 @@ export const fr = {
     signOutFailed: "La déconnexion a échoué. Réessaie.",
   },
   rooms: {
+    guestLabel: "Invité",
     newTitle: "Créer une salle",
     newHeadingBold: "Préparer la",
     newHeadingSerif: "traversée",

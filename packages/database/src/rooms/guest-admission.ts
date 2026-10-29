@@ -21,7 +21,7 @@ export type GuestAdmissionResult = (Exclude<JoinRoomResult, { readonly error: "R
   | { readonly ok: false; readonly error: "INVALID_GUEST_SESSION" | "INVALID_GUEST_NICKNAME" | "NICKNAME_TAKEN" }) & { readonly guestSession?: GuestSessionRow };
 
 /**
- * Internal foundation only: no HTTP action calls this yet. Lock order is room, then
+ * Called by the gated guest admission action. Lock order is room, then
  * guest session. The session lock serializes admissions across different rooms and
  * protects the proof from concurrent deletion/renewal. A new admission renews accepted
  * activity; a duplicate tab does not. Identity is never created here.
