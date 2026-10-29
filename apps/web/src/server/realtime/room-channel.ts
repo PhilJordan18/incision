@@ -1,3 +1,4 @@
+import type { GuestPresenceGrace } from "./guest-presence-grace";
 import type { GuestSessionReader } from "./human-handshake";
 import type { EventEmitter } from "node:events";
 import { describeDatabaseError, type ActiveMembership, type RoomRecovery, type RoomSnapshot } from "@incision/database";
@@ -21,6 +22,7 @@ export type RoomChannelDependencies = {
   readonly findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
   readonly findGuestMembership?: (guestSessionId: string) => Promise<ActiveMembership | undefined>;
   readonly readGuest?: GuestSessionReader;
+  readonly guestGrace?: GuestPresenceGrace;
   readonly readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
   /** Recovery of races nobody runs any more (ADR-0004); both parts together, or none. */
   readonly raceRecovery?: {
@@ -128,6 +130,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
   }
 
   events.on("changed", scheduleBroadcast);
+  events.on("changed", (lobbyId) => dependencies.guestGrace?.changed(lobbyId));
   const recovery = recoveryOnWatch(dependencies, {
     scheduleBroadcast,
     followed: (lobbyId) => (io.sockets.adapter.rooms.get(channelOf(lobbyId))?.size ?? 0) > 0,
@@ -167,6 +170,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       dependencies.races?.unfollow(socket.id);
       const watched = watchedRoomOf(socket.data);
       if (watched !== undefined && presence.remove(watched.lobbyId, watched.memberId, socket.id)) {
+        if (socket.data.guestSession !== undefined) dependencies.guestGrace?.lost(watched);
         scheduleBroadcast(watched.lobbyId);
       }
     });
@@ -223,6 +227,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     socket.data.room = undefined;
     dependencies.races?.unfollow(socket.id);
     if (presence.remove(room.lobbyId, room.memberId, socket.id)) {
+      if (socket.data.guestSession !== undefined) dependencies.guestGrace?.lost(room);
       scheduleBroadcast(room.lobbyId);
     }
   }
@@ -249,6 +254,13 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       return { ok: false, error: "NOT_A_MEMBER" };
     }
     if (subject.kind === "guest" && currentGuestSession(socket, dependencies) === undefined) {
+      return { ok: false, error: "UNAUTHORIZED" };
+    }
+    if (subject.kind === "guest" && dependencies.guestGrace !== undefined &&
+      !await dependencies.guestGrace.resume(membership)) {
+      return { ok: false, error: "NOT_A_MEMBER" };
+    }
+    if (!socket.connected || (subject.kind === "guest" && currentGuestSession(socket, dependencies) === undefined)) {
       return { ok: false, error: "UNAUTHORIZED" };
     }
     // Follow before reading, so no change between the read and the join is missed.

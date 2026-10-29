@@ -1186,6 +1186,15 @@ describe("RaceRuntime: live guest members", () => {
     expect(runtime.keystrokes(guest.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
   });
 
+  it("applies committed guest departure only to the matching live guest, idempotently", async () => {
+    const { runtime, time } = guestSetup(); runtime.start(); await time.advance(COUNTDOWN_MS);
+    runtime.guestMemberLeft("guest-member-a"); runtime.guestMemberLeft("guest-member-a");
+    expect(runtime.state.entrants[0]?.status).toBe("abandoned");
+    expect(runtime.state.entrants[1]?.status).toBe("racing");
+    runtime.guestMemberLeft("unrelated");
+    expect(runtime.state.entrants[1]?.status).toBe("racing");
+  });
+
   it.each([29_999, 30_000, 30_001])("uses D-06's inclusive reconnect deadline at %s ms", async (delay) => {
     const { runtime, time, guest, followers } = guestSetup();
     runtime.start();

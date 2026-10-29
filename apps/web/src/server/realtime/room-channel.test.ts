@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, WATCH_LIMIT } from "../../rooms/protocol";
 import type { RoomEvents } from "../rooms/room-events";
 import { ACCOUNT_WATCHES_IN_FLIGHT, registerRoomChannel } from "./room-channel";
+import { GuestPresenceGrace } from "./guest-presence-grace";
 import { RoomPresence } from "./room-presence";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
@@ -22,6 +23,8 @@ let io: Server;
 let baseUrl: string;
 let events: EventEmitter<RoomEvents>;
 let presence: RoomPresence;
+let guestGrace: GuestPresenceGrace;
+let graceNow: number;
 let registry: SessionRegistry;
 let findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
 let readGuest: GuestSessionReader;
@@ -98,10 +101,32 @@ beforeEach(async () => {
   raceFollows.length = 0;
   raceUnfollows.length = 0;
   io = attachRealtimeServer(httpServer, { allowedOrigin: baseUrl, isProduction: true, authenticate, registry });
+  graceNow = Date.now();
+  guestGrace = new GuestPresenceGrace({
+    now: () => graceNow,
+    schedule: (callback, delay) => { const timer = setTimeout(callback, delay); timer.unref(); return () => clearTimeout(timer); },
+    online: ({ lobbyId, memberId }) => presence.onlineMembers(lobbyId).has(memberId),
+    end: async (input) => {
+      const snapshot = snapshots.get(input.lobbyId);
+      const member = snapshot?.members.find((one) => one.memberId === input.memberId && one.accountId === null);
+      if (snapshot === undefined || member === undefined) return { kind: "gone" };
+      if (member.isHost) return { kind: "host" };
+      const state = { phase: snapshot.phase, expiresAt: graceNow + 86_400_000, expired: false };
+      if ((state.phase === "waiting" || state.phase === "results") && input.claim(state)) {
+        snapshots.set(input.lobbyId, { ...snapshot, revision: snapshot.revision + 1, members: snapshot.members.filter((one) => one.memberId !== member.memberId) });
+        findGuestMembership = vi.fn(async () => undefined);
+        return { kind: "departed" };
+      }
+      return { kind: "retained", ...state };
+    },
+    departed: ({ lobbyId }) => events.emit("changed", lobbyId),
+    failed: () => { throw new Error("Unexpected guest departure failure"); },
+  });
   registerRoomChannel(io, {
     allowedOrigin: baseUrl,
     registry,
     presence,
+    guestGrace,
     events,
     findActiveMembership: (accountId) => findActiveMembership(accountId),
     readGuest: (proof) => readGuest(proof),
@@ -152,6 +177,7 @@ function snapshotOf(lobbyId: string): RoomSnapshot {
 }
 
 afterEach(async () => {
+  guestGrace?.stop();
   clients.splice(0).forEach((client) => client.close());
   await io.close();
 });
@@ -677,6 +703,21 @@ describe("guest room watch", () => {
     expect(presence.onlineMembers("lobby-1").has("guest-member")).toBe(true);
     second.close();
     await until(() => !presence.onlineMembers("lobby-1").has("guest-member"));
+  });
+
+  it("reconnects the same member before grace, then refuses it after the last-socket timeout", async () => {
+    admitGuest();
+    const first = await open("session=guest"); await watch(first); first.close();
+    await until(() => !presence.onlineMembers("lobby-1").has("guest-member"));
+    graceNow += 29_999;
+    const returning = await open("session=guest");
+    expect(await watch(returning)).toMatchObject({ ok: true, selfMemberId: "guest-member" });
+    returning.close(); await until(() => !presence.onlineMembers("lobby-1").has("guest-member"));
+    graceNow += 30_001; guestGrace.changed("lobby-1");
+    await until(() => !snapshotOf("lobby-1").members.some((one) => one.memberId === "guest-member"));
+    const late = await open("session=guest");
+    expect(await watch(late)).toEqual({ ok: false, error: "NOT_A_MEMBER" });
+    expect(presence.onlineMembers("lobby-1").has("guest-member")).toBe(false);
   });
 
   it("does not allow a signed identity to watch a room without membership", async () => {

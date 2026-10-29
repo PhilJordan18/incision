@@ -21,3 +21,4 @@ export * from "./schema";
 export * from "./tls";
 export * from "./identity/guest-sessions";
 export * from "./rooms/guest-admission";
+export * from "./rooms/guest-departure";

@@ -454,6 +454,14 @@ export class RaceRuntime implements OwnedRace {
     }
   }
 
+  /** A guest membership ended in SQL; an account with the same UUID is unrelated. */
+  guestMemberLeft(memberId: string): void {
+    const entrant = [...this.#entrants.values()].find((one) => one.accountId === null && one.kind !== "bot" && one.memberId === memberId);
+    if (entrant !== undefined && this.#stage === "running") {
+      this.#apply({ type: "abandon", entrantId: asEntrantId(entrant.entrantId), now: this.#now() });
+    }
+  }
+
   /**
    * The room closed (the host left): its transaction already interrupted the race under the
    * room lock, unless this race had finished first. In memory, the race ends without results.

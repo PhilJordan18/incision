@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import {
   beginRacing,
+  endDisconnectedGuestPresence,
   finalizeRace,
   findActiveMembership,
   findActiveHumanMembership,
@@ -23,6 +24,7 @@ import { parseServerEnv, type ServerEnv } from "./src/server/config";
 import { assignClientAddress } from "./src/server/http/client-address";
 import { registerRaceChannel } from "./src/server/realtime/race-channel";
 import { followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
+import { GuestPresenceGrace } from "./src/server/realtime/guest-presence-grace";
 import { roomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
@@ -118,6 +120,17 @@ async function main(): Promise<void> {
       console.error("[races] departure not applied to the race:", error instanceof Error ? error.name : "unknown error");
     }
   });
+  const guestGrace = new GuestPresenceGrace({
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
+    end: (input) => endDisconnectedGuestPresence(databaseOf(env), input),
+    departed: ({ lobbyId, memberId }) => {
+      try { races.guestMemberLeft(lobbyId, memberId); }
+      finally { notifyRoomChanged(lobbyId); }
+    },
+    failed: () => console.error("[guests] presence departure unavailable; retry scheduled"),
+  });
   // Room presence (CP-06): membership from the database, changes from the server actions.
   const roomChannel = registerRoomChannel(io, {
     allowedOrigin: env.appOrigin,
@@ -127,6 +140,7 @@ async function main(): Promise<void> {
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
     findGuestMembership: (guestSessionId) => findActiveHumanMembership(databaseOf(env), { kind: "guest", guestSessionId }),
     readGuest: (proof) => readGuestSession(databaseOf(env), proof),
+    guestGrace,
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
     raceRecovery: {
       recover: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),
@@ -154,6 +168,7 @@ async function main(): Promise<void> {
   // App Service sends SIGTERM before replacing the process: stop accepting work, then exit.
   process.once("SIGTERM", () => {
     console.log("[server] SIGTERM received, closing");
+    guestGrace.stop();
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
     // Own races first (ADR-0004): no new start, then each one ends through its own shutdown
     // (its frozen results saved, or interrupted as server_stopped); their rooms are told before

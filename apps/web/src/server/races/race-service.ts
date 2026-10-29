@@ -459,6 +459,11 @@ export class RaceService {
     }
   }
 
+  /** Server-committed guest departure, addressed by live membership only. */
+  guestMemberLeft(lobbyId: string, memberId: string): void {
+    this.#registry.get(lobbyId)?.guestMemberLeft(memberId);
+  }
+
   /** SIGTERM: no new start, then each race ends through its own shutdown (ADR-0004). */
   stop(options: { readonly onEnded: (lobbyId: string) => void; readonly timeoutMs: number }): Promise<StopReport> {
     return this.#registry.stop({ ...options, now: this.#options.now });
