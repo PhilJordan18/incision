@@ -162,3 +162,99 @@ no implicit stacked branch or copied integration base.
 Coordinator proposal only: keep AUTH-02/03, SALLE-06/08 and #31 partial. Record the
 verified transport/runtime groundwork and the new approved non-host grace rule;
 do not mark public guest admission, guest racing, retention or #36C2 done.
+
+## C/E progress — non-host presence release (October 29)
+
+This section supersedes the earlier “not implemented” statement **only for the
+non-host outside-race presence grace**. Other outstanding items remain outstanding.
+
+Implementation: `579f48b` (non-host SQL departure/coordinator); final code/test
+reference: `18e88b5ddb6d81ece9d6ee62bd9bbe7b03c55b64`. Same branch/PR, no new
+migration and no public admission activation.
+
+The room channel starts `GuestPresenceGrace` only when the last socket of a
+server-verified guest member is lost. A single loss instant survives phase changes.
+The SQL adapter locks room then guest session, rechecks the exact active member
+and current host, samples SQL expiry after the locks, and invokes the synchronous
+presence claim. Once claimed, a returning watch waits for commit/rollback. Before
+claim, an on-time return invalidates the old loss generation. A late return must
+resolve departure before it can follow; failed decisions do not authorize it.
+Duplicate callbacks and stale generations cannot delete a newer presence.
+
+D-06 equality remains inclusive: no departure at 29,999 or 30,000 ms, due at
+30,001 ms. Identity expiry wins at its own deadline. Renewing identity does not
+reset the loss instant. During racing/countdown, ordinary absence remains the
+engine's responsibility; the outside-race coordinator retains the loss instant
+and reacts to results without starting another grace. A phase notification during
+an in-flight read is coalesced into a fresh read, not lost. Hosts and accounts are
+excluded in SQL; C2 is not implemented. Process shutdown cancels pending timers.
+
+Departure deletes only the guest's live membership/name and increments the room
+revision. Anonymous guest result rows have no member FK already; account members,
+bots and durable race data remain intact. An idempotent repeat is a no-op. A later
+admission goes through the existing admission transaction and receives a fresh
+member ID/seniority. The guest session itself is not deleted by this adapter:
+identity-reference retirement belongs to F and is still required before activation.
+Committed guest departure also tells the live runtime to abandon that member only.
+
+### Executed checks and sequential reviews
+
+- Root no-js, lint, typecheck, test and build exited 0 at 18e88b5.
+  **2,288 unit tests passed** (web 862, database 146, domain 1,198, load 20,
+  word-lists 62).
+- Full isolated PostgreSQL suite: **310 passed, 9 pre-existing PgBouncer skips**;
+  the dedicated pooler configuration is absent. New departure cases: eight,
+  including lock barriers, host promotion, rollback, duplicate expiry, readmission,
+  race preservation and account/bot exclusion. No new skip.
+- Chromium guest suite against the rebuilt server: **8 passed**, including the
+  real 30-second last-socket departure, reconnect with unchanged member/seniority,
+  post-departure NOT_A_MEMBER, and the prior identity/renewal regressions.
+- Initial root test run at 579f48b failed one design-token check: the comment
+  spelling of the host issue ID matched its hexadecimal-color regex. Reworded
+  the comment; no guard or test was disabled. The final full run above passed.
+- Exact-reference reviews applied manually, sequentially: **code OK**, including
+  coalesced phase reads and timer generations; **security OK for this internal
+  unit**, with server-only claims and expiry revalidation; **DBA OK locally**, with
+  room/session lock order, membership-only deletion, no migration and 310 passing
+  tests; **functional QA OK for non-host grace**, not for the full guest journey.
+- UI/private browser cache purge, guest command activity renewal, no-account
+  temporary results, account transition and complete retention are still not
+  validated/complete. Passing the socket refusal test is not a claim about browser
+  back-forward cache behavior. No operational or multi-instance qualification.
+
+### Read-only C2 delta for Philippe's approval
+
+Coordinator confirms no active implementation, branch, PR or reservation for C2;
+C1's selector and voluntary departure are merged. This is a proposed implementation
+scope, **not permission to implement it and not a new product rule**:
+
+1. Add a host-presence coordinator independent of the race entrant's connection
+   timer: a spectator host has no racing entrant. Track the current host member,
+   last-socket loss, inclusive 30-second deadline and generation. On-time return
+   keeps hosting; stale callbacks cannot act on a newly elected host.
+2. Add a bounded database adapter that locks the lobby, verifies the expected
+   current host and absence after the lock, then reuses
+   `transferHostToConnectedMember`. Eligible successors remain the oldest connected
+   active human (account or guest), including spectators, under D-03. Resolve the
+   existing account-only labeling comment/projection honestly; do not exclude guests.
+3. If no successor exists, reuse interruption/closure under the same room lock as
+   race finalization. Finalization first preserves results; closure first prevents
+   official results. Publish committed host/member changes and clear departed
+   authority only after commit. Do not reuse the non-host departure function for hosts.
+4. Likely paths: a new server realtime host-grace module and tests, a new database
+   host-loss adapter/tests, `rooms/succession.ts`, shared room channel/presence/events
+   composition in `server.ts`, and `docs/architecture/host-succession.md`. Reuse
+   existing selectors/room writes; no migration is currently justified. These paths
+   overlap this integration and need one coordinated writer.
+5. Required tests: host participant versus spectator; last of multiple sockets;
+   29,999/30,000/30,001 ms; reconnect waiting on SQL; superseded host/timer callbacks;
+   tied seniority; guest/account successors; no successor; expiry and revocation;
+   phase transitions without reset; concurrent finish/close; rollback and retry;
+   no change to account result/photo/settings data; Socket.IO and local browser UI.
+
+Risks: confusing entrant grace with host authority; choosing from stale presence;
+lock-order inversion; a successor disconnecting during commit; process-local state
+under ADR-0001; interruption versus finalization races. These are implementation
+and verification concerns under existing D-03/D-06, not reasons to invent a new
+successor policy. C2 is required before claiming complete guest activation, but does
+not block continued command/result/non-host work on this draft branch.
