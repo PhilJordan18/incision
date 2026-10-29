@@ -47,3 +47,5 @@ export * from "./profile/result-record";
 export { simulateRace, type SimulatedBot, type ScriptedHumanEvent, type SimulationInput, type SimulationResult } from "./simulation/simulate-race";
 export * from "./results/wpm-series";
 export * from "./results/stored-wpm-series";
+export * from "./identity/guest-nickname";
+export * from "./identity/human-subject";

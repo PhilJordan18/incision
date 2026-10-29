@@ -9,6 +9,8 @@ const port = Number(process.env.E2E_PORT ?? 3200);
 const baseURL = `http://localhost:${port}`;
 // One fresh secret per run, shared with the tests (they forge expired or tampered cookies).
 process.env.E2E_AUTH_SECRET ??= randomBytes(32).toString("base64url");
+// A separate ephemeral guest key: never reuse account signing material or a real secret.
+const guestSessionSecret = randomBytes(32).toString("base64url");
 process.env.E2E_DATABASE_URL ??= "postgresql://incision_test:incision_test_only@localhost:5433/incision_e2e";
 // Point E2E_SERVER_DIR at the apps/web folder of an unpacked release archive to test what is deployed.
 const serverDir = process.env.E2E_SERVER_DIR ?? __dirname;
@@ -34,6 +36,7 @@ export default defineConfig({
       APP_URL: baseURL,
       AUTH_URL: baseURL,
       AUTH_SECRET: process.env.E2E_AUTH_SECRET,
+      GUEST_SESSION_SECRET: guestSessionSecret,
       DATABASE_URL: process.env.E2E_DATABASE_URL,
       E2E_DATABASE_URL: process.env.E2E_DATABASE_URL,
       // As in production (one trusted front end). Requests without X-Forwarded-For keep the TCP
