@@ -8,7 +8,7 @@ import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayl
 import { publicSnapshot } from "../../rooms/public-snapshot";
 import type { RaceService } from "../races/race-service";
 import type { RoomEvents } from "../rooms/room-events";
-import { connectionOf } from "./race-channel";
+import { connectionOf, guestConnectionOf } from "./race-channel";
 import type { RoomPresence } from "./room-presence";
 import type { SessionRegistry } from "./session-registry";
 import { currentGuestSession, currentSession } from "./socket-server";
@@ -284,7 +284,9 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     if (socket.connected) {
       socket.data.room = { ...room, since: snapshot.revision } satisfies WatchedRoom;
       // A member now: the race run here, if any, reaches this tab.
-      if (subject.kind === "account") dependencies.races?.follow(room.lobbyId, connectionOf(socket, subject.accountId, parsed.data?.pageId));
+      dependencies.races?.follow(room.lobbyId, subject.kind === "account"
+        ? connectionOf(socket, subject.accountId, parsed.data?.pageId)
+        : guestConnectionOf(socket, room.memberId, parsed.data?.pageId));
     }
     await recovery.onWatch(room.lobbyId, snapshot.phase);
     // A broadcast newer than this read went out meanwhile and skipped this socket: one more
@@ -423,4 +425,10 @@ function watchedRoomOf(data: unknown): WatchedRoom | undefined {
     typeof room.since === "number"
     ? { lobbyId: room.lobbyId, memberId: room.memberId, since: room.since }
     : undefined;
+}
+
+/** Internal server projection; never accepted from a client command. */
+export function followedMember(socket: Pick<Socket, "data">): { readonly lobbyId: string; readonly memberId: string } | undefined {
+  const room = watchedRoomOf(socket.data);
+  return room === undefined ? undefined : { lobbyId: room.lobbyId, memberId: room.memberId };
 }

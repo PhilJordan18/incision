@@ -10,7 +10,7 @@ import { resolveAccountIdentity } from "./request-identity";
 
 const shared = globalThis as typeof globalThis & { incisionGuestLimiter?: GuestSessionLimiter };
 
-export async function guestRoute(request: Request, operation: "read" | "start" | "renew"): Promise<Response> {
+export async function guestRoute(request: Request, operation: "read" | "start" | "renew" | "refresh"): Promise<Response> {
   try {
     const env = parseServerEnv(process.env);
     shared.incisionGuestLimiter ??= new GuestSessionLimiter();

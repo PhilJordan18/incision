@@ -15,7 +15,7 @@ export async function resolveGuest(input: {
   readonly cookieHeader: string | null;
   readonly secure: boolean;
   readonly key: string;
-  readonly operation: "read" | "start" | "renew";
+  readonly operation: "read" | "start" | "renew" | "refresh";
 }, store: GuestStore): Promise<GuestResolution> {
   const parsed = readGuestCookie(input.cookieHeader, input);
   if (parsed.kind === "invalid") return parsed;
@@ -26,7 +26,7 @@ export async function resolveGuest(input: {
       const session = await store.create(issued.credential);
       return { kind: "valid", session, cookie: issued.value };
     }
-    const result = await (input.operation === "read" ? store.read(parsed.credential) : store.touch(parsed.credential));
+    const result = await ((input.operation === "read" || input.operation === "refresh") ? store.read(parsed.credential) : store.touch(parsed.credential));
     return result.kind === "valid" ? { ...result, cookie: parsed.value } : result;
   } catch {
     // No exception message, cookie, database query or proof is logged or returned.

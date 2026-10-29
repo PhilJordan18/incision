@@ -690,8 +690,7 @@ describe("guest room watch", () => {
     expect(readGuest).toHaveBeenCalledExactlyOnceWith({ id: ALICE, secretDigest: "synthetic-digest" });
     expect(JSON.stringify(ack)).not.toContain(ALICE);
     expect(JSON.stringify(ack)).not.toContain("synthetic-digest");
-    // Until race integration lands, account-only runtime remains inaccessible.
-    expect(raceFollows).toHaveLength(0);
+    expect(raceFollows).toMatchObject([{ lobbyId: "lobby-1", accountId: null }]);
   });
 
   it("keeps one member online until its last tab disconnects", async () => {

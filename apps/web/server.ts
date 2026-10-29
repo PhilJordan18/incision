@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   beginRacing,
   endDisconnectedGuestPresence,
+  runGuestMemberCommand,
   finalizeRace,
   findActiveMembership,
   findActiveHumanMembership,
@@ -23,7 +24,8 @@ import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
 import { assignClientAddress } from "./src/server/http/client-address";
 import { registerRaceChannel } from "./src/server/realtime/race-channel";
-import { followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
+import { followedMember, followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
+import { GuestCommandGate } from "./src/server/realtime/guest-command-gate";
 import { GuestPresenceGrace } from "./src/server/realtime/guest-presence-grace";
 import { roomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
@@ -148,7 +150,10 @@ async function main(): Promise<void> {
     },
     races,
   });
-  registerRaceChannel(io, { allowedOrigin: env.appOrigin, registry, races, followedRoom });
+  const guestCommands = new GuestCommandGate({ registry, now: Date.now,
+    store: (input) => runGuestMemberCommand(databaseOf(env), input),
+  });
+  registerRaceChannel(io, { allowedOrigin: env.appOrigin, registry, races, followedRoom, followedMember, guestCommands });
 
   // Races a previous process left behind (ADR-0004): recovered without delaying the server.
   if (env.databaseUrl !== undefined) {
