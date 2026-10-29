@@ -35,3 +35,5 @@ export { leaveGuestRoom } from "./rooms/membership";
 export { maintainGuestRetention, type GuestRetentionReport } from "./identity/guest-retention";
 
 export { prepareGuestAccountSignIn } from "./identity/guest-account-transition";
+
+export { readGuestRoom } from "./rooms/guest-room";

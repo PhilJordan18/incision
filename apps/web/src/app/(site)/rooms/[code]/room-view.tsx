@@ -1,5 +1,7 @@
 "use client";
 
+import { GuestActivityRefresh, withGuestCookieLock } from "@/identity/guest-browser";
+import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
 
 import Link from "next/link";
@@ -57,6 +59,7 @@ type Ending = "notMember" | "signedOut";
 type CopyFeedback = "copied" | "failed" | undefined;
 
 type RoomViewProps = {
+  readonly guest?: boolean;
   readonly initial: PublicRoomSnapshot;
   readonly selfMemberId: string;
   readonly t: Dictionary["rooms"];
@@ -80,7 +83,7 @@ const ROOM_HEADING_ID = "room-heading";
  * over Socket.IO. The server renders the first snapshot; the socket keeps the newest one
  * (highest revision; presence updates keep the revision).
  */
-export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: RoomViewProps) {
+export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, locale, results }: RoomViewProps) {
   const [snapshot, setSnapshot] = useState(initial);
   // Kept across the socket's reconnections: a reconnected page takes its race input back.
   const [pageId] = useState(thisPageId);
@@ -119,6 +122,21 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
 
   useEffect(() => {
     const socket = io({ reconnectionDelayMax: 5_000 });
+    const refreshController = new AbortController();
+    const guestRefresh = new GuestActivityRefresh({
+      now: Date.now,
+      schedule: (callback, delay) => { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); },
+      refresh: () => withGuestCookieLock(async () => {
+        if (refreshController.signal.aborted) return;
+        const response = await fetch("/api/guest/session/refresh", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal: refreshController.signal,
+        });
+        if (response.status === 401 || response.status === 409) { race.forget(); setEnding("signedOut"); router.refresh(); }
+        if (!response.ok) throw new Error("Guest refresh unavailable");
+      }),
+      failed: () => undefined, // No background retry: only another accepted action may schedule one.
+    });
+    if (guest) socket.on(GUEST_ACTIVITY_EVENT, () => guestRefresh.accepted());
     const bonusChannel = new BonusChannel(race, bonuses, {
       send: (command) => socket.connected
         ? socket.timeout(BATCH_TIMEOUT_MS).emitWithAck(RACE_BONUS_ACTIVATE_EVENT, command)
@@ -277,6 +295,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       // The server cuts a socket whose session ended (sign-out, revocation, expiry), and
       // one that flooded it; neither is retried by the client.
       if (reason === "io server disconnect") {
+        if (guest) { guestRefresh.stop(); refreshController.abort(); race.forget(); router.refresh(); }
         setEnding("signedOut");
       } else {
         setConnection("reconnecting");
@@ -306,12 +325,14 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       }
     });
     return () => {
+      guestRefresh.stop(); refreshController.abort();
+      if (guest) race.forget();
       clearTimeout(retry);
       bonusChannel.close();
       race.detach();
       socket.close();
     };
-  }, [initial.code, router, race, bonuses, pageId]);
+  }, [guest, initial.code, router, race, bonuses, pageId]);
 
   // A server render newer than what the socket brought (after a refresh) replaces it.
   const [rendered, setRendered] = useState(initial);
@@ -449,7 +470,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
   const leave = (
     <div className={`flex flex-col gap-2 ${self.isHost ? "" : "max-w-xs"}`}>
       {self.isHost ? (
-        <HostLeaveConfirm
+        <HostLeaveConfirm guest={guest}
           t={t}
           id="host-leave"
           code={snapshot.code}
@@ -461,7 +482,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
           onFailed={onLeaveFailed}
         />
       ) : (
-        <LeaveRoomForm
+        <LeaveRoomForm guest={guest}
           label={t.leave}
           pendingLabel={t.leaving}
           errors={t.changeErrors}
@@ -535,7 +556,7 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
               {tRaces.confirming}
             </p>
             {/* Until the results are read, the host can still close the room (the next round needs them). */}
-            {self.isHost && <HostRoundActions t={t.hostActions} code={snapshot.code} />}
+            {self.isHost && <HostRoundActions guest={guest} t={t.hostActions} code={snapshot.code} />}
           </>
         )}
       </div>
@@ -570,13 +591,13 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
       )}
 
       {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
-      <RoomBotsPanel snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
-      <RoomSettingsPanel key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
+      <RoomBotsPanel guest={guest} snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
+      <RoomSettingsPanel guest={guest} key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && (
         <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants === 0 ? 0 : participants + (snapshot.bots?.length ?? 0)} t={tRaces} note={roomStartNote(snapshot.settings, locale)} />
       )}
-      {self.isHost && <HostRoundActions t={t.hostActions} code={snapshot.code} />}
+      {self.isHost && <HostRoundActions guest={guest} t={t.hostActions} code={snapshot.code} />}
 
       {connection === "reconnecting" && (
         <section aria-labelledby="reconnect-heading" className={`${card} flex max-w-xl flex-col gap-3 border-or`}>

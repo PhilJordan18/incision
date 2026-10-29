@@ -1,7 +1,8 @@
 import { admissionRefusal, canonicalDisplayName, parseGuestNickname, type MemberRole, type RoomCode } from "@incision/domain";
 import { and, count, eq, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import type { GuestSessionProof } from "../identity/guest-sessions";
+import { renewGuestAfterHostAction } from "./guest-host";
+import type { GuestSessionProof, GuestSessionRow } from "../identity/guest-sessions";
 import { guestSessions, lobbies, lobbyBots, lobbyMembers } from "../schema";
 import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transaction";
 import { findActiveHumanMembership, type JoinRoomResult } from "./membership";
@@ -15,14 +16,15 @@ export type GuestAdmissionInput = {
   readonly nickname: string;
 };
 
-export type GuestAdmissionResult = Exclude<JoinRoomResult, { readonly error: "ROOM_NOT_FOUND" | "ROOM_FULL" | "SPECTATORS_FULL" | "ACCOUNT_NOT_FOUND" }>
+export type GuestAdmissionResult = (Exclude<JoinRoomResult, { readonly error: "ROOM_NOT_FOUND" | "ROOM_FULL" | "SPECTATORS_FULL" | "ACCOUNT_NOT_FOUND" }>
   | { readonly ok: false; readonly error: "ROOM_NOT_FOUND" | "ROOM_FULL" | "SPECTATORS_FULL" }
-  | { readonly ok: false; readonly error: "INVALID_GUEST_SESSION" | "INVALID_GUEST_NICKNAME" | "NICKNAME_TAKEN" };
+  | { readonly ok: false; readonly error: "INVALID_GUEST_SESSION" | "INVALID_GUEST_NICKNAME" | "NICKNAME_TAKEN" }) & { readonly guestSession?: GuestSessionRow };
 
 /**
  * Internal foundation only: no HTTP action calls this yet. Lock order is room, then
  * guest session. The session lock serializes admissions across different rooms and
- * protects the proof from concurrent deletion/renewal. Never renews or creates identity.
+ * protects the proof from concurrent deletion/renewal. A new admission renews accepted
+ * activity; a duplicate tab does not. Identity is never created here.
  */
 export async function joinRoomByCodeAsGuest(db: Database, input: GuestAdmissionInput): Promise<GuestAdmissionResult> {
   const nickname = parseGuestNickname(input.nickname);
@@ -66,7 +68,8 @@ export async function joinRoomByCodeAsGuest(db: Database, input: GuestAdmissionI
       joinedAt: sql`statement_timestamp()` }).returning({ id: lobbyMembers.id });
     if (member === undefined) throw new Error("Guest admission did not insert a member");
     await bumpRevision(tx, room.id);
-    return { ok: true, lobbyId: room.id, memberId: member.id, alreadyMember: false };
+    return { ok: true, lobbyId: room.id, memberId: member.id, alreadyMember: false,
+      guestSession: await renewGuestAfterHostAction(tx, session.id) };
   }, READ_COMMITTED);
 }
 

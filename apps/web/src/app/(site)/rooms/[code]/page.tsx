@@ -17,6 +17,9 @@ import { getAccountSession, requireAccountSession } from "@/server/auth/session"
 import { authDatabase } from "@/server/auth/store";
 import { JoinRoomForm } from "./join-room-form";
 import { loadRoomPage } from "./load-room";
+import { guestEntryEnabled } from "@/server/identity/guest-entry-switch";
+import { requestGuest } from "@/server/identity/guest-request";
+import { GuestRoomPage } from "./guest-room-page";
 import { RoomView } from "./room-view";
 
 export async function generateMetadata({ params }: PageProps<"/rooms/[code]">): Promise<Metadata> {
@@ -55,6 +58,10 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
     redirect(`/rooms/${parsed.code}`);
   }
   const code = parsed.code;
+  if (guestEntryEnabled() && await getAccountSession() === null) {
+    const guest = await requestGuest();
+    if (guest !== undefined) return <GuestRoomPage code={code} proof={guest.proof} />;
+  }
   const { accountId } = await requireAccountSession(`/rooms/${code}`);
   const [{ t, locale }, state] = await Promise.all([getRequestDictionary(), loadRoomPage(accountId, code)]);
 

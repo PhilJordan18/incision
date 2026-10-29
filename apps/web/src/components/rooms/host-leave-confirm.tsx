@@ -8,6 +8,7 @@ import { ConfirmClosing, consequencesId } from "./confirm-closing";
 import { LeaveRoomForm } from "./leave-room-form";
 
 type HostLeaveConfirmProps = {
+  readonly guest?: boolean;
   readonly t: Dictionary["rooms"];
   /** Unique on the page: names the question's heading. */
   readonly id: string;
@@ -28,11 +29,11 @@ type HostLeaveConfirmProps = {
  * A host confirms succession, or closure when no connected human remains (SALLE-08).
  * Keep this question below the typing field so confirmation never shifts the race text.
  */
-export function HostLeaveConfirm({ t, id, code, openLabel, describedBy, racing = false, focusAfterKeeping, onLeaving, onFailed }: HostLeaveConfirmProps) {
+export function HostLeaveConfirm({ guest = false, t, id, code, openLabel, describedBy, racing = false, focusAfterKeeping, onLeaving, onFailed }: HostLeaveConfirmProps) {
   const [busy, setBusy] = useState(false);
   // Explain the race consequence immediately after succession or closure.
   const [closing, kept] = t.hostLeave.consequences;
-  const consequences = [closing, ...(racing ? [t.hostLeave.racing] : []), kept, t.hostLeave.backHome];
+  const consequences = [closing, ...(racing ? [t.hostLeave.racing] : []), ...(guest ? [] : [kept]), t.hostLeave.backHome];
   return (
     <ConfirmClosing
       id={id}
@@ -45,7 +46,7 @@ export function HostLeaveConfirm({ t, id, code, openLabel, describedBy, racing =
       busy={busy}
       focusAfterKeeping={focusAfterKeeping}
     >
-      <LeaveRoomForm
+      <LeaveRoomForm guest={guest}
         label={t.hostLeave.confirm}
         pendingLabel={t.leaving}
         errors={t.changeErrors}

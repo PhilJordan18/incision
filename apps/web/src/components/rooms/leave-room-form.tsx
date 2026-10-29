@@ -1,5 +1,7 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
+import { guestAwareAction } from "@/identity/guest-browser";
 import { useActionState, useEffect } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { FormAlert } from "@/components/ui/form-alert";
@@ -39,7 +41,10 @@ export function LeaveRoomForm({
   buttonClassName = `${discreetButton} self-start`,
   onPendingChange,
 }: LeaveRoomFormProps) {
-  const [state, formAction, pending] = useActionState<LeaveRoomState, FormData>(guest ? guestLeaveRoomAction : leaveRoomAction, {});
+  const [state, formAction, pending] = useActionState<LeaveRoomState, FormData>(async (previous, form) => {
+    try { return await guestAwareAction(guest, () => guest ? guestLeaveRoomAction(previous, form) : leaveRoomAction(previous, form)); }
+    catch (error) { unstable_rethrow(error); return { error: "UNAVAILABLE" }; }
+  }, {});
   useEffect(() => {
     onPendingChange?.(pending);
   }, [pending, onPendingChange]);

@@ -81,6 +81,15 @@ export class RaceClient {
     this.stopClockSync();
   }
 
+  /** Ended guest presence: discard text, private typing state and pending input. */
+  forget(): void {
+    this.#session?.close();
+    this.#session = undefined;
+    this.detach();
+    this.#state = EMPTY;
+    this.#update({});
+  }
+
   /** The server's clock as this tab estimates it. */
   serverNow(): number {
     return this.#clock.now();

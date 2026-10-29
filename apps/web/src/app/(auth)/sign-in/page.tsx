@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
+import { guestEntryEnabled } from "@/server/identity/guest-entry-switch";
 import { redirect } from "next/navigation";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { guestPresenceBlocksSignIn } from "@/server/identity/guest-transition";
@@ -84,6 +86,8 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
             <CredentialsForm callbackUrl={callbackUrl} t={t.signIn} />
             </>}
             <p className="text-[13px] leading-relaxed text-brume">{t.signIn.privacyNote}</p>
+            {guestEntryEnabled() && !guestPresence && <Link className="inline-flex min-h-11 items-center text-moi underline underline-offset-4"
+              href={`/guest${/^\/rooms\/[A-Z2-9]{6}$/.test(callbackUrl) ? `?code=${callbackUrl.slice(7)}` : ""}`}>{t.guestEntry.title}</Link>}
           </div>
         </main>
       </div>

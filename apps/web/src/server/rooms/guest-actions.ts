@@ -1,6 +1,6 @@
 "use server";
 
-import { closeRoom, configureRoom, leaveGuestRoom, startNextRound } from "@incision/database";
+import { changeRoomBots, closeRoom, configureRoom, leaveGuestRoom, startNextRound } from "@incision/database";
 import { parseRoomCode } from "@incision/domain";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -12,6 +12,8 @@ import { temporaryRoomResults } from "../races/temporary-room-results";
 import type { ConfigureRoomState, HostActionState, LeaveRoomState } from "./actions";
 import { allowRoomChange, allowSettingsChange } from "./room-change-limiter";
 import { notifyGuestLeft, notifyRoomChanged, roomEvents } from "./room-events";
+import type { BotActionState } from "./bot-actions";
+import { parseBotForm } from "./bot-form";
 import { parseConfigureRoomForm } from "./room-settings";
 
 export async function guestNextRoundAction(formData: FormData): Promise<HostActionState> {
@@ -66,4 +68,17 @@ export async function guestLeaveRoomAction(_previous: LeaveRoomState, formData: 
     await clearGuestActionCookie(guest);
   } catch { return { error: "UNAVAILABLE" }; }
   redirect(safeRedirectPath(formData.get("returnTo")));
+}
+
+
+export async function guestChangeRoomBotAction(form: FormData): Promise<BotActionState> {
+  try {
+    const guest = await requestGuest(); if (guest === undefined) return { error: "NOT_IN_A_ROOM" };
+    const request = parseBotForm(form); if (request === undefined) return { error: "INVALID_BOT" };
+    if (!allowSettingsChange(`guest:${guest.proof.id}`)) return { error: "RATE_LIMITED" };
+    const result = await changeRoomBots(authDatabase(), { ...request, accountId: null, guestProof: guest.proof });
+    if (!result.ok) return { error: result.error };
+    if (result.guestSession !== undefined) await refreshGuestActionCookie(guest, result.guestSession);
+    notifyRoomChanged(result.lobbyId); return { revision: result.revision };
+  } catch { return { error: "UNAVAILABLE" }; }
 }

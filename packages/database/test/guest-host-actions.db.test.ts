@@ -7,7 +7,9 @@ import { joinRoomByCodeAsGuest } from "../src/rooms/guest-admission";
 import { createGuestSession } from "../src/identity/guest-sessions";
 import { runMigrations } from "../src/migrations";
 import { startRace } from "../src/races/lifecycle";
+import { changeRoomBots } from "../src/rooms/bots";
 import { closeRoom, configureRoom, startNextRound } from "../src/rooms/host-actions";
+import { readGuestRoom } from "../src/rooms/guest-room";
 import { leaveGuestRoom } from "../src/rooms/membership";
 import { parseRoomCode } from "@incision/domain";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
@@ -56,6 +58,16 @@ if (!parsedCode.ok) throw new Error("Invalid fixture code");
 const code = parsedCode.code;
 
 describe("guest host actions and retirement", () => {
+  it("reads only the guest's own live room without activity or cross-room disclosure", async () => {
+    const f = await hostFixture(); const before = await session();
+    expect(await readGuestRoom(db, f.guestProof, code)).toMatchObject({ memberId: f.guestMemberId });
+    expect(await readGuestRoom(db, f.guestProof, "UVWXYZ")).toBeUndefined();
+    expect(await readGuestRoom(db, { ...f.guestProof, secretDigest: "b".repeat(64) }, code)).toBeUndefined();
+    expect(await session()).toEqual(before);
+    await leaveGuestRoom(db, f.guestProof, () => new Set());
+    expect(await readGuestRoom(db, f.guestProof, code)).toBeUndefined();
+  });
+
   it("uses the existing 10–200 settings contract and renews only accepted changes", async () => {
     const f = await hostFixture(); const actor = { accountId: null, guestProof: f.guestProof };
     const settings = { textLanguage: "en" as const, wordCount: 10, timeLimitMs: null, errorMode: "mandatory" as const };
@@ -87,6 +99,24 @@ describe("guest host actions and retirement", () => {
     const before = await session();
     expect(await startNextRound(db, input)).toEqual({ ok: true, lobbyId: f.lobbyId, alreadyDone: true });
     expect(await session()).toEqual(before);
+  });
+
+  it("authorizes inherited guest bot controls without changing bot rules or renewing refusals", async () => {
+    const f = await hostFixture(); const actor = { accountId: null, guestProof: f.guestProof, code };
+    const before = await session();
+    expect(await changeRoomBots(db, { ...actor, guestProof: { ...f.guestProof, secretDigest: "b".repeat(64) }, revision: 0,
+      change: { kind: "add", level: "beginner" } })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
+    expect(await session()).toEqual(before);
+    expect(await changeRoomBots(db, { ...actor, revision: 0, change: { kind: "add", level: "beginner" } }))
+      .toMatchObject({ ok: true, revision: 1, guestSession: { id: f.guestId } });
+    const accepted = await session();
+    expect(await changeRoomBots(db, { ...actor, revision: 0, change: { kind: "add", level: "beginner" } }))
+      .toEqual({ ok: false, error: "STALE_REVISION" });
+    expect(await session()).toEqual(accepted);
+    const bot = (await pool.query("select id from lobby_bots")).rows[0];
+    expect(await changeRoomBots(db, { ...actor, revision: 1, change: { kind: "remove", botId: bot.id } }))
+      .toMatchObject({ ok: true, revision: 2 });
+    expect((await pool.query("select * from lobby_bots")).rows).toEqual([]);
   });
 
   it("refuses forged host proofs without writes or activity", async () => {

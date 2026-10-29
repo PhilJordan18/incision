@@ -1,5 +1,8 @@
 "use client";
 
+import { guestAwareAction } from "@/identity/guest-browser";
+import { guestNextRoundAction } from "@/server/rooms/guest-actions";
+
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { type ReactNode, useActionState, useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
@@ -12,6 +15,7 @@ import { ConfirmClosing, consequencesId } from "./confirm-closing";
 import { FIRST_VIEW, type HostRoundView, isStaleRefusal, nextHostRoundView } from "./host-round-view";
 
 type HostRoundActionsProps = {
+  readonly guest?: boolean;
   readonly t: Dictionary["rooms"]["hostActions"];
   /** The room the page shows: closing applies to it only. */
   readonly code: string;
@@ -27,12 +31,12 @@ type HostRoundActionsProps = {
  * asks first. In the waiting room, closing only. The server checks the host and the room's phase
  * under its lock; the pages learn the result from the room's snapshot.
  */
-export function HostRoundActions({ t, code, raceId, secondary }: HostRoundActionsProps) {
+export function HostRoundActions({ guest = false, t, code, raceId, secondary }: HostRoundActionsProps) {
   const router = useRouter();
   const [view, act] = useActionState<HostRoundView, FormData>(async (previous, formData) => {
     let error: HostActionError | undefined;
     try {
-      ({ error } = await nextRoundAction(formData));
+      ({ error } = await guestAwareAction(guest, () => guest ? guestNextRoundAction(formData) : nextRoundAction(formData)));
     } catch (thrown: unknown) {
       // Next's own signals (a redirect to sign in) go through; anything else did not reach the server.
       unstable_rethrow(thrown);
@@ -76,7 +80,7 @@ export function HostRoundActions({ t, code, raceId, secondary }: HostRoundAction
         cancelLabel={t.closeCancel}
         busy={closing}
       >
-        <CloseRoomForm t={t} code={code} describedBy={consequencesId("close-room")} onPendingChange={setClosing} />
+        <CloseRoomForm guest={guest} t={t} code={code} describedBy={consequencesId("close-room")} onPendingChange={setClosing} />
       </ConfirmClosing>
       <p id="close-room-note" className="text-sm text-brume">
         {t.closeNote}
