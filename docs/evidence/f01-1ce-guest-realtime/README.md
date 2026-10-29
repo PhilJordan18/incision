@@ -2,31 +2,31 @@
 
 ## Current status — October 29, 2026 (Toronto)
 
-PR #187 remains **draft; #31 is incomplete and public guest entry stays closed**.
-Latest verified executable: `0772f356300a4d9f842c18b3ab26dbb986130b3e`.
-The following evidence-only commit adds this report and screenshots.
+**Ready to deliver the approved #31/#36C2 scope; not pushed or activated.**
+PR #187 remains draft at published `95f89babd35b01fd296a1300e0ece4d3d093d65f`.
+Verified executable: `2658d5ffca9ca8ad9582083e978a987b015773ee`.
+The subsequent evidence-only commit records these results without changing code.
 
-Implemented and locally verified: internal guest admission/identity, realtime
-commands and accepted activity; non-host outside-race grace; account/guest host
-succession (#36C2); inherited guest host start/configure/next/close actions;
-room-scoped temporary results; explicit departure and account-transition fence;
-identity retirement and bounded local closed-room retention; cache eviction on SQL
-failure. Settings retain their existing 10–200-word semantics.
+Implemented: signed guest identity and transactional admission; coordinated first
+cookie/multi-tab browser entry; generated avatar; room/race commands and accepted
+activity; non-host outside-race grace; account/guest host succession (#36C2);
+inherited host start/configure/bots/next/close; temporary results; explicit departure
+and account-transition fence; identity retirement and bounded closed-room retention;
+cache eviction on SQL failure. Existing settings keep their 10–200-word semantics.
 
-On the exact executable SHA: all root gates and **2,347 unit tests passed**;
-**351 SQL passed / 9 existing PgBouncer skips**; **9 guest-session Chromium E2Es
-passed**, including the real 30-second grace and direct Auth.js transition refusal.
-Manual sequential reviews of this increment are recorded below. Earlier C2/start/
-results E2Es retain their own exact SHA reports; they were not all rerun here.
+On the exact executable SHA: no-JS policy, lint, typecheck, build and **2,354 unit
+tests passed**; **353 SQL passed / 9 existing PgBouncer skips**; **81 Chromium
+E2Es passed (7.7 minutes)**, covering the complete guest journey and account/bot/
+settings/succession regressions. Details and limits are in the final increment below.
 
-Still to implement: browser coordination, generated avatar, public guest entry and
-room UI, remaining bot-host identity adapter, full guest journey FR/EN/theme/a11y
-verification. The coordinator confirmed shared action/closure/settings files for
-identity wiring only; B retains lists/calibration. No new configuration rule.
+Public entry stays closed by default (`GUEST_ENTRY_ENABLED` must explicitly equal
+`true`). Only the isolated E2E server enabled it. No new push/PR, merge, deployment,
+remote resource, recipe, central matrix/board, migration or dependency change.
+Coordinator deliver is awaited. Browser/assistive-technology human checks remain;
+no further approved implementation item is identified as outstanding.
 
-Sections below are chronological evidence. **Their historical limits apply to
-those commits, not to the current cumulative implementation.** No central matrix
-or board, migration, dependency, recipe or remote resource has been changed.
+Sections below are chronological evidence. **Historical limits apply to their
+commits, not to the current cumulative implementation.**
 
 ## Historical initial realtime increment (superseded by later increments)
 
@@ -663,3 +663,149 @@ Reviews applied manually and sequentially, not independent subagents/external au
 Coordinator proposal only: retain #187 as draft/in progress; mark lifetime/transition
 increment verified at 0772f35, with the browser/public-entry/room-UI items above still
 to do. No central board or requirements matrix was edited. No merge or deployment.
+
+## Final browser and full journey increment — October 29, 2026 (Toronto)
+
+### Exact scope and commits
+
+- Base dev: `50f09cefda6947a943e35cf96661c49506875ebc`.
+- Branch: `codex/f-01-1cegf-guest-integration` (same PR #187).
+- `20dcc90ddbe2e8f6293c1178e9763deebec54bcd`: gated browser admission,
+  guest room rendering, host bot adapter, account-login coordination and tests.
+- `2658d5ffca9ca8ad9582083e978a987b015773ee`: public guest avatar projection
+  and 360/390/1024/1440 px checks. All final gates/reviews target this executable.
+- Subsequent documentation/captures commit only: no runtime difference from 2658d5f.
+
+`identity/guest-browser.ts` serializes cookie-changing UI operations using one
+origin-wide Web Lock. Entry reads status inside the lock before creating the first
+HttpOnly cookie; credentials/provider initiation shares that lock. SQL remains the
+final authority: the browser lock is not an authorization boundary. Unsupported
+Web Locks refuse guest entry explicitly; account login still works without JS.
+Malformed/expired identity is not silently replaced; explicit reset is fenced
+against an active presence. The proof never enters client component props or HTML.
+
+Only an accepted server event schedules cookie synchronization: immediately once,
+then at most once per minute per mounted tab, with one pending trailing event and
+no overlapping request. There is no idle heartbeat or retry loop. Refresh only reads
+the SQL deadline; it does not extend it. Network loss or tab closure can prevent a
+cookie update, so browser expiry may precede SQL expiry. Rights/expiry are always
+revalidated on the server. Ending presence stops refresh and forgets private typing.
+
+New admission, room reader and bot adapter preserve room-before-identity locking,
+normalize nickname with the existing parser, and authorize each mutation. Fresh
+admission is accepted activity; duplicate admission and refusals do not renew.
+Guest bots use the existing host/quota/revision/phase rules. Avatars derive initials
+from the public nickname only, with no photo or durable identity identifier.
+
+Main paths: `apps/web/src/app/(site)/guest/`, guest room page and `room-view.tsx`,
+`apps/web/src/identity/guest-browser.ts`, guest admission/actions under
+`apps/web/src/server/rooms/`, existing room control components, FR/EN dictionaries,
+`packages/database/src/rooms/{guest-room,guest-admission,bots}.ts` and their tests.
+No schema/migration/dependency/settings-semantics change. Published migrations
+0012/0013/0014 are untouched.
+
+### Executed gates
+
+All ran in this cloud workspace against synthetic fixtures only, on 2658d5f,
+without source edits during verification. Every command exited 0.
+
+| Command | Result |
+| --- | --- |
+| `npm run check:no-js` | Passed |
+| `npm run lint` | Passed |
+| `npm run typecheck` | Passed |
+| `npm test` | 2,354 passed: web 928, database 146, domain 1,198, load 20, word-list tools 62 |
+| `npm run build` | Passed |
+| `npm run test:db -w @incision/database` | 353 passed, 9 skipped; 34 files passed, 1 skipped |
+| Selected cumulative `npm run test:e2e -w @incision/web -- …` below | 81 passed, no skips, Chromium, 7.7 minutes |
+
+SQL used isolated PostgreSQL 17 on cloud loopback port 55435, temporary databases;
+E2E used the synthetic `incision_e2e_guest31ui` database and app port 3221. The nine
+existing PgBouncer tests require their separate pooled/direct harness and were not
+executed. No Neon, OAuth provider, recipe3880 or coordinator Docker was accessed.
+
+E2E selection (not a claim that every repository E2E was run):
+
+```text
+guest-journey.spec.ts guest-entry-refusals.spec.ts guest-session.spec.ts
+guest-race-commands.spec.ts guest-temporary-results.spec.ts sign-in.spec.ts
+session.spec.ts rooms.spec.ts room-settings.spec.ts room-bots.spec.ts
+bot-races.spec.ts race.spec.ts host-succession.spec.ts host-network-succession.spec.ts
+```
+
+Local logs: `/tmp/guest-ready-{nojs,lint,types,unit,build,db,e2e}.log`.
+These transient paths are not durable CI evidence. New local commits have not been
+pushed; previous published CI is not evidence for this head.
+
+### Checked criteria and regressions
+
+| Criterion | Actual evidence | Result |
+| --- | --- | --- |
+| First cookie and concurrent tabs | Guest journey: two submits, one cookie/member, unchanged membership after reload | OK |
+| Unicode collision and explicit reset | Normalized fullwidth/combining nickname; occupied nickname refused; malformed cookie retained until reset | OK |
+| Account/guest separation | Concurrent first admission/login has one winner; no-JS account login; direct callback refusal | OK |
+| Confidentiality | HttpOnly absent from document.cookie; guest proof/ID absent from HTML; own-room SQL reader refuses other room/forged proof | OK |
+| Mixed race and conservation | Complete account+guest race, anonymous durable guest entrant, account result rows unchanged after closure | OK |
+| Inherited host controls | Guest next/settings10/bot add-remove/start/close in full journey; SQL stale/forged actions do not renew | OK |
+| Guest-only race | Results visible in room, no durable race_results, identity retired at close | OK |
+| Grace and succession | Existing guest-session and host-network suite, plus SQL/unit timeout/concurrency checks | OK |
+| Accounts/bots/settings | Full selected regressions, including 10 and 200 words, both typing modes and live updates | OK |
+| Responsive/i18n/a11y | Entry+room FR/EN × Abysse/Aube × 360/390/1024/1440; axe and no horizontal scroll | OK within automated scope |
+
+32 unmodified browser screenshots are in [browser-journey/](browser-journey/).
+Representative manual visual inspection: entry FR/Abysse at 390/1024/1440; room
+FR/Abysse390 and EN/Aube1024/1440. Reference layouts/tokens were consulted; generated
+initials replace the obsolete design photo picker in accordance with the brief.
+Keyboard focus is visible, controls have labels, and no new animation is introduced.
+Automated axe is not a complete assistive-technology or manual keyboard audit.
+
+### Sequential reviews at 2658d5f
+
+Roles applied manually by the same agent, without edits during review; these are
+not independent external audits. Earlier increments retain their detailed reviews
+above; this review reads the new diff and rechecks the coupled authorization,
+transition and transaction contracts. Cumulative gates exercise prior increments.
+
+- **Code reviewer: OK, no blocking/major finding.** Thin server/client separation,
+  existing contracts reused, conservative optional guest projection, failure paths
+  and meaningful end-to-end account regression coverage. No unrelated feature added.
+- **Security: OK within local scope.** Signed proof stays server-side, account cookie
+  takes precedence, action inputs are parsed, code-attempt limiter reused, host and
+  expiry checked transactionally. Web Locks prevent cooperating-tab first-cookie
+  races, while server fences protect admission/transition. No implicit identity or
+  result transfer; no real OAuth/network attack tested.
+- **DBA: OK.** Consistent room then guest lock order; new bot/admission renewal rolls
+  back with failed mutations. Own-room reads recheck expiry. Full SQL suite passes,
+  including migration/conservation/retention and atomicity/idempotence coverage.
+  No migration to generate or deploy. PgBouncer remains explicitly unverified here.
+- **Functional QA: OK for approved journey.** Named criteria above pass; complete
+  account+guest then guest-only+bot journey exercises preserved and temporary results.
+- **UI/UX: OK for automated/local visual scope.** Design tokens, FR/EN, both themes,
+  responsive captures and axe pass. Remaining human checks are listed below.
+
+During development, two E2E selectors were corrected (Next's extra live announcer;
+existing word-count accessible hint). A nonexistent Playwright `toSatisfy` matcher
+was replaced with settled-page polls and an XOR assertion. The real no-JS explanatory
+message was corrected to render during SSR; its regression test now passes. These
+intermediate failed attempts are not counted as successful final runs. The older
+sandbox asynchronous failure remains documented in its historical increment; no
+unproven attribution to a CLI defect is made.
+
+### Limits, human checks and coordinator proposal
+
+- Entry stays closed by default. Delivery and any activation/deployment are separate;
+  this report does not authorize either. No additional push was made.
+- Chromium was tested. Firefox/Safari, privacy modes, real assistive technology,
+  manual keyboard-only/reduced-motion and physical mobile keyboard checks remain
+  human acceptance checks, not claimed passes. Try two fresh tabs, nickname refusal,
+  reload/reconnect, inherited host controls, leave then browser Back and account login.
+- Web Locks are required for guest entry. Cookie synchronization is per-tab bounded;
+  a lost response can leave browser lifetime shorter than the valid SQL deadline.
+- Temporary results are process memory and may disappear on process restart.
+  Physical retention can lag during outage/backlog; expired rights are still denied.
+  No distributed runtime or new scheduler was introduced.
+- Proposal to coordinator only: mark the approved #31 journey and #36C2 implemented
+  and locally verified at 2658d5f; keep delivery/CI/human acceptance/activation pending.
+  Central EXIGENCES/IA/board were intentionally not edited concurrently.
+
+**Ready to deliver; await the coordinator's deliver before pushing the same branch.**
