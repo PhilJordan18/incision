@@ -67,6 +67,11 @@ test("bot controls are accessible in both languages and themes at reference widt
     for (const theme of ["abysse", "aube"]) {
       await page.evaluate((value) => document.documentElement.dataset.theme = value, theme);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      // The live label must not interpolate its foreground against an independently
+      // transitioning ancestor background, including with reduced motion enabled.
+      const live = page.getByText(/^\[\.(En direct|Live)\]$/);
+      await expect(live).toHaveCSS("transition-property", "none");
+      expect(await live.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
       for (const width of [1440, 1024, 390, 360]) {
         await page.setViewportSize({ width, height: 1000 });
         await expectNoHorizontalScroll(page); await expectNoAccessibilityViolation(page);
