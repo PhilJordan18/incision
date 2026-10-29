@@ -258,3 +258,61 @@ under ADR-0001; interruption versus finalization races. These are implementation
 and verification concerns under existing D-03/D-06, not reasons to invent a new
 successor policy. C2 is required before claiming complete guest activation, but does
 not block continued command/result/non-host work on this draft branch.
+
+## E progress — guest race commands and accepted activity
+
+Implementation `796ad0b`; final test/review reference
+`85d2c3f9a289da6000b51746414ae419f00117f8`. This supersedes the earlier statement
+that all guest race commands are account-gated: typing, control, present and
+abandon now support an already admitted guest. Public admission/UI remains closed;
+guest host start/management and the remaining results/retention work are not yet
+complete. The browser fixture admits through synthetic local SQL, not a public UI.
+
+Each guest command has a shared pre-SQL limit of ten per second (the existing
+MAX_BATCHES_PER_SECOND) and one in-flight operation per guest identity across tabs.
+The new SQL adapter locks room then session, verifies proof, active exact membership
+and expiry after locks, then runs the synchronous server callback. Only the server's
+accepted-action outcome renews last_seen_at/expires_at. Applied keystrokes count;
+duplicate/refused batches, invalid Escape input, rejected control/present/abandon,
+room watches and passive events do not. D-17 engine rules are unchanged. Accepted
+control/abandon are session activity, not synthetic D-17 typing activity.
+
+The registry synchronizes verified SQL deadlines across tabs. A successful activity
+notification contains no identity or credential. POST /api/guest/session/refresh
+synchronizes the HttpOnly cookie with **remaining SQL lifetime only** and does not
+write activity. Repeated refreshes cannot keep an idle identity alive; same-origin,
+strict empty body, account priority and existing address limits remain enforced.
+Browser event-driven refresh scheduling is still part of the upcoming UI work.
+
+On SQL failure after the callback, process-local engine state cannot be rewound.
+The command returns UNAVAILABLE and is never automatically executed again by the
+adapter; the engine's existing sequence/idempotence contract governs any client
+retry. No renewal is claimed on a failed transaction. New UNAVAILABLE protocol
+variants make this distinct from unauthorized identity or an expired race.
+
+Checks: root no-js/lint/typecheck/test/build exited 0 on 85d2c3f; **2,301 unit tests
+passed** (web 875, database 146, domain 1,198, load 20, word-lists 62). Targeted SQL
+command/departure tests: **14 passed**, including six new command cases. Targeted
+socket/gate tests: 59 passed. Guest HTTP/cookie tests: 37 passed. Chromium guest
+session + real-engine command suites: **nine passed**. The new browser case proves
+accepted typing renewal, duplicate/invalid-input non-renewal, read-only cookie
+synchronization and present activity against local PostgreSQL and the real runtime.
+
+The initial full run at 796ad0b failed the existing randomized tampering test: it
+replaced a generated field's first character with X even when it already was X.
+The fixture now picks a different character deterministically; no signature check
+or assertion was weakened. All final gates above passed after that correction.
+
+Sequential manual code/security/DBA/QA reviews at 85d2c3f: OK for this internal
+command unit. Reviewed proof isolation, lock ordering, pre-SQL budgets, accepted
+versus duplicate/refused activity, failure without callback replay, and read-only
+cookie expiry synchronization. Full guest UI, host controls, temporary results,
+privacy cache deletion and operational retention are not claimed verified.
+
+### C2 approval received in this chat
+
+Philippe explicitly authorized taking C2 within the proposed minimal scope,
+coordinated with this PR, with tests/evidence before delivery and no merge or recipe
+change. The earlier C2 “not authorized” wording is superseded by this approval.
+Implementation will follow this command unit on the same branch; no separate
+preparatory PR or stacked base is needed.
