@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstatSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { parseWordListSource, WORD_DATA_SENTINEL } from "../../../packages/domain/src/words/data/format";
 import { usesWordLetters } from "../../../packages/domain/src/text/typable";
@@ -10,6 +10,15 @@ export type CandidateOptions = { rawDir: string; language: string; version: stri
 type CandidateCounts = { input: number; accepted: number; duplicates: number; rejected: { frequency: number; syntax: number; alphabet: number } };
 export const sha256 = (input: string | Uint8Array): string => createHash("sha256").update(input).digest("hex");
 const compare = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
+
+/** Exact upstream bytes, including the complete bibliography; never a shortened notice. */
+export function verifiedCreditsDigest(credits: string): string {
+  const digest = sha256(credits);
+  if (digest !== "1de60f78c5f7af00370ee190bbf776f90759a5da422e2ab453c97e45b6da92f4") {
+    throw new Error("Bundled wordfreq credits differ from the pinned upstream excerpt");
+  }
+  return digest;
+}
 
 export function candidateSettings(language: string, version: string): asserts language is "fr" | "en" {
   if (language !== "fr" && language !== "en") throw new RangeError("Language must be fr or en");
@@ -54,11 +63,12 @@ const NOTICE = `Candidate data, NOT approved for races or suitability for minors
 Source: wordfreq 3.1.1 by Robyn Speer and contributors.
 https://github.com/rspeer/wordfreq/
 Data: CC BY-SA 4.0 https://creativecommons.org/licenses/by-sa/4.0/
-Full versioned credits: wordfreq-3.1.1.dist-info/METADATA in the pinned 3.1.1 wheel.
+Full versioned credits are included in wordfreq-3.1.1.md, copied unchanged from
+wordfreq-3.1.1.dist-info/METADATA in the pinned 3.1.1 wheel (License section to EOF).
 Sources include Google Books Ngrams, Leeds Internet Corpus, Wikipedia, ParaCrawl,
 OPUS OpenSubtitles 2018 (OpenSubtitles), and SUBTLEX by Marc Brysbaert et al.
 SUBTLEX is freely available data: http://crr.ugent.be/programs-data/subtitle-frequencies
-Review and retain the upstream credits before any dataset publication.
+Retain these upstream credits with derived data; publication still requires review.
 Changes: NFC, lowercase, syntax/alphabet filtering, highest-frequency deduplication,
 explicit code-unit sorting and conversion to the Incision word-list format.
 No exclusion list, linguistic review, difficulty calibration or child-safety approval applied.
@@ -71,14 +81,22 @@ export function exportCandidate(options: CandidateOptions, testPins?: Readonly<R
   const inputPath = `wordfreq-3.1.1/wordfreq/data/large_${language}.msgpack.gz`;
   const raw = readPinned(options.rawDir, inputPath, testPins);
   const { source, counts } = serializeCandidate(readCbPack(raw), language, version);
+  const creditsFile = "wordfreq-3.1.1.md";
+  const credits = readFileSync(new URL(`../notices/${creditsFile}`, import.meta.url), "utf8");
+  const creditsDigest = verifiedCreditsDigest(credits);
   const filename = `${language}.words.txt`;
   const manifest = {
-    status: "candidate-not-approved", exporterVersion: 1, policyVersion: 1, language, version,
+    status: "candidate-not-approved", exporterVersion: 2, policyVersion: 1, language, version,
     source: { name: "wordfreq", version: "3.1.1", path: inputPath, sha256: sha256(raw) },
     transformations: ["NFC", "lowercase", "NFC", "syntax-and-alphabet-filter", "highest-frequency-deduplication", "code-unit-sort"],
     counts, output: { file: filename, sha256: sha256(source) }, noticeSha256: sha256(NOTICE),
+    upstreamCredits: {
+      file: creditsFile, sha256: creditsDigest,
+      wheelSha256: "4b1c6ecffc6198be3396d5cf871c4423ca71c907c231348d352dd54d62b97473",
+      member: "wordfreq-3.1.1.dist-info/METADATA", excerpt: "## License through end of file, unchanged UTF-8",
+    },
   };
-  publish(options.outDir, { [filename]: source, "manifest.json": `${JSON.stringify(manifest, null, 2)}\n`, "NOTICE.txt": NOTICE });
+  publish(options.outDir, { [filename]: source, "manifest.json": `${JSON.stringify(manifest, null, 2)}\n`, "NOTICE.txt": NOTICE, [creditsFile]: credits });
 }
 
 /** A sibling lock serializes tool writers; a complete directory is renamed into place. */

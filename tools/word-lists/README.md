@@ -35,7 +35,8 @@ The output parent must already exist; the output directory must not exist. The c
 reads only the selected pinned wordfreq file: LDNOOBW, Lexique and ESDB are not needed.
 There is no network access, arbitrary pin override or change to the runtime's `fixture-1` lists.
 
-The output contains `<language>.words.txt`, `manifest.json` and `NOTICE.txt`. The manifest
+The output contains `<language>.words.txt`, `manifest.json`, `NOTICE.txt` and the complete
+upstream excerpt `wordfreq-3.1.1.md` (see [provenance](notices/README.md)). The manifest
 records input/output SHA-256, source and exporter/policy versions, transformations and counts.
 It has no timestamp or absolute path, so identical inputs/options produce identical bytes.
 The policy uses NFC, lowercase then NFC; rejects non-NFKC-stable forms, unsupported syntax
@@ -49,7 +50,7 @@ This is a **syntactic candidate**, not a reviewed linguistic list or a safe list
 It deliberately does not choose difficulty thresholds, apply exclusions/pairs, transliterate
 ligatures, or choose an auxiliary dictionary. French ligatures remain spelled as supplied;
 the existing random generator's typing restrictions still apply later. Full upstream credits
-are in the pinned wheel's `wordfreq-3.1.1.dist-info/METADATA`; review/retain those and resolve
+are copied from the pinned wheel's `wordfreq-3.1.1.dist-info/METADATA`; review/retain those and resolve
 editorial policy before publishing actual data. Do not commit the generated real lists.
 
 Validation and serialization finish before writing. A sibling `<out-dir>.lock` serializes
