@@ -31,6 +31,8 @@ export type EntrantResult = {
 export type EntrantResultView = {
   /** Always populated by the SQL reader; optional for older non-live view producers. */
   readonly kind?: "human" | "bot";
+  /** Anonymous human opponent: label is a race-local ordinal, never a guest nickname. */
+  readonly anonymous?: boolean;
   readonly botLevel?: BotLevel | null;
   readonly ordinal: number;
   readonly displayName: string;
@@ -174,7 +176,8 @@ async function readRaceView(db: Database, accountId: string, condition: SQL): Pr
     entrants: rows.map(({ ordinal, displayName, kind, botLevel, accountId: entrantAccount, seriesEntrantId, series, correctInputs, totalInputs, result }) => ({
       ordinal,
       displayName,
-      kind,
+      kind: kind === "guest" ? "human" : kind,
+      ...(kind === "guest" ? { anonymous: true } : {}),
       botLevel,
       isSelf: entrantAccount === accountId,
       ...(finished && result !== null ? { result: {

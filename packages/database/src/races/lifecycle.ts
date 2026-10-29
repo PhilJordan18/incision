@@ -99,7 +99,7 @@ export type StartRaceResult<Refusal extends string, Created> =
       /** What `create` returned: the race in memory, committed with its rows. */
       readonly created: Created;
     }
-  | { readonly ok: false; readonly error: "NOT_IN_A_ROOM" | "NOT_HOST" | "ROOM_NOT_WAITING" | "SETTINGS_CHANGED" | Refusal };
+  | { readonly ok: false; readonly error: "NOT_IN_A_ROOM" | "NOT_HOST" | "ROOM_NOT_WAITING" | "SETTINGS_CHANGED" | "GUEST_RESULTS_REQUIRE_ACCOUNT" | Refusal };
 
 /**
  * The host starts a race (COURSE-02/03): under the room lock, the room must be waiting, the
@@ -142,6 +142,11 @@ export async function startRace<Refusal extends string, Created>(
       .from(lobbyMembers)
       .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, "participant"), isNull(lobbyMembers.leftAt)))
       .orderBy(asc(lobbyMembers.joinedAt), asc(lobbyMembers.id));
+    // This preparatory persistence path covers D-08 account histories only. Guest-only
+    // races require a separate temporary-results path, not durable persistence here.
+    if (participants.some((p) => p.accountId === null) && !participants.some((p) => p.accountId !== null)) {
+      return { ok: false, error: "GUEST_RESULTS_REQUIRE_ACCOUNT" };
+    }
     // Ids drawn here, not by the database, so the engine creates the race with the ids the rows keep.
     const raceId = randomUUID();
     const entrants = participants.map(
@@ -191,15 +196,15 @@ export async function startRace<Refusal extends string, Created>(
     const inserted = await tx
       .insert(raceEntrants)
       .values(
-        entrants.map((entrant) => ({
+        entrants.map((entrant): typeof raceEntrants.$inferInsert => ({
           id: entrant.entrantId,
           raceId: race.id,
-          memberId: entrant.memberId,
+          memberId: entrant.kind !== "bot" && entrant.accountId === null ? null : entrant.memberId,
           accountId: entrant.accountId,
-          kind: entrant.kind ?? "human",
+          kind: entrant.kind === "bot" ? "bot" : entrant.accountId === null ? "guest" : "human",
           botLevel: entrant.botLevel ?? null,
           ordinal: entrant.ordinal,
-          displayNameSnapshot: entrant.displayName,
+          displayNameSnapshot: entrant.kind !== "bot" && entrant.accountId === null ? `#${entrant.ordinal}` : entrant.displayName,
         })),
       )
       .returning({ id: raceEntrants.id });
@@ -369,7 +374,7 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
     if (ended.length === 0) {
       return (await savedBy(tx, ownership)) ? { won: true, alreadyDone: true } : { won: false };
     }
-    const entrants = await tx.select({ id: raceEntrants.id }).from(raceEntrants).where(eq(raceEntrants.raceId, ownership.raceId));
+    const entrants = await tx.select({ id: raceEntrants.id, kind: raceEntrants.kind }).from(raceEntrants).where(eq(raceEntrants.raceId, ownership.raceId));
     if (entrants.length !== results.length) {
       throw new Error("Every entrant needs exactly one result");
     }
@@ -379,7 +384,10 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
       const value = checkedResultWpmSeries(result.wpmSeries, result);
       return value === undefined ? [] : [{ raceId: ownership.raceId, entrantId: result.entrantId, series: value }];
     });
-    const keyErrors = results.flatMap((result) => result.keyErrors === undefined ? [] : [{
+    // Guest-private mistakes may exist in memory, but never cross the durable boundary.
+    // Classify from persisted entrants, not a caller-supplied kind.
+    const guests = new Set(entrants.filter((entrant) => entrant.kind === "guest").map((entrant) => entrant.id));
+    const keyErrors = results.flatMap((result) => result.keyErrors === undefined || guests.has(result.entrantId) ? [] : [{
       raceId: ownership.raceId, entrantId: result.entrantId, aggregate: checkedKeyErrors(result.keyErrors, result),
     }]);
     const written = await tx
