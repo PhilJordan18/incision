@@ -24,7 +24,7 @@ import {
 } from "../../races/protocol";
 import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
-import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
+import { type RaceConnection, raceConnectionKey, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
 import type { RaceTextDraw, RaceTextSource } from "./race-texts";
 import { isRunnable } from "../rooms/room-settings";
 import { BonusActivationLimiter } from "./bonus-limiter";
@@ -151,7 +151,7 @@ export class RaceService {
       this.#followers.delete(lobbyId);
     }
     if (leaving !== undefined) {
-      this.#registry.get(lobbyId)?.unfollow(connectionId, leaving.accountId);
+      this.#registry.get(lobbyId)?.unfollow(connectionId, leaving);
     }
   }
 
@@ -161,7 +161,7 @@ export class RaceService {
    * creates the race (`createRace`, with its own checks); once that commits, this process runs it
    * under its lease (ADR-0004).
    */
-  async start(connection: RoomConnection, payload: unknown): Promise<RaceStartAck> {
+  async start(connection: RoomConnection & { readonly accountId: string }, payload: unknown): Promise<RaceStartAck> {
     if (!raceStartPayloadSchema.safeParse(payload).success) {
       return { ok: false, error: "INVALID_PAYLOAD" };
     }
@@ -197,7 +197,7 @@ export class RaceService {
   }
 
   /** One draw with the room's current settings, then the start transaction. */
-  async #drawAndStart(connection: RoomConnection): Promise<RaceStartAck | "SETTINGS_CHANGED"> {
+  async #drawAndStart(connection: RoomConnection & { readonly accountId: string }): Promise<RaceStartAck | "SETTINGS_CHANGED"> {
     let room: OwnRoomSettings | undefined;
     try {
       room = await this.#options.store.readOwnRoomSettings(connection.accountId);
@@ -235,7 +235,7 @@ export class RaceService {
   }
 
   async #start(
-    connection: RoomConnection,
+    connection: RoomConnection & { readonly accountId: string },
     { text, record }: Extract<RaceTextDraw, { ok: true }>,
     lobbyId: string,
     settings: OwnRoomSettings["settings"],
@@ -376,7 +376,7 @@ export class RaceService {
 
   /** One keystroke batch from a tab (F-04.4): bounded per tab, structure checked, then the engine. */
   keystrokes(connection: RoomConnection, payload: unknown): RaceBatchAck {
-    if (!this.#withinWindow(this.#batchTimes, connection.accountId, MAX_BATCHES_PER_SECOND, BATCH_WINDOW_MS)) {
+    if (!this.#withinWindow(this.#batchTimes, raceConnectionKey(connection), MAX_BATCHES_PER_SECOND, BATCH_WINDOW_MS)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
     const parsed = parseKeystrokeBatch(payload);
@@ -391,7 +391,7 @@ export class RaceService {
   activateBonus(connection: RoomConnection, payload: unknown): BonusActivationAck {
     const followed = this.#followed(connection);
     if (followed === undefined) return { ok: false, error: "NO_RACE" };
-    if (!this.#bonusLimiter.allow(connection.accountId)) return { ok: false, error: "RATE_LIMITED" };
+    if (!this.#bonusLimiter.allow(raceConnectionKey(connection))) return { ok: false, error: "RATE_LIMITED" };
     const parsed = bonusActivationPayloadSchema.safeParse(payload);
     if (!parsed.success) return { ok: false, error: "INVALID_PAYLOAD" };
     return followed.runtime.activateBonus(followed.connection, parsed.data);
@@ -405,7 +405,7 @@ export class RaceService {
     }
     // Per account as well as per socket: many tabs taking the input in turn would multiply the
     // state sent to every one of them.
-    if (!this.#withinWindow(this.#controlTimes, connection.accountId, CONTROL_WINDOW.maxRequests, CONTROL_WINDOW.windowMs)) {
+    if (!this.#withinWindow(this.#controlTimes, raceConnectionKey(connection), CONTROL_WINDOW.maxRequests, CONTROL_WINDOW.windowMs)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
     const followed = this.#followed(connection);
@@ -435,7 +435,7 @@ export class RaceService {
     if (!parsed.success) {
       return { ok: false, error: "INVALID_PAYLOAD" };
     }
-    if (!this.#withinWindow(this.#entrantActionTimes, connection.accountId, ENTRANT_ACTION_WINDOW.maxRequests, ENTRANT_ACTION_WINDOW.windowMs)) {
+    if (!this.#withinWindow(this.#entrantActionTimes, raceConnectionKey(connection), ENTRANT_ACTION_WINDOW.maxRequests, ENTRANT_ACTION_WINDOW.windowMs)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
     const followed = this.#followed(connection);
@@ -499,7 +499,7 @@ export class RaceService {
     const lobbyId = this.#rooms.get(connection.id);
     const followed = lobbyId === undefined ? undefined : this.#followers.get(lobbyId)?.get(connection.id);
     const runtime = lobbyId === undefined ? undefined : this.#registry.get(lobbyId);
-    return followed === undefined || runtime === undefined || followed.accountId !== connection.accountId ? undefined : { runtime, connection: followed };
+    return followed === undefined || runtime === undefined || raceConnectionKey(followed) !== raceConnectionKey(connection) ? undefined : { runtime, connection: followed };
   }
 }
 

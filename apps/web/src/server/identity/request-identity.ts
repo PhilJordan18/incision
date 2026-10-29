@@ -12,8 +12,7 @@ export type AccountIdentity =
 export async function resolveAccountIdentity(header: string | null, verify: (header: string | undefined) => Promise<HandshakeAuthentication>): Promise<AccountIdentity> {
   // Auth.js collects every cookie starting with its session prefix, not just numeric
   // chunks. Match that boundary too, so a malformed suffix cannot trigger guest fallback.
-  const present = (header ?? "").split(";").some((part) => /^(?:__Secure-)?authjs\.session-token/.test(part.trim()));
-  if (!present) return { kind: "absent" };
+  if (!hasAccountSessionCookie(header)) return { kind: "absent" };
   try {
     const result = await verify(header ?? undefined);
     if (result.kind === "authenticated") return { kind: "account", subject: { kind: "account", accountId: result.session.accountId } };
@@ -21,4 +20,9 @@ export async function resolveAccountIdentity(header: string | null, verify: (hea
   } catch {
     return { kind: "unavailable" };
   }
+}
+
+/** Match Auth.js' prefix collector, including malformed chunk names. */
+export function hasAccountSessionCookie(header: string | null): boolean {
+  return (header ?? "").split(";").some((part) => /^(?:__Secure-)?authjs\.session-token/.test(part.trim()));
 }

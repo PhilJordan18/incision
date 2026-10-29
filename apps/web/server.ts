@@ -5,6 +5,8 @@ import {
   beginRacing,
   finalizeRace,
   findActiveMembership,
+  findActiveHumanMembership,
+  readGuestSession,
   getDatabase,
   interruptOwnRace,
   loadActiveCorpus,
@@ -24,7 +26,7 @@ import { followedRoom, registerRoomChannel } from "./src/server/realtime/room-ch
 import { roomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
-import { authenticateHandshake } from "./src/server/realtime/socket-session";
+import { authenticateHumanHandshake } from "./src/server/realtime/human-handshake";
 import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
 import { processOwnerId } from "./src/server/races/process-owner";
 import { RaceService, serverClock } from "./src/server/races/race-service";
@@ -57,7 +59,9 @@ async function main(): Promise<void> {
     allowedOrigin: env.appOrigin,
     isProduction: env.isProduction,
     authenticate: (cookieHeader) =>
-      authenticateHandshake(cookieHeader, {
+      authenticateHumanHandshake(cookieHeader, {
+        guestKey: process.env.GUEST_SESSION_SECRET,
+        readGuest: (proof) => readGuestSession(databaseOf(env), proof),
         secret: env.authSecret,
         secureCookie: env.secureCookies,
         readVersion: (accountId) => readSessionVersion(databaseOf(env), accountId),
@@ -121,6 +125,8 @@ async function main(): Promise<void> {
     presence: roomPresence(),
     events: roomEvents(),
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
+    findGuestMembership: (guestSessionId) => findActiveHumanMembership(databaseOf(env), { kind: "guest", guestSessionId }),
+    readGuest: (proof) => readGuestSession(databaseOf(env), proof),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
     raceRecovery: {
       recover: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),

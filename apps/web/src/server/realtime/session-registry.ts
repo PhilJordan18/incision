@@ -1,3 +1,5 @@
+import type { GuestSocketSession } from "./human-handshake";
+
 /** What the registry needs from a socket; Socket.IO's Socket satisfies it. */
 export type RegisteredSocket = { readonly id: string; disconnect(close: boolean): unknown };
 
@@ -14,6 +16,7 @@ type Entry = {
  */
 export class SessionRegistry {
   readonly #entries = new Map<string, Entry>();
+  readonly #guests = new Map<string, { socket: RegisteredSocket; sessionId: string; expiresAt: number; timer: ReturnType<typeof setTimeout> }>();
   /** Lowest valid version per account after a revocation seen by this process, with its expiry. */
   readonly #minimumVersions = new Map<string, { readonly version: number; readonly until: number }>();
 
@@ -38,7 +41,42 @@ export class SessionRegistry {
     return true;
   }
 
+  /** Guest and account UUID namespaces never share revocation or expiration state. */
+  registerGuest(socket: RegisteredSocket, session: GuestSocketSession): boolean {
+    return this.#trackGuest(socket, session.proof.id, session.expiresAt);
+  }
+
+  #trackGuest(socket: RegisteredSocket, sessionId: string, expiresAt: number): boolean {
+    if (!Number.isFinite(expiresAt) || expiresAt <= this.#now()) return false;
+    const previous = this.#guests.get(socket.id);
+    if (previous !== undefined) clearTimeout(previous.timer);
+    const entry = { socket, sessionId, expiresAt,
+      timer: setTimeout(() => {
+        if (this.#guests.get(socket.id) !== entry) return;
+        this.#guests.delete(socket.id);
+        socket.disconnect(true);
+      }, expiresAt - this.#now()) };
+    entry.timer.unref?.();
+    this.#guests.set(socket.id, entry);
+    return true;
+  }
+
+  /** Only a successful database read/touch may supply this deadline. No activity is inferred. */
+  refreshGuest(sessionId: string, expiresAt: number): void {
+    for (const entry of this.#guests.values()) {
+      if (entry.sessionId !== sessionId || expiresAt <= entry.expiresAt) continue;
+      this.#trackGuest(entry.socket, sessionId, expiresAt);
+    }
+  }
+
+  isGuestCurrent(socketId: string, sessionId: string): boolean {
+    const entry = this.#guests.get(socketId);
+    return entry !== undefined && entry.sessionId === sessionId && entry.expiresAt > this.#now();
+  }
+
   unregister(socketId: string): void {
+    const guest = this.#guests.get(socketId);
+    if (guest !== undefined) { clearTimeout(guest.timer); this.#guests.delete(socketId); }
     const entry = this.#entries.get(socketId);
     if (entry !== undefined) {
       clearTimeout(entry.timer);
@@ -71,7 +109,7 @@ export class SessionRegistry {
   }
 
   get size(): number {
-    return this.#entries.size;
+    return this.#entries.size + this.#guests.size;
   }
 
   #pruneExpiredRevocations(): void {

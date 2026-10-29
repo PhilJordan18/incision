@@ -1,10 +1,11 @@
+import type { GuestSocketSession, HumanHandshake } from "./human-handshake";
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { type DefaultEventsMap, Server, type Socket } from "socket.io";
 import { HANDSHAKE_UNAVAILABLE } from "../../rooms/protocol";
 import { isAllowedHandshake } from "./origin";
 import { answerPing, PING_EVENT } from "./ping";
 import type { SessionRegistry } from "./session-registry";
-import type { HandshakeAuthentication, SocketSession } from "./socket-session";
+import type { SocketSession } from "./socket-session";
 
 /** Protected event of the checkpoint: answers the account of the socket's session. */
 export const SESSION_EVENT = "session:whoami";
@@ -17,11 +18,11 @@ type RealtimeOptions = {
   readonly allowedOrigin: string;
   readonly isProduction: boolean;
   /** Reads the session from the handshake's cookies (socket-session.ts). */
-  readonly authenticate: (cookieHeader: string | undefined) => Promise<HandshakeAuthentication>;
+  readonly authenticate: (cookieHeader: string | undefined) => Promise<HumanHandshake>;
   readonly registry: SessionRegistry;
 };
 
-type SocketData = { session?: SocketSession };
+type SocketData = { session?: SocketSession; guestSession?: GuestSocketSession };
 
 /** Bound on one incoming message: a socket that sends more is cut by Socket.IO. */
 export const MAX_MESSAGE_BYTES = 32 * 1024;
@@ -62,6 +63,7 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
         if (result.kind === "authenticated") {
           socket.data.session = result.session;
         }
+        if (result.kind === "guest") socket.data.guestSession = result.session;
         next();
       })
       .catch((error: unknown) => {
@@ -72,13 +74,18 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
   });
 
   io.on("connection", (socket) => {
-    const { session } = socket.data;
+    const { session, guestSession } = socket.data;
     if (session !== undefined) {
       // A sign-out may have happened while the handshake was being checked.
       if (!registry.register(socket, session)) {
         socket.disconnect(true);
         return;
       }
+      socket.on("disconnect", () => registry.unregister(socket.id));
+    }
+
+    if (guestSession !== undefined) {
+      if (!registry.registerGuest(socket, guestSession)) { socket.disconnect(true); return; }
       socket.on("disconnect", () => registry.unregister(socket.id));
     }
 
@@ -131,4 +138,15 @@ function isAllowedRequest(request: Pick<IncomingMessage, "headers" | "url">, all
     },
     allowedOrigin,
   );
+}
+
+/** Local guard only; room authorization also rechecks the guest proof in SQL. */
+export function currentGuestSession(
+  socket: Pick<SessionSocket, "id" | "data" | "handshake" | "disconnect">,
+  options: { allowedOrigin: string; registry: SessionRegistry },
+): GuestSocketSession | undefined {
+  const session = socket.data.guestSession;
+  if (session === undefined || socket.data.session !== undefined || !isAllowedRequest(socket.handshake, options.allowedOrigin)) return undefined;
+  if (!options.registry.isGuestCurrent(socket.id, session.proof.id)) { socket.disconnect(true); return undefined; }
+  return session;
 }

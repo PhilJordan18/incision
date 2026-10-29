@@ -10,7 +10,7 @@ import { ACCOUNT_WATCHES_IN_FLIGHT, registerRoomChannel } from "./room-channel";
 import { RoomPresence } from "./room-presence";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
-import type { HandshakeAuthentication } from "./socket-session";
+import type { HumanHandshake, GuestSessionReader } from "./human-handshake";
 
 const ALICE = "0b6f3c1e-5d2a-4f7b-9c8e-1a2b3c4d5e6f";
 const BOB = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
@@ -24,10 +24,12 @@ let events: EventEmitter<RoomEvents>;
 let presence: RoomPresence;
 let registry: SessionRegistry;
 let findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
+let readGuest: GuestSessionReader;
+let findGuestMembership: (id: string) => Promise<ActiveMembership | undefined>;
 let readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
 let recoverAbandonedRace: (lobbyId: string) => Promise<RoomRecovery>;
 const ownedRaces = new Set<string>();
-const raceFollows: { lobbyId: string; id: string; accountId: string; pageId?: string }[] = [];
+const raceFollows: { lobbyId: string; id: string; accountId: string | null; pageId?: string }[] = [];
 const raceUnfollows: string[] = [];
 const raceFollowFails = { next: false };
 const memberships = new Map<string, ActiveMembership>();
@@ -35,7 +37,8 @@ const snapshots = new Map<string, RoomSnapshot>();
 const SETTINGS = { revision: 3, textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory" } as const;
 const clients: Socket[] = [];
 
-async function authenticate(cookie: string | undefined): Promise<HandshakeAuthentication> {
+async function authenticate(cookie: string | undefined): Promise<HumanHandshake> {
+  if (cookie === "session=guest") return { kind: "guest", session: { proof: { id: ALICE, secretDigest: "synthetic-digest" }, expiresAt: Date.now() + 60_000 } };
   const session = cookie
     ?.split(";")
     .map((part) => part.trim())
@@ -87,6 +90,8 @@ beforeEach(async () => {
     settings: SETTINGS,
   });
   findActiveMembership = vi.fn(async (accountId: string) => memberships.get(accountId));
+  findGuestMembership = vi.fn(async () => ({ lobbyId: "lobby-1", code: "ABCDEF", memberId: "guest-member", isHost: false }));
+  readGuest = vi.fn<GuestSessionReader>(async () => ({ kind: "valid", session: { id: ALICE, expiresAt: new Date(Date.now() + 60_000) } }));
   readRoomSnapshot = vi.fn(async (lobbyId: string) => snapshots.get(lobbyId));
   recoverAbandonedRace = vi.fn(async (): Promise<RoomRecovery> => ({ recovered: false }));
   ownedRaces.clear();
@@ -99,6 +104,8 @@ beforeEach(async () => {
     presence,
     events,
     findActiveMembership: (accountId) => findActiveMembership(accountId),
+    readGuest: (proof) => readGuest(proof),
+    findGuestMembership: (id) => findGuestMembership(id),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
     raceRecovery: { recover: (lobbyId) => recoverAbandonedRace(lobbyId), ownsRace: (lobbyId) => ownedRaces.has(lobbyId) },
     recoveryTiming: { failedLookRetryMs: 50, maxFailedLooks: 3 },
@@ -637,5 +644,70 @@ describe("the races of the room", () => {
     events.emit("changed", "lobby-1");
     await received;
     await until(() => raceUnfollows.includes(bob.id ?? ""));
+  });
+});
+
+
+describe("guest room watch", () => {
+  function admitGuest() {
+    const snapshot = snapshotOf("lobby-1");
+    snapshots.set("lobby-1", { ...snapshot, members: [...snapshot.members, { memberId: "guest-member", accountId: null, displayName: "Guest", role: "participant", isHost: false }] });
+  }
+
+  it("uses guest membership despite a matching account UUID, without leaking the proof", async () => {
+    admitGuest();
+    const client = await open("session=guest");
+    const ack = await watch(client);
+    expect(ack).toMatchObject({ ok: true, selfMemberId: "guest-member" });
+    expect(findActiveMembership).not.toHaveBeenCalled();
+    expect(findGuestMembership).toHaveBeenCalledExactlyOnceWith(ALICE);
+    expect(readGuest).toHaveBeenCalledExactlyOnceWith({ id: ALICE, secretDigest: "synthetic-digest" });
+    expect(JSON.stringify(ack)).not.toContain(ALICE);
+    expect(JSON.stringify(ack)).not.toContain("synthetic-digest");
+    // Until race integration lands, account-only runtime remains inaccessible.
+    expect(raceFollows).toHaveLength(0);
+  });
+
+  it("keeps one member online until its last tab disconnects", async () => {
+    admitGuest();
+    const first = await open("session=guest"), second = await open("session=guest");
+    await watch(first); await watch(second);
+    first.close();
+    await until(() => io.sockets.sockets.size === 1);
+    expect(presence.onlineMembers("lobby-1").has("guest-member")).toBe(true);
+    second.close();
+    await until(() => !presence.onlineMembers("lobby-1").has("guest-member"));
+  });
+
+  it("does not allow a signed identity to watch a room without membership", async () => {
+    findGuestMembership = vi.fn(async () => undefined);
+    const client = await open("session=guest");
+    expect(await watch(client)).toEqual({ ok: false, error: "NOT_A_MEMBER" });
+    expect(readRoomSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("revalidates SQL proof before reading membership and disconnects revoked identities", async () => {
+    readGuest = vi.fn<GuestSessionReader>(async () => ({ kind: "invalid" }));
+    const client = await open("session=guest");
+    const disconnected = new Promise<void>((resolve) => client.once("disconnect", () => resolve()));
+    client.emit(ROOM_WATCH_EVENT, { code: "ABCDEF" }, () => undefined);
+    await disconnected;
+    expect(findGuestMembership).not.toHaveBeenCalled();
+    expect(readRoomSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("bounds SQL revalidations across concurrent tabs, then releases the shared budget", async () => {
+    admitGuest();
+    let release = () => undefined as void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    readGuest = vi.fn<GuestSessionReader>(async () => { await held; return { kind: "valid", session: { id: ALICE, expiresAt: new Date(Date.now() + 60_000) } }; });
+    const a = await open("session=guest"), b = await open("session=guest"), c = await open("session=guest");
+    const first = watch(a), second = watch(b);
+    await until(() => vi.mocked(readGuest).mock.calls.length === 2);
+    expect(await watch(c)).toEqual({ ok: false, error: "RATE_LIMITED" });
+    expect(readGuest).toHaveBeenCalledTimes(2);
+    release();
+    await Promise.all([first, second]);
+    expect(await watch(c)).toMatchObject({ ok: true });
   });
 });

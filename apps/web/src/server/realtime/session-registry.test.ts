@@ -68,3 +68,57 @@ describe("SessionRegistry", () => {
     expect(getSessionRegistry()).toBe(getSessionRegistry());
   });
 });
+
+describe("guest socket expiry", () => {
+  const proof = { id: alice, secretDigest: "synthetic-digest" };
+  it("expires all guest tabs at the deadline without revoking an account with the same UUID", () => {
+    const registry = new SessionRegistry();
+    const a = fakeSocket("guest-a"), b = fakeSocket("guest-b"), account = fakeSocket("account");
+    registry.registerGuest(a, { proof, expiresAt: Date.now() + 30_000 });
+    registry.registerGuest(b, { proof, expiresAt: Date.now() + 30_000 });
+    registry.register(account, { accountId: alice, sessionVersion: 1, expiresAt: Date.now() + 60_000 });
+    vi.advanceTimersByTime(29_999);
+    expect(registry.isGuestCurrent(a.id, alice)).toBe(true);
+    expect(a.disconnect).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(registry.isGuestCurrent(a.id, alice)).toBe(false);
+    expect(a.disconnect).toHaveBeenCalledExactlyOnceWith(true);
+    expect(b.disconnect).toHaveBeenCalledExactlyOnceWith(true);
+    expect(account.disconnect).not.toHaveBeenCalled();
+    expect(registry.size).toBe(1);
+  });
+
+  it("refreshes all tabs from a verified deadline, ignores older reads, and cancels stale timers", () => {
+    const registry = new SessionRegistry();
+    const a = fakeSocket("a"), b = fakeSocket("b");
+    const original = Date.now() + 30_000;
+    for (const socket of [a, b]) registry.registerGuest(socket, { proof, expiresAt: original });
+    registry.refreshGuest(alice, original + 30_000);
+    registry.refreshGuest(alice, original);
+    registry.refreshGuest(alice, NaN);
+    vi.advanceTimersByTime(30_001);
+    expect(a.disconnect).not.toHaveBeenCalled();
+    expect(b.disconnect).not.toHaveBeenCalled();
+    expect(registry.isGuestCurrent(a.id, bob)).toBe(false);
+    registry.unregister(a.id);
+    vi.advanceTimersByTime(30_000);
+    expect(a.disconnect).not.toHaveBeenCalled();
+    expect(b.disconnect).toHaveBeenCalledExactlyOnceWith(true);
+    expect(registry.size).toBe(0);
+  });
+
+  it("account revocation cannot revoke a guest with an identical UUID", () => {
+    const registry = new SessionRegistry();
+    const socket = fakeSocket("guest");
+    registry.registerGuest(socket, { proof, expiresAt: Date.now() + 1_000 });
+    expect(registry.revoke(alice, 2, Date.now() + 5_000)).toBe(0);
+    expect(registry.isGuestCurrent(socket.id, alice)).toBe(true);
+    expect(socket.disconnect).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, NaN, Infinity])("rejects an invalid deadline %s", (delay) => {
+    const registry = new SessionRegistry();
+    expect(registry.registerGuest(fakeSocket("a"), { proof, expiresAt: Date.now() + delay })).toBe(false);
+    expect(registry.size).toBe(0);
+  });
+});

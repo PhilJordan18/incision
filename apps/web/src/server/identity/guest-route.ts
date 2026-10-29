@@ -1,3 +1,4 @@
+import { getSessionRegistry } from "../realtime/session-registry";
 import { createGuestSession, readGuestSession, readSessionVersion, touchGuestSession } from "@incision/database";
 import { authDatabase } from "../auth/store";
 import { parseServerEnv } from "../config";
@@ -26,7 +27,11 @@ export async function guestRoute(request: Request, operation: "read" | "start" |
       store: {
         create: (proof) => createGuestSession(authDatabase(), proof),
         read: (proof) => readGuestSession(authDatabase(), proof),
-        touch: (proof) => touchGuestSession(authDatabase(), proof),
+        touch: async (proof) => {
+          const result = await touchGuestSession(authDatabase(), proof);
+          if (result.kind === "valid") getSessionRegistry().refreshGuest(result.session.id, result.session.expiresAt.getTime());
+          return result;
+        },
       },
     });
   } catch {
