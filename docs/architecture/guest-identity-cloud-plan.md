@@ -1,5 +1,41 @@
 # Slice 5 — guest identity foundation (#31)
 
+## Local reconciliation after PR #182 (28 October 2026)
+
+The cloud record below is preserved as historical evidence, not as the current
+migration order or a claim that its tests validate the integration.
+
+- Original bundle SHA-256: `14f49fc50f8ec054b132d024dfd34a8dfb7700ba7dc1628c4e020b102625fe42`;
+  original commit `db434aadd59d77264e02db808ef3e42b29e4fcc8`, preserved on
+  `codex/review-31-cloud-original`. Bundle verification passed locally.
+- Integration branch: `codex/f-01-1a-guest-reconcile`, based on dev
+  `7d9a2ee977107ce848b6ff7337aac8f399ccb978` after Philippe merged #182.
+- Imported source changes without the cloud SQL/snapshots/journal. Generated
+  `0013_guest_identity_foundation` using Drizzle against dev's unchanged 0012
+  snapshot. This single additive migration replaces the two original cloud
+  migrations for this integration only. Never apply the cloud 0012/0013 here.
+- Existing `0012_third_human_cannonball.sql` and its snapshot remain byte-identical.
+  The journal preserves all existing entries and appends 0013.
+- Upgrade regression now starts at 0012 and preserves synthetic photos, saved
+  word counts 10 and 200, account results, WPM series and private errors. The
+  earlier 0011 upgrade regression retains its preservation assertions and derives
+  its expected pending migration count from the journal.
+- Independent security review found that one address could monopolize all eight
+  guest request slots with slow renewal bodies. The integration limits each
+  address to two concurrent requests, retains live buckets, and releases both
+  counters idempotently. Limiter and HTTP timeout regressions cover this case.
+  This is single-process abuse resistance, not DDoS protection; NAT users share it.
+- Browser tests generate a separate ephemeral guest key in Playwright config;
+  the cloud tests had relied on an external test environment variable.
+- No recipe database, backup or server was modified. Local SQL tests use a new
+  tmpfs PostgreSQL 17 container on port 5446; browser tests use port 3848 and
+  `incision_e2e_guest31_reconcile`, never port 3880.
+- Deployment still requires a separately approved random `GUEST_SESSION_SECRET`;
+  no real secret was provisioned. Rotating it invalidates guest signatures.
+  Guest admission, avatar, racing and operational retention remain unimplemented.
+
+Current verification evidence is recorded in `docs/evidence/f01-1a-guest-reconcile/README.md`.
+
 Status: F-01.1A implemented locally after Philippe's **Go Ahead in this chat** on 2026-10-28 and explicit release of the shared files. The original planning sections below are preserved as the scoping record; their “now”, “proposed” and “not executed” statements describe the planning phase. See the implementation/decision record at the end for actual changes and evidence. Guest admission and racing remain unimplemented.
 
 ## Baseline and authority

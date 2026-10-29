@@ -73,6 +73,26 @@ An initial seed allows a reproducible demo with non-real local accounts. The cor
 
 ## Delivered schema
 
+### F-01.1A: guest identity foundation (migration 0013, local integration)
+
+`0013_guest_identity_foundation` follows the unchanged coherent-length 0012.
+It adds ephemeral signed-cookie proof digests and expiry timestamps, and allows
+exactly one account or guest subject per membership. Active guest membership is
+unique; guest names are checked at 3–20 code points. Existing account constraints,
+photos, word counts and historical results are retained. Guest admission and
+race persistence are not enabled by these preparatory constraints.
+
+Renewal locks the guest row before sampling database time. Expired rows cannot
+be resurrected. Cleanup deletes only expired, unreferenced sessions and has no
+scheduler yet; before operational admission/retention, review indexing for
+departed memberships and bounded scan costs. Guest references use RESTRICT.
+
+Migration takes ordinary ALTER TABLE/index/constraint locks, not a lock-free
+rollout. Application rollback retains the additive schema; the old account-only
+app remains compatible while guest admission is disabled. Never apply the
+original cloud migrations numbered 0012/0013 on top of this chain. See the
+reconciliation record in `guest-identity-cloud-plan.md`.
+
 ### F-03.1d1: coherent text length (migration 0012)
 
 `lobby_settings.word_count` is a non-null smallint, default 50, checked between
