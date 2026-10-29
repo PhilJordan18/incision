@@ -88,7 +88,7 @@ export class GuestPresenceGrace {
         this.#forget(loss);
         if (result.kind === "departed") this.options.departed(loss);
       } else if (result.kind === "host") {
-        this.#forget(loss); // #36C2 owns hosts; never apply the non-host policy.
+        this.#forget(loss); // Host network succession owns hosts; never apply the non-host policy.
       } else {
         loss.claimed = false;
         // A loss begun in racing keeps its original instant across results. While

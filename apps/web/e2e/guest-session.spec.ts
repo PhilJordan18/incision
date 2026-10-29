@@ -129,3 +129,37 @@ test("guest room watch is read-only and an explicit renewal updates both live so
     await query("delete from lobbies where id=$1", [room.id]);
   }
 });
+
+test("a non-host guest keeps membership on reconnect, then loses it after the last socket's grace", async ({ context, baseURL }) => {
+  test.setTimeout(45_000);
+  const origin = baseURL ?? "";
+  await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } });
+  const cookie = (await context.cookies()).find((value) => value.name === COOKIE);
+  if (!cookie) throw new Error("Missing guest cookie");
+  const id = cookie.value.split(".")[1];
+  const [room] = await query<{ id: string }>("insert into lobbies(code,capacity) values('PQRSTU',30) returning id");
+  if (!room) throw new Error("Missing fixture room");
+  const [member] = await query<{ id: string; joined_at: Date }>("insert into lobby_members(lobby_id,guest_session_id,role,display_name,display_name_canonical) values($1,$2,'participant','Visitor','visitor') returning id,joined_at", [room.id, id]);
+  if (!member) throw new Error("Missing fixture member");
+  const header = `${COOKIE}=${cookie.value}`;
+  const { socket: first } = await connectSocket(origin, header);
+  const { socket: second } = await connectSocket(origin, header);
+  const sockets = [first, second];
+  try {
+    for (const socket of sockets) expect(await socket.timeout(5000).emitWithAck("room:watch", { code: "PQRSTU" })).toMatchObject({ ok: true, selfMemberId: member.id });
+    first.close();
+    expect(await second.timeout(5000).emitWithAck("room:watch", { code: "PQRSTU" })).toMatchObject({ ok: true, selfMemberId: member.id });
+    second.close();
+    const { socket: returning } = await connectSocket(origin, header); sockets.push(returning);
+    expect(await returning.timeout(5000).emitWithAck("room:watch", { code: "PQRSTU" })).toMatchObject({ ok: true, selfMemberId: member.id });
+    expect(await query("select id,joined_at from lobby_members where id=$1", [member.id])).toEqual([member]);
+    returning.close();
+    await expect.poll(async () => (await query("select id from lobby_members where id=$1", [member.id])).length,
+      { timeout: 35_000, intervals: [500] }).toBe(0);
+    const { socket: late } = await connectSocket(origin, header); sockets.push(late);
+    expect(await late.timeout(5000).emitWithAck("room:watch", { code: "PQRSTU" })).toEqual({ ok: false, error: "NOT_A_MEMBER" });
+  } finally {
+    sockets.forEach((socket) => socket.close());
+    await query("delete from lobbies where id=$1", [room.id]);
+  }
+});
