@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   beginRacing,
   endDisconnectedGuestPresence,
+  endDisconnectedHostPresence,
   runGuestMemberCommand,
   finalizeRace,
   findActiveMembership,
@@ -26,6 +27,8 @@ import { assignClientAddress } from "./src/server/http/client-address";
 import { registerRaceChannel } from "./src/server/realtime/race-channel";
 import { followedMember, followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
 import { GuestCommandGate } from "./src/server/realtime/guest-command-gate";
+import { HostPresenceGrace } from "./src/server/realtime/host-presence-grace";
+import { currentSession, currentGuestSession } from "./src/server/realtime/socket-server";
 import { GuestPresenceGrace } from "./src/server/realtime/guest-presence-grace";
 import { roomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
@@ -122,6 +125,30 @@ async function main(): Promise<void> {
       console.error("[races] departure not applied to the race:", error instanceof Error ? error.name : "unknown error");
     }
   });
+  const hostGrace = new HostPresenceGrace({
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
+    membersOnline: (lobbyId) => {
+      const members = new Set<string>();
+      for (const socket of io.sockets.sockets.values()) {
+        const member = followedMember(socket);
+        if (member?.lobbyId !== lobbyId || !socket.connected) continue;
+        const guard = { allowedOrigin: env.appOrigin, registry };
+        if (currentSession(socket, guard) !== undefined || currentGuestSession(socket, guard) !== undefined) members.add(member.memberId);
+      }
+      return members;
+    },
+    end: (input) => endDisconnectedHostPresence(databaseOf(env), input),
+    departed: ({ lobbyId, memberId }, result) => {
+      try {
+        if (result.closed) races.roomClosed(lobbyId);
+        else if (result.accountId === null) races.guestMemberLeft(lobbyId, memberId);
+        else races.memberLeft(lobbyId, result.accountId, { roomClosed: false });
+      } finally { notifyRoomChanged(lobbyId); }
+    },
+    failed: () => console.error("[rooms] host departure unavailable; retry scheduled"),
+  });
   const guestGrace = new GuestPresenceGrace({
     now: Date.now,
     schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
@@ -143,6 +170,7 @@ async function main(): Promise<void> {
     findGuestMembership: (guestSessionId) => findActiveHumanMembership(databaseOf(env), { kind: "guest", guestSessionId }),
     readGuest: (proof) => readGuestSession(databaseOf(env), proof),
     guestGrace,
+    hostGrace,
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
     raceRecovery: {
       recover: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),
@@ -174,6 +202,7 @@ async function main(): Promise<void> {
   process.once("SIGTERM", () => {
     console.log("[server] SIGTERM received, closing");
     guestGrace.stop();
+    hostGrace.stop();
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
     // Own races first (ADR-0004): no new start, then each one ends through its own shutdown
     // (its frozen results saved, or interrupted as server_stopped); their rooms are told before

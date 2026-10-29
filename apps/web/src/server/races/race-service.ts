@@ -459,6 +459,10 @@ export class RaceService {
     }
   }
 
+  roomClosed(lobbyId: string): void {
+    this.#registry.get(lobbyId)?.roomClosed();
+  }
+
   /** Server-committed guest departure, addressed by live membership only. */
   guestMemberLeft(lobbyId: string, memberId: string): void {
     this.#registry.get(lobbyId)?.guestMemberLeft(memberId);

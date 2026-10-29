@@ -1,3 +1,4 @@
+import type { HostPresenceGrace } from "./host-presence-grace";
 import type { GuestPresenceGrace } from "./guest-presence-grace";
 import type { GuestSessionReader } from "./human-handshake";
 import type { EventEmitter } from "node:events";
@@ -23,6 +24,7 @@ export type RoomChannelDependencies = {
   readonly findGuestMembership?: (guestSessionId: string) => Promise<ActiveMembership | undefined>;
   readonly readGuest?: GuestSessionReader;
   readonly guestGrace?: GuestPresenceGrace;
+  readonly hostGrace?: HostPresenceGrace;
   readonly readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
   /** Recovery of races nobody runs any more (ADR-0004); both parts together, or none. */
   readonly raceRecovery?: {
@@ -130,7 +132,10 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
   }
 
   events.on("changed", scheduleBroadcast);
-  events.on("changed", (lobbyId) => dependencies.guestGrace?.changed(lobbyId));
+  events.on("changed", (lobbyId) => {
+    dependencies.guestGrace?.changed(lobbyId);
+    dependencies.hostGrace?.changed(lobbyId);
+  });
   const recovery = recoveryOnWatch(dependencies, {
     scheduleBroadcast,
     followed: (lobbyId) => (io.sockets.adapter.rooms.get(channelOf(lobbyId))?.size ?? 0) > 0,
@@ -170,6 +175,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       dependencies.races?.unfollow(socket.id);
       const watched = watchedRoomOf(socket.data);
       if (watched !== undefined && presence.remove(watched.lobbyId, watched.memberId, socket.id)) {
+        dependencies.hostGrace?.lost(watched);
         if (socket.data.guestSession !== undefined) dependencies.guestGrace?.lost(watched);
         scheduleBroadcast(watched.lobbyId);
       }
@@ -227,6 +233,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     socket.data.room = undefined;
     dependencies.races?.unfollow(socket.id);
     if (presence.remove(room.lobbyId, room.memberId, socket.id)) {
+      dependencies.hostGrace?.lost(room);
       if (socket.data.guestSession !== undefined) dependencies.guestGrace?.lost(room);
       scheduleBroadcast(room.lobbyId);
     }
@@ -255,6 +262,9 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     }
     if (subject.kind === "guest" && currentGuestSession(socket, dependencies) === undefined) {
       return { ok: false, error: "UNAUTHORIZED" };
+    }
+    if (dependencies.hostGrace !== undefined && !await dependencies.hostGrace.resume(membership)) {
+      return { ok: false, error: "NOT_A_MEMBER" };
     }
     if (subject.kind === "guest" && dependencies.guestGrace !== undefined &&
       !await dependencies.guestGrace.resume(membership)) {

@@ -23,3 +23,5 @@ export * from "./identity/guest-sessions";
 export * from "./rooms/guest-admission";
 export * from "./rooms/guest-departure";
 export * from "./identity/guest-member-command";
+
+export { endDisconnectedHostPresence, type HostDepartureInput, type HostDepartureResult, type HostPresenceState } from "./rooms/host-departure";
