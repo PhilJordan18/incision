@@ -70,11 +70,13 @@ function harness(
       race: { raceId: RACE, lobbyId: LOBBY, ownerId: "owner-a", ownerEpoch: 1, roundNo: 1, countdownAt: new Date(START), leaseExpiresAt: new Date(START + 30_000) },
       entrants,
       created: result.race,
+      ...(input.accountId === null ? { guestSession: { id: input.guestProof.id, expiresAt: new Date(START + 86_400_000) } } : {}),
     };
   });
   const store = {
     startRace,
     readOwnRoomSettings,
+    readGuestRoomSettings: vi.fn(async () => readOwnRoomSettings("a-host")),
     beginRacing: vi.fn(async (): Promise<Transition> => ({ won: true, alreadyDone: false })),
     finalizeRace: vi.fn(async (): Promise<Transition> => ({ won: true, alreadyDone: false })),
     interruptOwnRace: vi.fn(async (): Promise<Interruption> => ({ won: true, alreadyDone: false })),
@@ -729,5 +731,32 @@ describe("RaceService", () => {
     expect(store.interruptOwnRace).toHaveBeenCalledWith(expect.objectContaining({ raceId: RACE }), "server_stopped");
     expect(ended).toEqual([LOBBY]);
     expect(await service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: false, error: "UNAVAILABLE" });
+  });
+});
+
+describe("guest host race starts", () => {
+  const proof = { id: "guest-session", secretDigest: "synthetic-digest" };
+  const guest = { id: "guest-tab", accountId: null, memberId: "guest-member", emit: () => undefined } as const;
+
+  it("passes the server proof to the transactional start, never impersonating an account", async () => {
+    const app = harness();
+    expect(await app.service.startGuest(guest, proof, {})).toEqual({ ok: true });
+    expect(app.store.readGuestRoomSettings).toHaveBeenCalledExactlyOnceWith(proof);
+    expect(app.store.startRace).toHaveBeenCalledWith(expect.objectContaining({ accountId: null, guestProof: proof }));
+  });
+
+  it("refuses a guest non-host before drawing or writing", async () => {
+    const app = harness({ room: { isHost: false } });
+    expect(await app.service.startGuest(guest, proof, {})).toEqual({ ok: false, error: "NOT_HOST" });
+    expect(app.store.startRace).not.toHaveBeenCalled();
+  });
+
+  it("shares guest start limits across tabs without colliding with an account of the same ID", async () => {
+    const app = harness({ room: { isHost: false } });
+    for (let n = 0; n < START_WINDOW.maxStarts; n++) {
+      expect(await app.service.startGuest({ ...guest, id: `tab-${n}` }, proof, {})).toEqual({ ok: false, error: "NOT_HOST" });
+    }
+    expect(await app.service.startGuest(guest, proof, {})).toEqual({ ok: false, error: "RATE_LIMITED" });
+    expect(await app.service.start({ id: "account-tab", accountId: guest.memberId, emit: () => undefined }, {})).toEqual({ ok: false, error: "NOT_HOST" });
   });
 });

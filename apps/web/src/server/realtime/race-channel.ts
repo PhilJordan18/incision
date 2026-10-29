@@ -21,6 +21,7 @@ export type RaceChannelDependencies = {
   readonly allowedOrigin: string;
   readonly registry: SessionRegistry;
   readonly races: Pick<RaceService, "start" | "keystrokes" | "takeControl" | "present" | "abandon" | "activateBonus">;
+  readonly guestStart?: RaceService["startGuest"];
   /** The room the socket follows, as the room channel admitted it. */
   readonly followedRoom: (socket: Socket) => string | undefined;
   readonly guestCommands?: GuestCommandGate;
@@ -103,7 +104,8 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
         return;
       }
       const session = currentSession(socket, dependencies);
-      if (session === undefined) {
+      const guest = session === undefined ? currentGuestSession(socket, dependencies) : undefined;
+      if (session === undefined && (guest === undefined || dependencies.guestStart === undefined)) {
         acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies RaceStartAck);
         return;
       }
@@ -116,10 +118,21 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
         acknowledge({ ok: false, error: "RATE_LIMITED" } satisfies RaceStartAck);
         return;
       }
-      void dependencies.races
-        .start(connectionOf(socket, session.accountId), payload)
-        .catch((): RaceStartAck => ({ ok: false, error: "UNAVAILABLE" }))
-        .then((answer) => acknowledge(answer));
+      const member = dependencies.followedMember?.(socket);
+      if (session === undefined && member === undefined) {
+        acknowledge({ ok: false, error: "NOT_IN_A_ROOM" } satisfies RaceStartAck);
+        return;
+      }
+      const pending = session !== undefined
+        ? dependencies.races.start(connectionOf(socket, session.accountId), payload)
+        : guest !== undefined && member !== undefined && dependencies.guestStart !== undefined
+          ? dependencies.guestStart(guestConnectionOf(socket, member.memberId), guest.proof, payload)
+          : Promise.resolve<RaceStartAck>({ ok: false, error: "UNAUTHORIZED" });
+      void pending.catch((): RaceStartAck => ({ ok: false, error: "UNAVAILABLE" }))
+        .then((answer) => {
+          acknowledge(answer);
+          if (answer.ok && guest !== undefined) socket.emit(GUEST_ACTIVITY_EVENT, {});
+        });
     });
 
     socket.on(RACE_BATCH_EVENT, (payload: unknown, acknowledge: unknown) => {
@@ -208,7 +221,7 @@ export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile">, a
 }
 
 /** Guest members come from the server's validated room watch, never from event payloads. */
-export function guestConnectionOf(socket: Pick<Socket, "id" | "emit" | "volatile">, memberId: string, pageId?: string): RoomConnection {
+export function guestConnectionOf(socket: Pick<Socket, "id" | "emit" | "volatile">, memberId: string, pageId?: string): RoomConnection & { readonly accountId: null } {
   return { id: socket.id, accountId: null, memberId, ...(pageId === undefined ? {} : { pageId }),
     emit: (event, payload, options) => void (options?.volatile === true ? socket.volatile.emit(event, payload) : socket.emit(event, payload)),
   };

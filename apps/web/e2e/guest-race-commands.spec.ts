@@ -3,7 +3,8 @@ import type { RaceRevealPayload } from "../src/races/protocol";
 import { connectSocket, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
 
 /** Internal fixture admission only; the public guest entry flow stays closed until complete. */
-test("an admitted guest types with isolated identity and renews only accepted activity", async ({ context, baseURL }) => {
+for (const starter of ["account", "guest"] as const) {
+test(`an admitted guest types with isolated identity after a ${starter} host start`, async ({ context, baseURL }) => {
   const origin = baseURL ?? "";
   await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } });
   const cookie = (await context.cookies()).find((value) => value.name === "incision.guest");
@@ -15,6 +16,9 @@ test("an admitted guest types with isolated identity and renews only accepted ac
   const [hostMember] = await query<{ id: string }>("insert into lobby_members(lobby_id,account_id,role,display_name,display_name_canonical) values($1,$2,'participant','Fixture host','fixture host') returning id", [room.id, account.id]);
   await query("update lobbies set host_member_id=$2 where id=$1", [room.id, hostMember?.id]);
   await query("insert into lobby_members(lobby_id,guest_session_id,role,display_name,display_name_canonical) values($1,$2,'participant','Visitor','visitor')", [room.id, guestId]);
+  if (starter === "guest") {
+    await query("update lobbies set host_member_id=(select id from lobby_members where lobby_id=$1 and guest_session_id=$2) where id=$1", [room.id, guestId]);
+  }
   await query("update guest_sessions set created_at=now()-interval '1 hour',last_seen_at=now()-interval '1 hour',expires_at=now()+interval '23 hours' where id=$1", [guestId]);
   const activity = () => query<{ last_seen_at: Date; expires_at: Date }>("select last_seen_at,expires_at from guest_sessions where id=$1", [guestId]);
   const before = await activity();
@@ -30,8 +34,9 @@ test("an admitted guest types with isolated identity and renews only accepted ac
     guest.on("race:reveal", (payload: RaceRevealPayload) => { reveal = payload; });
     guest.on("race:progress", (payload: { broadcast: { phase: string } }) => { racing ||= payload.broadcast.phase === "racing"; });
     guest.on("guest:activity", () => { activityEvents++; });
-    expect(await host.timeout(5000).emitWithAck("race:start", {})).toEqual({ ok: true });
+    expect(await (starter === "guest" ? guest : host).timeout(5000).emitWithAck("race:start", {})).toEqual({ ok: true });
     await expect.poll(() => racing, { timeout: 6000 }).toBe(true);
+    activityEvents = 0; // Start activity is separate from the accepted typing checks below.
     if (!reveal) throw new Error("Missing guest reveal");
     expect(reveal.selfEntrantId).not.toBeNull();
     const batch = { raceId: reveal.reveal.raceId, textVersion: 0, seq: 1, events: [{ type: "insert", grapheme: reveal.reveal.text[0] }] };
@@ -54,3 +59,5 @@ test("an admitted guest types with isolated identity and renews only accepted ac
     await query("delete from lobbies where id=$1", [room.id]);
   }
 });
+
+}

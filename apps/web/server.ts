@@ -10,6 +10,7 @@ import {
   findActiveMembership,
   findActiveHumanMembership,
   readGuestSession,
+  readGuestRoomSettings,
   getDatabase,
   interruptOwnRace,
   loadActiveCorpus,
@@ -85,6 +86,7 @@ async function main(): Promise<void> {
     store: {
       startRace: (input) => startRace(databaseOf(env), input),
       readOwnRoomSettings: (accountId) => readOwnRoomSettings(databaseOf(env), accountId),
+      readGuestRoomSettings: (proof) => readGuestRoomSettings(databaseOf(env), proof),
       beginRacing: (ownership) => beginRacing(databaseOf(env), ownership),
       finalizeRace: (ownership, results) => finalizeRace(databaseOf(env), ownership, results),
       interruptOwnRace: (ownership, reason) => interruptOwnRace(databaseOf(env), ownership, reason),
@@ -98,6 +100,7 @@ async function main(): Promise<void> {
       return () => clearTimeout(timer);
     },
     onRoomChanged: notifyRoomChanged,
+    onGuestActivity: (session) => registry.refreshGuest(session.id, session.expiresAt.getTime()),
     onRaceLost: (lobbyId) => roomEvents().emit("raceLost", lobbyId),
     texts: corpusTexts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
     // Whether races may start at all; never which texts they run (the fixtures stay local only).
@@ -181,7 +184,9 @@ async function main(): Promise<void> {
   const guestCommands = new GuestCommandGate({ registry, now: Date.now,
     store: (input) => runGuestMemberCommand(databaseOf(env), input),
   });
-  registerRaceChannel(io, { allowedOrigin: env.appOrigin, registry, races, followedRoom, followedMember, guestCommands });
+  registerRaceChannel(io, { allowedOrigin: env.appOrigin, registry, races, followedRoom, followedMember, guestCommands,
+    guestStart: (connection, proof, payload) => races.startGuest(connection, proof, payload),
+  });
 
   // Races a previous process left behind (ADR-0004): recovered without delaying the server.
   if (env.databaseUrl !== undefined) {
