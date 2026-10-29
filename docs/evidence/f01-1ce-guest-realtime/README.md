@@ -459,3 +459,86 @@ Remaining guest host commands (settings/next round/explicit close) require the
 shared host-action files; availability was requested from the coordinator to
 avoid B's configuration work. Race start is implemented, not the entire host UI.
 Temporary results, retention, transitions and public entry remain in progress.
+
+## Temporary room results — October 29, 2026 (Toronto)
+
+Executable/reviewed SHA: `c6ab3fc3212b7140ecbccba8909efcea1664e436`.
+Same #187 branch and base; this replaces the preparatory guest-only start refusal,
+following Philippe's approved no-durable-results rule for races without an account
+participant. Account spectators do not create an account result/history to retain.
+
+### Implemented and exercised
+
+- Finalization classifies persisted entrant kinds. With guest entrants and no
+  account entrant, it validates the complete result set and WPM payloads, commits
+  the fenced race/room transition, and writes **no** `race_results`,
+  `race_wpm_series` or `race_key_errors` rows. No insert-then-delete shortcut.
+  Duplicate finalization recognizes the committed transition; malformed results
+  roll the transaction back. Account races retain the existing durable path.
+- A process-local room display receives only confirmed frozen results. It stores
+  no cookie/proof, account ID, nickname or private key-error aggregate. Guest self
+  mapping is limited to live membership and the current race. Account-race
+  metrics still come from SQL; the cache supplies guest self mapping only there.
+- Guest results SQL reads hold room/session locks, require current membership,
+  the current race and RESULTS phase, and revalidate expiry. Account heatmaps and
+  personal records are excluded in SQL/projection, not merely hidden in a client.
+- `GET /api/guest/rooms/[lobbyId]/races/[raceId]` validates cookie/parameters,
+  refuses account-cookie fallback, bounds reads, returns private/no-store with
+  Vary: Cookie and never creates/renews a session or sets a cookie. Unknown race,
+  ended presence and expired guest all reveal no result.
+- Committed host closure discards the display directly. Phase/race notifications
+  reconcile it against SQL with a generation check; stale cleanup cannot erase a
+  newer display. Non-host guest departure removes self mapping. Process shutdown
+  clears memory; no exact result recovery after a crash is claimed.
+
+### Verification at c6ab3fc
+
+| Check | Executed result | Local log |
+| --- | --- | --- |
+| root check:no-js / lint / typecheck / build | pass | `/tmp/guest-results-final-{nojs,lint,types,build}.log` |
+| root unit suite | **2,333 passed**: web907/database146/domain1198/load20/wordlists62 | `/tmp/guest-results-final-unit.log` |
+| complete local SQL suite | **337 passed, 9 existing PgBouncer skips** | `/tmp/guest-results-final-db.log` |
+| Playwright guest commands + temporary results | **3 passed** | `/tmp/guest-results-final-e2e.log` |
+
+The real-server E2E starts a two-guest race, abandons both entrants through the
+real command gate, reads both private room-result views with distinct self
+mapping, asserts all three durable metric tables empty, then proves refusal
+after membership deletion and after RESULTS ends. The other two E2Es retain
+account-host and guest-host starts plus accepted guest typing/activity.
+SQL tests also exercise malformed ephemeral results/rollback, concurrent retries,
+forged/expired/departed result readers and preservation of account history/private
+heatmaps. Cache/HTTP unit tests cover disclosure, no cookie writes, budgets,
+failure containment, departed/new member mapping and stale asynchronous cleanup.
+
+All database/browser runs used synthetic local fixtures, never recipe3880 or
+remote resources. No migration/schema/dependency/central matrix change. Earlier
+focused command named a nonexistent `results.db.test.ts`; Vitest actually ran
+only the two matching files (63 passed). It is not evidence for a third file.
+The final full SQL run above includes the real `results-details.db.test.ts` and
+history/profile suites. An initial typecheck found that the runtime helper's
+entrant annotation omitted `ordinal`; it now retains the actual `StartedEntrant`
+contract, without casts or invented ordinals.
+
+Manual sequential code/security/DBA/functional-QA review on c6ab3fc: OK for this
+internal results increment, no blocking finding in the delivered scope. No
+external independent audit. Fenced finalization, null-account privacy, lock order,
+read authorization, generation-safe cleanup and all final test outputs inspected.
+This is not complete guest UI, general retention or multi-instance qualification.
+
+### Remaining and coordination
+
+The public guest entry remains closed. Remaining #31 work: the other inherited
+host actions (settings/next round/close), explicit leave and account transition,
+full guest-session/closed-room retention, browser first-cookie and refresh
+coordination, avatar/admission UI, FR/EN and accessibility journey checks.
+
+Display cleanup on a phase notification whose SQL read fails currently waits for
+a later notification; SQL authorization still denies a closed/old race. The F
+retention work must bound this cleanup and retire all guest session references
+before public activation. No new retention scheduler or product policy is
+introduced here. The cache API alone never authorizes a request.
+
+Coordinator action proposed: record C2, guest host start and internal temporary
+results as locally verified in draft187; keep #31 in progress. Confirm shared
+host-action file availability before that final coupled wiring. This evidence
+does not modify the board and does not request a merge.
