@@ -24,6 +24,46 @@ Lay them out as `<raw-dir>/wordfreq-3.1.1/wordfreq/data/large_{fr,en}.msgpack.gz
 
 ## Commands
 
+### Candidate export (F-02.4A)
+
+```sh
+npm run export:candidate -w @incision/word-lists -- --raw-dir /absolute/raw --language fr --version candidate-1 --out-dir /absolute/new-candidate
+```
+
+Use explicit absolute directories: npm runs this command inside the tool workspace.
+The output parent must already exist; the output directory must not exist. The command
+reads only the selected pinned wordfreq file: LDNOOBW, Lexique and ESDB are not needed.
+There is no network access, arbitrary pin override or change to the runtime's `fixture-1` lists.
+
+The output contains `<language>.words.txt`, `manifest.json` and `NOTICE.txt`. The manifest
+records input/output SHA-256, source and exporter/policy versions, transformations and counts.
+It has no timestamp or absolute path, so identical inputs/options produce identical bytes.
+The policy uses NFC, lowercase then NFC; rejects non-NFKC-stable forms, unsupported syntax
+and letters outside the existing language alphabet; keeps the maximum Zipf on normalized
+collisions; and sorts equal-frequency words by UTF-16 code units, without locale dependence.
+Bins use integer `900 - binIndex` to avoid floating-point serialization. Unsupported entries
+are counted by first rejection reason (frequency, syntax, alphabet). Input count equals unique
+accepted words + duplicates + rejected words. Empty candidates are refused.
+
+This is a **syntactic candidate**, not a reviewed linguistic list or a safe list for minors.
+It deliberately does not choose difficulty thresholds, apply exclusions/pairs, transliterate
+ligatures, or choose an auxiliary dictionary. French ligatures remain spelled as supplied;
+the existing random generator's typing restrictions still apply later. Full upstream credits
+are in the pinned wheel's `wordfreq-3.1.1.dist-info/METADATA`; review/retain those and resolve
+editorial policy before publishing actual data. Do not commit the generated real lists.
+
+Validation and serialization finish before writing. A sibling `<out-dir>.lock` serializes
+exporter writers; files are staged in a temporary sibling directory then renamed together.
+An existing destination (including an empty directory or symlink) is refused. Use a private
+output parent; unrelated programs must not create/replace that destination during publication.
+Errors clean up only this invocation's staging directory/lock. An externally killed process
+can leave a lock/staging directory: inspect ownership before manually removing either.
+
+Tests use synthetic packs with injected test pins. The CLI always uses the production pins.
+Verify real-file runs separately; their success does not constitute editorial acceptance.
+
+### Existing tools
+
 - `npm run report -w @incision/word-lists -- <raw-dir>`: the calibration report (Q-1). Counts and
   distributions per language and per proposed level; it decides nothing.
 - `npm run bundle-check -w @incision/word-lists -- <client-static-dir> <data-file>... [--fingerprint <word>]...`:
