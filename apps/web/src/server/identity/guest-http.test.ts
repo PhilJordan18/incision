@@ -104,11 +104,14 @@ describe("guest HTTP foundation", () => {
     vi.useFakeTimers();
     try {
       const deps = dependencies();
-      const pending = Array.from({ length: 2 }, () => handleGuestRequest(new Request(`${origin}/api/guest/session/renew`, {
-        method: "POST", duplex: "half",
-        headers: { Origin: origin, "Content-Type": "application/json" },
-        body: new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode("{}")); } }),
-      }), "renew", deps));
+      const pending = Array.from({ length: 2 }, () => {
+        const init = {
+          method: "POST", duplex: "half",
+          headers: { Origin: origin, "Content-Type": "application/json" },
+          body: new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode("{}")); } }),
+        };
+        return handleGuestRequest(new Request(`${origin}/api/guest/session/renew`, init), "renew", deps);
+      });
       expect((await handleGuestRequest(request({ body: "{}" }), "renew", deps)).status).toBe(429);
       expect((await handleGuestRequest(request({ method: "GET" }), "read", { ...deps, address: () => "other-address" })).status).toBe(200);
       await vi.advanceTimersByTimeAsync(5000);
