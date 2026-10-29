@@ -1,5 +1,6 @@
 import {
   type AdmissionRefusal,
+  type HumanSubject,
   type AdmittingPhase,
   admissionRefusal,
   admitsNewMembers,
@@ -32,11 +33,19 @@ export type ActiveMembership = {
 };
 
 export async function findActiveMembership(db: Queryable, accountId: string): Promise<ActiveMembership | undefined> {
+  return findActiveHumanMembership(db, { kind: "account", accountId });
+}
+
+/** Server-verified subject only; callers must check session validity before granting access. */
+export async function findActiveHumanMembership(db: Queryable, subject: HumanSubject): Promise<ActiveMembership | undefined> {
+  const identity = subject.kind === "account"
+    ? eq(lobbyMembers.accountId, subject.accountId)
+    : eq(lobbyMembers.guestSessionId, subject.guestSessionId);
   const [row] = await db
     .select({ lobbyId: lobbyMembers.lobbyId, code: lobbies.code, memberId: lobbyMembers.id, hostMemberId: lobbies.hostMemberId })
     .from(lobbyMembers)
     .innerJoin(lobbies, eq(lobbies.id, lobbyMembers.lobbyId))
-    .where(and(eq(lobbyMembers.accountId, accountId), isNull(lobbyMembers.leftAt)));
+    .where(and(identity, isNull(lobbyMembers.leftAt)));
   return row === undefined
     ? undefined
     : { lobbyId: row.lobbyId, code: row.code, memberId: row.memberId, isHost: row.hostMemberId === row.memberId };
@@ -56,7 +65,7 @@ export async function findRoomByCode(
 
 export type RoomMember = {
   readonly memberId: string;
-  readonly accountId: string;
+  readonly accountId: string | null;
   readonly displayName: string;
   readonly role: MemberRole;
   readonly isHost: boolean;
@@ -120,7 +129,7 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
   }
   const members: RoomMember[] = [];
   for (const row of rows) {
-    if (row.memberId !== null && row.accountId !== null && row.displayName !== null && row.role !== null) {
+    if (row.memberId !== null && row.displayName !== null && row.role !== null) {
       const { memberId, accountId, displayName, role } = row;
       members.push({ memberId, accountId, displayName, role, isHost: memberId === lobby.hostMemberId });
     }
