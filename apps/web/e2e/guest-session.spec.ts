@@ -99,7 +99,7 @@ test("guest room watch is read-only and an explicit renewal updates both live so
   if (!cookie) throw new Error("Missing guest cookie");
   const id = cookie.value.split(".")[1];
   // Synthetic SQL fixture only: public guest admission remains unavailable in this unit.
-  const [room] = await query<{ id: string }>("insert into lobbies(code,capacity) values('GHJKLM',30) returning id");
+  const [room] = await query<{ id: string }>("insert into lobbies(code,capacity) values('GHJKMN',30) returning id");
   if (!room) throw new Error("Missing fixture room");
   const [member] = await query<{ id: string }>("insert into lobby_members(lobby_id,guest_session_id,role,display_name,display_name_canonical) values($1,$2,'participant','Visitor','visitor') returning id", [room.id, id]);
   await query("update guest_sessions set created_at=now()-interval '24 hours', last_seen_at=now()-interval '24 hours'+interval '2 seconds', expires_at=now()+interval '2 seconds' where id=$1", [id]);
@@ -109,7 +109,7 @@ test("guest room watch is read-only and an explicit renewal updates both live so
   try {
     const before = await query("select last_seen_at,expires_at from guest_sessions where id=$1", [id]);
     for (const socket of [first, second]) {
-      const ack = await socket.timeout(5000).emitWithAck("room:watch", { code: "GHJKLM" });
+      const ack = await socket.timeout(5000).emitWithAck("room:watch", { code: "GHJKMN" });
       expect(ack).toMatchObject({ ok: true, selfMemberId: member?.id });
       expect(JSON.stringify(ack)).not.toContain(id);
       expect(JSON.stringify(ack)).not.toContain(cookie.value);
@@ -122,7 +122,7 @@ test("guest room watch is read-only and an explicit renewal updates both live so
     expect(second.connected).toBe(true);
     await query("update guest_sessions set created_at=now()-interval '2 days', last_seen_at=now()-interval '25 hours', expires_at=now()-interval '1 hour' where id=$1", [id]);
     const disconnected = new Promise<void>((resolve) => first.once("disconnect", () => resolve()));
-    first.emit("room:watch", { code: "GHJKLM" }, () => undefined);
+    first.emit("room:watch", { code: "GHJKMN" }, () => undefined);
     await disconnected;
   } finally {
     first.close(); second.close();
