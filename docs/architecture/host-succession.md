@@ -117,3 +117,20 @@ package-root export is now included with B's coordinated release.
   sockets; this is not a qualification of multi-instance rollout or production.
 - The matrix stays owned by A. SALLE-08 remains partial pending C2 and the remaining
   integrations; this tranche does not close the parent issue #36.
+
+## C2 integration with guest identity — October 29, 2026
+
+The historical limits above describe C1 at delivery. Draft #187 now integrates
+`HostPresenceGrace` and `endDisconnectedHostPresence`: last-socket loss starts the
+inclusive 30-second grace for account and guest hosts in every phase, including
+spectators. The room transaction revalidates the expected host, then selects the
+oldest connected active human or closes atomically with race interruption.
+Expired guest candidates are excluded; guest identity expiry precedes grace.
+Reconnection waits for an already claimed departure; stale callbacks cannot
+replace another host. Account history and finalized races remain intact.
+
+Presence remains process-local; this does not promise exact recovery after a
+process crash or qualify multi-instance operation. Guest host UI/commands and
+complete guest retention still belong to the remaining #31 integration. See
+[the cumulative evidence](../evidence/f01-1ce-guest-realtime/README.md) for exact
+SHAs, executed tests, limits and the approval record. No migration is added by C2.

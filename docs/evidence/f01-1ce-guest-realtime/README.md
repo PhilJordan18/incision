@@ -316,3 +316,102 @@ coordinated with this PR, with tests/evidence before delivery and no merge or re
 change. The earlier C2 “not authorized” wording is superseded by this approval.
 Implementation will follow this command unit on the same branch; no separate
 preparatory PR or stacked base is needed.
+
+## Host network succession — October 29, 2026 (Toronto)
+
+Philippe explicitly approved taking #36C2 together with #187; the coordinator
+confirmed the same authorization. Scope: the host (account or guest), after loss
+of its last socket, keeps the inclusive 30-second grace; then the oldest connected
+human inherits, or the room closes. This supersedes the earlier read-only C2
+proposal. No merge, deployment, recipe access or additional product scope.
+
+Executable/reviewed commit: `ada4e5b2414474c59077bd1a7610d1c3b5192e50`.
+Base remains `50f09cefda6947a943e35cf96661c49506875ebc`. Same branch and draft #187.
+
+### Implemented
+
+- `HostPresenceGrace`: separate host policy, valid for participants and spectators
+  in every phase. Last-socket loss, inclusive deadline, reconnect/claim fencing,
+  stale callbacks, one pending SQL decision, bounded retry after SQL failure.
+  A failed departure returns UNAVAILABLE on reconnect, not a successful admission.
+- `endDisconnectedHostPresence`: bounded READ COMMITTED room/session lock order;
+  rechecks the exact current host, claims live absence, transfers or closes in one
+  transaction, increments revision once. Expired guest identity has priority.
+- The existing selector now classifies persisted guests correctly and excludes
+  expired guests. It retains exact SQL microseconds and the existing tie-break.
+  Candidate sockets are checked for current server authorization; no client host
+  ID, candidate list or role is accepted.
+- Account departures keep account/membership history. Guest departures erase the
+  outgoing live membership after releasing its host FK. Without a successor, the
+  existing room-lock interruption path fences late race writes. Already finished
+  races survive. Full guest session retirement remains F work, not claimed here.
+- The room channel starts host grace only on last-socket loss and awaits a claimed
+  departure before a returning watch. Race notifications distinguish account,
+  guest and room closure; no fake account ID is used for a guest host.
+
+### Executed verification
+
+All commands passed on the executable SHA above; no code changed during reviews.
+
+| Check | Result | Local log |
+| --- | --- | --- |
+| `npm run check:no-js` | pass | `/tmp/host-c2-final-nojs.log` |
+| `npm run lint` | pass | `/tmp/host-c2-final-lint.log` |
+| `npm run typecheck` | pass | `/tmp/host-c2-final-types.log` |
+| `npm test` | 2,318 passed: web892/database146/domain1198/load20/wordlists62 | `/tmp/host-c2-final-unit.log` |
+| `npm run build` | pass | `/tmp/host-c2-final-build.log` |
+| `npm run test:db -w @incision/database` | 326 passed, 9 existing PgBouncer skips | `/tmp/host-c2-final-db.log` |
+| targeted Playwright: host-network-succession, guest-race-commands, guest-session | 10 passed | `/tmp/host-c2-e2e.log` |
+
+SQL runs used disposable synthetic databases on local PostgreSQL17 port55435.
+Playwright used its isolated synthetic database and local port3221. No recipe,
+Neon, Azure, OAuth provider, personal data or backup was accessed. No migration,
+schema, dependency, central requirements matrix or B-owned feature was changed.
+
+The 17 host-coordinator tests cover 29,999/30,000/30,001ms, reconnect before and
+after a claimed transaction, stale timers, duplicate losses, remaining sockets,
+phase changes, guest expiry/renewal, failure/retry and a replaced host. The ten
+new SQL tests cover guest spectator inheritance, expired candidates, account and
+settings/bot conservation, post-lock presence, stale host, rollback, duplicates,
+interruption and preservation of an already-finished race. Existing C1 tests
+continue to cover microsecond order, exact ties and concurrent departures.
+The real-server E2E runs the actual 30-second timer for an account spectator host,
+checks two tabs and an early return, transfers to a guest spectator, and refuses
+the old host's late watch. This is a synthetic admitted-guest scenario, not proof
+of a finished public guest UI.
+
+### Sequential review roles on ada4e5b
+
+- Code reviewer: OK for the C2 increment. Dedicated host policy keeps the non-host
+  account policy unchanged. Timer generation, transaction claim and room revision
+  are guarded; the existing selector and interruption transaction are reused.
+- Security: OK for this internal surface. No new public payload, secret, cookie
+  exposure or client-supplied authority; SQL and current socket authorization
+  jointly restrict successor eligibility. Public guest entry remains unavailable.
+- DBA: OK. Room-before-session locks, immutable migrations, existing FK ordering,
+  rollback/idempotence and preservation checked in local PostgreSQL. No remote
+  database or PgBouncer qualification was performed.
+- Functional QA: OK for the tested C2 scope; full #31 remains partial. The browser
+  test uses a production build with synthetic fixtures. UI host controls for a
+  guest, accessibility, first-cookie coordination and guest-only results are not
+  covered by this increment.
+
+These roles were applied manually and sequentially by Codex; they are not an
+independent external audit. No blocking finding remains in this increment.
+Process-local presence still follows ADR-0001: no multi-instance or exact restart
+recovery claim. Full guest retirement and closed-room retention still need F.
+
+### Cumulative done / remaining
+
+Done: internal guest membership/realtime identity, non-host outside-race grace,
+accepted-command SQL authorization/activity, read-only cookie refresh endpoint,
+and now host network succession for accounts and guests. Published migrations
+0012/0013/0014 remain unchanged.
+
+Remaining in the approved #31 mandate: guest host commands, temporary guest
+results and room-scoped cache, no-account durable-result suppression, explicit
+leave/account transition, identity/room retention, first-cookie/multi-tab browser
+coordination, avatar/public admission UI and full FR/EN/a11y journey verification.
+Do not mark #31 complete or open public admission from this evidence. Coordinator
+owns the board/matrix updates; proposed status is C2 verified locally in draft187,
+#31 still in progress, no new scope requested.
