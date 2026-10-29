@@ -3,25 +3,26 @@
 ## Current status — October 29, 2026 (Toronto)
 
 PR #187 remains **draft; #31 is incomplete and public guest entry stays closed**.
-Latest published evidence head at this update: `cca2be895130d69d5fc20e8ce9ad972291cb0f0b`;
-latest verified executable: `c6ab3fc3212b7140ecbccba8909efcea1664e436`.
+Latest verified executable: `0772f356300a4d9f842c18b3ab26dbb986130b3e`.
+The following evidence-only commit adds this report and screenshots.
 
-Implemented and locally verified: internal guest admission/identity and realtime
-commands, accepted activity, non-host outside-race grace, account/guest host
-succession (#36C2), inherited guest host race starts, and room-scoped temporary
-results without durable metrics for guest-only races. On c6ab3fc: root gates and
-2,333 unit tests passed; 337 SQL passed / 9 existing PgBouncer skips; 3 targeted
-E2Es passed. Earlier C2 E2Es have their own exact SHA below.
+Implemented and locally verified: internal guest admission/identity, realtime
+commands and accepted activity; non-host outside-race grace; account/guest host
+succession (#36C2); inherited guest host start/configure/next/close actions;
+room-scoped temporary results; explicit departure and account-transition fence;
+identity retirement and bounded local closed-room retention; cache eviction on SQL
+failure. Settings retain their existing 10–200-word semantics.
 
-New local increment awaiting exact-commit gates: inherited configure/next/close
-actions, explicit departure, account-transition admission fence and sign-in UI,
-identity retirement, bounded local retention, and cache eviction on SQL failure.
-Targeted checks passed; the final report below will pin their verified SHA.
+On the exact executable SHA: all root gates and **2,347 unit tests passed**;
+**351 SQL passed / 9 existing PgBouncer skips**; **9 guest-session Chromium E2Es
+passed**, including the real 30-second grace and direct Auth.js transition refusal.
+Manual sequential reviews of this increment are recorded below. Earlier C2/start/
+results E2Es retain their own exact SHA reports; they were not all rerun here.
 
-Still to implement: browser coordination, avatar/public guest entry and room UI,
-and complete FR/EN/a11y journey verification. The coordinator has now confirmed the shared
-action/closure/settings files for guest identity wiring only; B retains lists and
-calibration. No new configuration feature or rule is authorized here.
+Still to implement: browser coordination, generated avatar, public guest entry and
+room UI, remaining bot-host identity adapter, full guest journey FR/EN/theme/a11y
+verification. The coordinator confirmed shared action/closure/settings files for
+identity wiring only; B retains lists/calibration. No new configuration rule.
 
 Sections below are chronological evidence. **Their historical limits apply to
 those commits, not to the current cumulative implementation.** No central matrix
@@ -609,3 +610,56 @@ local Chromium departure/login test passed. The browser test exercised a direct
 Auth.js callback and axe/no-overflow at 390/1024/1440 px. It preceded the final SQL
 transition fence and must be rerun with the rebuilt application. A missing fixture
 admission caused the first new room-channel test to fail; the fixture was corrected.
+
+
+### Final lifetime verification @ 0772f356300a4d9f842c18b3ab26dbb986130b3e
+
+Commits: `08d06682bd3ca1cd3309f904608894deff8f634f` implements the lifetime increment;
+`0772f356300a4d9f842c18b3ab26dbb986130b3e` addresses DBA review by batching guest
+retirement at closure and evicts the closing room cache before writing its cookie.
+No edits occurred during the final gates/reviews.
+
+| Check | Observed result |
+| --- | --- |
+| `npm run check:no-js` | Passed |
+| `npm run lint` | Passed |
+| `npm run typecheck` | Passed |
+| `npm test` | 2,347 passed: web 921, database 146, domain 1,198, load 20, word-lists 62 |
+| `npm run build` | Passed |
+| `npm run test:db -w @incision/database` | 351 passed, 9 existing PgBouncer skips; local PostgreSQL 17 only |
+| `npm run test:e2e -w @incision/web -- guest-session.spec.ts` | 9 passed; production build on localhost:3221, isolated synthetic database |
+| Sign-in departure UI | axe WCAG 2.1 A/AA + no horizontal overflow at 390/1024/1440; screenshots manually inspected against screen 02 |
+
+Local logs: `/tmp/guest-lifetime-verified-{nojs,lint,types,unit,build,db,e2e}.log`.
+The earlier `guest-lifetime-final-*` logs cover 08d0668, not the final correction.
+Snapshots: [390 px](transition-390.png), [1024 px](transition-1024.png),
+[1440 px](transition-1440.png). These capture French/Aube; the entire guest room UI,
+English browser flow and Nuit comparison remain part of the next integration unit.
+
+Reviews applied manually and sequentially, not independent subagents/external audits:
+
+- **Code reviewer — OK for this increment.** Read lifetime diff, typed account/guest
+  host actor, action refusal paths, post-commit notification/cache handling, socket
+  departure and worker shutdown/batching. Full root gates passed. Current cumulative
+  README replaces contradictory historical status while retaining dated evidence.
+- **Security — OK for this increment; public entry remains closed.** Signed proof
+  stays server-side, account-prefix precedence remains, expiry/host authorization is
+  rechecked in SQL, stale/forged actions do not renew. Direct Auth.js callback cannot
+  bypass explicit departure. SQL transition/admission race has only one winner.
+  Removed guest sockets get no subsequent room snapshot. SQL failures discard cache
+  rather than retaining unverifiable member mappings. No OAuth provider contacted.
+- **DBA — OK after correction.** Room-before-session order retained; sorted batch
+  session locks and set-based retirement replace per-member closure queries.
+  Transactions preserve account rows, synthetic photo bytes, account result views,
+  collective metrics/series; open rooms and settings remain intact. Repeated purge
+  is idempotent. All published migrations remain byte-for-byte unchanged; no new
+  migration. Physical cleanup during outage/backlog is not a hard SLA guarantee.
+- **Functional QA/UI — OK for the tested increment, not full #31.** HTTP cookie/
+  expiry/forgery/origin/account precedence, multi-tab watch, real non-host grace,
+  explicit departure then local credentials login, direct callback refusal, SQL
+  conservation and targeted responsive accessibility passed. No guest entry/race
+  journey, browser matrix beyond Chromium, remote database, or deployment claimed.
+
+Coordinator proposal only: retain #187 as draft/in progress; mark lifetime/transition
+increment verified at 0772f35, with the browser/public-entry/room-UI items above still
+to do. No central board or requirements matrix was edited. No merge or deployment.
