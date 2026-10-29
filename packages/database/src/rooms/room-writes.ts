@@ -1,5 +1,5 @@
-import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { retireUnreferencedGuest } from "../identity/guest-retirement";
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { retireUnreferencedGuests } from "../identity/guest-retirement";
 import { guestSessions, lobbies, lobbyMembers } from "../schema";
 import type { Transaction } from "../transaction";
 
@@ -13,10 +13,9 @@ export async function closeLockedRoom(tx: Transaction, lobbyId: string): Promise
   const guests = await tx.select({ memberId: lobbyMembers.id, sessionId: lobbyMembers.guestSessionId }).from(lobbyMembers)
     .where(and(eq(lobbyMembers.lobbyId, lobbyId), isNotNull(lobbyMembers.guestSessionId)))
     .orderBy(asc(lobbyMembers.guestSessionId));
-  for (const guest of guests) {
-    if (guest.sessionId !== null) await tx.select({ id: guestSessions.id }).from(guestSessions)
-      .where(eq(guestSessions.id, guest.sessionId)).for("update");
-  }
+  const sessionIds = guests.flatMap((guest) => guest.sessionId === null ? [] : [guest.sessionId]);
+  if (sessionIds.length > 0) await tx.select({ id: guestSessions.id }).from(guestSessions)
+    .where(inArray(guestSessions.id, sessionIds)).orderBy(asc(guestSessions.id)).for("update");
   await tx
     .update(lobbyMembers)
     .set({ leftAt: sql`statement_timestamp()` })
@@ -25,10 +24,11 @@ export async function closeLockedRoom(tx: Transaction, lobbyId: string): Promise
     .update(lobbies)
     .set({ phase: "closed", closedAt: sql`statement_timestamp()` })
     .where(eq(lobbies.id, lobbyId));
-  for (const guest of guests) {
-    await tx.update(lobbies).set({ hostMemberId: null }).where(and(eq(lobbies.id, lobbyId), eq(lobbies.hostMemberId, guest.memberId)));
-    await tx.delete(lobbyMembers).where(eq(lobbyMembers.id, guest.memberId));
-    if (guest.sessionId !== null) await retireUnreferencedGuest(tx, guest.sessionId);
+  if (guests.length > 0) {
+    await tx.update(lobbies).set({ hostMemberId: null })
+      .where(and(eq(lobbies.id, lobbyId), inArray(lobbies.hostMemberId, guests.map((guest) => guest.memberId))));
+    await tx.delete(lobbyMembers).where(and(eq(lobbyMembers.lobbyId, lobbyId), isNotNull(lobbyMembers.guestSessionId)));
+    await retireUnreferencedGuests(tx, sessionIds);
   }
 }
 

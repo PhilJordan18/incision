@@ -4,7 +4,7 @@ import { guestSessions, lobbies, lobbyMembers } from "../schema";
 import { boundedTransaction, READ_COMMITTED } from "../transaction";
 import { endDisconnectedGuestPresence } from "../rooms/guest-departure";
 import { endDisconnectedHostPresence } from "../rooms/host-departure";
-import { retireUnreferencedGuest } from "./guest-retirement";
+import { retireUnreferencedGuests } from "./guest-retirement";
 import { purgeUnusedGuestSessions } from "./guest-sessions";
 
 export type GuestRetentionReport = {
@@ -47,7 +47,7 @@ export async function maintainGuestRetention(db: Database, online: (lobbyId: str
       await tx.execute(sql`delete from races r where r.lobby_id = ${room.id}::uuid
         and not exists (select 1 from race_entrants e where e.race_id = r.id and e.kind = 'human')`);
       await tx.delete(lobbies).where(eq(lobbies.id, room.id));
-      for (const guest of guests) await retireUnreferencedGuest(tx, guest.id);
+      await retireUnreferencedGuests(tx, guests.map((guest) => guest.id));
       return true;
     }, READ_COMMITTED);
     if (purged) purgedRooms.push(room.id);

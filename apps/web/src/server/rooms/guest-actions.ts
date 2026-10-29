@@ -48,8 +48,8 @@ export async function guestCloseRoomAction(formData: FormData): Promise<HostActi
     if (!allowRoomChange(`guest:${guest.proof.id}`)) return { error: "RATE_LIMITED" };
     const result = await closeRoom(authDatabase(), { accountId: null, guestProof: guest.proof, code: code.code });
     if (!result.ok) return { error: result.error };
-    await clearGuestActionCookie(guest);
     temporaryRoomResults().discard(result.lobbyId);
+    await clearGuestActionCookie(guest);
     roomEvents().emit("closed", result.lobbyId);
     notifyRoomChanged(result.lobbyId); return {};
   } catch { return { error: "UNAVAILABLE" }; }
