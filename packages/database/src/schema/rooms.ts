@@ -16,6 +16,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { accounts } from "./identity";
+import { guestSessions } from "./guest-sessions";
 import { races } from "./races";
 
 export const lobbyVisibility = pgEnum("lobby_visibility", ["public", "code", "private"]);
@@ -34,8 +35,9 @@ export const lobbyMembers = pgTable(
       .notNull()
       .references((): AnyPgColumn => lobbies.id, { onDelete: "cascade" }),
     accountId: uuid("account_id")
-      .notNull()
       .references(() => accounts.id, { onDelete: "restrict" }),
+    // Preparatory constraint only: guest admission is not enabled by this migration.
+    guestSessionId: uuid("guest_session_id").references(() => guestSessions.id, { onDelete: "restrict" }),
     role: memberRole().notNull(),
     displayName: text("display_name").notNull(),
     displayNameCanonical: text("display_name_canonical").notNull(),
@@ -47,6 +49,9 @@ export const lobbyMembers = pgTable(
     unique("lobby_members_lobby_id_id_unique").on(table.lobbyId, table.id),
     // SALLE-06: one active room per account, enforced by the database (D-04).
     uniqueIndex("lobby_members_active_account_unique").on(table.accountId).where(sql`${table.leftAt} is null`),
+    uniqueIndex("lobby_members_active_guest_unique").on(table.guestSessionId).where(sql`${table.leftAt} is null`),
+    check("lobby_members_one_subject", sql`(${table.accountId} is not null) <> (${table.guestSessionId} is not null)`),
+    check("lobby_members_guest_name_length", sql`${table.guestSessionId} is null or char_length(${table.displayName}) between 3 and 20`),
     uniqueIndex("lobby_members_active_display_name_unique")
       .on(table.lobbyId, table.displayNameCanonical)
       .where(sql`${table.leftAt} is null`),

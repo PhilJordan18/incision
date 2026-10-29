@@ -94,7 +94,7 @@ describe("runMigrations", () => {
       select id, 1, 'finished', 1, 'Historical text.', '{"language":"en","timeLimitMs":600000,"errorMode":"free"}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`);
     const before = { accounts: await query("select * from accounts"), rooms: await query("select * from lobbies"), races: await query("select * from races") };
     const settingsBefore = await query("select lobby_id, revision, text_language, time_limit_ms, error_mode from lobby_settings");
-    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: 1 });
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 12 });
     expect({ accounts: await query("select * from accounts"), rooms: await query("select * from lobbies"), races: await query("select * from races") }).toEqual(before);
     expect(await query("select lobby_id, revision, text_language, time_limit_ms, error_mode from lobby_settings")).toEqual(settingsBefore);
     expect(await query("select word_count from lobby_settings")).toEqual([{ word_count: 50 }]);
