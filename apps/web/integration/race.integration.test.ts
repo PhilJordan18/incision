@@ -364,7 +364,7 @@ describe("an integrated race (F-04.0)", () => {
     // The process of the previous test has exited: its port is free again.
     const c = await startServer(PORTS[1] ?? 3302, { RACE_FIXTURE_TEXTS: "" });
     servers.push(c);
-    expect(c.output()).toContain("[races] race texts: drawn from the active corpus (D-19: coherent, 50 words, medium)");
+    expect(c.output()).toContain("[races] race texts: drawn from the active corpus (coherent, room word count, medium)");
     expect(c.output()).not.toContain("RACE_FIXTURE_TEXTS=allowed");
     const host = await account("int-host-5", "Hôte cinq");
     const guest = await account("int-guest-5", "Invité cinq");
@@ -420,7 +420,7 @@ describe("an integrated race (F-04.0)", () => {
     }
     // The host saves English texts and a 60 s limit with the revision a new room's page shows, through the
     // database function configureRoomAction calls.
-    const english = { textLanguage: "en", timeLimitMs: 60_000, errorMode: "mandatory" } as const;
+    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: english })).toMatchObject({ ok: true, revision: 1 });
     // Both browse the site in French.
     const h = await tab(c.origin, `${host.cookie}; ${LOCALE_COOKIE}=fr`);

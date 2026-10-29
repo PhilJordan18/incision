@@ -1,0 +1,2 @@
+ALTER TABLE "lobby_settings" ADD COLUMN "word_count" smallint DEFAULT 50 NOT NULL;--> statement-breakpoint
+ALTER TABLE "lobby_settings" ADD CONSTRAINT "lobby_settings_word_count_range" CHECK ("lobby_settings"."word_count" between 10 and 200);

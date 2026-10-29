@@ -82,6 +82,25 @@ function migrationsFolder(migrations: readonly (string | FixtureMigration)[]): s
 }
 
 describe("runMigrations", () => {
+  it("adds the 50-word default to populated settings without rewriting accounts, photos or historical races", async () => {
+    const previous = releasedMigrationsUpTo("0011_race_bot_identities");
+    await runMigrations({ connectionString: database.url, migrationsFolder: previous });
+    await query("insert into accounts (display_name) values ('Preserved account')");
+    await query("insert into profile_photos (account_id, webp) select id, decode('524946460000000057454250', 'hex') from accounts");
+    const photosBefore = await query("select * from profile_photos");
+    await query("insert into lobbies (code, capacity) values ('B7K4PQ', 30)");
+    await query("insert into lobby_settings (lobby_id, revision, text_language, time_limit_ms, error_mode) select id, 7, 'en', 600000, 'free' from lobbies");
+    await query(`insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
+      select id, 1, 'finished', 1, 'Historical text.', '{"language":"en","timeLimitMs":600000,"errorMode":"free"}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`);
+    const before = { accounts: await query("select * from accounts"), rooms: await query("select * from lobbies"), races: await query("select * from races") };
+    const settingsBefore = await query("select lobby_id, revision, text_language, time_limit_ms, error_mode from lobby_settings");
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: 1 });
+    expect({ accounts: await query("select * from accounts"), rooms: await query("select * from lobbies"), races: await query("select * from races") }).toEqual(before);
+    expect(await query("select lobby_id, revision, text_language, time_limit_ms, error_mode from lobby_settings")).toEqual(settingsBefore);
+    expect(await query("select word_count from lobby_settings")).toEqual([{ word_count: 50 }]);
+    expect(await query("select * from profile_photos")).toEqual(photosBefore);
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: previous })).toEqual({ applied: 0 });
+  });
   it("builds the schema on an empty database, then a second run applies nothing", async () => {
     expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() });
     for (const table of ["accounts", "oauth_identities", "lobbies", "lobby_members"]) {

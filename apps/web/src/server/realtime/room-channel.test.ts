@@ -32,7 +32,7 @@ const raceUnfollows: string[] = [];
 const raceFollowFails = { next: false };
 const memberships = new Map<string, ActiveMembership>();
 const snapshots = new Map<string, RoomSnapshot>();
-const SETTINGS = { revision: 3, textLanguage: "en", timeLimitMs: 90_000, errorMode: "mandatory" } as const;
+const SETTINGS = { revision: 3, textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory" } as const;
 const clients: Socket[] = [];
 
 async function authenticate(cookie: string | undefined): Promise<HandshakeAuthentication> {

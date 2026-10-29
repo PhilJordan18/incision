@@ -483,7 +483,9 @@ export function RoomView({ initial, selfMemberId, t, tRaces, locale, results }: 
     </div>
   );
   const connectionLine = (
-    <p aria-live="polite" className={`${monoLabel} ${connection === "live" ? "text-juste" : "text-or"}`}>
+    // Keep foreground and its own backdrop in sync: the reduced-motion stylesheet gives
+    // every element a transition duration, whose intermediate theme colours can fail AA.
+    <p aria-live="polite" className={`${monoLabel} bg-abysse transition-none ${connection === "live" ? "text-juste" : "text-or"}`}>
       <span aria-hidden="true">[.</span>
       {t.connection[connection]}
       <span aria-hidden="true">]</span>

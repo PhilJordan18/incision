@@ -9,7 +9,7 @@ const START = 1_800_000_000_000;
 const LOBBY = "lobby-1";
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
 /** An existing room keeps its saved 120 s limit after the D-19 default changes. */
-const INITIAL_SETTINGS: RoomSettings = { revision: 0, textLanguage: "fr", timeLimitMs: 120_000, errorMode: "mandatory" };
+const INITIAL_SETTINGS: RoomSettings = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory" };
 const PARTICIPANTS = [
   { entrantId: "e-host", accountId: "a-host", memberId: "m-host", ordinal: 1, displayName: "Hôte" },
   { entrantId: "e-bea", accountId: "a-bea", memberId: "m-bea", ordinal: 2, displayName: "Bea" },
@@ -161,7 +161,7 @@ describe("RaceService", () => {
     expect(service.activateBonus(first, payload)).toMatchObject({ ok: true, result: { reason: "BONUSES_DISABLED" } });
   });
   it("has the engine create the race with the room's settings, whatever the host's pages, and runs it here", async () => {
-    const { service, store, created, changed } = harness({ settings: { revision: 4, textLanguage: "en", timeLimitMs: 90_000 } });
+    const { service, store, created, changed } = harness({ settings: { revision: 4, textLanguage: "en", wordCount: 50, timeLimitMs: 90_000 } });
     const host = tab("t-host", "a-host");
     const bea = tab("t-bea", "a-bea");
     service.follow(LOBBY, host.connection);
@@ -169,7 +169,7 @@ describe("RaceService", () => {
     expect(await service.start(host.connection, {})).toEqual({ ok: true });
     const input = store.startRace.mock.calls[0]?.[0];
     expect(input).toMatchObject({ accountId: "a-host", ownerId: "owner-a", text: FIXTURE_RACE_TEXTS.en.text, lobbyId: LOBBY, settingsRevision: 4, rulesVersion: 1 });
-    expect(input?.config).toEqual({ errorMode: "mandatory", timeLimitMs: 90_000, language: "en", text: "fixture", bonuses: false });
+    expect(input?.config).toEqual({ errorMode: "mandatory", timeLimitMs: 90_000, wordCount: 50, language: "en", text: "fixture", bonuses: false });
     expect(created[0]).toMatchObject({ phase: "countdown", errorMode: "mandatory", timeLimit: 90_000, startsAt: START + COUNTDOWN_MS });
     expect(service.ownsRace(LOBBY)).toBe(true);
     expect(changed).toEqual([LOBBY]);
@@ -240,6 +240,7 @@ describe("RaceService", () => {
     const input = store.startRace.mock.calls[0]?.[0];
     expect(input?.text).toBe(cut);
     expect(input?.config).toEqual({
+      wordCount: 50,
       errorMode: "mandatory",
       timeLimitMs: 120_000,
       language: "fr",
@@ -400,9 +401,10 @@ describe("RaceService", () => {
 
   it("draws again with the new settings when the host saved some during the draw, once", async () => {
     const draw = vi.fn(fixedRaceTexts(FIXTURE_RACE_TEXTS).draw);
-    const once = harness({ settingsChanges: 1, settings: { textLanguage: "en", timeLimitMs: 90_000 }, saved: { textLanguage: "fr", timeLimitMs: 60_000 }, texts: { draw } });
+    const once = harness({ settingsChanges: 1, settings: { textLanguage: "en", wordCount: 10, timeLimitMs: 90_000 }, saved: { textLanguage: "fr", wordCount: 200, timeLimitMs: 60_000 }, texts: { draw } });
     expect(await once.service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: true });
-    expect(draw.mock.calls).toEqual([["en"], ["fr"]]);
+    expect(draw.mock.calls).toEqual([["en", 10], ["fr", 200]]);
+    expect(once.store.startRace.mock.calls.map(([input]) => input.config["wordCount"])).toEqual([10, 200]);
     expect(
       once.store.startRace.mock.calls.map(([input]) => ({ revision: input.settingsRevision, text: input.text, timeLimitMs: input.config["timeLimitMs"] })),
     ).toEqual([

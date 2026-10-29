@@ -9,6 +9,8 @@ export type RoomSettings = {
   readonly revision: number;
   /** The language of the race texts, independent of anyone's interface (CONF-02). */
   readonly textLanguage: TextLanguage;
+  /** CONF-04: requested normalized word count, frozen with each new race. */
+  readonly wordCount: number;
   /** Null: no time limit (CONF-01, D-17). */
   readonly timeLimitMs: number | null;
   readonly errorMode: ErrorMode;
@@ -19,16 +21,17 @@ export const DEFAULT_TEXT_LANGUAGE: TextLanguage = "fr";
 
 /** D-19 defaults for new rooms only; existing rows are never rewritten. */
 export function initialRoomSettings(textLanguage: TextLanguage): RoomSettings {
-  return { revision: 0, textLanguage, timeLimitMs: null, errorMode: "mandatory" };
+  return { revision: 0, textLanguage, wordCount: 50, timeLimitMs: null, errorMode: "mandatory" };
 }
 
 /** Preserve the former fallback for rooms created by a process older than migration 0006. */
-const LEGACY_ROOM_SETTINGS: RoomSettings = { revision: 0, textLanguage: DEFAULT_TEXT_LANGUAGE, timeLimitMs: 120_000, errorMode: "mandatory" };
+const LEGACY_ROOM_SETTINGS: RoomSettings = { revision: 0, textLanguage: DEFAULT_TEXT_LANGUAGE, wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory" };
 
 /** The settings columns, read with a room through a left join. */
 export const settingsColumns = {
   settingsRevision: lobbySettings.revision,
   textLanguage: lobbySettings.textLanguage,
+  wordCount: lobbySettings.wordCount,
   timeLimitMs: lobbySettings.timeLimitMs,
   errorMode: lobbySettings.errorMode,
 };
@@ -36,6 +39,7 @@ export const settingsColumns = {
 type SettingsColumns = {
   readonly settingsRevision: number | null;
   readonly textLanguage: TextLanguage | null;
+  readonly wordCount: number | null;
   readonly timeLimitMs: number | null;
   readonly errorMode: ErrorMode | null;
 };
@@ -45,10 +49,10 @@ type SettingsColumns = {
  * a release rolls out, has no row: it keeps its legacy 120 s limit until its host saves new settings.
  */
 export function settingsOf(row: SettingsColumns): RoomSettings {
-  const { settingsRevision, textLanguage, timeLimitMs, errorMode } = row;
+  const { settingsRevision, textLanguage, wordCount, timeLimitMs, errorMode } = row;
   return settingsRevision === null || textLanguage === null || errorMode === null
     ? { ...LEGACY_ROOM_SETTINGS }
-    : { revision: settingsRevision, textLanguage, timeLimitMs, errorMode };
+    : { revision: settingsRevision, textLanguage, wordCount: wordCount ?? 50, timeLimitMs, errorMode };
 }
 
 /**

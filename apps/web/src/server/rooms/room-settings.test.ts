@@ -13,14 +13,23 @@ function form(fields: Readonly<Record<string, string | readonly string[]>>): For
   return value;
 }
 
-const VALID = { code: "ABCDEF", revision: "3", textLanguage: "en", timeLimitSeconds: "90", errorMode: "mandatory" } as const;
+const VALID = { code: "ABCDEF", revision: "3", textLanguage: "en", wordCount: "50", timeLimitSeconds: "90", errorMode: "mandatory" } as const;
 
 describe("parseConfigureRoomForm", () => {
+  it("accepts only 10–200 whole words and never substitutes the default for invalid input", () => {
+    for (const wordCount of ["10", "50", "200"]) expect(parseConfigureRoomForm(form({ ...VALID, wordCount }))?.settings.wordCount).toBe(Number(wordCount));
+    for (const wordCount of ["9", "201", "10.5", "1e2", "", " 50", "50\n", "0050", "５０"]) {
+      expect(parseConfigureRoomForm(form({ ...VALID, wordCount })), wordCount).toBeUndefined();
+    }
+    const withFile = form(VALID);
+    withFile.set("wordCount", new Blob(["50"]));
+    expect(parseConfigureRoomForm(withFile)).toBeUndefined();
+  });
   it("reads the code, the revision, the language and the limit in seconds, with mandatory correction", () => {
     expect(parseConfigureRoomForm(form(VALID))).toEqual({
       code: "ABCDEF",
       revision: 3,
-      settings: { textLanguage: "en", timeLimitMs: 90_000, errorMode: "mandatory" },
+      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory" },
     });
   });
 
@@ -69,6 +78,7 @@ describe("parseConfigureRoomForm", () => {
   it("accepts free typing without accepting a forged limit in milliseconds", () => {
     expect(parseConfigureRoomForm(form({ ...VALID, errorMode: "free", timeLimitMs: "600000", $ACTION_ID_x: "" }))?.settings).toEqual({
       textLanguage: "en",
+      wordCount: 50,
       timeLimitMs: 90_000,
       errorMode: "free",
     });
@@ -86,6 +96,10 @@ describe("parseConfigureRoomForm", () => {
 
 describe("isRunnable", () => {
   const settings = (changes: Partial<RoomSettings>): RoomSettings => ({ ...initialRoomSettings("fr"), ...changes });
+  it("refuses out-of-range stored word counts before any draw", () => {
+    for (const wordCount of [9, 201, 50.5, NaN, Infinity]) expect(isRunnable(settings({ wordCount }))).toBe(false);
+    for (const wordCount of [10, 200]) expect(isRunnable(settings({ wordCount }))).toBe(true);
+  });
 
   it("runs mandatory correction with a 30 s to 600 s limit, a new room's settings included", () => {
     expect(isRunnable(initialRoomSettings("en"))).toBe(true);

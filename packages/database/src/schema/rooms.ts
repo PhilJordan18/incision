@@ -1,4 +1,4 @@
-import { ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "@incision/domain";
+import { ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -123,12 +123,14 @@ export const lobbySettings = pgTable(
     revision: integer().notNull().default(0),
     /** The language of the race texts, independent of anyone's interface (CONF-02). */
     textLanguage: textLanguage("text_language").notNull(),
+    wordCount: smallint("word_count").notNull().default(50),
     /** Null: no time limit at all (CONF-01, D-17). */
     timeLimitMs: integer("time_limit_ms"),
     errorMode: errorMode("error_mode").notNull(),
   },
   (table) => [
     check("lobby_settings_revision_non_negative", sql`${table.revision} >= 0`),
+    check("lobby_settings_word_count_range", sql`${table.wordCount} between ${sql.raw(String(MIN_TEXT_WORDS))} and ${sql.raw(String(MAX_TEXT_WORDS))}`),
     // The engine's bounds (TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS), whatever the server accepts today.
     check(
       "lobby_settings_time_limit_range",

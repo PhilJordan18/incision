@@ -222,7 +222,7 @@ export class RaceService {
       return { ok: false, error: "UNAVAILABLE" };
     }
     // The text's language is the room's (CONF-02), then the race's for good.
-    const drawn = await this.#options.texts.draw(settings.textLanguage);
+    const drawn = await this.#options.texts.draw(settings.textLanguage, settings.wordCount);
     // Refused before any write: no race is written, the room stays as it was.
     if (!drawn.ok) {
       return { ok: false, error: drawn.reason };
@@ -250,7 +250,7 @@ export class RaceService {
         accountId: connection.accountId,
         ownerId,
         text,
-        config: { errorMode, timeLimitMs, ...record, bonuses: false },
+        config: { errorMode, timeLimitMs, wordCount: settings.wordCount, ...record, bonuses: false },
         lobbyId,
         settingsRevision: revision,
         rulesVersion: RULES_VERSION,

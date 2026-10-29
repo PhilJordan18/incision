@@ -28,11 +28,42 @@ async function edit(page: Page, language: "fr" | "en", seconds: string) {
   await panel(page).getByRole("button", { name: /^(Modifier les réglages|Edit settings)$/ }).click();
   await panel(page).getByRole("combobox", { name: /Text language|Langue du texte/ }).selectOption(language);
   await panel(page).getByRole("checkbox", { name: /^(Aucune limite|No limit)$/ }).setChecked(seconds === "none");
-  if (seconds !== "none") await panel(page).getByRole("spinbutton").fill(seconds);
+  if (seconds !== "none") await panel(page).getByRole("spinbutton", { name: /Durée maximale|Time limit/ }).fill(seconds);
 }
 async function save(page: Page) {
   await panel(page).getByRole("button", { name: /^(Enregistrer les réglages|Save settings)$/ }).click();
   await expect(panel(page).getByRole("status")).toHaveText(/^(Réglages enregistrés\.|Settings saved\.)$/);
+}
+
+for (const wordCount of [10, 200]) {
+  test(`word count ${wordCount} synchronizes, persists and is frozen at start`, async ({ browser }) => {
+    const { page: host } = await account(browser, `WordsHost${wordCount}`);
+    const { page: member } = await account(browser, `WordsMember${wordCount}`);
+    const code = await open(host);
+    await member.goto(`/rooms/${code}`);
+    await member.getByRole("button", { name: "Rejoindre la salle", exact: true }).click();
+    await expect(member.getByText("[.En direct]", { exact: true })).toBeVisible();
+    await edit(host, "en", "30");
+    const words = panel(host).getByRole("spinbutton", { name: /^Nombre de mots/ });
+    for (const invalid of ["9", "201"]) {
+      await words.fill(invalid);
+      await expect(panel(host).getByRole("button", { name: "Enregistrer les réglages" })).toBeDisabled();
+    }
+    await words.fill(String(wordCount));
+    await save(host);
+    await expect(panel(member).locator("dd").nth(1)).toHaveText(String(wordCount));
+    await host.reload();
+    await expect(panel(host).locator("dd").nth(1)).toHaveText(String(wordCount));
+    await host.getByRole("button", { name: "Lancer la course", exact: true }).click();
+    await expect(host.locator(".course-texte")).toBeVisible({ timeout: 10_000 });
+    const [race] = await query<{ text: string; config: Record<string, unknown> }>(
+      "select text_snapshot as text, config_snapshot as config from races r join lobbies l on l.current_race_id=r.id where l.code=$1", [code]);
+    expect(race?.config.wordCount).toBe(wordCount);
+    if (process.env.E2E_SETTINGS_CORPUS !== undefined) {
+      expect(race?.config.text).not.toBe("fixture");
+      expect(race?.text.split(" ")).toHaveLength(wordCount);
+    }
+  });
 }
 
 for (const duration of ["60", "600", "none"]) {
@@ -48,10 +79,10 @@ test(`saved language and duration ${duration} reach another member, survive relo
   await expect(panel(host).locator("dd").first()).toHaveText("Français"); // no optimistic summary
   await save(host);
   await expect(panel(member).locator("dd").first()).toHaveText("Anglais");
-  await expect(panel(member).locator("dd").nth(1)).toHaveText(duration === "none" ? "Aucune limite" : duration);
+  await expect(panel(member).locator("dd").nth(2)).toHaveText(duration === "none" ? "Aucune limite" : duration);
   await host.reload();
   await expect(host.getByText("[.En direct]", { exact: true })).toBeVisible();
-  await expect(panel(host).locator("dd").nth(1)).toHaveText(duration === "none" ? "Aucune limite" : duration);
+  await expect(panel(host).locator("dd").nth(2)).toHaveText(duration === "none" ? "Aucune limite" : duration);
   await expect(host.locator("#start-note")).toContainText(duration === "none" ? "Aucune limite" : `${duration} s`);
   await host.getByRole("button", { name: "Lancer la course", exact: true }).click();
   await expect(host.locator(".course-texte")).toBeVisible({ timeout: 10_000 });
@@ -75,8 +106,8 @@ test(`saved language and duration ${duration} reach another member, survive relo
   }
   await host.getByRole("button", { name: "Prochaine manche", exact: true }).click();
   await expect(panel(host).locator("dd").first()).toHaveText("Anglais");
-  await expect(panel(host).locator("dd").nth(1)).toHaveText(duration === "none" ? "Aucune limite" : duration);
-  await expect(panel(member).locator("dd").nth(1)).toHaveText(duration === "none" ? "Aucune limite" : duration);
+  await expect(panel(host).locator("dd").nth(2)).toHaveText(duration === "none" ? "Aucune limite" : duration);
+  await expect(panel(member).locator("dd").nth(2)).toHaveText(duration === "none" ? "Aucune limite" : duration);
 });
 
 }
@@ -91,17 +122,17 @@ test("another host tab cannot silently overwrite a draft; cancel and explicit re
   await edit(second, "fr", "90");
   await save(second);
   await expect(panel(first).getByRole("alert")).toContainText("autre onglet");
-  await expect(panel(first).getByRole("spinbutton")).toHaveValue("45");
+  await expect(panel(first).getByRole("spinbutton", { name: /Durée maximale|Time limit/ })).toHaveValue("45");
   await expect(panel(first).getByRole("button", { name: "Enregistrer les réglages" })).toBeDisabled();
   await panel(first).getByRole("button", { name: "Recharger les réglages" }).click();
   await expect(first.getByText("[.En direct]", { exact: true })).toBeVisible();
   await edit(first, "en", "60");
   await panel(first).getByRole("combobox", { name: /Text language|Langue du texte/ }).press("Escape");
   await expect(panel(first).getByRole("button", { name: "Modifier les réglages" })).toBeFocused();
-  await expect(panel(first).locator("dd").nth(1)).toHaveText("90");
+  await expect(panel(first).locator("dd").nth(2)).toHaveText("90");
   await edit(first, "en", "60");
   await save(first);
-  await expect(panel(second).locator("dd").nth(1)).toHaveText("60");
+  await expect(panel(second).locator("dd").nth(2)).toHaveText("60");
 });
 
 test("settings remain accessible in both languages and themes at reference widths", async ({ browser }) => {
@@ -113,7 +144,7 @@ test("settings remain accessible in both languages and themes at reference width
       await page.reload();
       await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
       await edit(page, "en", "60");
-      for (const width of [1440, 1024, 390, 360]) {
+      for (const width of [1440, 1024, 390, 360, 320]) {
         await page.setViewportSize({ width, height: 1000 });
         await expectNoHorizontalScroll(page);
         await page.screenshot({ path: test.info().outputPath(`settings-${locale}-${theme}-${width}.png`), fullPage: true });
@@ -137,7 +168,7 @@ test("a lost action response preserves the draft and offers a read, not an autom
   });
   await panel(page).getByRole("button", { name: "Enregistrer les réglages" }).click();
   await expect(panel(page).getByRole("alert")).toContainText("confirmation n’a pas été reçue");
-  await expect(panel(page).getByRole("spinbutton")).toHaveValue("45");
+  await expect(panel(page).getByRole("spinbutton", { name: /Durée maximale|Time limit/ })).toHaveValue("45");
   await expect(panel(page).getByRole("button", { name: "Enregistrer les réglages" })).toBeDisabled();
   expect(actions).toBe(1);
   await panel(page).getByRole("button", { name: "Annuler", exact: true }).click();
@@ -165,9 +196,9 @@ for (const locale of ["fr-CA", "en-US"]) {
     await mode.focus();
     await expect(mode).toBeFocused();
     await save(host);
-    await expect(panel(member).locator("dd").nth(2)).toHaveText(/^(Frappe libre|Free typing)$/);
+    await expect(panel(member).locator("dd").nth(3)).toHaveText(/^(Frappe libre|Free typing)$/);
     await host.reload();
-    await expect(panel(host).locator("dd").nth(2)).toHaveText(/^(Frappe libre|Free typing)$/);
+    await expect(panel(host).locator("dd").nth(3)).toHaveText(/^(Frappe libre|Free typing)$/);
     await host.getByRole("button", { name: /^(Lancer la course|Start the race)$/ }).click();
     const field = host.getByLabel(/^(Ta frappe|Your typing)$/);
     await expect(field).toBeEnabled({ timeout: 10_000 });
@@ -199,7 +230,7 @@ for (const locale of ["fr-CA", "en-US"]) {
     await edit(host, "en", "none");
     await panel(host).getByRole("combobox", { name: /^(Mode de frappe|Typing mode)$/ }).selectOption("mandatory");
     await save(host);
-    await expect(panel(member).locator("dd").nth(2)).toHaveText(/^(Correction obligatoire|Mandatory correction)$/);
+    await expect(panel(member).locator("dd").nth(3)).toHaveText(/^(Correction obligatoire|Mandatory correction)$/);
     await host.getByRole("button", { name: /^(Lancer la course|Start the race)$/ }).click();
     await expect(field).toBeEnabled({ timeout: 10_000 });
     const nextText = (await host.locator(".course-texte").textContent())!;
@@ -219,7 +250,7 @@ for (const locale of ["fr-CA", "en-US"]) {
   test(`explicit unlimited and duration boundaries persist for ${locale}`, async ({ browser }) => {
     const { page } = await account(browser, `Duration${locale}`, locale);
     const code = await open(page);
-    await expect(panel(page).locator("dd").nth(1)).toHaveText(/^(Aucune limite|No limit)$/);
+    await expect(panel(page).locator("dd").nth(2)).toHaveText(/^(Aucune limite|No limit)$/);
     for (const seconds of ["30", "600", "none"]) {
       await edit(page, "en", seconds);
       const unlimited = panel(page).getByRole("checkbox", { name: /^(Aucune limite|No limit)$/ });
@@ -230,11 +261,11 @@ for (const locale of ["fr-CA", "en-US"]) {
       await expect(unlimited).toBeChecked({ checked: seconds === "none" });
       if (seconds !== "none") {
         for (const invalid of ["29", "601"]) {
-          await panel(page).getByRole("spinbutton").fill(invalid);
+          await panel(page).getByRole("spinbutton", { name: /Durée maximale|Time limit/ }).fill(invalid);
           await expect(panel(page).getByRole("button", { name: /^(Enregistrer les réglages|Save settings)$/ })).toBeDisabled();
         }
-        await panel(page).getByRole("spinbutton").fill(seconds);
-      } else await expect(panel(page).getByRole("spinbutton")).toBeDisabled();
+        await panel(page).getByRole("spinbutton", { name: /Durée maximale|Time limit/ }).fill(seconds);
+      } else await expect(panel(page).getByRole("spinbutton", { name: /Durée maximale|Time limit/ })).toBeDisabled();
       await save(page);
       await page.reload();
       await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();

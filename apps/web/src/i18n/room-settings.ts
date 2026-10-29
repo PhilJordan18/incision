@@ -6,6 +6,7 @@ const fr = {
   title: "Réglages de la course", edit: "Modifier les réglages", language: "Langue du texte",
   french: "Français", english: "Anglais", duration: "Durée maximale (secondes)", mode: "Mode de frappe",
   mandatory: "Correction obligatoire", free: "Frappe libre", unlimited: "Aucune limite",
+  wordCount: "Nombre de mots", wordCountHint: "De 10 à 200 mots. Le départ sera refusé si aucun passage compatible n’est disponible.",
   modeHint: "Correction obligatoire : corrige chaque erreur pour avancer. Frappe libre : avance malgré les erreurs ; elles comptent dans la précision. Les records restent séparés par mode.",
   save: "Enregistrer les réglages", cancel: "Annuler", saving: "Enregistrement…",
   reload: "Recharger les réglages", saved: "Réglages enregistrés.", waiting: "Enregistré. En attente de la confirmation dans la salle…",
@@ -15,7 +16,7 @@ const fr = {
   conflict: "Les réglages ont changé dans un autre onglet. Ton brouillon est conservé. Recharge les réglages avant de modifier à nouveau.",
   hint: "Aucune limite, ou de 30 à 600 secondes. Seuls les réglages enregistrés seront utilisés au départ, pas ton brouillon.",
   errors: {
-    INVALID_SETTINGS: "Choisis une langue, un mode de frappe et aucune limite ou une durée entière entre 30 et 600 secondes.",
+    INVALID_SETTINGS: "Choisis une langue, de 10 à 200 mots, un mode de frappe et aucune limite ou une durée entière entre 30 et 600 secondes.",
     RATE_LIMITED: "Trop de modifications. Attends une minute avant de réessayer.",
     NOT_IN_A_ROOM: "Tu ne fais plus partie de cette salle. Recharge la salle.",
     NOT_HOST: "Seul l’hôte peut modifier les réglages. Recharge la salle.",
@@ -27,6 +28,7 @@ const fr = {
 const en: typeof fr = {
   title: "Race settings", edit: "Edit settings", language: "Text language", french: "French", english: "English",
   duration: "Time limit (seconds)", mode: "Typing mode", mandatory: "Mandatory correction", free: "Free typing", unlimited: "No limit",
+  wordCount: "Word count", wordCountHint: "From 10 to 200 words. The race cannot start if no compatible passage is available.",
   modeHint: "Mandatory correction: fix each error to advance. Free typing: advance despite errors; they count towards accuracy. Records stay separate for each mode.",
   save: "Save settings", cancel: "Cancel", saving: "Saving…", reload: "Reload settings", saved: "Settings saved.",
   waiting: "Saved. Waiting for confirmation in the room…", unavailable: "Settings unavailable. Reload the room to view them.",
@@ -35,7 +37,7 @@ const en: typeof fr = {
   conflict: "Settings changed in another tab. Your draft is preserved. Reload settings before editing again.",
   hint: "No limit, or from 30 to 600 seconds. Only saved settings will be used at the start, not your draft.",
   errors: {
-    INVALID_SETTINGS: "Choose a language, a typing mode and no limit or a whole duration between 30 and 600 seconds.",
+    INVALID_SETTINGS: "Choose a language, 10 to 200 words, a typing mode and no limit or a whole duration between 30 and 600 seconds.",
     RATE_LIMITED: "Too many changes. Wait a minute before trying again.",
     NOT_IN_A_ROOM: "You are no longer in this room. Reload the room.",
     NOT_HOST: "Only the host can edit settings. Reload the room.",
@@ -51,6 +53,6 @@ export function roomStartNote(settings: SavedRoomSettings | undefined, locale: L
   if (settings === undefined) return t.unavailable;
   const duration = settings.timeLimitMs === null ? t.unlimited : `${settings.timeLimitMs / 1000} s`;
   const mode = settings.errorMode === "mandatory" ? t.mandatory : t.free;
-  return locale === "fr" ? `Durée maximale : ${duration}. ${mode}. Passage du domaine public.`
-    : `Time limit: ${duration}. ${mode}. Public-domain passage.`;
+  return locale === "fr" ? `Durée maximale : ${duration}. ${mode}. ${settings.wordCount} mots. Passage du domaine public.`
+    : `Time limit: ${duration}. ${mode}. ${settings.wordCount} words. Public-domain passage.`;
 }
