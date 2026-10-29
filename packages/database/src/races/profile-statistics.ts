@@ -27,7 +27,7 @@ export async function readAccountStatistics(db: Database, accountId: string): Pr
     with eligible as (
       select r.id as race_id, r.ended_at, rr.outcome, rr.rank, rr.net_wpm, rr.accuracy,
         exists (select 1 from race_entrants other
-          where other.race_id = r.id and other.kind = 'human' and other.account_id <> e.account_id) as other_human
+          where other.race_id = r.id and (other.kind = 'guest' or (other.kind = 'human' and other.account_id <> e.account_id))) as other_human
       from race_entrants e
       join races r on r.id = e.race_id
       join race_results rr on rr.race_id = r.id and rr.entrant_id = e.id

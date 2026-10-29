@@ -12,11 +12,16 @@ import { readRaceForEntrant } from "../src/races/results";
 import { readAccountStatistics } from "../src/races/profile-statistics";
 import { createTemporaryDatabase } from "./test-database";
 
-it.each([10, 200])("upgrades 0012 preserving %i-word settings, photos and account results through guest cleanup", async (wordCount) => {
+it.each([
+  { predecessor: "0012_third_human_cannonball", wordCount: 10 },
+  { predecessor: "0012_third_human_cannonball", wordCount: 200 },
+  { predecessor: "0013_guest_identity_foundation", wordCount: 10 },
+  { predecessor: "0013_guest_identity_foundation", wordCount: 200 },
+])("upgrades $predecessor preserving $wordCount-word settings, photos and account results through guest cleanup", async ({ predecessor, wordCount }) => {
   const database = await createTemporaryDatabase();
   const folder = mkdtempSync(path.join(tmpdir(), "incision-guest-migration-"));
   const journal: { entries: { tag: string }[] } = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta/_journal.json"), "utf8"));
-  const last = journal.entries.findIndex((entry) => entry.tag === "0012_third_human_cannonball");
+  const last = journal.entries.findIndex((entry) => entry.tag === predecessor);
   if (last < 0) throw new Error("Missing predecessor");
   const entries = journal.entries.slice(0, last + 1);
   mkdirSync(path.join(folder, "meta"));
@@ -45,12 +50,16 @@ it.each([10, 200])("upgrades 0012 preserving %i-word settings, photos and accoun
     await pool.query("insert into race_wpm_series(race_id,entrant_id,series) values($1,$2,$3)", [race,entrant,series.value]);
     await pool.query("insert into race_key_errors(race_id,entrant_id,aggregate) values($1,$2,$3)", [race,entrant,{ version: 1, keys: [{ grapheme: "a", count: 1 }] }]);
     const db = createDatabase(pool);
+    const protectedTables = ["accounts", "races", "race_entrants", "race_results", "race_wpm_series", "race_key_errors", "lobby_members", "lobby_settings", "profile_photos"];
+    const storedBefore = await Promise.all(protectedTables.map(async (table) => (await pool.query(`select * from ${table}`)).rows));
     const before = await readRaceForEntrant(db, race, account);
     const stats = await readAccountStatistics(db, account);
     const resultRows = (await pool.query("select * from race_results")).rows;
     const settings = (await pool.query("select * from lobby_settings")).rows;
     const photos = (await pool.query("select * from profile_photos")).rows;
-    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: 1 });
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: journal.entries.length - entries.length });
+    const storedAfter = await Promise.all(protectedTables.map(async (table) => (await pool.query(`select * from ${table}`)).rows));
+    expect(storedAfter).toEqual(storedBefore);
     expect((await pool.query("select * from lobby_settings")).rows).toEqual(settings);
     expect((await pool.query("select * from profile_photos")).rows).toEqual(photos);
     expect(await readRaceForEntrant(db, race, account)).toEqual(before);
