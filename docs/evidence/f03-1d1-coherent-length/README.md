@@ -47,6 +47,19 @@ Selected screenshots are preserved here; the full generated browser artifact dir
 
 ## Remaining
 
+## PR #182 contrast follow-up — October 28
+
+The PR CI run `40783303366` failed one of 147 browser tests: the room live label had an intermediate contrast ratio of 3.86:1 during a theme transition (foreground `#0e8051`, background `#e1e3e6`, as measured by axe in the retained trace). The design's reduced-motion rule assigns a transition duration to every element. Static theme colours were not the failing values.
+
+Fix `2e36b45` keeps the existing semantic colour tokens, gives the label its own page-background token, and disables interpolation on that label. No design asset, token, business rule or accessibility check was removed. The regression asserts no transition and a non-transparent backdrop; the existing full-page axe check remains.
+
+- `npm run check:no-js`, `npm run lint`, `npm run typecheck`: passed.
+- `npm test`: 2,164 passed after rerunning with local socket permissions. The first sandboxed run was interrupted after socket-related failures, not counted as a pass.
+- `npm run build`: passed under the shared heavy lock with required permissions; the earlier sandboxed build was interrupted.
+- `npm run test:e2e -w @incision/web -- e2e/room-bots.spec.ts`: 3 passed, including FR/EN, Abysse/Aube, 1440/1024/390/360, reduced motion, full-page axe, no horizontal overflow and keyboard focus. Dedicated port 3845/database `incision_e2e_f031d1` on 5445 only.
+- Code and UI reviews on `2e36b45`: no blocking finding; local backdrop matches the page in both themes, translated live region semantics unchanged. Inspected [FR light 1440](contrast/fr-CA-aube-1440.png), [EN dark 1024](contrast/en-US-abysse-1024.png), [EN light 390](contrast/en-US-aube-390.png). Prior bot-control screenshots were preserved, not replaced.
+- Full browser suite is left to remote CI; no new SQL test required for this CSS-only runtime fix. Recipe server, data and backups untouched. No merge.
+
 - Remote CI and human acceptance before Philippe decides whether to merge.
 - Human recipe integration is a later controlled step with a fresh preserved backup, not a reset of the current recipe.
 
