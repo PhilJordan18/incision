@@ -41,7 +41,7 @@ test("forged, expired and malformed cookies cannot be renewed or implicitly repl
   }
 });
 
-test("guest credentials grant no account, room or race access", async ({ page, context, baseURL }) => {
+test("guest credentials grant no account or race access and require room membership", async ({ page, context, baseURL }) => {
   const origin = baseURL ?? "";
   expect((await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } })).status()).toBe(200);
   expect(await (await context.request.get("/api/auth/session")).json()).toBeNull();
@@ -54,7 +54,7 @@ test("guest credentials grant no account, room or race access", async ({ page, c
   const { socket } = await connectSocket(origin, `${COOKIE}=${cookie?.value ?? ""}`);
   try {
     expect(await socket.timeout(5000).emitWithAck("session:whoami", {})).toEqual({ ok: false, error: "UNAUTHORIZED" });
-    expect(await socket.timeout(5000).emitWithAck("room:watch", { code: "ABCDEF" })).toEqual({ ok: false, error: "UNAUTHORIZED" });
+    expect(await socket.timeout(5000).emitWithAck("room:watch", { code: "ABCDEF" })).toEqual({ ok: false, error: "NOT_A_MEMBER" });
   } finally { socket.close(); }
 });
 
@@ -89,4 +89,43 @@ test("malformed account chunks cannot fall back to a valid guest", async ({ cont
   const response = await context.request.post("/api/guest/session/renew", { headers: { Origin: origin }, data: {} });
   expect(response.status()).toBe(401);
   expect(response.headers()["set-cookie"]).toBeUndefined();
+});
+
+
+test("guest room watch is read-only and an explicit renewal updates both live socket deadlines", async ({ context, baseURL }) => {
+  const origin = baseURL ?? "";
+  await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } });
+  const cookie = (await context.cookies()).find((value) => value.name === COOKIE);
+  if (!cookie) throw new Error("Missing guest cookie");
+  const id = cookie.value.split(".")[1];
+  // Synthetic SQL fixture only: public guest admission remains unavailable in this unit.
+  const [room] = await query<{ id: string }>("insert into lobbies(code,capacity) values('GHJKLM',30) returning id");
+  if (!room) throw new Error("Missing fixture room");
+  const [member] = await query<{ id: string }>("insert into lobby_members(lobby_id,guest_session_id,role,display_name,display_name_canonical) values($1,$2,'participant','Visitor','visitor') returning id", [room.id, id]);
+  await query("update guest_sessions set created_at=now()-interval '24 hours', last_seen_at=now()-interval '24 hours'+interval '2 seconds', expires_at=now()+interval '2 seconds' where id=$1", [id]);
+  const header = `${COOKIE}=${cookie.value}`;
+  const { socket: first } = await connectSocket(origin, header);
+  const { socket: second } = await connectSocket(origin, header);
+  try {
+    const before = await query("select last_seen_at,expires_at from guest_sessions where id=$1", [id]);
+    for (const socket of [first, second]) {
+      const ack = await socket.timeout(5000).emitWithAck("room:watch", { code: "GHJKLM" });
+      expect(ack).toMatchObject({ ok: true, selfMemberId: member?.id });
+      expect(JSON.stringify(ack)).not.toContain(id);
+      expect(JSON.stringify(ack)).not.toContain(cookie.value);
+    }
+    expect(await query("select last_seen_at,expires_at from guest_sessions where id=$1", [id])).toEqual(before);
+    expect((await context.request.post("/api/guest/session/renew", { headers: { Origin: origin }, data: {} })).status()).toBe(200);
+    // Cross the old deadline; the explicit accepted POST refreshed both registered tabs.
+    await new Promise((resolve) => setTimeout(resolve, 2_100));
+    expect(first.connected).toBe(true);
+    expect(second.connected).toBe(true);
+    await query("update guest_sessions set created_at=now()-interval '2 days', last_seen_at=now()-interval '25 hours', expires_at=now()-interval '1 hour' where id=$1", [id]);
+    const disconnected = new Promise<void>((resolve) => first.once("disconnect", () => resolve()));
+    first.emit("room:watch", { code: "GHJKLM" }, () => undefined);
+    await disconnected;
+  } finally {
+    first.close(); second.close();
+    await query("delete from lobbies where id=$1", [room.id]);
+  }
 });
