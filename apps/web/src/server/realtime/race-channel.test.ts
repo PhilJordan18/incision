@@ -220,7 +220,8 @@ describe("guest race commands", () => {
 
   it("fails closed when SQL cannot verify membership and never executes the runtime action", async () => {
     const guest = await open("session=guest"); following.add(guest.id!); guestStore.unavailable = true;
-    expect(await ask(guest, RACE_PRESENT_EVENT, { raceId: RACE })).toEqual({ ok: false, error: "UNAVAILABLE" });
+    await expect(ask(guest, RACE_PRESENT_EVENT, { raceId: RACE })).rejects.toThrow("socket has been disconnected");
+    expect(guest.connected).toBe(false);
     expect(races.present).not.toHaveBeenCalled(); expect(guestActivity).toEqual([]);
   });
 
