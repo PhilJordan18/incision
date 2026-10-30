@@ -106,13 +106,6 @@
       "when": 1793246763446,
       "tag": "0014_anonymous_guest_results",
       "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1793329936036,
-      "tag": "0015_lobby_text_settings",
-      "breakpoints": true
     }
   ]
 }
