@@ -3,11 +3,11 @@ import { awaitingSettings, draftConflict, draftTextRefusal, editableSettings, re
 import { roomSettingsCopy, roomStartNote } from "@/i18n/room-settings";
 import { parseConfigureRoomForm } from "@/server/rooms/room-settings";
 
-const TEXT_DEFAULTS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [] };
+const TEXT_DEFAULTS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [], bonusesEnabled: false };
 
 const saved: SavedRoomSettings & { timeLimitMs: number } = {
   revision: 7, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory",
-  textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [],
+  textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [], bonusesEnabled: false,
 };
 
 describe("waiting-room settings state", () => {
@@ -21,12 +21,12 @@ describe("waiting-room settings state", () => {
     expect([...form.entries()]).toEqual([
       ["code", "ABCDEF"], ["revision", "7"], ["textLanguage", "en"], ["wordCount", "50"], ["timeLimitSeconds", "60"], ["errorMode", "mandatory"],
       ["textKind", "coherent"], ["complexity", "medium"], ["punctuation", "true"], ["numbers", "false"], ["capitals", "true"], ["accents", "true"],
-      ["includeCharacters", ""], ["excludeCharacters", ""],
+      ["includeCharacters", ""], ["excludeCharacters", ""], ["bonusesEnabled", "false"],
     ]);
     expect(parseConfigureRoomForm(form)?.settings).toEqual({ textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...TEXT_DEFAULTS });
     expect(draftConflict(draft, { ...saved })).toBe(false);
     expect(draftConflict(draft, { ...saved, revision: 8 })).toBe(true);
-    expect(draft).toEqual({ revision: 7, textLanguage: "en", wordCount: "50", seconds: "60", errorMode: "mandatory", textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include: "", exclude: "" });
+    expect(draft).toEqual({ revision: 7, textLanguage: "en", wordCount: "50", seconds: "60", errorMode: "mandatory", textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include: "", exclude: "", bonusesEnabled: false });
   });
   it("handles ack before snapshot, snapshot before ack, and a newer snapshot without rollback", () => {
     expect(awaitingSettings(8, saved)).toBe(true);
@@ -85,6 +85,16 @@ describe("waiting-room settings state", () => {
       expect(roomStartNote(undefined, locale)).toBe(roomSettingsCopy(locale).unavailable);
       expect(Object.keys(roomSettingsCopy(locale).errors)).toHaveLength(8);
       expect(roomStartNote({ ...saved, textKind: "random", complexity: "hard" }, locale)).toContain(roomSettingsCopy(locale).random);
+    }
+  });
+
+  it("round-trips Arcade (bonuses on) and training, and names the mode in the start note (CONF-09, D-18)", () => {
+    const arcade = { ...saved, bonusesEnabled: true };
+    expect(parseConfigureRoomForm(settingsForm("ABCDEF", settingsDraft(arcade)))?.settings.bonusesEnabled).toBe(true);
+    expect(parseConfigureRoomForm(settingsForm("ABCDEF", settingsDraft(saved)))?.settings.bonusesEnabled).toBe(false);
+    for (const locale of ["fr", "en"] as const) {
+      expect(roomStartNote(arcade, locale)).toContain(roomSettingsCopy(locale).arcade);
+      expect(roomStartNote(saved, locale)).toContain(roomSettingsCopy(locale).training);
     }
   });
 

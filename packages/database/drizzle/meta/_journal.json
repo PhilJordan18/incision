@@ -120,6 +120,13 @@
       "when": 1793352588670,
       "tag": "0016_lobby_text_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793353003376,
+      "tag": "0017_lobby_bonuses",
+      "breakpoints": true
     }
   ]
 }

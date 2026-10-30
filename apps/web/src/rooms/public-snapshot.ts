@@ -32,6 +32,7 @@ export function publicSnapshot(snapshot: RoomSnapshot, online: ReadonlySet<strin
       accents: snapshot.settings.accents,
       includeCharacters: [...snapshot.settings.includeCharacters],
       excludeCharacters: [...snapshot.settings.excludeCharacters],
+      bonusesEnabled: snapshot.settings.bonusesEnabled,
     },
   };
 }

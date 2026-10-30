@@ -1,4 +1,5 @@
 import { isLocalDatabase, usesVerifiedTls } from "@incision/database";
+import { asRandomState, type RandomState } from "@incision/domain";
 import { z } from "zod";
 import { type RacesSwitch, racesSwitchOf } from "./races/races-switch";
 
@@ -39,6 +40,12 @@ const serverEnvSchema = z
     RACE_FIXTURE_TEXTS: z.literal("allowed", { error: 'must be "allowed" or unset' }).optional(),
     /** Only `true` lets new races start; any other value closes them without stopping the start-up. */
     RACES_ENABLED: z.string().optional(),
+    /**
+     * Four uint32 (`a,b,c,d`): every race's private bonus streams start from this seed instead of
+     * crypto, so a test build knows which bonuses it hands out. Only with RACE_FIXTURE_TEXTS=allowed,
+     * so never on a deployed site.
+     */
+    RACE_TEST_BONUS_SEED: z.string().regex(/^\d{1,10}(,\d{1,10}){3}$/, "must be four integers a,b,c,d").optional(),
   })
   .superRefine((env, context) => {
     const problem = (path: string, message: string) => context.addIssue({ code: "custom", path: [path], message });
@@ -46,6 +53,13 @@ const serverEnvSchema = z
     const appOrigin = env.APP_URL === undefined ? `http://localhost:${env.PORT}` : URL.parse(env.APP_URL)?.origin;
     if (env.AUTH_URL !== undefined && appOrigin !== undefined && !isPublicRoot(env.AUTH_URL, appOrigin)) {
       problem("AUTH_URL", "must equal APP_URL (same origin, no path)");
+    }
+    if (env.RACE_TEST_BONUS_SEED !== undefined) {
+      if (env.RACE_FIXTURE_TEXTS !== "allowed") {
+        problem("RACE_TEST_BONUS_SEED", "is for local test builds only (with RACE_FIXTURE_TEXTS=allowed)");
+      } else if (testSeedOf(env.RACE_TEST_BONUS_SEED) === undefined) {
+        problem("RACE_TEST_BONUS_SEED", "must be four uint32, not all zero");
+      }
     }
     if (env.NODE_ENV !== "production") {
       return;
@@ -84,6 +98,8 @@ export type ServerEnv = {
   readonly fixtureRaceTexts: boolean;
   /** Whether new races may start (RACES_ENABLED, races-switch.ts); never which texts they run. */
   readonly racesSwitch: RacesSwitch;
+  /** RACE_TEST_BONUS_SEED for local test builds; undefined everywhere else (private crypto seeds). */
+  readonly testBonusSeed: (() => RandomState) | undefined;
 };
 
 /** Validates the environment at start-up. Error messages name variables, never their values. */
@@ -95,7 +111,8 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     const problems = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
     throw new Error(`Invalid server environment: ${problems.join("; ")}`);
   }
-  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS, RACE_FIXTURE_TEXTS, RACES_ENABLED } = result.data;
+  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS, RACE_FIXTURE_TEXTS, RACES_ENABLED, RACE_TEST_BONUS_SEED } = result.data;
+  const testSeed = RACE_TEST_BONUS_SEED === undefined ? undefined : testSeedOf(RACE_TEST_BONUS_SEED);
   const appOrigin = new URL(APP_URL ?? `http://localhost:${PORT}`).origin;
   return {
     isProduction: NODE_ENV === "production",
@@ -107,7 +124,16 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     trustedProxyHops: TRUSTED_PROXY_HOPS ?? 0,
     fixtureRaceTexts: RACE_FIXTURE_TEXTS === "allowed",
     racesSwitch: racesSwitchOf(RACES_ENABLED),
+    testBonusSeed: testSeed === undefined ? undefined : () => testSeed,
   };
+}
+
+function testSeedOf(value: string): RandomState | undefined {
+  try {
+    return asRandomState(value.split(",").map(Number));
+  } catch {
+    return undefined;
+  }
 }
 
 function isPublicRoot(authUrl: string, appOrigin: string): boolean {

@@ -15,6 +15,8 @@ import { io, type Socket } from "socket.io-client";
  * memberships are rows written by the same database functions as the server actions.
  */
 export const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL ?? "postgresql://incision_test:incision_test_only@localhost:5433/incision_e2e_integration";
+/** Its first nine bonus kinds are extendLeader, whatever the number of recipients at each milestone. */
+export const BONUS_SEED_EXTEND = [2026, 1493922, 10, 30] as const;
 export const PORTS = (process.env.INTEGRATION_PORTS ?? "3301,3302").split(",").map(Number);
 export const SECRET = randomBytes(32).toString("base64url");
 const SESSION_COOKIE = "authjs.session-token";
@@ -65,6 +67,8 @@ export async function startServer(port: number, environment: Readonly<Record<str
       TRUSTED_PROXY_HOPS: "0",
       RACE_FIXTURE_TEXTS: "allowed",
       RACES_ENABLED: "true",
+      // Every bonus this seed hands out is extendLeader (BONUS_SEED_EXTEND below): Arcade tests know the effect.
+      RACE_TEST_BONUS_SEED: BONUS_SEED_EXTEND.join(","),
       AUTH_GITHUB_ID: "integration-github-client-id",
       AUTH_GITHUB_SECRET: "integration-placeholder-not-a-secret",
       AUTH_DISCORD_ID: "integration-discord-client-id",

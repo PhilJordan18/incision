@@ -145,6 +145,8 @@ export const lobbySettings = pgTable(
     /** Random mode only (D-10): one lowercase character each, checked by the engine before saving. */
     includeCharacters: text("include_characters").array().notNull().default(sql`'{}'::text[]`),
     excludeCharacters: text("exclude_characters").array().notNull().default(sql`'{}'::text[]`),
+    /** CONF-09, D-18: Arcade (bonuses on) or training (off, D-19's default). */
+    bonusesEnabled: boolean("bonuses_enabled").notNull().default(false),
   },
   (table) => [
     check("lobby_settings_revision_non_negative", sql`${table.revision} >= 0`),
