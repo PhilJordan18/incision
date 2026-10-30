@@ -8,3 +8,4 @@ export * from "./room-bots";
 export * from "./race-key-errors";
 export * from "./guest-sessions";
 export * from "./room-invitations";
+export * from "./room-bans";
