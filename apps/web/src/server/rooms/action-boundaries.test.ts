@@ -104,6 +104,25 @@ describe("server-action identity boundaries (SEC-01)", () => {
     expect(boundary.create).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.objectContaining({ accountId: "session-account", textLanguage: "en" }));
   });
 
+  it.each([2, 30])("creation uses the validated capacity %i", async (capacity) => {
+    boundary.create.mockResolvedValue({ ok: true, room: { id: "room", code: "ABCDEF" } });
+    const data = form(); data.set("capacity", String(capacity));
+    await expect(createRoomAction({}, data)).rejects.toThrow("redirect /rooms/ABCDEF");
+    expect(boundary.create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ capacity }));
+  });
+
+  it("invalid creation capacity consumes no room-change budget and never writes", async () => {
+    for (const value of ["1", "31", "2.5", "", "2e1"]) {
+      const data = form(); data.set("capacity", value);
+      expect(await createRoomAction({}, data)).toEqual({ error: "INVALID_CAPACITY" });
+    }
+    const data = form(); data.append("capacity", "2"); data.append("capacity", "30");
+    expect(await createRoomAction({}, data)).toEqual({ error: "INVALID_CAPACITY" });
+    expect(boundary.database).not.toHaveBeenCalled();
+    expect(boundary.create).not.toHaveBeenCalled();
+    expect(processGlobal.incisionRoomChanges).toBeUndefined();
+  });
+
   it("leaving uses only the authenticated account and cannot redirect off-site", async () => {
     boundary.leave.mockResolvedValue(undefined);
     const data = form();
