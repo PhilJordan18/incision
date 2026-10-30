@@ -1,3 +1,4 @@
+import { guestCommandFence } from "../identity/guest-command-fence";
 import type { GuestSessionProof } from "../identity/guest-sessions";
 import { retireUnreferencedGuest } from "../identity/guest-retirement";
 import { lockLiveGuest } from "./guest-host";
@@ -280,7 +281,7 @@ export async function leaveGuestRoom(db: Database, proof: GuestSessionProof, onl
 }
 
 async function leaveHumanRoom(db: Database, actor: string | GuestSessionProof, online: (lobbyId: string) => ReadonlySet<string>): Promise<LeaveRoomResult | undefined> {
-  return boundedTransaction(db, async (tx) => {
+  return guestCommandFence().mutation(() => boundedTransaction(db, async (tx) => {
     const membership = () => typeof actor === "string" ? findActiveMembership(tx, actor)
       : findActiveHumanMembership(tx, { kind: "guest", guestSessionId: actor.id });
     const seen = await membership();
@@ -316,5 +317,5 @@ async function leaveHumanRoom(db: Database, actor: string | GuestSessionProof, o
     }
     await bumpRevision(tx, current.lobbyId);
     return { lobbyId: current.lobbyId, closed: closesRoom, ...(typeof actor === "string" ? {} : { memberId: current.memberId }) };
-  }, READ_COMMITTED);
+  }, READ_COMMITTED));
 }

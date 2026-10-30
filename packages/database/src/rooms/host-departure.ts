@@ -1,3 +1,4 @@
+import { guestCommandFence } from "../identity/guest-command-fence";
 import { retireUnreferencedGuest } from "../identity/guest-retirement";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "../client";
@@ -20,7 +21,7 @@ export type HostDepartureInput = {
 
 /** Server-only timeout: lock the room before sampling current host and live presence. */
 export async function endDisconnectedHostPresence(db: Database, input: HostDepartureInput): Promise<HostDepartureResult> {
-  return boundedTransaction(db, async (tx): Promise<HostDepartureResult> => {
+  return guestCommandFence().mutation(() => boundedTransaction(db, async (tx): Promise<HostDepartureResult> => {
     const [room] = await tx.select().from(lobbies).where(eq(lobbies.id, input.lobbyId)).for("update");
     if (room === undefined || room.phase === "closed") return { kind: "gone" };
     const [member] = await tx.select().from(lobbyMembers).where(and(
@@ -56,5 +57,5 @@ export async function endDisconnectedHostPresence(db: Database, input: HostDepar
     }
     await bumpRevision(tx, input.lobbyId);
     return { kind: "departed", closed: !transferred, accountId: member.accountId };
-  }, READ_COMMITTED);
+  }, READ_COMMITTED));
 }

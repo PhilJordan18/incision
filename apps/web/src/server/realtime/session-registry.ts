@@ -61,12 +61,21 @@ export class SessionRegistry {
     return true;
   }
 
-  /** Only a successful database read/touch may supply this deadline. No activity is inferred. */
+  /** A verified SQL deadline or accepted activity in the fenced single-process gate. No passive activity. */
   refreshGuest(sessionId: string, expiresAt: number): void {
     for (const entry of this.#guests.values()) {
       if (entry.sessionId !== sessionId || expiresAt <= entry.expiresAt) continue;
       this.#trackGuest(entry.socket, sessionId, expiresAt);
     }
+  }
+
+  /** Existing accepted-activity deadline only; reading it never renews a session. */
+  guestDeadline(sessionId: string): number | undefined {
+    let deadline: number | undefined;
+    for (const entry of this.#guests.values()) {
+      if (entry.sessionId === sessionId && entry.expiresAt > this.#now()) deadline = Math.max(deadline ?? 0, entry.expiresAt);
+    }
+    return deadline;
   }
 
   revokeGuest(sessionId: string): void {

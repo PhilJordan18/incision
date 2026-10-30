@@ -9,7 +9,7 @@ export type GuestMemberCommandInput<Answer> = {
   readonly lobbyId: string;
   readonly memberId: string;
   /** Synchronous server action, never client-supplied. Do not retry it after a SQL failure. */
-  readonly run: () => { readonly answer: Answer; readonly activity: boolean };
+  readonly run: () => { readonly answer: Answer; readonly activity: boolean; readonly activityAt?: number };
 };
 export type GuestMemberCommandResult<Answer> = { readonly kind: "unauthorized" } |
   { readonly kind: "authorized"; readonly answer: Answer; readonly session: GuestSessionRow };
@@ -35,11 +35,13 @@ export async function runGuestMemberCommand<Answer>(db: Database, input: GuestMe
       eq(guestSessions.id, session.id), gt(guestSessions.expiresAt, sql`statement_timestamp()`),
     ));
     if (member === undefined || active === undefined) return { kind: "unauthorized" };
-    const { answer, activity } = input.run();
+    const { answer, activity, activityAt } = input.run();
     if (!activity) return { kind: "authorized", answer, session };
+    // Deferred activity uses acceptance time, never flush time (no idle extension).
+    const acceptedAt = activityAt === undefined ? sql`statement_timestamp()` : sql`${new Date(activityAt)}::timestamptz`;
     const [renewed] = await tx.update(guestSessions).set({
-      lastSeenAt: sql`greatest(${guestSessions.lastSeenAt}, statement_timestamp())`,
-      expiresAt: sql`greatest(${guestSessions.lastSeenAt}, statement_timestamp()) + interval '24 hours'`,
+      lastSeenAt: sql`greatest(${guestSessions.lastSeenAt}, ${acceptedAt})`,
+      expiresAt: sql`greatest(${guestSessions.lastSeenAt}, ${acceptedAt}) + interval '24 hours'`,
     }).where(and(eq(guestSessions.id, session.id), gt(guestSessions.expiresAt, sql`statement_timestamp()`)))
       .returning({ id: guestSessions.id, expiresAt: guestSessions.expiresAt });
     return renewed === undefined ? { kind: "unauthorized" } : { kind: "authorized", answer, session: renewed };

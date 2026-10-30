@@ -1,3 +1,4 @@
+import { guestCommandFence } from "../identity/guest-command-fence";
 import type { RoomCode, RoomPhase } from "@incision/domain";
 import { eq, sql } from "drizzle-orm";
 import type { Database } from "../client";
@@ -111,7 +112,7 @@ export async function startNextRound(db: Database, input: RoomHostActor & { read
  * (HIST-02).
  */
 export async function closeRoom(db: Database, input: RoomHostActor & { readonly code: RoomCode }): Promise<CloseRoomResult> {
-  return boundedTransaction(
+  return guestCommandFence().mutation(() => boundedTransaction(
     db,
     async (tx): Promise<CloseRoomResult> => {
       const room = await lockOwnRoom(tx, input, input.code);
@@ -126,7 +127,7 @@ export async function closeRoom(db: Database, input: RoomHostActor & { readonly 
       return { ok: true, lobbyId: room.lobbyId };
     },
     READ_COMMITTED,
-  );
+  ));
 }
 
 /**

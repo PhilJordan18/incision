@@ -37,3 +37,5 @@ export { maintainGuestRetention, type GuestRetentionReport } from "./identity/gu
 export { prepareGuestAccountSignIn } from "./identity/guest-account-transition";
 
 export { readGuestRoom } from "./rooms/guest-room";
+
+export { guestCommandFence } from "./identity/guest-command-fence";

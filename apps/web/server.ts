@@ -252,6 +252,7 @@ async function main(): Promise<void> {
     // the sockets close.
     void (async () => {
       try {
+        await guestCommands.stop();
         const report = await races.stop({ onEnded: (lobbyId) => notifyRoomChanged(lobbyId), timeoutMs: RACE_STOP_MS });
         if (report.finalised + report.interrupted + report.left > 0) {
           console.log(`[races] stopped: ${report.finalised} finalised, ${report.interrupted} interrupted, ${report.left} left to their lease`);

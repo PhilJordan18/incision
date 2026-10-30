@@ -1,3 +1,4 @@
+import { guestCommandFence } from "../identity/guest-command-fence";
 import { retireUnreferencedGuest } from "../identity/guest-retirement";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { RoomPhase } from "@incision/domain";
@@ -22,7 +23,7 @@ export type GuestDepartureInput = {
  * this transaction settles once it claims. No host succession or account policy.
  */
 export async function endDisconnectedGuestPresence(db: Database, input: GuestDepartureInput): Promise<GuestDepartureResult> {
-  return boundedTransaction(db, async (tx): Promise<GuestDepartureResult> => {
+  return guestCommandFence().mutation(() => boundedTransaction(db, async (tx): Promise<GuestDepartureResult> => {
     const [room] = await tx.select({ phase: lobbies.phase, host: lobbies.hostMemberId }).from(lobbies)
       .where(eq(lobbies.id, input.lobbyId)).for("update");
     const [member] = await tx.select({ guestId: lobbyMembers.guestSessionId }).from(lobbyMembers).where(and(
@@ -48,5 +49,5 @@ export async function endDisconnectedGuestPresence(db: Database, input: GuestDep
     await retireUnreferencedGuest(tx, member.guestId);
     await bumpRevision(tx, input.lobbyId);
     return { kind: "departed" };
-  }, READ_COMMITTED);
+  }, READ_COMMITTED));
 }

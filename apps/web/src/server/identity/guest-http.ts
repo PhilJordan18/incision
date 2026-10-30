@@ -87,7 +87,7 @@ export async function handleGuestRequest(request: Request, operation: "read" | "
     if (result.kind === "unavailable") return failure("UNAVAILABLE", 503);
     if (result.kind === "absent" && operation === "read") return Response.json({ ok: true, status: "absent" }, { headers: HEADERS });
     if (result.kind !== "valid") return failure("UNAUTHORIZED", 401);
-    // Cookie synchronization is a read of the existing SQL deadline, never activity.
+    // Cookie synchronization reads verified SQL/accepted-runtime activity, never creates activity.
     // Repeating it cannot keep an idle identity alive.
     const remaining = operation === "refresh" ? Math.min(86_400, Math.ceil((result.session.expiresAt.getTime() - Date.now()) / 1000)) : 86_400;
     if (!Number.isFinite(remaining) || remaining <= 0) return failure("UNAUTHORIZED", 401);

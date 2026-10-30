@@ -122,3 +122,15 @@ describe("guest socket expiry", () => {
     expect(registry.size).toBe(0);
   });
 });
+
+
+it("reads accepted guest deadlines without renewing them and forgets them on revocation", () => {
+  const registry = new SessionRegistry(); const socket = fakeSocket("guest-expiry");
+  registry.registerGuest(socket, { proof: { id: alice, secretDigest: "synthetic" }, expiresAt: Date.now() + 1_000 });
+  registry.refreshGuest(alice, Date.now() + 60_000);
+  const deadline = registry.guestDeadline(alice);
+  vi.advanceTimersByTime(10_000);
+  expect(registry.guestDeadline(alice)).toBe(deadline);
+  expect(registry.guestDeadline(bob)).toBeUndefined();
+  registry.revokeGuest(alice); expect(registry.guestDeadline(alice)).toBeUndefined();
+});

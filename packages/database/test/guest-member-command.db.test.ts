@@ -1,3 +1,7 @@
+import { GuestCommandGate } from "../../../apps/web/src/server/realtime/guest-command-gate";
+import { SessionRegistry } from "../../../apps/web/src/server/realtime/session-registry";
+import { leaveGuestRoom } from "../src/rooms/membership";
+import { closeRoom } from "../src/rooms/host-actions";
 import { runGuestMemberCommand } from "../src/identity/guest-member-command";
 import { randomBytes, randomUUID } from "node:crypto";
 import { parseRoomCode, type RoomCode } from "@incision/domain";
@@ -121,5 +125,69 @@ describe("guest member command authorization and activity", () => {
     const f = await fixture(); const before = await activity(f.proof.id);
     await expect(runGuestMemberCommand(db, { ...f, run: () => { throw new Error("synthetic engine fault"); } })).rejects.toThrow();
     expect(await activity(f.proof.id)).toEqual(before);
+  });
+});
+
+
+describe("PERF-02 guest coordinator with real SQL", () => {
+  it("amortizes 18000 batches from 30 guests into 60 SQL transactions", async () => {
+    await room();
+    const visitors = [];
+    for (let n = 0; n < 30; n++) {
+      const proof = await guest(); const joined = await join(proof, `Visitor ${n}`);
+      if (!joined.ok) throw new Error(joined.error);
+      visitors.push({ proof, lobbyId: joined.lobbyId, memberId: joined.memberId });
+    }
+    let now = Date.now(), calls = 0;
+    const scheduled: (() => void)[] = [];
+    const gate = new GuestCommandGate({ now: () => now, registry: new SessionRegistry(() => now),
+      schedule: (callback) => { scheduled.push(callback); return () => {}; },
+      store: (input) => { calls++; return runGuestMemberCommand(db, input); },
+    });
+    for (let tick = 0; tick < 600; tick++) {
+      for (const visitor of visitors) expect(await gate.run({ ...visitor, alive: () => true,
+        apply: () => ({ answer: "accepted", activity: true }) })).toBe("accepted");
+      now += 100;
+    }
+    expect(calls).toBe(30);
+    // Stop drains the exact same pending writes as the timer, without new engine input.
+    await gate.stop(); expect(calls).toBe(60);
+    expect(scheduled).toHaveLength(30);
+    const rows = (await pool.query("select last_seen_at,expires_at from guest_sessions")).rows;
+    expect(rows).toHaveLength(30);
+    for (const row of rows) {
+      expect(row.last_seen_at.getTime()).toBe(now - 100);
+      expect(row.expires_at.getTime() - row.last_seen_at.getTime()).toBe(86_400_000);
+    }
+  });
+
+  it.each(["departure", "closure"] as const)("fences batches before a concurrent %s commits", async (operation) => {
+    const f = await fixture();
+    await pool.query("update lobbies set host_member_id=$1 where id=$2", [f.memberId, f.lobbyId]);
+    const gate = new GuestCommandGate({ now: Date.now, registry: new SessionRegistry(), store: (input) => runGuestMemberCommand(db, input) });
+    expect(await gate.run({ ...f, alive: () => true, apply: () => ({ answer: true, activity: true }) })).toBe(true);
+    const locker = await pool.connect();
+    try {
+      await locker.query("begin"); await locker.query("select id from lobbies where id=$1 for update", [f.lobbyId]);
+      const mutation = operation === "departure" ? leaveGuestRoom(db, f.proof, () => new Set())
+        : closeRoom(db, { accountId: null, guestProof: f.proof, code: code() });
+      await blocked();
+      const apply = vi.fn(() => ({ answer: true, activity: true }));
+      const command = gate.run({ ...f, alive: () => true, apply });
+      await Promise.resolve(); expect(apply).not.toHaveBeenCalled();
+      await locker.query("commit"); await mutation;
+      expect(await command).toEqual({ ok: false, error: "UNAUTHORIZED" });
+      expect(apply).not.toHaveBeenCalled();
+    } finally { await locker.query("rollback"); locker.release(); await gate.stop(); }
+  });
+
+  it("persists the actual past acceptance time rather than extending at flush time", async () => {
+    const f = await fixture();
+    await pool.query("update guest_sessions set created_at=now()-interval '1 hour',last_seen_at=now()-interval '1 hour',expires_at=now()+interval '23 hours' where id=$1", [f.proof.id]);
+    const acceptedAt = Date.now() - 5_000;
+    expect(await runGuestMemberCommand(db, { ...f, run: () => ({ answer: true, activity: true, activityAt: acceptedAt }) })).toMatchObject({ kind: "authorized" });
+    const [saved] = await activity(f.proof.id);
+    expect(saved.last_seen_at.getTime()).toBe(acceptedAt);
+    expect(saved.expires_at.getTime()).toBe(acceptedAt + 86_400_000);
   });
 });

@@ -1,5 +1,5 @@
 import { getSessionRegistry } from "../realtime/session-registry";
-import { createGuestSession, readGuestSession, readSessionVersion, touchGuestSession } from "@incision/database";
+import { guestCommandFence, createGuestSession, readGuestSession, readSessionVersion, touchGuestSession } from "@incision/database";
 import { authDatabase } from "../auth/store";
 import { parseServerEnv } from "../config";
 import { addressLimitKey, CLIENT_ADDRESS_HEADER } from "../http/client-address";
@@ -26,7 +26,17 @@ export async function guestRoute(request: Request, operation: "read" | "start" |
       })),
       store: {
         create: (proof) => createGuestSession(authDatabase(), proof),
-        read: (proof) => readGuestSession(authDatabase(), proof),
+        read: async (proof) => {
+          const epoch = guestCommandFence().epoch;
+          const result = await readGuestSession(authDatabase(), proof);
+          // Cookie synchronization may observe accepted activity awaiting its bounded SQL flush.
+          // Still require a valid SQL proof, and never use a grant across a membership mutation.
+          if (result.kind !== "valid" || guestCommandFence().pending > 0 || guestCommandFence().epoch !== epoch) return result;
+          const deadline = getSessionRegistry().guestDeadline(proof.id);
+          return deadline === undefined ? result : { kind: "valid", session: {
+            id: result.session.id, expiresAt: new Date(Math.max(result.session.expiresAt.getTime(), deadline)),
+          } };
+        },
         touch: async (proof) => {
           const result = await touchGuestSession(authDatabase(), proof);
           if (result.kind === "valid") getSessionRegistry().refreshGuest(result.session.id, result.session.expiresAt.getTime());
