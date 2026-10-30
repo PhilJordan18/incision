@@ -6,7 +6,7 @@ import { createDatabase, type Database } from "../src/client";
 import { runMigrations } from "../src/migrations";
 import { createGuestSession } from "../src/identity/guest-sessions";
 import { createRoomWithHost } from "../src/rooms/create-room";
-import { createRoomInvitation, joinRoomByInvitation, revokeRoomInvitation } from "../src/rooms/invitations";
+import { createRoomInvitation, joinRoomByInvitation, listRoomInvitations, revokeRoomInvitation } from "../src/rooms/invitations";
 import { joinRoomByCode } from "../src/rooms/membership";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
@@ -58,6 +58,17 @@ async function binding() {
 }
 
 describe("room invitations", () => {
+  it("discloses status only to the current host, never hashes, and does not accept invalid pages", async () => {
+    const { host } = await fixture();
+    const bob = await account("Bob");
+    expect(await listRoomInvitations(db, { accountId: bob, code, page: 0 })).toEqual(unavailable);
+    expect(await listRoomInvitations(db, { accountId: host, code, page: -1 })).toEqual(unavailable);
+    await join(bob);
+    const result = await listRoomInvitations(db, { accountId: host, code, page: 0 });
+    expect(result).toMatchObject({ ok: true, hasMore: false, items: [{ displayName: "Bob" }] });
+    if (!result.ok) throw new Error("Expected host listing");
+    expect(Object.keys(result.items[0]!).sort()).toEqual(["boundAt", "createdAt", "displayName", "id", "revokedAt"]);
+  });
   it("admits a live guest and keeps other guests on the same IP out", async () => {
     await fixture();
     const proof = { id: randomUUID(), secretDigest: "e".repeat(64) };

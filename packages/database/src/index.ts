@@ -39,3 +39,4 @@ export { prepareGuestAccountSignIn } from "./identity/guest-account-transition";
 export { readGuestRoom } from "./rooms/guest-room";
 
 export { guestCommandFence } from "./identity/guest-command-fence";
+export { createRoomInvitation, revokeRoomInvitation, listRoomInvitations, joinRoomByInvitation } from "./rooms/invitations";

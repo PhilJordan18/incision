@@ -10,11 +10,12 @@ import { withGuestCookieLock } from "@/identity/guest-browser";
 import { GuestAvatar } from "@/components/rooms/guest-avatar";
 import { card, discreetButton, fieldLabel, primaryButton, textField } from "@/components/ui/styles";
 import { guestAdmissionAction, resetGuestCookieAction, type GuestAdmissionError } from "@/server/rooms/guest-admission-action";
+import { joinInvitationAction } from "@/server/rooms/invitation-actions";
 
 const subscribe = () => () => {};
 const statusSchema = z.object({ ok: z.literal(true), status: z.enum(["absent", "guest"]) });
 
-export function GuestEntryForm({ t, initialCode }: { readonly t: Dictionary["guestEntry"]; readonly initialCode: string }) {
+export function GuestEntryForm({ t, initialCode, invitationToken }: { readonly t: Dictionary["guestEntry"]; readonly initialCode: string; readonly invitationToken?: string }) {
   const router = useRouter();
   const ready = useSyncExternalStore(subscribe, () => true, () => false);
   const supported = ready && navigator.locks !== undefined;
@@ -22,6 +23,7 @@ export function GuestEntryForm({ t, initialCode }: { readonly t: Dictionary["gue
   const [error, setError] = useState<GuestAdmissionError>();
   const [pending, transition] = useTransition();
   const alert = useRef<HTMLParagraphElement>(null);
+  function isGuestError(value: string): value is GuestAdmissionError { return Object.hasOwn(t.errors, value); }
   useEffect(() => { if (error !== undefined) alert.current?.focus(); }, [error]);
 
   function enter(form: FormData) {
@@ -29,7 +31,7 @@ export function GuestEntryForm({ t, initialCode }: { readonly t: Dictionary["gue
     const parsed = guestStartSchema.safeParse({ nickname: form.get("nickname") });
     if (!parsed.success) { setError("INVALID_GUEST_NICKNAME"); return; }
     const code = form.get("code");
-    if (!parseRoomCode(typeof code === "string" ? code : "").ok) { setError("INVALID_CODE"); return; }
+    if (invitationToken === undefined && !parseRoomCode(typeof code === "string" ? code : "").ok) { setError("INVALID_CODE"); return; }
     setError(undefined);
     transition(async () => {
       try {
@@ -43,9 +45,13 @@ export function GuestEntryForm({ t, initialCode }: { readonly t: Dictionary["gue
             const started = await fetch("/api/guest/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed.data) });
             if (!started.ok) return { error: started.status === 401 ? "UNAUTHORIZED" : "UNAVAILABLE" } as const;
           }
-          return guestAdmissionAction(form);
+          if (invitationToken === undefined) return guestAdmissionAction(form);
+          form.set("token", invitationToken);
+          const joined = await joinInvitationAction(form);
+          if ("code" in joined) return joined;
+          return { error: joined.error === "INVITATION_UNAVAILABLE" ? "ROOM_NOT_FOUND" : joined.error } as const;
         });
-        if ("error" in result) setError(result.error);
+        if ("error" in result) setError(typeof result.error === "string" && isGuestError(result.error) ? result.error : "UNAVAILABLE");
         else router.push(`/rooms/${result.code}`);
       } catch { setError("UNAVAILABLE"); }
     });
@@ -60,11 +66,11 @@ export function GuestEntryForm({ t, initialCode }: { readonly t: Dictionary["gue
   }
 
   return <form className={`${card} flex flex-col gap-6`} onSubmit={(event) => { event.preventDefault(); enter(new FormData(event.currentTarget)); }}>
-    <div className="flex flex-col gap-2">
+    {invitationToken === undefined && <div className="flex flex-col gap-2">
       <label htmlFor="guest-code" className={fieldLabel}>{t.code}</label>
       <input id="guest-code" name="code" defaultValue={initialCode} maxLength={32} required autoComplete="off" spellCheck={false}
         className={`${textField} h-14 font-mono uppercase`} aria-invalid={error === "INVALID_CODE"} aria-describedby={error === "INVALID_CODE" ? "guest-entry-error" : undefined} />
-    </div>
+    </div>}
     <div className="flex flex-col gap-2">
       <label htmlFor="guest-nickname" className={fieldLabel}>{t.nickname}</label>
       <input id="guest-nickname" name="nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={256} required autoComplete="off"

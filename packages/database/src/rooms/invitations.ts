@@ -1,5 +1,5 @@
 import { invitationAccess, type HumanSubject, type MemberRole, type RoomCode } from "@incision/domain";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
 import type { GuestSessionProof } from "../identity/guest-sessions";
@@ -65,6 +65,24 @@ export async function revokeRoomInvitation(db: Database, input: RoomHostActor & 
 export type InvitationActor = { readonly kind: "account"; readonly accountId: string }
   | { readonly kind: "guest"; readonly proof: GuestSessionProof; readonly nickname: string };
 type InvitationJoinResult = JoinRoomResult | GuestAdmissionResult | typeof unavailable;
+
+/** Host-only, bounded projection: neither token hashes nor address hashes leave the repository. */
+export async function listRoomInvitations(db: Database, input: RoomHostActor & {
+  readonly code: RoomCode; readonly page: number;
+}) {
+  if (!Number.isSafeInteger(input.page) || input.page < 0 || input.page > 100_000) return unavailable;
+  return boundedTransaction(db, async (tx) => {
+    const room = await lockedHostRoom(tx, input);
+    if (room === undefined) return unavailable;
+    const rows = await tx.select({ id: lobbyInvitations.id, createdAt: lobbyInvitations.createdAt,
+      boundAt: lobbyInvitations.boundAt, revokedAt: lobbyInvitations.revokedAt,
+      displayName: lobbyMembers.displayName }).from(lobbyInvitations)
+      .leftJoin(lobbyMembers, eq(lobbyMembers.id, lobbyInvitations.boundMemberId))
+      .where(eq(lobbyInvitations.lobbyId, room.id))
+      .orderBy(desc(lobbyInvitations.createdAt), desc(lobbyInvitations.id)).limit(51).offset(input.page * 50);
+    return { ok: true as const, items: rows.slice(0, 50), hasMore: rows.length > 50 };
+  }, READ_COMMITTED);
+}
 
 /** Lock room first, then invitation, then guest: same order as host actions and departure. */
 export async function joinRoomByInvitation(db: Database, input: {
