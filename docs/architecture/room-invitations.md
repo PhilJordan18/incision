@@ -56,7 +56,8 @@ the exact preceding chain before publication.
 
 ## Verification status
 
-Implementation is in progress. Domain, credential and SQL admission tests exist;
-HTTP actions, host controls and account/guest browser journeys are being verified.
-This document is not an acceptance or activation record. Recipe databases, their
-backups and port 3880 are outside all test commands.
+The invitation slice is implemented; see [exact-SHA evidence](../evidence/f01-4-invitations/README.md)
+for unit, SQL and browser results, skips, reviews and human checks. PRIVATE creation
+controls (L1), expulsion integration (L3) and human acceptance remain separate.
+This document is not an activation record. Recipe databases, their backups and
+port 3880 are outside all test commands.
