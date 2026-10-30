@@ -31,7 +31,8 @@ export function RaceBonuses({ state, race, t }: {
           {state.error !== undefined ? <><span aria-hidden="true">⚠ </span>{bonusErrorText(state.error, t)}</> : state.fogVisible ? t.fog : ""}
         </p>
       </>}
-      <ol aria-label={t.events} aria-live="polite" aria-relevant="additions" className="flex max-h-48 flex-col gap-2 overflow-y-auto text-sm text-embrun">
+      {/* At most six, never a scrolling box: a region that scrolls must be reachable with the keyboard (WCAG 2.1.1). */}
+      <ol aria-label={t.events} aria-live="polite" aria-relevant="additions" className="flex flex-col gap-2 text-sm text-embrun">
         {state.announcements.slice(-6).map(({ announcement }) => announcement.type === "activated"
           ? <li key={announcement.receipt.id}>{format(t.activated, {
             actor: names.get(announcement.receipt.grant.entrantId) ?? t.player,
