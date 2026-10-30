@@ -2,6 +2,34 @@
 
 ## Current status — October 29, 2026 (Toronto), after PERF-02 correction
 
+### Coordinator delivery verification — October 29, 2026 (Toronto)
+
+Imported the incremental bundle with SHA-256
+`ab76be3f266b9b81b2f96ceefe1dadbcba72a63266dd49b63cdc311744913ddb`.
+Verified head `019492ef9814d705b69216f03cebb53e21e7b7e5`; its executable
+tree is unchanged from `4f380ab160b7ee7cb5eecb94c10b5f58a8fc1297`.
+The coordinator independently reran no-JS, lint, typecheck, all **2,363 unit
+tests**, and the production build under Node 24.13.0 in an isolated temporary
+clone, through the local heavy-test lock. All passed. `git diff --check` passed.
+
+The **357 SQL / 39 Chromium E2E** results below are cloud-run evidence, not local
+reruns: the Mac's Docker daemon was unavailable. Nine PgBouncer tests remain
+skipped. No Docker restart, recipe server, recipe database or backup operation
+was performed. No migration or dependency changed in this increment.
+
+Sequential coordinator code/DBA/security review of the PERF-02 delta and direct
+callers found no new blocking defect. The incremental security review is recorded
+as scan `2745da87-829f-463e-988c-a45019815b47` (no confirmed finding); this is not a
+fresh exhaustive audit of the preceding guest implementation or an external audit.
+The documentation-only delivery commit updates this report, the matrix and IA log.
+
+Delivery is authorized, but merge still requires both new CI runs and human review.
+Keep #31 partial until human acceptance; entry remains disabled unless explicitly
+configured. Human checks remaining: FR/EN guest admission/avatar, two-tab control,
+account/guest room and race reconnection around 30 seconds, host succession,
+temporary-result access, explicit departure before account sign-in, and Safari/
+Brave keyboard/accessibility checks. No production activation is included.
+
 **Approved #31/#36C2 implementation and PERF-02 correction locally verified;
 coordinator's consolidated review/deliver still pending. Nothing pushed or activated.**
 PR #187's last published head remains `95f89babd35b01fd296a1300e0ece4d3d093d65f`.
