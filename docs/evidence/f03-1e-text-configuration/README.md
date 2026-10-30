@@ -48,18 +48,19 @@ of 30 October 2026.
 
 ## Checks on this branch
 
-Final run on `783d7e7`, with Node 24.22.2 and a disposable PostgreSQL 16.15 (CI uses PostgreSQL 17).
+Final run on `2c14380`: base `dev` `b0912cb` (with C1 #188 and L2 #190), migration `0016_lobby_text_settings`. Node 24.22.2 and a disposable PostgreSQL 16.15 (CI uses PostgreSQL 17).
 
 | Check | Result |
 |---|---|
 | `check:no-js`, `lint`, `typecheck`, `build` | Pass |
-| Unit tests | Pass: web 962, database 146, domain 1198, load 20, word-lists 62 |
-| Database tests | 360 pass, 9 skipped. The 9 are the PgBouncer suite, which runs only with a pooled URL (`describe.skipIf`), as on `dev`. They include the upgrade, the constraints, the random save read by every member, and the switch back. |
+| Unit tests | Pass: web 994, database 146, domain 1220, load 20, word-lists 111 |
+| Database tests | 375 pass, 9 skipped. The 9 are the PgBouncer suite, which runs only with a pooled URL (`describe.skipIf`), as on `dev`. They include the 0016 upgrade from L2's `0015_room_invitations`, the constraints, the random save read by every member, and the switch back. |
 | Schema drift (`db:generate`) | No changes |
-| Integration (`test:integration`, two production processes) | 10/10. With no corpus imported, the start is refused as `TEXTS_UNAVAILABLE`. Random mode on fixture data is refused the same way, with no race written. |
-| Playwright `text-settings.spec.ts`, `room-settings.spec.ts` | 15/15. Covers sync, reload, keyboard, the countdown lock, refusals in FR and EN, and axe in both themes at 1440, 1024, 390, 360 and 320 px. |
+| Integration (`test:integration`, two production processes) | 10/10. Includes a real random-words race drawn from C1's reviewed lists, and a start refused as `TEXTS_UNAVAILABLE` while no corpus is imported, with no race written. |
+| Playwright, full suite | 175 passed, none skipped or flaky. Includes `text-settings` and `room-settings`: sync, reload, keyboard, the countdown lock, refusals in FR and EN, a saved random setting with characters, and axe in both themes at 1440, 1024, 390, 360 and 320 px. |
+| Migration chain (DBA review at `f3db6dc`) | L2's `0015` is byte-identical to its published branch. Journal and snapshots run 0000 to 0016 with no gaps. All migrations apply on an empty database, then a second run applies nothing. A row created at 0015 gets D-19's defaults. |
 
-The start-refusal wording was also checked in a browser by the Fable QA on C3 (`332c248`, which includes these commits): `TEXTS_UNAVAILABLE` in FR and EN, start button still usable, room still waiting, no race written. `NO_COMPATIBLE_PASSAGE` needs an imported corpus; it is covered by the unit tests and the dictionaries.
+The start-refusal wording was also checked in a browser by the Fable QA on C3 at `332c248`, which carries the same refusal commits: `TEXTS_UNAVAILABLE` in FR and EN, start button still usable, room still waiting, no race written. `NO_COMPATIBLE_PASSAGE` needs an imported corpus; it is covered by the unit tests and the dictionaries.
 
 No-JS: the settings panel needs JavaScript, as before (a client form with a draft). Without JavaScript, members still see the saved settings.
 
@@ -72,6 +73,10 @@ No-JS: the settings panel needs JavaScript, as before (a client form with a draf
 | DBA | OK. Major: `docs/architecture/data-model.md` is out of date | Text proposed below, since the coordinator consolidates architecture docs. The migration test counts from the predecessor's journal index, so renumbering needs no other edit. |
 | UI/UX | Changes needed: one major finding (French agreement in the options summary) | The summary lists the options that are on ("ponctuation, chiffres, accents" / "aucune"). Character fields in error get `aria-invalid` and the linked message. Disabled fields follow the design (no border, `sillage`, `voile`). Shorter hint; ’ apostrophes. |
 | Functional QA, Fable (model named in its report) | OK (minor: the local fixture source ignored random settings) | `fixedRaceTexts` refuses random settings as production does |
+
+Later reviews:
+- **Start refusals.** Functional QA by Fable 5.1, at C3 `332c248`, which carries the same refusal commits: OK. Minor and accepted: a random draw the engine refuses also says "passage".
+- **Regenerated migration.** DBA review at `f3db6dc`: OK. Minor: test comments named the old number; fixed in `2c14380`.
 
 Documented departures from the design, for Philippe:
 - The pressed option buttons have no tinted background. A `moi` tint drops Aube below AA, so a 2 px `moi` border and ✓ mark the state instead.
