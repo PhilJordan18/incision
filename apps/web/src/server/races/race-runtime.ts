@@ -5,6 +5,8 @@ import {
   asRaceId,
   asRandomState,
   createBot,
+  createRandom,
+  type Random,
   stepBot,
   type BotState,
   type BotLevel,
@@ -93,6 +95,8 @@ export type RaceRuntimeOptions = {
   readonly entrants: readonly RaceEntrant[];
   /** Server-only source; injected seeds allow deterministic adapter tests. Never public. */
   readonly botSeed?: () => RandomState;
+  /** Each bot's private stream of bonus activation delays (D-16); crypto by default, fixed in tests. */
+  readonly botBonusSeed?: () => RandomState;
   /** The language of the race's text (the host's at the start, D-19), for the pages to mark it. */
   readonly language: Locale;
   readonly store: RaceStore;
@@ -120,6 +124,13 @@ export type RuntimeTiming = {
   /** After the typing tab closed: the same page may come back before another tab takes over. */
   readonly handoverGraceMs: number;
 };
+
+/**
+ * D-16: a bot uses a grant 1.5 s to 6 s after it receives it, the delay drawn from its private
+ * stream. Close to a person reaching Enter, and never instant, so a bot cannot react faster than a
+ * player who sees the same announcement.
+ */
+export const BOT_BONUS_DELAY_MS = [1_500, 6_000] as const;
 
 const TIMING: RuntimeTiming = {
   progressEveryMs: 250,
@@ -182,6 +193,8 @@ export class RaceRuntime implements OwnedRace {
   #beginWritten = false;
   #saving: Promise<void> | undefined;
   readonly #bots = new Map<string, BotState>();
+  /** D-16: when each bot activates the grant it holds, drawn from its own private stream. */
+  readonly #botBonus = new Map<string, { readonly random: Random; due?: { readonly milestone: number; readonly at: number } }>();
   #cancelBots: (() => void) | undefined;
   #drivingBots = false;
 
@@ -197,6 +210,8 @@ export class RaceRuntime implements OwnedRace {
       const seed = options.botSeed?.() ?? asRandomState(Array.from(crypto.getRandomValues(new Uint32Array(4))));
       this.#bots.set(entrant.entrantId, createBot({ raceId: asRaceId(this.ownership.raceId), entrantId: asEntrantId(entrant.entrantId),
         level: entrant.botLevel, seed, startsAt: this.#state.startsAt }));
+      const bonusSeed = options.botBonusSeed?.() ?? asRandomState(Array.from(crypto.getRandomValues(new Uint32Array(4))));
+      this.#botBonus.set(entrant.entrantId, { random: createRandom(bonusSeed) });
     }
   }
 
@@ -682,6 +697,10 @@ export class RaceRuntime implements OwnedRace {
     if (beforeBonus.revision !== this.#bonus.revision) {
       this.#scheduleProgress();
     }
+    // New grants: a bot that received one gets its activation timer (the driving loop reschedules itself).
+    if (beforeBonus.awards !== this.#bonus.awards && this.#botBonus.size > 0 && !this.#drivingBots) {
+      this.#scheduleBots();
+    }
     // Effects may change text without changing the legacy race revision. Publish private
     // recovery state reliably; inventories and seeds never go to room followers at large.
     if (this.#options.lease.isAuthoritative()) {
@@ -770,7 +789,7 @@ export class RaceRuntime implements OwnedRace {
     let deadline = Number.POSITIVE_INFINITY;
     for (const [id, bot] of this.#bots) {
       if (this.#state.entrants.find((entrant) => entrant.entrantId === id)?.status !== "racing") continue;
-      deadline = Math.min(deadline, bot.plan?.dueAt ?? Math.max(bot.startsAt, this.#options.now()));
+      deadline = Math.min(deadline, bot.plan?.dueAt ?? Math.max(bot.startsAt, this.#options.now()), this.#botBonusDue(id) ?? Number.POSITIVE_INFINITY);
     }
     if (!Number.isFinite(deadline)) return;
     this.#cancelBots = this.#options.schedule(() => {
@@ -804,12 +823,45 @@ export class RaceRuntime implements OwnedRace {
         if (updated === undefined) throw new RangeError("Missing bot after reduction");
         this.#bots.set(id, stepBot(step.bot, now, { ...context, phase: this.#state.phase, entrant: updated, reply }).bot);
       }
+      for (const id of this.#bots.keys()) {
+        if (this.#stage !== "running" || !this.#options.lease.isAuthoritative()) break;
+        this.#activateBotBonus(id, now);
+      }
     } catch (error) {
       this.#engineFailed(error);
     } finally {
       this.#drivingBots = false;
       this.#scheduleBots();
     }
+  }
+
+  /**
+   * When a racing bot activates the first grant it holds (D-16): a delay of BOT_BONUS_DELAY_MS drawn
+   * from its private stream when the grant is first seen. Nothing for a bot without a grant.
+   */
+  #botBonusDue(id: string): number | undefined {
+    const bonus = this.#botBonus.get(id);
+    const [grant] = availableBonusGrants(this.#bonus, asEntrantId(id));
+    if (bonus === undefined || grant === undefined || this.#state.entrants.find((entrant) => entrant.entrantId === id)?.status !== "racing") return undefined;
+    if (bonus.due?.milestone !== grant.milestone) {
+      const [min, max] = BOT_BONUS_DELAY_MS;
+      bonus.due = { milestone: grant.milestone, at: this.#options.now() + min + bonus.random.index(max - min + 1) };
+    }
+    return bonus.due.at;
+  }
+
+  /**
+   * The bot activates its due grant through the same authoritative transition as a player's Enter:
+   * same FIFO, targets, effects and refusals. A refusal keeps the grant and draws a new delay.
+   */
+  #activateBotBonus(id: string, now: number): void {
+    const due = this.#botBonusDue(id);
+    const bonus = this.#botBonus.get(id);
+    const [grant] = availableBonusGrants(this.#bonus, asEntrantId(id));
+    if (due === undefined || bonus === undefined || grant === undefined || due > now) return;
+    const seq = (this.#bonus.cursors.find((cursor) => cursor.entrantId === id)?.seq ?? 0) + 1;
+    const output = this.#applyBonus({ type: "activate", raceId: asRaceId(this.ownership.raceId), entrantId: asEntrantId(id), milestone: grant.milestone, seq, now: asInstant(now) });
+    if (output?.activation?.ok === false) bonus.due = undefined;
   }
 
   /** COUNTDOWN → RACING in the database, the first fenced write; keystrokes never wait for it. */
