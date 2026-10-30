@@ -594,7 +594,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
 
       {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
       <RoomBotsPanel guest={guest} snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
-      {self.isHost && <RoomInvitationsPanel key={snapshot.code} code={snapshot.code} locale={locale} live={connection === "live"} />}
+      {self.isHost && <RoomInvitationsPanel key={`invitations:${snapshot.code}`} code={snapshot.code} locale={locale} live={connection === "live"} />}
       <RoomSettingsPanel guest={guest} key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && (

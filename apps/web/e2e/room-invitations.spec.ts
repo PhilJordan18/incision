@@ -24,6 +24,7 @@ for (const locale of ["fr-CA", "en-US"]) test(`invitation lifecycle, privacy and
   // PRIVATE creation controls belong to L1; this fixture isolates invitation admission.
   await query("update lobbies set visibility='private' where code=$1", [code]);
   const panel = host.getByRole("region", { name: "Invitations", exact: true });
+  await expect(panel).toHaveCount(1);
   await panel.getByRole("button", { name: /^(Générer une invitation|Generate an invitation)$/ }).click();
   const field = panel.getByLabel(/^(Lien d’invitation|Invitation link)$/);
   await expect(field).toHaveValue(/\/invite#[A-Za-z0-9_-]{43}$/);
@@ -42,7 +43,7 @@ for (const locale of ["fr-CA", "en-US"]) test(`invitation lifecycle, privacy and
   await expect(panel.getByRole("listitem")).toContainText("Member");
   await other.goto(link);
   await other.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
-  await expect(other.getByRole("alert")).toContainText(/Invitation (indisponible|unavailable)/);
+  await expect(other.getByRole("main").getByRole("alert")).toContainText(/Invitation (indisponible|unavailable)/);
   for (const theme of ["abysse", "aube"]) {
     await host.evaluate((value) => document.documentElement.dataset.theme = value, theme);
     for (const width of [1440, 1024, 390]) {
@@ -55,7 +56,7 @@ for (const locale of ["fr-CA", "en-US"]) test(`invitation lifecycle, privacy and
   await expect(panel.getByRole("listitem")).toContainText(/Révoquée|Revoked/);
   await member.goto(link);
   await member.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
-  await expect(member.getByRole("alert")).toContainText(/Invitation (indisponible|unavailable)/);
+  await expect(member.getByRole("main").getByRole("alert")).toContainText(/Invitation (indisponible|unavailable)/);
   await host.reload(); await expect(host.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
   await expect(host.getByLabel(/^(Lien d’invitation|Invitation link)$/)).toHaveCount(0);
 });
