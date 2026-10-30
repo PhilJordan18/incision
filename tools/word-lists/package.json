@@ -10,7 +10,9 @@
     "test": "vitest run",
     "report": "tsx src/report.ts",
     "export:candidate": "tsx src/export.ts",
-    "bundle-check": "tsx src/bundle-check.ts"
+    "bundle-check": "tsx src/bundle-check.ts",
+    "select:data": "tsx src/select-cli.ts",
+    "calibrate": "tsx src/calibrate.ts"
   },
   "devDependencies": {
     "@msgpack/msgpack": "3.1.3",

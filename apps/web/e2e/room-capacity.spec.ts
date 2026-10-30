@@ -46,6 +46,8 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await member.getByRole("button", { name: /^(Rejoindre la salle|Join the room)$/ }).click();
       await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
       const panel = page.getByRole("region", { name: /^(Capacité de la salle|Room capacity)$/ });
+      const invitations = page.getByRole("region", { name: "Invitations", exact: true });
+      await expect(invitations).toHaveCount(1);
       await expect(panel.getByText(/ : 3$/)).toBeVisible();
       const memberPanel = member.getByRole("region", { name: /^(Capacité de la salle|Room capacity)$/ });
       await expect(memberPanel.getByRole("button", { name: /^(Modifier la capacité|Edit capacity)$/ })).toHaveCount(0);
@@ -66,6 +68,7 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await expect(memberPanel.getByText(/ : 2$/)).toBeVisible();
       await page.reload();
       await expect(panel.getByText(/ : 2$/)).toBeVisible();
+      await expect(invitations).toHaveCount(1);
       for (const theme of ["light", "dark"] as const) {
         await applySystemTheme(page, theme);
         for (const width of [1440, 1024, 390, 360]) {

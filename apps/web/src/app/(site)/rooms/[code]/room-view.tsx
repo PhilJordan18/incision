@@ -5,6 +5,7 @@ import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
 import { GuestAvatar } from "@/components/rooms/guest-avatar";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
 import { RoomCapacityPanel } from "@/components/rooms/room-capacity-panel";
+import { RoomInvitationsPanel } from "@/components/rooms/room-invitations-panel";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -596,6 +597,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
       <RoomBotsPanel guest={guest} snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
       <RoomCapacityPanel guest={guest} code={snapshot.code} capacity={snapshot.capacity} revision={snapshot.revision} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
+      {self.isHost && <RoomInvitationsPanel key={`invitations:${snapshot.code}`} code={snapshot.code} locale={locale} live={connection === "live"} />}
       <RoomSettingsPanel guest={guest} key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && (

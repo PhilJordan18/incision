@@ -1,10 +1,13 @@
 /**
- * Attribution for the word data. Today the data are hand-written fixtures; the reviewed lists
- * replace them, with this notice extended to their sources, licences and modifications, once their
- * packaging, licences and attributions have been reviewed (F-02.4).
+ * Attribution for the word data (F-02.4, #42). The full upstream credits are kept unchanged in
+ * tools/word-lists/notices/wordfreq-3.1.1.md; the review register and the digests of every input and
+ * output are in tools/word-lists/review/wf311-r1/.
  */
 export const WORD_DATA_NOTICE = [
-  "Incision word data, version fixture-1.",
-  "Synthetic fixture lists written by hand for Incision (F-02.4, step 1): every list, exclusion and forbidden pair here was typed for the tests.",
-  "They contain no third-party data and are not the race lists. They are replaced by the reviewed lists derived from wordfreq 3.1.1 and LDNOOBW once their packaging, licences and attributions have been reviewed.",
+  "Incision word data: lists version wf311-r1, exclusions version wf311-r1, forbidden pairs version wf311-r1.",
+  "Derived from wordfreq 3.1.1 by Robyn Speer and contributors (https://github.com/rspeer/wordfreq/), data under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).",
+  "wordfreq draws on Google Books Ngrams, the Leeds Internet Corpus, Wikipedia, ParaCrawl, OPUS OpenSubtitles 2018 (OpenSubtitles) and SUBTLEX by Marc Brysbaert et al.; full credits in tools/word-lists/notices/wordfreq-3.1.1.md.",
+  "Changes: NFC and lowercase, letters of the language's alphabet only, words of Zipf 3.50 or more, then an editorial review that removed fragments, abbreviations, proper nouns, foreign words and nonstandard spellings, and excluded swear words, insults, slurs and sexual or degrading vocabulary (D-21).",
+  "The review was done by AI agents under the project's written criteria and is recorded word by word; LDNOOBW (CC BY 4.0, https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words) served only as a hint. It is no guarantee of suitability for minors.",
+  "These derived lists are shared under CC BY-SA 4.0.",
 ].join("\n");
