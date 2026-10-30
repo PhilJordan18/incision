@@ -123,3 +123,56 @@ describe("bots use their bonuses (D-16)", () => {
     expect(runtime.state.entrants.find((entrant) => entrant.entrantId === "bot")?.status).toBe("racing");
   });
 });
+
+describe("bounded cost of Arcade with a full roster", () => {
+  /**
+   * In-process regression check, not a production load proof: 1 person and 9 bots on a 120-grapheme
+   * text, with and without bonuses, driven to the end on fake timers. Arcade adds grants, bot
+   * activations and effects; it must stay within a small factor of training on the same seeds.
+   */
+  async function run(enabled: boolean): Promise<{ readonly ms: number; readonly activations: number; readonly finished: number }> {
+    const text = Array.from({ length: 30 }, (_, index) => ["mer", "vent", "port", "cap"][index % 4]).join(" ").slice(0, 120);
+    let now = START; let next = 0;
+    const timers = new Map<number, { at: number; callback: () => void }>();
+    const schedule = (callback: () => void, delay: number) => { const id = ++next; timers.set(id, { at: now + delay, callback }); return () => { timers.delete(id); }; };
+    const bots = Array.from({ length: 9 }, (_, index) => ({ entrantId: `bot-${index}`, accountId: null, displayName: `Bot ${index}`, kind: "bot" as const, botLevel: (["noob", "beginner", "intermediate", "expert", "impossible"] as const)[index % 5] }));
+    const created = createBonusRace({ enabled, random: [1, 2, 3, 4], race: {
+      raceId: asRaceId(RACE), now: asInstant(START), text, errorMode: "mandatory", timeLimit: asDuration(600_000),
+      participants: [{ entrantId: asEntrantId(HUMAN.entrantId), kind: "human" }, ...bots.map((bot) => ({ entrantId: asEntrantId(bot.entrantId), kind: "bot" as const }))],
+    } });
+    if (!created.ok) throw new Error(created.reason);
+    let activations = 0;
+    const connection: RaceConnection = { id: "human-tab", accountId: HUMAN.accountId, emit: (event) => { if (event === RACE_BONUS_ANNOUNCEMENT_EVENT) activations += 1; } };
+    let seed = 0;
+    const runtime = new RaceRuntime({ ownership: { raceId: RACE, lobbyId: "room", ownerId: "server", ownerEpoch: 1 },
+      state: created.state, entrants: [HUMAN, ...bots], language: "fr", schedule, now: () => now, followers: () => [connection],
+      store: { beginRacing: async () => WON, finalizeRace: async () => WON, interruptOwnRace: async () => ({ ...WON }) },
+      onSettled: () => undefined, log: () => undefined, botSeed: () => [++seed, 2, 3, 4], botBonusSeed: () => [++seed, 7, 8, 9],
+      lease: { start: () => {}, stop: () => {}, isAuthoritative: () => true, get state() { return "held" as const; }, suspendedForMs: () => 0 },
+    });
+    const started = performance.now();
+    runtime.start();
+    for (let calls = 0; timers.size > 0 && calls < 2_000_000; calls++) {
+      const [id, timer] = [...timers.entries()].sort((a, b) => a[1].at - b[1].at || a[0] - b[0])[0]!;
+      timers.delete(id); now = Math.max(now, timer.at);
+      if (now > START + 700_000) break;
+      timer.callback();
+      if (calls % 50 === 0) await settle();
+    }
+    await settle();
+    const finished = runtime.state.entrants.filter((entrant) => entrant.kind === "bot" && entrant.status === "finished").length;
+    runtime.retire();
+    return { ms: performance.now() - started, activations, finished };
+  }
+
+  it("keeps a 10-entrant Arcade race within a small factor of training", async () => {
+    const training = await run(false);
+    const arcade = await run(true);
+    expect(training.activations).toBe(0);
+    expect(arcade.activations).toBeGreaterThan(0);
+    expect(arcade.finished).toBe(9);
+    expect(training.finished).toBe(9);
+    console.log(`[perf] 10 entrants, 120 graphemes: training ${training.ms.toFixed(0)} ms, arcade ${arcade.ms.toFixed(0)} ms, ${arcade.activations} announcements`);
+    expect(arcade.ms).toBeLessThan(Math.max(3 * training.ms, training.ms + 2_000));
+  }, 120_000);
+});
