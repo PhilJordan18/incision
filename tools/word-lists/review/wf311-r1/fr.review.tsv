@@ -32,15 +32,18 @@ africaine	identity	identity	review: ethnicity/origin term
 africaines	identity	identity	review: ethnicity/origin term
 africains	identity	identity	review: ethnicity/origin term
 afrique	remove	proper-noun	review: continent name
-afro	identity	identity	review: ethnicity term (afro hair/culture)
+afro	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Prefix/combining form, not a standalone word
 after	remove	foreign	review: English word
 ag	remove	abbreviation	review: abbreviation (AG)
+age	remove	nonstandard	coordinator: second pass (proper nouns and non-words over the whole playable list); Missing circumflex: âge
 agnès	remove	proper-noun	review: first name
+agro	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Prefix/combining form, not a standalone word
 ahah	remove	nonstandard	review: interjection noise
 ahmed	remove	proper-noun	review: first name
 ain	remove	proper-noun	review: French department/river
 airbus	remove	proper-noun	review: brand
 airlines	remove	foreign	review: English word
+ais	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Not a standalone French word (verb ending)
 aisne	remove	proper-noun	review: French department
 aix	remove	proper-noun	review: city
 ajaccio	remove	proper-noun	review: city
@@ -137,6 +140,7 @@ app	remove	foreign	review: English clipping (fr: appli)
 apple	remove	proper-noun	review: brand
 apres	remove	nonstandard	review: missing accent (après)
 aprés	remove	nonstandard	review: wrong accent (après)
+aquitaine	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); French region (Aquitaine)
 ar	remove	abbreviation	review: abbreviation
 arabe	identity	identity	review: ethnicity/language
 arabes	identity	identity	review: ethnicity
@@ -176,6 +180,7 @@ aubry	remove	proper-noun	review: surname
 aude	remove	proper-noun	review: department/first name
 audi	remove	proper-noun	review: brand
 audrey	remove	proper-noun	review: first name
+auguste	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Mainly a first name/emperor; adjective sense unknown to teens
 augustin	remove	proper-noun	review: first name
 aujourd	remove	fragment	review: fragment of aujourd'hui
 aurélie	remove	proper-noun	review: first name
@@ -194,6 +199,7 @@ autrichiens	identity	identity	review: nationality
 auvergne	remove	proper-noun	review: region
 auxerre	remove	proper-noun	review: city
 av	remove	abbreviation	review: abbreviation
+ave	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); Latin (Ave Maria) or English avenue abbreviation
 aveugle	identity	identity	review: disability term
 aveugles	identity	identity	review: disability term
 avignon	remove	proper-noun	review: city
@@ -230,6 +236,7 @@ barry	remove	proper-noun	review: first name
 bart	remove	proper-noun	review: first name
 barça	remove	proper-noun	review: football club
 bastia	remove	proper-noun	review: city
+bastille	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Mainly the Bastille (Paris); common sense rare
 batman	remove	proper-noun	review: character
 battle	remove	foreign	review: English word
 bavière	remove	proper-noun	review: region
@@ -309,8 +316,10 @@ boris	remove	proper-noun	review: first name
 bosnie	remove	proper-noun	review: country
 boston	remove	proper-noun	review: city
 bouchard	remove	proper-noun	review: surname
+bouddha	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Proper name (Buddha)
 boulogne	remove	proper-noun	review: city
 bourges	remove	proper-noun	review: city
+bourgogne	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); French region; wine sense obscure for teens
 bourré	homonym-keep	homonym-keep	review: stuffed / drunk (colloquial, not vulgar); ordinary senses dominate
 bouygues	remove	proper-noun	review: company
 boy	remove	foreign	review: English word
@@ -375,6 +384,7 @@ caire	remove	proper-noun	review: city (Le Caire)
 calais	remove	proper-noun	review: city
 californie	remove	proper-noun	review: state
 call	remove	foreign	review: English word
+calvados	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); French department; drink sense obscure for teens
 calvin	remove	proper-noun	review: first name
 calédonie	remove	proper-noun	review: region
 cam	remove	abbreviation	review: clipping (webcam/caméra)
@@ -433,9 +443,11 @@ cfa	remove	abbreviation	review: acronym
 cgt	remove	abbreviation	review: acronym
 ch	remove	abbreviation	review: abbreviation
 cha	remove	nonstandard	review: fragment/nonstandard spelling
+chambéry	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); French city
 chan	remove	proper-noun	review: surname
 chanel	remove	proper-noun	review: brand
 channel	remove	foreign	review: English word
+chantal	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); First name
 charente	remove	proper-noun	review: department
 charest	remove	proper-noun	review: surname
 charlemagne	remove	proper-noun	review: person
@@ -510,6 +522,7 @@ coll	remove	abbreviation	review: abbreviation/acronym/unit
 college	remove	nonstandard	review: misspelling or missing accent (collège/contrôle/crâne/déjà/dernière/écho/éco/école/économie/écoute/écoutez/édition/éditions/éducation/église/énergie)
 collins	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 colmar	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
+cologne	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); German city (Köln)
 colombie	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 colorado	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 com	remove	abbreviation	review: abbreviation/acronym/unit
@@ -517,6 +530,7 @@ come	remove	foreign	review: word of another language, not an established French 
 comm	remove	abbreviation	review: abbreviation/acronym/unit
 community	remove	foreign	review: word of another language, not an established French loanword
 company	remove	foreign	review: word of another language, not an established French loanword
+complétement	remove	nonstandard	coordinator: second pass (proper nouns and non-words over the whole playable list); Variant of complètement (already in list); taught spelling is è
 con	exclude	insult	review: name-calling insult
 condé	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 congo	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
@@ -536,7 +550,7 @@ controle	remove	nonstandard	review: misspelling or missing accent (collège/cont
 cook	remove	foreign	review: word of another language, not an established French loanword
 cooper	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 copenhague	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
-coran	identity	identity	review: nationality/ethnicity/religion identity term
+coran	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Religious title (Coran)
 corse	identity	identity	review: nationality/ethnicity/religion identity term
 corses	identity	identity	review: nationality/ethnicity/religion identity term
 corée	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
@@ -544,6 +558,7 @@ coréen	identity	identity	review: nationality/ethnicity/religion identity term
 coréenne	identity	identity	review: nationality/ethnicity/religion identity term
 coréens	identity	identity	review: nationality/ethnicity/religion identity term
 cost	remove	foreign	review: word of another language, not an established French loanword
+costa	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); Spanish/Italian (Costa Rica), not French
 couillard	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 couille	exclude	swear	review: vulgar/swear vocabulary
 couilles	exclude	swear	review: vulgar/swear vocabulary
@@ -587,6 +602,7 @@ daesh	remove	proper-noun	review: name of person/place/brand/organisation, no com
 daily	remove	foreign	review: word of another language, not an established French loanword
 dakar	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 dallas	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
+damas	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); City (Damascus); fabric sense obscure
 damien	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 damon	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 dan	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
@@ -661,6 +677,7 @@ douglas	remove	proper-noun	review: name of person/place/brand/organisation, no c
 down	remove	foreign	review: word of another language, not an established French loanword
 dr	remove	abbreviation	review: abbreviation/acronym/unit
 drake	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
+drama	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); English word
 dream	remove	foreign	review: word of another language, not an established French loanword
 drôme	remove	proper-noun	review: name of person/place/brand/organisation, no common sense in French
 ds	remove	abbreviation	review: abbreviation/acronym/unit
@@ -809,6 +826,7 @@ fair	remove	foreign	review: word of another language, not an established French 
 fake	remove	foreign	review: word of another language, not an established French loanword
 family	remove	foreign	review: word of another language, not an established French loanword
 fanny	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
+far	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); English 'far'; the French noun (Breton cake) is unknown to most teens
 fashion	remove	foreign	review: word of another language, not an established French loanword
 faso	remove	proper-noun	review: place name, no common sense
 fast	remove	foreign	review: word of another language, not an established French loanword
@@ -824,6 +842,7 @@ fernando	remove	proper-noun	review: name of person/brand/organisation/event, no 
 ferrand	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 ferrari	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 ff	remove	abbreviation	review: abbreviation/acronym/unit
+fi	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Only in the fixed phrase 'faire fi'; meaningless alone
 fiat	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 fifa	remove	abbreviation	review: abbreviation/acronym/unit
 figaro	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
@@ -873,6 +892,7 @@ francfort	remove	proper-noun	review: place name, no common sense
 francis	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 francisco	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 franck	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
+franco	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Only in 'franco de port'; otherwise a proper name (Franco)
 frank	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 franklin	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 franz	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
@@ -903,6 +923,7 @@ galaxy	remove	foreign	review: word of another language, not an established Frenc
 gallery	remove	foreign	review: word of another language, not an established French loanword
 galles	remove	proper-noun	review: place name, no common sense
 gallimard	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
+gallo	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Likely a surname or Italian 'gallo'; the regional language is unknown to teens
 gallois	identity	identity	review: identity term (nationality/ethnicity/religion/orientation/disability/migration)
 game	remove	foreign	review: word of another language, not an established French loanword
 gameplay	remove	foreign	review: word of another language, not an established French loanword
@@ -919,7 +940,7 @@ gary	remove	proper-noun	review: name of person/brand/organisation/event, no comm
 gaston	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 gates	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 gatineau	remove	proper-noun	review: place name, no common sense
-gaule	homonym-keep	homonym-keep	review: Gaul / long pole, fishing rod; vulgar 'avoir la gaule' (erection) secondary
+gaule	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Gaule (Gaul) region; the common sense 'gaule' (pole) is rare
 gaulle	remove	proper-noun	review: place name, no common sense
 gauthier	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 gautier	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
@@ -944,9 +965,12 @@ girard	remove	proper-noun	review: name of person/brand/organisation/event, no co
 girl	remove	foreign	review: word of another language, not an established French loanword
 girls	remove	foreign	review: word of another language, not an established French loanword
 gironde	remove	proper-noun	review: place name, no common sense
+girondins	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Historical political group (les Girondins), capitalised
 glenn	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
+gloria	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); First name or prayer title (le Gloria); Latin
 gm	remove	abbreviation	review: abbreviation/acronym/unit
 gmt	remove	abbreviation	review: abbreviation/acronym/unit
+go	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); English 'go'
 god	remove	foreign	review: word of another language, not an established French loanword
 gold	remove	foreign	review: word of another language, not an established French loanword
 golden	remove	foreign	review: word of another language, not an established French loanword
@@ -1005,6 +1029,7 @@ hambourg	remove	proper-noun	review: place name, no common sense
 hamilton	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 hamon	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 han	remove	nonstandard	review: interjection noise
+hand	remove	abbreviation	coordinator: second pass (proper nouns and non-words over the whole playable list); Clipped form of 'handball' / English 'hand'
 handicapé	identity	identity	review: identity term (nationality/ethnicity/religion/orientation/disability/migration)
 handicapées	identity	identity	review: identity term (nationality/ethnicity/religion/orientation/disability/migration)
 handicapés	identity	identity	review: identity term (nationality/ethnicity/religion/orientation/disability/migration)
@@ -1039,10 +1064,12 @@ help	remove	foreign	review: word of another language, not an established French 
 henri	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 henry	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 her	remove	foreign	review: word of another language, not an established French loanword
+hercule	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Mythological hero Hercule; the common sense 'un hercule' is rare
 here	remove	foreign	review: word of another language, not an established French loanword
 hervé	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 hey	remove	foreign	review: word of another language, not an established French loanword
 hi	remove	foreign	review: word of another language, not an established French loanword
+hidalgo	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Surname (Anne Hidalgo) / Spanish word
 high	remove	foreign	review: word of another language, not an established French loanword
 hilaire	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 hill	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
@@ -1072,6 +1099,7 @@ hotel	remove	nonstandard	review: missing accent or apostrophe
 house	remove	foreign	review: word of another language, not an established French loanword
 houston	remove	proper-noun	review: place name, no common sense
 how	remove	foreign	review: word of another language, not an established French loanword
+howard	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); English first name / surname
 hp	remove	abbreviation	review: abbreviation/acronym/unit
 hs	remove	abbreviation	review: abbreviation/acronym/unit
 ht	remove	abbreviation	review: abbreviation/acronym/unit
@@ -1107,6 +1135,7 @@ idiote	exclude	insult	review: name-calling noun (guide example)
 idiots	exclude	insult	review: name-calling noun (guide example)
 ie	remove	abbreviation	review: abbreviation/acronym/unit
 ier	remove	abbreviation	review: abbreviation/acronym/unit
+if	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); English 'if'; French 'if' (yew tree) is unknown to most teens
 ii	remove	abbreviation	review: roman numeral
 iii	remove	abbreviation	review: roman numeral
 ikea	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
@@ -1191,6 +1220,7 @@ j'suis	remove	nonstandard	review: spoken elision spelling
 j'te	remove	nonstandard	review: spoken elision spelling
 j'vais	remove	nonstandard	review: spoken elision spelling
 j'veux	remove	nonstandard	review: spoken elision spelling
+ja	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); German/Scandinavian 'yes'
 jack	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 jackie	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 jackson	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
@@ -1212,6 +1242,7 @@ japonaise	identity	identity	review: identity term (nationality/ethnicity/religio
 japonaises	identity	identity	review: identity term (nationality/ethnicity/religion/orientation/disability/migration)
 jason	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 jaurès	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
+java	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Java island / programming language; 'la java' dance is dated
 javier	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 jay	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 jeanne	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
@@ -1437,6 +1468,7 @@ luther	remove	proper-noun	review: name of a person, place, brand or organisation
 luxembourg	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 luxembourgeois	identity	identity	review: identity term (ethnicity, nationality, religion, orientation, skin colour or migrant status)
 lyon	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+lès	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Only appears inside place names (Plessis-lès-Tours)
 léa	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 léo	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 léon	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1452,6 +1484,7 @@ made	remove	foreign	review: word of another language, not an established French 
 madison	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 madonna	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 madrid	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+mag	remove	abbreviation	coordinator: second pass (proper nouns and non-words over the whole playable list); Clipped form of 'magazine'
 maghreb	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 magic	remove	foreign	review: word of another language, not an established French loanword
 mahomet	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1464,6 +1497,7 @@ mali	remove	proper-noun	review: name of a person, place, brand or organisation w
 malik	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 malo	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 malte	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+mama	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); Not standard French ('maman'); Spanish/Italian/English form
 man	remove	foreign	review: word of another language, not an established French loanword
 manchester	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 manhattan	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1475,6 +1509,7 @@ mao	remove	proper-noun	review: name of a person, place, brand or organisation wi
 map	remove	foreign	review: word of another language, not an established French loanword
 maps	remove	foreign	review: word of another language, not an established French loanword
 mar	remove	abbreviation	review: abbreviation, acronym, unit or chat form
+marcel	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); First name Marcel; the tank-top sense is regional slang
 marco	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 marcus	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 margaret	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1482,7 +1517,9 @@ maria	remove	proper-noun	review: name of a person, place, brand or organisation 
 marianne	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 mario	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 marion	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+mark	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); English first name / German currency, not French
 market	remove	foreign	review: word of another language, not an established French loanword
+marne	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Marne river/department; 'marne' (marl) is technical
 maroc	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 marocain	identity	identity	review: identity term (ethnicity, nationality, religion, orientation, skin colour or migrant status)
 marocaine	identity	identity	review: identity term (ethnicity, nationality, religion, orientation, skin colour or migrant status)
@@ -1500,6 +1537,7 @@ marvel	remove	proper-noun	review: name of a person, place, brand or organisation
 marvin	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 marx	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 mary	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+mas	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); Spanish/Portuguese 'more'; the Provençal 'mas' (farmhouse) is regional
 mason	remove	foreign	review: word of another language, not an established French loanword
 mathieu	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 mathilde	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1508,6 +1546,7 @@ matthew	remove	proper-noun	review: name of a person, place, brand or organisatio
 matthieu	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 maurice	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 mauritanie	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+max	remove	abbreviation	coordinator: second pass (proper nouns and non-words over the whole playable list); Clipped 'maximum' ('au max') or first name Max
 may	remove	foreign	review: word of another language, not an established French loanword
 mayenne	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 mayotte	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1560,6 +1599,7 @@ microsoft	remove	proper-noun	review: name of a person, place, brand or organisat
 migrants	identity	identity	review: identity term (ethnicity, nationality, religion, orientation, skin colour or migrant status)
 miguel	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 mike	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+milan	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); City of Milan; the bird 'milan' is little known to teens
 miles	remove	foreign	review: word of another language, not an established French loanword
 miller	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 min	remove	abbreviation	review: abbreviation, acronym, unit or chat form
@@ -1677,6 +1717,7 @@ niger	remove	proper-noun	review: name of a person, place, brand or organisation 
 nigeria	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 night	remove	foreign	review: word of another language, not an established French loanword
 nike	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+nil	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); The Nile river (le Nil)
 nina	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 nintendo	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 nique	exclude	swear	review: vulgar expletive
@@ -1701,6 +1742,7 @@ not	remove	foreign	review: word of another language, not an established French l
 nov	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 nova	remove	foreign	review: word of another language, not an established French loanword
 now	remove	foreign	review: word of another language, not an established French loanword
+noël	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Holiday Noël, written with a capital
 npd	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 nrj	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 nsa	remove	abbreviation	review: abbreviation, acronym, unit or chat form
@@ -1730,6 +1772,7 @@ olivia	remove	proper-noun	review: name of a person, place, brand or organisation
 om	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 omar	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 oms	remove	abbreviation	review: abbreviation, acronym, unit or chat form
+once	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); English 'once'; French 'once' (ounce/snow leopard) is unknown to teens
 one	remove	foreign	review: word of another language, not an established French loanword
 ong	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 online	remove	foreign	review: word of another language, not an established French loanword
@@ -1738,6 +1781,7 @@ ontario	remove	proper-noun	review: name of a person, place, brand or organisatio
 onu	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 op	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 oran	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+ores	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Only in the fixed phrase 'd'ores et déjà'
 orgasme	exclude	sexual	review: sexual term, excluded by D-21
 orlando	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 orléans	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1771,8 +1815,10 @@ parasites	pejorative	pejorative	review: hostile word that could form an attack n
 parceque	remove	nonstandard	review: misspelling of parce que
 paris	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 park	remove	foreign	review: word of another language, not an established French loanword
+parker	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); English surname / pen brand
 party	remove	foreign	review: word of another language, not an established French loanword
 pascale	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+pat	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Chess term or first name Pat; meaningless to most teens alone
 patrice	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 patricia	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 patrick	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1794,6 +1840,7 @@ pere	remove	nonstandard	review: missing accent (même/mère/père/pièce/métal/
 perpignan	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 perrin	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 perry	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
+perse	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); Persia (la Perse); lowercase sense limited to the language name
 pervers	homonym-keep	homonym-keep	review: ordinary adjective (effets pervers) dominates; noun also means sexual pervert
 pete	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 peter	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1840,6 +1887,7 @@ pologne	remove	proper-noun	review: name of a person, place, brand or organisatio
 polonais	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 polonaise	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 pompidou	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+por	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); Spanish/Portuguese preposition, not French
 porc	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
 porcs	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
 porno	exclude	sexual	review: sexual vocabulary excluded for minors (D-21)
@@ -1863,7 +1911,9 @@ president	remove	nonstandard	review: missing accent or misspelling of a French w
 press	remove	foreign	review: English or other foreign word, not an established French loanword
 pret	remove	nonstandard	review: missing accent or misspelling of a French word
 price	remove	foreign	review: English or other foreign word, not an established French loanword
+priori	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); only exists in the locution a priori
 probleme	remove	nonstandard	review: missing accent or misspelling of a French word
+prod	remove	abbreviation	coordinator: second pass (proper nouns and non-words over the whole playable list); informal clipping of production/producteur
 project	remove	foreign	review: English or other foreign word, not an established French loanword
 prostitution	exclude	sexual	review: sexual vocabulary excluded for minors (D-21)
 prostituée	exclude	sexual	review: sexual vocabulary excluded for minors (D-21)
@@ -1885,6 +1935,7 @@ putain	exclude	swear	review: swear word
 putains	exclude	swear	review: swear word
 pute	exclude	sexual	review: prostitution slur / vulgar
 putes	exclude	sexual	review: prostitution slur / vulgar
+puy	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); rare regional common noun; in practice Le Puy / Puy-de-Dome place names
 pv	remove	abbreviation	review: abbreviation, acronym or SMS form
 pyrénées	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 pâques	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
@@ -1950,6 +2001,7 @@ res	remove	abbreviation	review: abbreviation, acronym or SMS form
 research	remove	foreign	review: English or other foreign word, not an established French loanword
 reuters	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 review	remove	foreign	review: English or other foreign word, not an established French loanword
+rex	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); Latin (T. rex) or pet name; not a French word
 rey	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 rez	remove	fragment	review: tokenisation fragment, not a word alone
 rh	remove	abbreviation	review: abbreviation, acronym or SMS form
@@ -2073,6 +2125,7 @@ see	remove	foreign	review: English or other foreign word, not an established Fre
 sein	homonym-keep	homonym-keep	review: "au sein de" (within) dominates over "breast"
 seine	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 seins	homonym-exclude	sexual	review: plural mostly "breasts" (anatomy); singular "sein" kept for "au sein de" [category inferred by coordinator: sexual]
+semi	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); prefix (semi-), not a standalone word
 sen	remove	fragment	review: tokenisation fragment, not a word alone
 seo	remove	abbreviation	review: abbreviation, acronym or SMS form
 ser	remove	fragment	review: tokenisation fragment, not a word alone
@@ -2114,6 +2167,7 @@ sibérie	remove	proper-noun	review: name of a person, place, brand, organisation
 sicile	remove	proper-noun	review: name of a person, place, brand, organisation or event
 side	remove	foreign	review: English (or other) word, not an established French loanword
 sidney	remove	proper-noun	review: name of a person, place, brand, organisation or event
+sierra	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); Spanish; mostly from Sierra Nevada / Sierra Leone
 silva	remove	proper-noun	review: name of a person, place, brand, organisation or event
 silver	remove	foreign	review: English (or other) word, not an established French loanword
 sim	remove	abbreviation	review: abbreviation, acronym, truncation, unit or roman numeral
@@ -2243,6 +2297,7 @@ talk	remove	foreign	review: English (or other) word, not an established French l
 tarn	remove	proper-noun	review: name of a person, place, brand, organisation or event
 taré	exclude	insult	review: mostly used to call someone crazy/retarded
 taubira	remove	proper-noun	review: name of a person, place, brand, organisation or event
+taylor	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); English surname/first name (Taylor)
 tchad	remove	proper-noun	review: name of a person, place, brand, organisation or event
 tchèque	identity	identity	review: identity term (nationality/ethnicity, disability or gender identity)
 td	remove	abbreviation	review: abbreviation, acronym, truncation, unit or roman numeral
@@ -2254,10 +2309,12 @@ tee	remove	fragment	review: fragment or lone letter, not a word by itself
 telecom	remove	nonstandard	review: misspelling, missing accent/ligature, phonetic or chat spelling
 telephone	remove	nonstandard	review: misspelling, missing accent/ligature, phonetic or chat spelling
 ten	remove	foreign	review: English (or other) word, not an established French loanword
+ter	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Latin ordinal used only in addresses (bis, ter)
 terra	remove	foreign	review: English (or other) word, not an established French loanword
 terroriste	pejorative	pejorative	review: hostile word that next to an identity term could form an attack
 terroristes	pejorative	pejorative	review: hostile word that next to an identity term could form an attack
 terry	remove	proper-noun	review: name of a person, place, brand, organisation or event
+tesla	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); brand (Tesla); unit sense unknown to 12-17 readers
 tete	remove	nonstandard	review: misspelling, missing accent/ligature, phonetic or chat spelling
 texas	remove	proper-noun	review: name of a person, place, brand, organisation or event
 tgv	remove	abbreviation	review: abbreviation, acronym, truncation, unit or roman numeral
@@ -2395,6 +2452,7 @@ versailles	remove	proper-noun	review: name of a person, place, brand, organisati
 vf	remove	abbreviation	review: abbreviation, acronym, truncation, unit or roman numeral
 vi	remove	abbreviation	review: abbreviation, acronym, truncation, unit or roman numeral
 vic	remove	abbreviation	review: abbreviation, acronym, truncation, unit or roman numeral
+vichy	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); town / Vichy regime; fabric sense little known to teens
 victor	remove	proper-noun	review: name of a person, place, brand, organisation or event
 victoria	remove	proper-noun	review: name of a person, place, brand, organisation or event
 vidal	remove	proper-noun	review: name of a person, place, brand, organisation or event
@@ -2439,9 +2497,11 @@ vtt	remove	abbreviation	review: abbreviation, acronym, truncation, unit or roman
 vénus	remove	proper-noun	review: name of a person, place, brand, organisation or event
 véronique	remove	proper-noun	review: name of a person, place, brand, organisation or event
 w	remove	fragment	review: fragment or lone letter, not a word by itself
+wa	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); not French (Japanese particle / Wallis code)
 wade	remove	proper-noun	review: name of a person, place, brand, organisation or event
 wagner	remove	proper-noun	review: name of a person, place, brand, organisation or event
 walker	remove	proper-noun	review: name of a person, place, brand, organisation or event
+wall	remove	foreign	coordinator: second pass (proper nouns and non-words over the whole playable list); English word, not an established French borrowing
 wallace	remove	proper-noun	review: name of a person, place, brand, organisation or event
 wallon	identity	identity	review: identity term (nationality/ethnicity, disability or gender identity)
 wallonie	remove	proper-noun	review: name of a person, place, brand, organisation or event

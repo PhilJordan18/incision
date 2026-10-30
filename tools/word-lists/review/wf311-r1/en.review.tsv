@@ -119,6 +119,7 @@ arabia	remove	proper-noun	review: place name
 arabian	remove	proper-noun	review: demonym/nationality, capitalised in English
 arabic	remove	proper-noun	review: demonym/nationality, capitalised in English
 arabs	remove	proper-noun	review: demonym/nationality, capitalised in English
+archie	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 arent	remove	nonstandard	review: slang, misspelling or interjection noise
 argentina	remove	proper-noun	review: place name
 argentine	remove	proper-noun	review: demonym/nationality, capitalised in English
@@ -136,12 +137,14 @@ arthur	remove	proper-noun	review: person name
 asap	remove	abbreviation	review: abbreviation, acronym or unit
 ashley	remove	proper-noun	review: person name
 ashton	remove	proper-noun	review: person name
+asia	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); continent
 asian	remove	proper-noun	review: demonym/nationality, capitalised in English
 ass	homonym-exclude	sexual	review: donkey (rare) vs buttocks/insult (dominant for teens) [category inferred by coordinator: sexual]
 assad	remove	proper-noun	review: person name
 asses	homonym-exclude	sexual	review: donkey (rare) vs buttocks/insult (dominant for teens) [category inferred by coordinator: sexual]
 asshole	exclude	insult	review: name-calling noun
 assholes	exclude	insult	review: name-calling noun
+aston	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); place/brand (Aston Martin); no common sense
 atheist	identity	identity	review: identity term (religion)
 athens	remove	proper-noun	review: place name
 atlanta	remove	proper-noun	review: place name
@@ -280,6 +283,7 @@ bolton	remove	proper-noun	review: place name
 bombay	remove	proper-noun	review: place name
 bon	remove	foreign	review: foreign word, not an English loanword
 bong	homonym-exclude	degrading	review: bell sound vs cannabis pipe (dominant) [category inferred by coordinator: degrading]
+bonnie	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name; Scots adjective unknown to most 12-17 readers
 boobs	exclude	sexual	review: sexual anatomy/slang
 booty	homonym-keep	homonym-keep	review: pirate treasure vs buttocks slang
 boris	remove	proper-noun	review: person name
@@ -393,6 +397,7 @@ caribbean	remove	proper-noun	review: place name
 carl	remove	proper-noun	review: person name
 carlo	remove	proper-noun	review: person name
 carlos	remove	proper-noun	review: person name
+carlton	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname/place/brand
 carmen	remove	proper-noun	review: person name
 carnegie	remove	proper-noun	review: person name
 carolina	remove	proper-noun	review: place name
@@ -427,6 +432,7 @@ ceo	remove	abbreviation	review: abbreviation, acronym or unit
 cf	remove	abbreviation	review: abbreviation, acronym or unit
 ch	remove	abbreviation	review: abbreviation, acronym or unit
 cha	remove	fragment	review: lone letter or tokenisation fragment
+chad	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); country/first name; common sense (paper chad) obscure
 chan	remove	proper-noun	review: person name
 chandler	remove	proper-noun	review: person name
 chang	remove	proper-noun	review: person name
@@ -446,6 +452,7 @@ chicago	remove	proper-noun	review: place name
 chile	remove	proper-noun	review: place name
 china's	remove	proper-noun	review: place name
 chinese	remove	proper-noun	review: demonym/nationality, capitalised in English
+chloe	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 choi	remove	proper-noun	review: person name
 chris	remove	proper-noun	review: person name
 christ	remove	proper-noun	review: person name
@@ -487,6 +494,7 @@ cm	remove	abbreviation	review: abbreviation, acronym or unit
 cnn	remove	abbreviation	review: abbreviation, acronym or unit
 co	remove	abbreviation	review: abbreviation, acronym or unit
 cobb	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
+coca	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); brand fragment (Coca-Cola); plant sense obscure
 cocaine	exclude	degrading	review: hard drug name; borderline, ordinary crime vocabulary
 cock	homonym-exclude	sexual	review: rooster / vulgar genital slang; slang dominates for teens [category inferred by coordinator: sexual]
 cody	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
@@ -601,6 +609,7 @@ def	remove	abbreviation	review: abbreviation, acronym or clipped form
 del	remove	foreign	review: foreign word or fragment, not an English loanword
 delaware	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
 delhi	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
+dell	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); brand; common sense (small valley) archaic
 dem	remove	nonstandard	review: slang spelling of them
 dems	remove	abbreviation	review: abbreviation, acronym or clipped form
 denis	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
@@ -710,6 +719,7 @@ egyptian	remove	proper-noun	review: demonym/language, capitalised in English
 einstein	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
 el	remove	foreign	review: foreign word or fragment, not an English loanword
 elaine	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
+eleanor	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 elena	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
 eli	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
 elijah	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
@@ -787,6 +797,7 @@ fairfax	remove	proper-noun	review: name of a person, place, brand or organisatio
 fam	remove	nonstandard	review: slang clipping of family
 fargo	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
 fat	pejorative	pejorative	review: hostile word that could form an attack next to an identity term
+fatty	exclude	insult	coordinator: functional QA follow-up; name-calling noun
 fb	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 fbi	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 fc	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
@@ -816,6 +827,7 @@ fitzgerald	remove	proper-noun	review: name of person/place/brand/organisation, n
 fl	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 fla	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 fleming	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+fletcher	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname; arrow-maker sense unknown to readers
 florence	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 florida	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 floyd	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -826,7 +838,9 @@ foley	remove	proper-noun	review: name of person/place/brand/organisation, no com
 forbes	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 forex	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 forrest	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+fowler	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname; fowl-hunter sense obscure
 fr	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
+france	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); country
 frances	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 francis	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 francisco	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -841,6 +855,7 @@ freaks	pejorative	pejorative	review: hostile word that could form an attack next
 fred	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 freddie	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 frederick	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+freeman	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname; historical common sense rare
 french	remove	proper-noun	review: demonym/language, capitalised in English
 friday	remove	proper-noun	review: English month/day names are capitalised
 ft	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
@@ -963,6 +978,7 @@ hampshire	remove	proper-noun	review: name of person/place/brand/organisation, no
 hampton	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 han	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 hancock	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+hank	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name; yarn sense obscure
 hanna	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 hannah	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 hans	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -976,6 +992,8 @@ harper	remove	proper-noun	review: name of person/place/brand/organisation, no co
 harriet	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 harris	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 harrison	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+harry	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name; verb sense obscure
+hart	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname; deer sense archaic
 hartford	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 harvard	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 harvey	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -995,6 +1013,7 @@ hbo	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playabl
 hc	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 hd	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 hebrew	remove	proper-noun	review: demonym/language, capitalised in English
+hector	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name; verb sense obscure
 hee	remove	nonstandard	review: informal/phonetic spelling or interjection noise
 heh	remove	nonstandard	review: informal/phonetic spelling or interjection noise
 helen	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -1144,6 +1163,7 @@ isis	remove	proper-noun	review: name of person/place/brand/organisation, no comm
 islam	remove	proper-noun	coordinator: capitalised in English (proper noun or adjective); the lowercase form is misspelled; same rule as demonyms, never removed for being an identity term
 islamic	remove	proper-noun	coordinator: capitalised in English (proper noun or adjective); the lowercase form is misspelled; same rule as demonyms, never removed for being an identity term
 isnt	remove	nonstandard	review: informal/phonetic spelling or interjection noise
+iso	remove	abbreviation	coordinator: second pass (proper nouns and non-words over the whole playable list); ISO standard / abbreviation
 israel	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 israel's	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 israeli	remove	proper-noun	review: demonym/language, capitalised in English
@@ -1183,6 +1203,7 @@ japan's	remove	proper-noun	review: name of person/place/brand/organisation, no c
 japanese	remove	proper-noun	review: demonym/language, capitalised in English
 jared	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 jason	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+java	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); island / programming language
 javascript	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 je	remove	foreign	review: foreign word/fragment, not an English loanword
 jedi	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -1209,6 +1230,7 @@ jesus	remove	proper-noun	review: name of person/place/brand/organisation, no com
 jew	remove	proper-noun	coordinator: capitalised in English (proper noun or adjective); the lowercase form is misspelled; same rule as demonyms, never removed for being an identity term
 jewish	remove	proper-noun	coordinator: capitalised in English (proper noun or adjective); the lowercase form is misspelled; same rule as demonyms, never removed for being an identity term
 jews	remove	proper-noun	coordinator: capitalised in English (proper noun or adjective); the lowercase form is misspelled; same rule as demonyms, never removed for being an identity term
+ji	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); not an English word
 jill	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 jim	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 jimmy	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -1287,8 +1309,10 @@ kay	remove	proper-noun	review: name of person/place/brand/organisation, no commo
 kazakhstan	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 kc	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 ke	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
+keith	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 keller	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 kelly	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+ken	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name; 'beyond my ken' rare
 kendall	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 kennedy	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 kenneth	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -1364,9 +1388,11 @@ lb	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 lbs	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 lc	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 le	remove	foreign	review: foreign function word, not an English loanword
+lea	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name; poetic meadow sense rare
 lebanese	remove	proper-noun	review: demonym, capitalised in English
 lebanon	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 lebron	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+lee	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); name; leeward sense obscure
 leeds	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 lego	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 leicester	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1409,6 +1435,7 @@ linux	remove	proper-noun	review: name of person/place/brand/org with no common l
 lionel	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 lisa	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 lisbon	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+lite	remove	nonstandard	coordinator: second pass (proper nouns and non-words over the whole playable list); marketing spelling of light
 lithuania	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 liu	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 liverpool	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1548,6 +1575,7 @@ meyer	remove	proper-noun	review: name of person/place/brand/org with no common l
 mf	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 mg	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 mi	remove	abbreviation	review: abbreviation/acronym/unit/chat form
+mia	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name (also MIA acronym)
 miami	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 michael	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 michel	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1634,8 +1662,10 @@ mrs	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 ms	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 mt	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 mtv	remove	abbreviation	review: abbreviation/acronym/unit/chat form
+mu	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Greek letter, not ordinary word
 mueller	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 muhammad	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+multi	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); prefix, not a standalone word
 mumbai	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 munich	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 murphy	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1677,7 +1707,9 @@ nc	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 ncaa	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 nd	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 ne	remove	abbreviation	review: abbreviation/acronym/unit/chat form
+neal	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 nebraska	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+ned	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 negro	exclude	slur	review: racial slur
 neil	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 nelson	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1727,6 +1759,7 @@ nobel	remove	proper-noun	review: name of person/place/brand/org with no common l
 noel	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 nokia	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 nolan	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+non	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); prefix, not a standalone word
 nora	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 nordic	remove	proper-noun	review: capitalised in English (language/adjective/month/day/proper adjective)
 norfolk	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1770,6 +1803,7 @@ ohio	remove	proper-noun	review: name of person/place/brand/org with no common lo
 oi	remove	nonstandard	review: slang/phonetic spelling or interjection noise
 oklahoma	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 ol	remove	nonstandard	review: slang/phonetic spelling or interjection noise
+olds	remove	nonstandard	coordinator: second pass (proper nouns and non-words over the whole playable list); slang/fragment plural of old
 ole	remove	nonstandard	review: slang/phonetic spelling or interjection noise
 oliver	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 olivia	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1783,6 +1817,8 @@ ons	remove	fragment	review: tokenisation fragment or prefix/suffix, not a standa
 ontario	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 oo	remove	nonstandard	review: slang/phonetic spelling or interjection noise
 op	remove	abbreviation	review: abbreviation/acronym/unit/chat form
+ops	remove	abbreviation	coordinator: second pass (proper nouns and non-words over the whole playable list); abbreviation of operations
+oregon	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); US state
 org	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 orgasm	exclude	sexual	review: sexual anatomy/nudity/underwear vocabulary unsuitable in random draws for minors
 oriental	homonym-exclude	slur	coordinator: "oriental rug" exists, but applied to people it is a dated, offensive term
@@ -1813,6 +1849,7 @@ pakistani	remove	proper-noun	review: demonym, capitalised in English
 palestine	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 palestinian	remove	proper-noun	review: demonym, capitalised in English
 palestinians	remove	proper-noun	review: demonym, capitalised in English
+palmer	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname
 pam	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 pamela	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 panama	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1822,6 +1859,7 @@ parasite	pejorative	pejorative	review: could form an attack next to an identity 
 parasites	pejorative	pejorative	review: could form an attack next to an identity term
 paris	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 parker	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+parsons	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname (plural of parson rare)
 pas	remove	foreign	review: foreign function word, not an English loanword
 pathetic	pejorative	pejorative	review: could form an attack next to an identity term
 patricia	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1865,6 +1903,7 @@ pga	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 ph	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 phd	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 phelps	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+phi	remove	fragment	coordinator: second pass (proper nouns and non-words over the whole playable list); Greek letter, not ordinary word
 phil	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 philadelphia	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 philip	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
@@ -1949,6 +1988,7 @@ quo	remove	foreign	review: word of another language, not an ordinary English loa
 quran	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 r	remove	fragment	review: lone letter, not a word
 ra	remove	abbreviation	review: abbreviation, acronym, unit or chat form
+rachel	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 raf	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 rafael	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 raj	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
@@ -1964,6 +2004,7 @@ raping	exclude	sexual	review: sexual violence vocabulary (D-21: viol/violer excl
 rapist	exclude	sexual	review: sexual violence vocabulary (D-21: viol/violer excluded)
 rat	pejorative	pejorative	review: hostile/dehumanising word that next to an identity term could form an attack
 rats	pejorative	pejorative	review: hostile/dehumanising word that next to an identity term could form an attack
+raymond	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 rb	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 rc	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 rd	remove	abbreviation	review: abbreviation, acronym, unit or chat form
@@ -1973,6 +2014,7 @@ rebecca	remove	proper-noun	review: name of a person, place, brand, team or organ
 rec	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 reddit	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 redskins	exclude	slur	review: ethnic slur for Native Americans (also former team name)
+reeves	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname; common sense 'reeve' unknown to readers
 refugee	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
 refugees	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
 reg	remove	abbreviation	review: abbreviation, acronym, unit or chat form
@@ -2020,6 +2062,7 @@ rogers	remove	proper-noun	review: name of a person, place, brand, team or organi
 roland	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 rom	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 roma	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
+roman	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); capitalised adjective/nationality (Roman)
 romania	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 romanian	remove	proper-noun	review: demonym/language, capitalised in English
 romans	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
@@ -2060,9 +2103,11 @@ ryan	remove	proper-noun	review: name of a person, place, brand, team or organisa
 ryder	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 s	remove	fragment	review: lone letter, not a word
 sa	remove	abbreviation	review: abbreviation, acronym, unit or chat form
+sabbath	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); religious day, normally capitalised (Sabbath)
 sacramento	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 salem	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 salisbury	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
+sally	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name; common sense 'sally' (sortie) unknown to readers
 salvador	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 sam	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 samantha	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
@@ -2087,6 +2132,7 @@ saudi	remove	proper-noun	review: demonym/language, capitalised in English
 saul	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 saunders	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 savage	pejorative	pejorative	review: hostile/dehumanising word that next to an identity term could form an attack
+sawyer	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname; 'sawyer' as trade is archaic
 saxon	remove	proper-noun	review: demonym/language, capitalised in English
 sayin	remove	nonstandard	review: chat/phonetic spelling, missing apostrophe or interjection noise
 sb	remove	abbreviation	review: abbreviation, acronym, unit or chat form
@@ -2188,6 +2234,7 @@ sol	remove	foreign	review: word of another language, not an ordinary English loa
 solomon	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 somali	remove	proper-noun	review: demonym/language, capitalised in English
 somalia	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
+somerset	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); English county
 somethin	remove	nonstandard	review: chat/phonetic spelling, missing apostrophe or interjection noise
 sonia	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 sony	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
@@ -2195,6 +2242,8 @@ soo	remove	nonstandard	review: chat/phonetic spelling, missing apostrophe or int
 sophia	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 sophie	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 southampton	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
+soviet	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); capitalised nationality/state adjective (Soviet)
+soviets	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); capitalised (Soviets)
 sox	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 sp	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 spain	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
@@ -2367,6 +2416,7 @@ tumblr	remove	proper-noun	review: brand
 tunisia	remove	proper-noun	review: country
 turkish	remove	proper-noun	review: demonym, capitalised in English
 turks	remove	proper-noun	review: demonym, capitalised in English
+turner	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); surname; occupational sense rare
 tv	remove	abbreviation	review: abbreviation (TV)
 tvs	remove	abbreviation	review: abbreviation plural
 twitter	remove	proper-noun	review: brand
@@ -2450,6 +2500,7 @@ virgin	homonym-exclude	sexual	review: sexual-status sense dominates for teens; a
 virginia	remove	proper-noun	review: place/name
 vita	remove	foreign	review: Latin/Italian
 vladimir	remove	proper-noun	review: first name
+vol	remove	abbreviation	coordinator: second pass (proper nouns and non-words over the whole playable list); abbreviation of volume
 volkswagen	remove	proper-noun	review: brand
 von	remove	foreign	review: German particle
 vp	remove	abbreviation	review: abbreviation
@@ -2460,6 +2511,7 @@ wa	remove	abbreviation	review: abbreviation
 wagner	remove	proper-noun	review: surname
 wal	remove	fragment	review: fragment of Wal-Mart
 wales	remove	proper-noun	review: place
+wallace	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name/surname
 walmart	remove	proper-noun	review: brand
 walsh	remove	proper-noun	review: surname
 walt	remove	proper-noun	review: first name
@@ -2568,4 +2620,5 @@ zeus	remove	proper-noun	review: god name
 zhang	remove	proper-noun	review: surname
 zimbabwe	remove	proper-noun	review: country
 zimmerman	remove	proper-noun	review: surname
+zoe	remove	proper-noun	coordinator: second pass (proper nouns and non-words over the whole playable list); first name
 zurich	remove	proper-noun	review: place

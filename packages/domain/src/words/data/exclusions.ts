@@ -150,6 +150,7 @@ dope
 dumbass
 erection
 erotic
+fatty
 fetish
 fuck
 fucked

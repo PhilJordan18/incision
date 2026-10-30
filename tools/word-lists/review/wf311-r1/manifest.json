@@ -12,30 +12,30 @@
   "inputs": {
     "notices/wordfreq-3.1.1.md": "1de60f78c5f7af00370ee190bbf776f90759a5da422e2ab453c97e45b6da92f4",
     "wordfreq-3.1.1/wordfreq/data/large_fr.msgpack.gz": "6f16cd80b9b66c5698ed002becea83ae30d0584c3205f1cf01714ad562c00c8b",
-    "review/wf311-r1/fr.review.tsv": "e1569eba452010524c88cb2acc6ad756ef48514408870fa2d0ce16c9402fcbb3",
+    "review/wf311-r1/fr.review.tsv": "fb2c2f476f6563f6ff4f7cb0a7b55f6379a88ea0bb5eec0f4ba9ebef091e1b3d",
     "review/wf311-r1/fr.pairs.tsv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "candidate fr (exporter policy 1)": "c51390d49e93d7cc250f3d31e194266f84e2c06eac1e737a7487ee488ed191cf",
     "wordfreq-3.1.1/wordfreq/data/large_en.msgpack.gz": "dffae8066b78dce0a6667cf5f58e567054f902674667090a7ac8a8a44628b05c",
-    "review/wf311-r1/en.review.tsv": "a39210739d30f43bb4090f1bd1733ddf507ba01af75616fc1fc139bc69a1d7ea",
+    "review/wf311-r1/en.review.tsv": "e77420ee0b6a71563438f124b0fb5f73a221e13fd1d52c8beac3237e41255f78",
     "review/wf311-r1/en.pairs.tsv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "candidate en (exporter policy 1)": "9c00764a60cd1c8939838fbeffe5992f528de3537dc64e94e2db87d5a05980a7"
   },
   "outputs": {
-    "packages/domain/src/words/data/fr.ts": "35c4d25a3a14f00c537d0c20702173f98d88f57b56c408d0c642cd0fee309478",
-    "packages/domain/src/words/data/en.ts": "24a66a6fb31dcf247044aa71e9074ada5059d0cb21661e28a0591d9ab0c67fa8",
-    "packages/domain/src/words/data/exclusions.ts": "3b3e3d2e9dff6c3f3be08f1c515fb132ab537aca25679fd07c799c2737c0e013",
-    "packages/domain/src/words/data/pairs.ts": "9b8003c4ec636a4550b726e06e541f30ac12d2f478945cc4628d8363462f3773"
+    "packages/domain/src/words/data/fr.ts": "550ca8b10599e08b875bc47dca4e923960215cc87c88977000dd0b746b50cf9f",
+    "packages/domain/src/words/data/en.ts": "bb4a014df7b5bba32f0918068466899a18ee8b3514e99982c2517aeab28e234a",
+    "packages/domain/src/words/data/exclusions.ts": "30d60f46389706dba9f3582722df477921c28343503b83fc286c5ab91e5e5ce7",
+    "packages/domain/src/words/data/pairs.ts": "5bc81ccf069d7c0a4a07ee03a4347058c6343161a61d1696d8fc1f79e0ad3301"
   },
   "counts": {
     "fr": {
       "candidate": 304773,
       "aboveFloor": 15476,
       "removed": {
-        "abbreviation": 314,
-        "foreign": 378,
-        "fragment": 69,
-        "nonstandard": 124,
-        "proper-noun": 1267
+        "abbreviation": 318,
+        "foreign": 393,
+        "fragment": 80,
+        "nonstandard": 126,
+        "proper-noun": 1298
       },
       "excluded": {
         "degrading": 7,
@@ -45,30 +45,30 @@
         "swear": 31
       },
       "foldDropped": 0,
-      "playable": 13212,
+      "playable": 13149,
       "exclusions": 112,
-      "pairs": 13248
+      "pairs": 13120
     },
     "en": {
       "candidate": 307629,
       "aboveFloor": 14999,
       "removed": {
-        "abbreviation": 448,
+        "abbreviation": 451,
         "foreign": 54,
-        "fragment": 60,
-        "nonstandard": 94,
-        "proper-noun": 1703
+        "fragment": 65,
+        "nonstandard": 96,
+        "proper-noun": 1745
       },
       "excluded": {
         "degrading": 10,
-        "insult": 14,
+        "insult": 15,
         "sexual": 48,
         "slur": 10,
         "swear": 21
       },
       "foldDropped": 0,
-      "playable": 12537,
-      "exclusions": 103,
+      "playable": 12484,
+      "exclusions": 104,
       "pairs": 1650
     }
   }

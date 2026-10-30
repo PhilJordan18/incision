@@ -43,18 +43,18 @@ these data into production.
 
 | Action | Effect | fr | en |
 |---|---|---:|---:|
-| `remove` / `proper-noun` | not playable: names, places, brands; English proper adjectives | 1,267 | 1,703 |
-| `remove` / `abbreviation` | acronyms, chat forms, units, roman numerals | 314 | 448 |
-| `remove` / `foreign` | words of another language that are not established loanwords | 378 | 54 |
-| `remove` / `nonstandard` | missing accents, phonetic or chat spellings, noise | 124 | 94 |
-| `remove` / `fragment` | tokenisation fragments, lone letters | 69 | 60 |
-| `exclude` | swear words, insults, slurs, sexual or degrading vocabulary (D-21) | 93 | 82 |
+| `remove` / `proper-noun` | not playable: names, places, brands; English proper adjectives | 1,298 | 1,745 |
+| `remove` / `abbreviation` | acronyms, chat forms, units, roman numerals | 318 | 451 |
+| `remove` / `foreign` | words of another language that are not established loanwords | 393 | 54 |
+| `remove` / `nonstandard` | missing accents, phonetic or chat spellings, noise | 126 | 96 |
+| `remove` / `fragment` | tokenisation fragments, lone letters | 80 | 65 |
+| `exclude` | swear words, insults, slurs, sexual or degrading vocabulary (D-21) | 93 | 83 |
 | `homonym-exclude` | ordinary sense exists, but the vulgar or sexual sense dominates for 12–17 | 19 | 21 |
-| `homonym-keep` | vulgar sense exists, but the ordinary sense dominates | 24 | 26 |
-| `identity` | kept; forbidden next to any `pejorative` word | 207 | 33 |
+| `homonym-keep` | vulgar sense exists, but the ordinary sense dominates | 23 | 26 |
+| `identity` | kept; forbidden next to any `pejorative` word | 205 | 33 |
 | `pejorative` | kept; forbidden next to any `identity` word | 64 | 50 |
 
-Result: fr 13,212 playable words, 112 exclusions, 13,248 forbidden pairs; en 12,537 words, 103
+Result: fr 13,149 playable words, 112 exclusions, 13,120 forbidden pairs; en 12,484 words, 104
 exclusions, 1,650 pairs (counts per category in `manifest.json`).
 
 ## Coordinator decisions
@@ -83,6 +83,13 @@ exclusions, 1,650 pairs (counts per category in `manifest.json`).
   and pejorative tags (fr sauvage, pourri, porc, rat and forms; en genocide, slave, slaves, pig, pigs)
   added. "gosse" (France: a kid) stays while the plural "gosses" is excluded for its Quebec sense, and
   en "nude" stays excluded while "naked" ("naked eye") and fr "nu" stay: judgement calls kept as they are.
+- **Second pass.** The functional QA (Fable) found English names that reach generated texts in
+  lowercase ("keith", "zoe", "somerset", "rachel", "france", "asia"). Six more agents then read the whole
+  playable list again, about 4,200 to 4,400 words each, for proper nouns, foreign words and non-words
+  only, and flagged 129 words. All were applied as `remove` lines, except the spelled-out ligature forms
+  (the rule above), "covid" and "uni" (dictionary words), "bible" (a common noun) and fr "black" (kept
+  as an identity term). The QA's "fatty" (name-calling) is excluded as an insult. fr "ho" (interjection)
+  and "mu" (from "mouvoir") stay as French words.
 - **Category of `homonym-exclude`.** Where a reviewer wrote a free category, the coordinator inferred one
   of the five exclusion categories from the reason; those lines say so.
 
