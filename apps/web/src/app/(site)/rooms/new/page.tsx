@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Create a room (SALLE-01), by code at the checkpoint; signed-in accounts only. */
 export default async function NewRoomPage() {
   const { accountId } = await requireAccountSession("/rooms/new");
-  const [{ t }, current] = await Promise.all([getRequestDictionary(), findActiveMembership(authDatabase(), accountId)]);
+  const [{ t, locale }, current] = await Promise.all([getRequestDictionary(), findActiveMembership(authDatabase(), accountId)]);
   if (current !== undefined) {
     return (
       <StatePanel
@@ -48,7 +48,7 @@ export default async function NewRoomPage() {
       <PageHeading bold={t.rooms.newHeadingBold} serif={t.rooms.newHeadingSerif} />
       <section className={`${card} flex max-w-xl flex-col gap-5`}>
         <p className="text-embrun">{t.rooms.newIntro}</p>
-        <CreateRoomForm t={t.rooms} />
+        <CreateRoomForm t={t.rooms} locale={locale} />
       </section>
     </>
   );
