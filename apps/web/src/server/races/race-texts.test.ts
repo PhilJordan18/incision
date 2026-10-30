@@ -161,7 +161,7 @@ describe("CorpusTexts", () => {
         text: FRENCH.id,
         corpusVersion: "test-1",
         textSettings: { kind: "coherent", language: "fr", wordCount: 50, complexity: "medium", options: { punctuation: true, numbers: false, capitals: true, accents: true } },
-        textVersions: { generator: 1, criteria: "start-1", normalization: 2, prng: expect.any(String) },
+        textVersions: { generator: 1, criteria: "wf311-1", normalization: 2, prng: expect.any(String) },
       },
     });
     expect(drawn.ok && countWords(drawn.text)).toBe(50);

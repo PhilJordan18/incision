@@ -20,13 +20,13 @@ export const FR_TEST_LIST = list("fr", [
   ["île", 4.6], ["voile", 4.5], ["cap", 4.4], ["phare", 4.2], ["sable", 4.3], ["vague", 4.4], ["ancre", 4.1], ["quai", 4.2], ["nord", 4.8], ["sud", 4.7],
   ["côte", 4.6], ["rêve", 4.5], ["été", 5], ["fête", 4.6], ["mât", 4], ["zéro", 4.3], ["bleu", 4.9], ["gris", 4.5], ["vieux", 5], ["loin", 5.1],
   ["aujourd'hui", 5.6], ["cœur", 5.3], ["sœur", 4.9], ["motinterdit", 4.2],
-  // medium band: at most 9 letters, Zipf 3.3 or more
-  ["bateau", 3.9], ["marin", 3.8], ["navire", 3.7], ["matelot", 3.5], ["horizon", 3.9], ["tempête", 3.8], ["boussole", 3.4], ["capitaine", 3.9],
-  ["équipage", 3.6], ["voilier", 3.5], ["pirate", 3.7], ["trésor", 3.9], ["carte", 3.95], ["rivage", 3.5], ["falaise", 3.4], ["corsaire", 3.3],
-  ["kayak", 3.4], ["whisky", 3.3], ["yacht", 3.5], ["jetée", 3.4], ["axe", 3.9],
-  // hard band: at most 16 letters, Zipf 2.5 or more
-  ["hydrographie", 2.6], ["cartographie", 2.9], ["navigation", 3.2], ["astrolabe", 2.7], ["gouvernail", 3], ["bastingage", 2.8], ["scaphandre", 2.9],
-  ["ichtyologiste", 2.5], ["phosphorescent", 2.7], ["longitude", 3.1], ["latitude", 3.1], ["archipel", 3.2],
+  // medium band: at most 9 letters, Zipf 3.75 or more
+  ["bateau", 3.96], ["marin", 3.925], ["navire", 3.89], ["matelot", 3.82], ["horizon", 3.96], ["tempête", 3.925], ["boussole", 3.785], ["capitaine", 3.96],
+  ["équipage", 3.855], ["voilier", 3.82], ["pirate", 3.89], ["trésor", 3.96], ["carte", 3.978], ["rivage", 3.82], ["falaise", 3.785], ["corsaire", 3.75],
+  ["kayak", 3.785], ["whisky", 3.75], ["yacht", 3.82], ["jetée", 3.785], ["axe", 3.96],
+  // hard band: at most 16 letters, Zipf 3.5 or more
+  ["hydrographie", 3.535], ["cartographie", 3.64], ["navigation", 3.745], ["astrolabe", 3.57], ["gouvernail", 3.675], ["bastingage", 3.605], ["scaphandre", 3.64],
+  ["ichtyologiste", 3.5], ["phosphorescent", 3.57], ["longitude", 3.71], ["latitude", 3.71], ["archipel", 3.745],
 ]);
 
 export const EN_TEST_LIST = list("en", [
@@ -34,10 +34,10 @@ export const EN_TEST_LIST = list("en", [
   ["sea", 5.2], ["ship", 5], ["wind", 5], ["sail", 4.6], ["port", 4.8], ["map", 5], ["isle", 4.1], ["star", 5.1], ["moon", 5], ["sun", 5.2],
   ["wave", 4.9], ["quay", 4], ["jib", 4], ["box", 5], ["zest", 4], ["kite", 4.2], ["yard", 4.8], ["deck", 4.6], ["mast", 4.1], ["tide", 4.4],
   ["bad", 5.3], ["word", 5.4],
-  ["harbour", 3.8], ["captain", 3.9], ["sailor", 3.7], ["compass", 3.6], ["treasure", 3.9], ["island", 3.95], ["anchor", 3.7], ["voyage", 3.6],
-  ["horizon", 3.6], ["lantern", 3.4], ["schooner", 3.3], ["quarrel", 3.4], ["jovial", 3.3], ["oxygen", 3.5],
-  ["navigation", 3.2], ["cartography", 2.8], ["hydrography", 2.6], ["astrolabe", 2.6], ["buccaneer", 2.9], ["boatswain", 2.8], ["figurehead", 2.7],
-  ["phosphorescent", 2.6], ["longitude", 3.1], ["latitude", 3.1], ["archipelago", 3],
+  ["harbour", 3.925], ["captain", 3.96], ["sailor", 3.89], ["compass", 3.855], ["treasure", 3.96], ["island", 3.978], ["anchor", 3.89], ["voyage", 3.855],
+  ["horizon", 3.855], ["lantern", 3.785], ["schooner", 3.75], ["quarrel", 3.785], ["jovial", 3.75], ["oxygen", 3.82],
+  ["navigation", 3.745], ["cartography", 3.605], ["hydrography", 3.535], ["astrolabe", 3.535], ["buccaneer", 3.64], ["boatswain", 3.605], ["figurehead", 3.57],
+  ["phosphorescent", 3.535], ["longitude", 3.71], ["latitude", 3.71], ["archipelago", 3.675],
 ]);
 
 export const FR_TEST_EXCLUSIONS: ExclusionList = { language: "fr", version: "test-fixture-1", words: ["motinterdit"] };
