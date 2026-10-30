@@ -2,11 +2,11 @@
 
 Cards #61, #62, #129 (remaining integration); requirements CONF-09 and BONUS-01 to BONUS-04;
 decisions D-11, D-16, D-18. Branch `feat/06-2-arcade-integration`, built **on C2**
-(`feat/03-1-text-configuration`, PR #191): C3 needs C2's settings columns and panel. This is slice C3 of the
+(`feat/03-1-text-configuration`, PR #191, now merged): C3 needs C2's settings columns and panel. This is slice C3 of the
 work order of 29 October 2026. Philippe gave the Go Ahead in the cloud conversation of 30 Octobe## Dependencies and migration
 
-- **Order.** L2 (#190, merged) → C2 (#191) → this branch → L3 (moderation, `0018`). C1 (#188, merged) brings the reviewed word lists that extensions draw from.
-- **Not yet a PR.** This branch is ready locally on top of C2. Philippe has not approved a PR stacked on #191, so it is published against `dev` once C2 has merged, or stacked if he approves it.
+- **Order.** L2 (#190) → C2 (#191) → this branch → L3 (moderation, `0018`). C1 (#188) brings the reviewed word lists that extensions draw from. #188, #189, #190 and #191 are merged into `dev`.
+- **Base.** `dev` `39fafdb`, brought in by a merge commit (`450132f`). This is not a stacked PR.
 - **Migration `0017_lobby_bonuses`** (assigned). It adds one column, `bonuses_enabled boolean NOT NULL DEFAULT false`, so existing rooms stay in training (D-19).
   - It was regenerated with `drizzle-kit generate` after C2's `0016_lobby_text_settings`: the local version was deleted (`a53cb1c`), C2 merged in (`3c62ea1`), then the regeneration (`22b6127`).
   - Its SQL is byte-identical to the earlier local migration. No file was renamed and no published migration was touched.
@@ -50,16 +50,16 @@ work order of 29 October 2026. Philippe gave the Go Ahead in the cloud conversat
 
 ## Checks
 
-Final run on `ce834f5`. Base: C2 at `2c14380`, on `dev` `b0912cb` with C1 and L2. The later merge of C2's head `48edbcf` only changes C2's evidence file. Node 24.22.2 and a disposable PostgreSQL 16.15 (CI uses PostgreSQL 17).
+Final run on `450132f`: base `dev` `39fafdb`, with C1, capacity (#189), L2 and C2. Node 24.22.2 and a disposable PostgreSQL 16.15 (CI uses PostgreSQL 17).
 
 | Check | Result |
 |---|---|
 | `check:no-js`, `lint`, `typecheck`, `build` | Pass |
-| Unit tests | Pass: web 1010, database 146, domain 1220, load 20, word-lists 111. Web covers: bot activation (delay bounds, order, the same delay from the same seed, training); a refused grant kept, retried after a new delay within the bounds, then applied once; the first activation after a pause, within a fresh delay drawn at the resume; the service wiring, where neither seed reaches the configuration, the logs or the tabs; the test-seed guard; extension content; the Arcade parser and state. |
-| Database tests | 376 pass, 9 skipped. The 9 are the PgBouncer suite, which runs only with a pooled URL (`describe.skipIf`), as on `dev`. Includes the 0017 upgrade from `0016_lobby_text_settings`: existing rooms stay in training, their text settings and historical races are untouched, and `bonuses_enabled` is NOT NULL. |
+| Unit tests | Pass: web 1032, database 146, domain 1233, load 20, word-lists 111. Web covers: bot activation (delay bounds, order, the same delay from the same seed, training); a refused grant kept, retried after a new delay within the bounds, then applied once; the first activation after a pause, within a fresh delay drawn at the resume; the service wiring, where neither seed reaches the configuration, the logs or the tabs; the test-seed guard; extension content; the Arcade parser and state. |
+| Database tests | 385 pass, 9 skipped. The 9 are the PgBouncer suite, which runs only with a pooled URL (`describe.skipIf`), as on `dev`. Includes the 0017 upgrade from `0016_lobby_text_settings`: existing rooms stay in training, their text settings and historical races are untouched, and `bonuses_enabled` is NOT NULL. |
 | Schema drift (`db:generate`) | No changes |
 | Integration (two production processes) | 11/11, one run, as the proof. Repeated runs are not the evidence. The Arcade race is deterministic: see below. |
-| Playwright, full suite | 176 passed, none skipped or flaky. Includes `arcade-settings` (sync, reload, axe, frozen at the start) and `bonus-ui` (the three effects, FIFO, Enter guards, the observer, reload). |
+| Playwright, full suite | 180 passed, none skipped or flaky. Includes `arcade-settings` (sync, reload, axe, frozen at the start) and `bonus-ui` (the three effects, FIFO, Enter guards, the observer, reload). |
 | Bounded cost (in process, fake timers) | 1 person and 9 bots on 120 graphemes: about 3.9 s in Arcade against 3.2 s in training. A first try with 30 entrants and 400 graphemes took about 190 s in training against 400 s in Arcade in simulated time. The cost per event grows with the roster in both modes; that is an observation for the load card, not a production measure. |
 
 **The Arcade integration race.** The servers run with the seed `2026,1493922,10,30`, whose first nine bonus kinds are all extendLeader. Every grant is therefore an extension, whoever receives it at each milestone. The test requires each of these, with no widened assertion:
@@ -71,7 +71,7 @@ Final run on `ce834f5`. Base: C2 at `2c14380`, on `dev` `b0912cb` with C1 and L2
 - the stored configuration has `bonuses: true` and does not contain the seed;
 - the announcement carries no seed, cursor or word field.
 
-**Correction.** Earlier evidence at `e830a4e` claimed the checks without the database tests. They had not run, and a 0016 test failed at that SHA. The table above lists only what actually ran on `ce834f5`.
+**Correction.** Earlier evidence at `e830a4e` claimed the checks without the database tests. They had not run, and a 0016 test failed at that SHA. The table above lists only what actually ran on `450132f`.
 
 ## Reviews
 
@@ -129,7 +129,7 @@ Accepted, not changed here:
 
 ## Human acceptance
 
-1. Merge C2 (#191), then this branch.
+1. Merge this branch (C2 is already merged).
 2. In an Arcade room with a bot, fall behind and check the following:
    - you receive bonuses at 25, 50 and 75 %;
    - Enter activates them;
