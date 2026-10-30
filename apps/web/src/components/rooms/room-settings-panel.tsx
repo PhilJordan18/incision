@@ -192,7 +192,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
             </fieldset>
             {(["include", "exclude"] as const).map((field) => (
               <label key={field} className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-${field}`}>{t[field]}
-                <input id={`${id}-${field}`} className={`${textField} font-mono`} type="text" autoComplete="off" spellCheck={false}
+                <input id={`${id}-${field}`} className={`${textField} font-mono disabled:cursor-not-allowed disabled:border-dashed disabled:bg-sillage`} type="text" autoComplete="off" spellCheck={false}
                   maxLength={MAX_CHARACTERS_INPUT} disabled={draft.textKind !== "random"} value={draft.textKind === "random" ? draft[field] : ""}
                   aria-describedby={`${id}-characters-hint`} onChange={(event) => setDraft({ ...draft, [field]: event.target.value })} />
               </label>
