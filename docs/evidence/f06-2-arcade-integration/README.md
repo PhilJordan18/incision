@@ -46,14 +46,35 @@ work order of 29 October 2026. Philippe gave the Go Ahead in the cloud conversat
 
 ## Checks
 
-Run on this branch with Node 24.22.2 and a disposable PostgreSQL 16.15.
+Run on this branch after the review fixes, with Node 24.22.2 and a disposable PostgreSQL 16.15.
 
 | Check | Result |
 |---|---|
-| Web unit tests | 975 pass. They include bot activation (delay bounds, order, the same delay from the same seed, training, a refused grant kept), extension content, and the Arcade parser and state. |
-| Integration (production build, two processes) | 11/11. The new Arcade race has two people and a bot. Its configuration freezes `bonuses: true`. Grants go to the trailing runners. A player's Enter goes through the socket; extendLeader without approved words is refused and the grant kept. The bot's own activation is announced to followers with no private state. |
-| E2E `arcade-settings`, `bonus-ui`, `text-settings` | 6/6. Arcade is synced, survives reload, passes axe and is frozen at the start. The three effects, FIFO, Enter guards, the observer and reload pass on the real runtime. |
+| `check:no-js`, `lint`, `typecheck`, `build`, schema drift (`db:generate`) | Pass; no schema drift. |
+| Unit tests | Pass: web 977, database 146, domain 1198, load 20, word-lists 62. Web covers bot activation (delay bounds, order, the same delay from the same seed, training, a refused grant kept and retried, a fresh delay after a pause), the service wiring and private seeds, extension content, and the Arcade parser and state. The two socket channel tests pass 8 runs out of 8. |
+| Database tests | 361 pass, 9 skipped (as on `dev`). They include the 0016 upgrade: existing rooms stay in training, their text settings and historical races are untouched, and `bonuses_enabled` is NOT NULL. The 0015 test now expects 0016's default. The review commit `e830a4e` had not run them, and that test failed there. |
+| Integration (production build, two processes) | 11/11, four runs in a row. The Arcade race has two people and bots. Its configuration freezes `bonuses: true`. Grants go to the trailing runners. A player's Enter goes through the socket; a refusal keeps the grant. A bot's own activation is announced to followers with no private state. |
+| E2E `arcade-settings`, `bonus-ui`, `text-settings`, `room-settings` | 18/18. Arcade is synced, survives reload, passes axe and is frozen at the start. The three effects, FIFO, Enter guards, the observer and reload pass on the real runtime. |
 | Bounded cost (in process, fake timers) | 1 person and 9 bots on 120 graphemes: about 3.9 s in Arcade against 3.2 s in training. A first try with 30 entrants and 400 graphemes took about 190 s in training against 400 s in Arcade in simulated time. The cost per event grows with the roster in both modes; that is an observation for the load card, not a production measure. |
+
+The 0016 upgrade test names its predecessor `0015_lobby_text_settings`. If the coordinator renumbers C2's migration, that name changes with it.
+
+## Reviews at e830a4e, then fixes
+
+| Review | First verdict | Fixed |
+|---|---|---|
+| Code reviewer + security | Changes needed. Blocking: `bonus-client-channel.test.ts` relied on the removed `[1,2,3,4]` constant and failed 3 runs in 4. Major: the Arcade integration test could time out when the bot's first grant was extendLeader; the evidence's unit count was wrong. Minor: the retry test checked too little, no service-level wiring test, a bot could act at once after a pause, a redundant scheduling call, a broadcast per refused bot retry, required `bonusesEnabled` for pages opened before a deploy. No security flaw. | Both socket tests inject a fixed award seed. New service test: Arcade drives `config.bonuses` and the award state, two seeds are drawn, and neither reaches the configuration, the logs or the tabs. The retry test now proves the same grant is asked again after a delay within the bounds and applies once content exists. A lease suspension clears the bots' due times, so after a pause a bot draws a fresh delay (new test, which fails without the fix). The redundant call is removed. |
+| Functional QA, Fable 5.1 | Changes needed. Major: the announcements list scrolled (`max-h-48`) without being keyboard-focusable once it overflowed (axe `scrollable-region-focusable`); `bonus-channel.test.ts` had the same random seed. Minor: no game-mode column in the history list; the bonus section sits below the fold at 1280×1000; with fixture words a first extendLeader grant blocks a runner for the race. | The list is never a scrolling box (it already shows at most six). `bonus-channel.test.ts` injects the seed. The integration test runs six bots on fixture data and waits for any bot's activation, and accepts the guest's state-dependent refusals (another runner may already have fogged the same target, seen once in a re-run). |
+
+Accepted, not changed here:
+- **Refused bot retries.** Each one moves the bot's cursor, so followers get one progress broadcast every 1.5 to 6 s per blocked bot. That is bounded; on fixture data it is constant noise. Noted for the load card.
+- **Settings pages opened before a deploy.** `bonusesEnabled` is required, so such a page gets `INVALID_SETTINGS` until it reloads, as with C2's text fields.
+- **Integration without approved words.** With six bots, the chance that every bot's first grant is extendLeader is (1/3)^6, about 0.14 %. With C1's lists the test uses one bot and is deterministic.
+- **For a ui-ux decision:**
+  - a game-mode column in the history list;
+  - the bonus section's place relative to the runner list;
+  - a 6-announcement axe pass in `bonus-ui.spec.ts`.
+- **Not verified by a flow:** a target disconnecting mid-effect. The coordinator's unit tests cover it.
 
 ## Acceptance (work order C3)
 
