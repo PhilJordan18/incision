@@ -1,4 +1,4 @@
-import { asDuration, asEntrantId, asInstant, asRaceId, BONUS_KINDS, type BonusKind, COUNTDOWN_MS, createBonusRace, createRandom, type RandomState } from "@incision/domain";
+import { asDuration, asEntrantId, asInstant, asRaceId, BONUS_KINDS, type BonusContent, type BonusKind, COUNTDOWN_MS, createBonusRace, createRandom, type RandomState } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_BONUS_ANNOUNCEMENT_EVENT } from "../../races/bonus-protocol";
 import type { LeaseState } from "./race-lease";
@@ -25,8 +25,8 @@ function seedFor(kind: BonusKind): RandomState {
   throw new Error("No deterministic test seed");
 }
 
-function setup({ enabled = true, kind = "shortenSelf" as BonusKind, botBonusSeed = [5, 6, 7, 8] as RandomState } = {}) {
-  let now = START; let next = 0; const leaseState: LeaseState = "held";
+function setup({ enabled = true, kind = "shortenSelf" as BonusKind, botBonusSeed = [5, 6, 7, 8] as RandomState, bonusContent = undefined as BonusContent | undefined } = {}) {
+  let now = START; let next = 0; let leaseState: LeaseState = "held";
   const timers = new Map<number, { at: number; callback: () => void }>();
   const schedule = (callback: () => void, delay: number) => { const id = ++next; timers.set(id, { at: now + delay, callback }); return () => { timers.delete(id); }; };
   const created = createBonusRace({ enabled, random: seedFor(kind), race: {
@@ -41,6 +41,7 @@ function setup({ enabled = true, kind = "shortenSelf" as BonusKind, botBonusSeed
   const runtime = new RaceRuntime({ ownership: { raceId: RACE, lobbyId: "room", ownerId: "server", ownerEpoch: 1 },
     state: created.state, entrants: [HUMAN, BOT], language: "fr", store, schedule, now: () => now, followers: () => [connection],
     onSettled: vi.fn(), log: vi.fn(), botSeed: () => [1, 2, 3, 4], botBonusSeed: () => botBonusSeed,
+    ...(bonusContent === undefined ? {} : { bonusContent }),
     lease: { start: () => {}, stop: () => {}, isAuthoritative: () => leaseState === "held", get state() { return leaseState; }, suspendedForMs: () => 0 },
   });
   async function advance(ms: number) {
@@ -64,7 +65,8 @@ function setup({ enabled = true, kind = "shortenSelf" as BonusKind, botBonusSeed
   }
   const botActivations = () => emit.mock.calls.filter(([event, payload]) => event === RACE_BONUS_ANNOUNCEMENT_EVENT
     && (payload as { announcement: { type: string; receipt?: { grant: { entrantId: string } } } }).announcement.receipt?.grant.entrantId === BOT.entrantId);
-  return { runtime, advance, humanLeads, botActivations, now: () => now };
+  const lease = (state: LeaseState) => { leaseState = state; runtime.leaseChanged(state); };
+  return { runtime, advance, humanLeads, botActivations, lease, now: () => now };
 }
 
 describe("bots use their bonuses (D-16)", () => {
@@ -115,12 +117,43 @@ describe("bots use their bonuses (D-16)", () => {
   });
 
   it("keeps a grant the coordinator refuses (no extension words), then retries after a new delay", async () => {
-    // extendLeader without approved content: CONTENT_UNAVAILABLE never consumes the grant.
-    const { advance, humanLeads, botActivations, runtime } = setup({ kind: "extendLeader" });
+    // extendLeader while no content is available: CONTENT_UNAVAILABLE never consumes the grant.
+    const asked: number[] = [];
+    let available = false;
+    const bonusContent: BonusContent = () => { asked.push(clock()); return available ? ["mer", "vent", "cap"] : undefined; };
+    const { advance, humanLeads, botActivations, runtime, now: clock } = setup({ kind: "extendLeader", bonusContent });
     await humanLeads();
-    await advance(2 * BOT_BONUS_DELAY_MS[1]);
+    const [min, max] = BOT_BONUS_DELAY_MS;
+    await advance(max);
+    expect(asked).toHaveLength(1);
     expect(botActivations()).toHaveLength(0);
+    // Refused: the bot asks again for the same grant only after a new delay within the bounds.
+    await advance(max);
+    expect(asked.length).toBeGreaterThanOrEqual(2);
+    const gap = asked[1]! - asked[0]!;
+    expect(gap).toBeGreaterThanOrEqual(min);
+    expect(gap).toBeLessThanOrEqual(max);
     expect(runtime.state.entrants.find((entrant) => entrant.entrantId === "bot")?.status).toBe("racing");
+    // Once content exists, the kept 25 % grant is the one that applies.
+    available = true;
+    await advance(max);
+    expect(botActivations()[0]?.[1]).toMatchObject({ announcement: { type: "activated", receipt: { grant: { entrantId: "bot", milestone: 25, kind: "extendLeader" } } } });
+  });
+
+  it("draws a fresh delay after a pause, never activating at a time that passed during it (D-16, D-17)", async () => {
+    const { advance, humanLeads, botActivations, lease, now } = setup();
+    await humanLeads();
+    const [min] = BOT_BONUS_DELAY_MS;
+    // Due before the pause ends: suspended at once, held again 10 s later.
+    lease("suspended");
+    await advance(10_000);
+    lease("held");
+    const resumed = now();
+    await advance(min - 1);
+    expect(botActivations()).toHaveLength(0);
+    await advance(BOT_BONUS_DELAY_MS[1]);
+    expect(botActivations().length).toBeGreaterThanOrEqual(1);
+    expect(now() - resumed).toBeGreaterThanOrEqual(min);
   });
 });
 

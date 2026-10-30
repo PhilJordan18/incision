@@ -504,6 +504,8 @@ export class RaceRuntime implements OwnedRace {
     if (state === "suspended" && this.#stage === "running") {
       this.#cancelBots?.();
       this.#cancelBots = undefined;
+      // After the pause a bot draws a fresh bonus delay: never an instant activation from a time that passed meanwhile (D-16).
+      for (const bonus of this.#botBonus.values()) bonus.due = undefined;
       this.#queueLeaseEvent(this.#pause());
     } else if (state === "lost" && this.#stage === "saving") {
       // The save in flight decides: it commits (or an earlier one did, `alreadyDone`) or it loses.
@@ -697,10 +699,6 @@ export class RaceRuntime implements OwnedRace {
     if (beforeBonus.revision !== this.#bonus.revision) {
       this.#scheduleProgress();
     }
-    // New grants: a bot that received one gets its activation timer (the driving loop reschedules itself).
-    if (beforeBonus.awards !== this.#bonus.awards && this.#botBonus.size > 0 && !this.#drivingBots) {
-      this.#scheduleBots();
-    }
     // Effects may change text without changing the legacy race revision. Publish private
     // recovery state reliably; inventories and seeds never go to room followers at large.
     if (this.#options.lease.isAuthoritative()) {
@@ -841,8 +839,13 @@ export class RaceRuntime implements OwnedRace {
    */
   #botBonusDue(id: string): number | undefined {
     const bonus = this.#botBonus.get(id);
+    if (bonus === undefined) return undefined;
     const [grant] = availableBonusGrants(this.#bonus, asEntrantId(id));
-    if (bonus === undefined || grant === undefined || this.#state.entrants.find((entrant) => entrant.entrantId === id)?.status !== "racing") return undefined;
+    if (grant === undefined || this.#state.entrants.find((entrant) => entrant.entrantId === id)?.status !== "racing") {
+      // No usable grant now: a grant usable again later gets a fresh delay.
+      bonus.due = undefined;
+      return undefined;
+    }
     if (bonus.due?.milestone !== grant.milestone) {
       const [min, max] = BOT_BONUS_DELAY_MS;
       bonus.due = { milestone: grant.milestone, at: this.#options.now() + min + bonus.random.index(max - min + 1) };
