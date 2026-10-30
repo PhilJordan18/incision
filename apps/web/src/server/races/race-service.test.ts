@@ -1,4 +1,4 @@
-import { DEFAULT_TEXT_SETTINGS, type Interruption, type OwnRoomSettings, type RaceToCreate, type RoomSettings, type StartRaceInput, type StartRaceResult, type Transition } from "@incision/database";
+import { DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, type Interruption, type OwnRoomSettings, type RaceToCreate, type RoomSettings, type StartRaceInput, type StartRaceResult, type Transition } from "@incision/database";
 import { asRandomState, COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, RACE_SELF_EVENT, type RaceProgressPayload, type RaceRevealPayload, type RaceSelfPayload } from "../../races/protocol";
@@ -9,7 +9,7 @@ const START = 1_800_000_000_000;
 const LOBBY = "lobby-1";
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
 /** An existing room keeps its saved 120 s limit after the D-19 default changes. */
-const INITIAL_SETTINGS: RoomSettings = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS };
+const INITIAL_SETTINGS: RoomSettings = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS };
 const PARTICIPANTS = [
   { entrantId: "e-host", accountId: "a-host", memberId: "m-host", ordinal: 1, displayName: "Hôte" },
   { entrantId: "e-bea", accountId: "a-bea", memberId: "m-bea", ordinal: 2, displayName: "Bea" },

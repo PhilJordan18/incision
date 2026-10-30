@@ -30,6 +30,8 @@ export type SettingsDraft = {
   /** As typed: one character per grapheme, repeats ignored. Kept while coherent, never sent then (D-10). */
   readonly include: string;
   readonly exclude: string;
+  /** CONF-09 (D-18): Arcade when true, training otherwise. */
+  readonly bonusesEnabled: boolean;
 };
 
 /** The four text options of CONF-06, in the panel's order. */
@@ -58,6 +60,7 @@ export function settingsDraft(settings: SavedRoomSettings): SettingsDraft {
     textKind: settings.textKind, complexity: settings.complexity,
     punctuation: settings.punctuation, numbers: settings.numbers, capitals: settings.capitals, accents: settings.accents,
     include: settings.includeCharacters.join(""), exclude: settings.excludeCharacters.join(""),
+    bonusesEnabled: settings.bonusesEnabled,
   };
 }
 
@@ -114,5 +117,6 @@ export function settingsForm(code: string, draft: SettingsDraft): FormData {
   // Coherent mode cannot express characters (D-10): the fields stay in the draft, not in the request.
   form.set("includeCharacters", draft.textKind === "random" ? draftCharacters(draft.include).join("") : "");
   form.set("excludeCharacters", draft.textKind === "random" ? draftCharacters(draft.exclude).join("") : "");
+  form.set("bonusesEnabled", String(draft.bonusesEnabled));
   return form;
 }

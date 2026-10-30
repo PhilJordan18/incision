@@ -1,4 +1,4 @@
-import { configureRoom, createDatabase, createRoomWithHost, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
+import { configureRoom, createDatabase, createRoomWithHost, DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
 import { countWords, parseRoomCode, passageCut, ROOM_CODE_ALPHABET } from "@incision/domain";
 import { EXCLUSIONS, FORBIDDEN_PAIRS, WORD_LISTS } from "@incision/domain/words";
 import pg from "pg";
@@ -421,7 +421,7 @@ describe("an integrated race (F-04.0)", () => {
     }
     // The host saves English texts and a 60 s limit with the revision a new room's page shows, through the
     // database function configureRoomAction calls.
-    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } as const;
+    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: english })).toMatchObject({ ok: true, revision: 1 });
     // Both browse the site in French.
     const h = await tab(c.origin, `${host.cookie}; ${LOCALE_COOKIE}=fr`);
@@ -454,7 +454,7 @@ describe("an integrated race (F-04.0)", () => {
     const code = parseRoomCode(await room(host, [guest]));
     if (c === undefined || !code.ok) throw new Error("no server or no room");
     const random = {
-      textLanguage: "fr", wordCount: 30, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS,
+      textLanguage: "fr", wordCount: 30, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS,
       textKind: "random", complexity: "easy", numbers: true, includeCharacters: ["z"], excludeCharacters: [],
     } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: random })).toMatchObject({ ok: true, revision: 1 });

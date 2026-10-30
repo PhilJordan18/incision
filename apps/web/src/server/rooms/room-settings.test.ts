@@ -1,4 +1,4 @@
-import { DEFAULT_TEXT_SETTINGS, initialRoomSettings, type RoomSettings } from "@incision/database";
+import { DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, initialRoomSettings, type RoomSettings } from "@incision/database";
 import { TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "@incision/domain";
 import { describe, expect, it } from "vitest";
 import { isRunnable, parseConfigureRoomForm } from "./room-settings";
@@ -15,7 +15,7 @@ function form(fields: Readonly<Record<string, string | readonly string[]>>): For
 
 const VALID = {
   code: "ABCDEF", revision: "3", textLanguage: "en", wordCount: "50", timeLimitSeconds: "90", errorMode: "mandatory",
-  textKind: "coherent", complexity: "medium", punctuation: "true", numbers: "false", capitals: "true", accents: "true", includeCharacters: "", excludeCharacters: "",
+  textKind: "coherent", complexity: "medium", punctuation: "true", numbers: "false", capitals: "true", accents: "true", includeCharacters: "", excludeCharacters: "", bonusesEnabled: "false",
 } as const;
 
 describe("parseConfigureRoomForm", () => {
@@ -32,7 +32,7 @@ describe("parseConfigureRoomForm", () => {
     expect(parseConfigureRoomForm(form(VALID))).toEqual({
       code: "ABCDEF",
       revision: 3,
-      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS },
+      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS },
     });
   });
 
@@ -45,6 +45,12 @@ describe("parseConfigureRoomForm", () => {
     });
     // A character the language cannot hold is kept as typed, so the engine names the refusal.
     expect(parseConfigureRoomForm(form({ ...random, includeCharacters: "ß" }))?.settings.includeCharacters).toEqual(["ß"]);
+  });
+
+  it("reads Arcade as bonuses on and training as off, nothing else (CONF-09, D-18)", () => {
+    expect(parseConfigureRoomForm(form({ ...VALID, bonusesEnabled: "true" }))?.settings.bonusesEnabled).toBe(true);
+    expect(parseConfigureRoomForm(form({ ...VALID, bonusesEnabled: "false" }))?.settings.bonusesEnabled).toBe(false);
+    for (const value of ["on", "arcade", "1", ""]) expect(parseConfigureRoomForm(form({ ...VALID, bonusesEnabled: value })), value).toBeUndefined();
   });
 
   it("refuses characters in coherent mode, which cannot express them (D-10)", () => {
@@ -111,7 +117,7 @@ describe("parseConfigureRoomForm", () => {
       wordCount: 50,
       timeLimitMs: 90_000,
       errorMode: "free",
-      ...DEFAULT_TEXT_SETTINGS,
+      ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS,
     });
   });
 

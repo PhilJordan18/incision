@@ -78,6 +78,8 @@ export const roomSnapshotSchema = z.object({
       accents: z.boolean().default(true),
       includeCharacters: z.array(z.string().max(MAX_GRAPHEME_LENGTH * 3)).max(MAX_SETTING_CHARACTERS).default([]),
       excludeCharacters: z.array(z.string().max(MAX_GRAPHEME_LENGTH * 3)).max(MAX_SETTING_CHARACTERS).default([]),
+      /** Arcade (CONF-09, D-18); a server older than it ran training, which the default restores. */
+      bonusesEnabled: z.boolean().default(false),
     })
     .optional(),
 });

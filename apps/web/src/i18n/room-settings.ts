@@ -16,6 +16,8 @@ const fr = {
   disconnected: "Attends la reconnexion avant de modifier les réglages.",
   conflict: "Les réglages ont changé dans un autre onglet. Ton brouillon est conservé. Recharge les réglages avant de modifier à nouveau.",
   hint: "Aucune limite, ou de 30 à 600 secondes. Seuls les réglages enregistrés seront utilisés au départ, pas ton brouillon.",
+  gameMode: "Mode de jeu", training: "Entraînement", arcade: "Arcade",
+  gameModeHint: "Arcade : les coureurs en retard reçoivent des bonus aux seuils de 25, 50 et 75 % et les activent avec Entrée. Entraînement : aucun bonus. Les records restent séparés.",
   textKind: "Type de texte", coherent: "Passage cohérent", random: "Mots aléatoires",
   coherentHint: "Un passage du domaine public, coupé au nombre de mots demandé.",
   randomHint: "Des mots tirés au hasard d’une liste relue, sans jurons ni insultes.",
@@ -61,6 +63,8 @@ const en: typeof fr = {
   disconnected: "Wait for reconnection before editing settings.",
   conflict: "Settings changed in another tab. Your draft is preserved. Reload settings before editing again.",
   hint: "No limit, or from 30 to 600 seconds. Only saved settings will be used at the start, not your draft.",
+  gameMode: "Game mode", training: "Training", arcade: "Arcade",
+  gameModeHint: "Arcade: runners who fall behind get bonuses at 25, 50 and 75% and use them with Enter. Training: no bonuses. Records stay separate.",
   textKind: "Text type", coherent: "Coherent passage", random: "Random words",
   coherentHint: "A public-domain passage, cut at the requested word count.",
   randomHint: "Words drawn at random from a reviewed list, without swear words or insults.",
@@ -103,6 +107,7 @@ export function roomStartNote(settings: SavedRoomSettings | undefined, locale: L
   const duration = settings.timeLimitMs === null ? t.unlimited : `${settings.timeLimitMs / 1000} s`;
   const mode = settings.errorMode === "mandatory" ? t.mandatory : t.free;
   const kind = settings.textKind === "random" ? t.random : t.coherent;
-  return locale === "fr" ? `Durée maximale : ${duration}. ${mode}. ${settings.wordCount} mots. ${kind}, complexité ${t[settings.complexity].toLowerCase()}.`
-    : `Time limit: ${duration}. ${mode}. ${settings.wordCount} words. ${kind}, ${t[settings.complexity].toLowerCase()} complexity.`;
+  const game = settings.bonusesEnabled ? t.arcade : t.training;
+  return locale === "fr" ? `${game}. Durée maximale : ${duration}. ${mode}. ${settings.wordCount} mots. ${kind}, complexité ${t[settings.complexity].toLowerCase()}.`
+    : `${game}. Time limit: ${duration}. ${mode}. ${settings.wordCount} words. ${kind}, ${t[settings.complexity].toLowerCase()} complexity.`;
 }

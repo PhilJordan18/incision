@@ -3,10 +3,10 @@ import { AttemptLimiter } from "@/server/auth/attempt-limiter";
 import { ROOM_CHANGE_LIMIT, SETTINGS_CHANGE_LIMIT } from "./room-change-limiter";
 
 /** D-19's text settings, as the parser reads the fields of a page that never changed them. */
-const DEFAULT_TEXT_SETTINGS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [] };
+const DEFAULT_TEXT_SETTINGS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [], bonusesEnabled: false };
 
 /** The text fields a page sends for D-19's text settings (coherent, medium, default options). */
-const TEXT_FIELDS = { textKind: "coherent", complexity: "medium", punctuation: "true", numbers: "false", capitals: "true", accents: "true", includeCharacters: "", excludeCharacters: "" };
+const TEXT_FIELDS = { textKind: "coherent", complexity: "medium", punctuation: "true", numbers: "false", capitals: "true", accents: "true", includeCharacters: "", excludeCharacters: "", bonusesEnabled: "false" };
 
 // The host's actions without Next or a database: a signed-in account, the database answers mocked.
 const startNextRound = vi.hoisted(() => vi.fn());

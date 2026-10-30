@@ -108,6 +108,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.wordCount}</dt><dd>{settings.wordCount}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.duration}</dt><dd>{settings.timeLimitMs === null ? t.unlimited : settings.timeLimitMs / 1000}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.mode}</dt><dd>{settings.errorMode === "mandatory" ? t.mandatory : t.free}</dd></div>
+          <div className={`rounded-puce border px-3 py-2 ${settings.bonusesEnabled ? "border-arcade" : "border-houle"}`}><dt className="text-brume">{t.gameMode}</dt><dd>{settings.bonusesEnabled ? t.arcade : t.training}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.textKind}</dt><dd>{settings.textKind === "random" ? t.random : t.coherent}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.complexity}</dt><dd>{t[settings.complexity]}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.options}</dt>
@@ -162,6 +163,14 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                 onChange={(event) => setDraft({ ...draft, wordCount: event.target.value })} />
               <span id={`${id}-words-hint`} className="text-sm font-normal text-brume">{t.wordCountHint}</span>
             </label>
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <label className={fieldLabel} htmlFor={`${id}-game`}>{t.gameMode}</label>
+              <select id={`${id}-game`} className={textField} value={draft.bonusesEnabled ? "arcade" : "training"} aria-describedby={`${id}-game-hint`}
+                onChange={(event) => setDraft({ ...draft, bonusesEnabled: event.target.value === "arcade" })}>
+                <option value="training">{t.training}</option><option value="arcade">{t.arcade}</option>
+              </select>
+              <span id={`${id}-game-hint`} className="text-sm font-normal text-brume">{t.gameModeHint}</span>
+            </div>
             <div className="flex flex-col gap-2">
               <label className={fieldLabel} htmlFor={`${id}-kind`}>{t.textKind}</label>
               <select id={`${id}-kind`} className={textField} value={draft.textKind} aria-describedby={`${id}-kind-hint`}
