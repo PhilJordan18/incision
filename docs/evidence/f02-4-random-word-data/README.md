@@ -40,7 +40,8 @@ stated in the register).
 ## Checks
 
 Run in this container with Node 24.22.2 and a disposable PostgreSQL 16.15. CI uses PostgreSQL 17, so the
-database version differs. The final SHA is stated in the delivery comment and PR.
+database version differs. The full run below is on dcfeede; the only later commit records the
+reviews in this file.
 
 | Check | Result |
 |---|---|
@@ -62,7 +63,7 @@ data are not yet imported by the application; C2 (#45) wires random mode on the 
 |---|---|---|
 | Code reviewer | efb731f, then 9e00fea | Changes needed (one major: a test claimed pair checks it did not do), fixed, then OK |
 | Security | efb731f | OK. Minor: no CI bundle check; site credits to show when random texts go live |
-| Functional QA, Fable (the report names its model) | efb731f | Changes needed (major: surviving English proper nouns), fixed by the second pass |
+| Functional QA, Fable (the report names its model) | efb731f, then dcfeede | Changes needed (major: surviving English proper nouns), fixed by the second pass, then OK on dcfeede (540-draw matrix, 150-seed sweeps, 42 texts per language read) |
 | Editorial and licence | efb731f, then 9e00fea | Changes needed (major: "coloured", missing identity and pejorative tags), fixed, then OK |
 
 ## Proposed requirement rows (for the coordinator, not edited here)
