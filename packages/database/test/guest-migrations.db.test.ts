@@ -12,6 +12,11 @@ import { readRaceForEntrant } from "../src/races/results";
 import { readAccountStatistics } from "../src/races/profile-statistics";
 import { createTemporaryDatabase } from "./test-database";
 
+/** The text settings columns of 0016 as an existing row reads after the upgrade (D-19). */
+const D19_TEXT_COLUMNS = {
+  text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [],
+};
+
 it.each([
   { predecessor: "0012_third_human_cannonball", wordCount: 10 },
   { predecessor: "0012_third_human_cannonball", wordCount: 200 },
@@ -54,13 +59,14 @@ it.each([
     const storedBefore = await Promise.all(protectedTables.map(async (table) => {
       const rows = (await pool.query(`select * from ${table}`)).rows;
       // 0013 adds this nullable column; its explicit expected value is not data loss.
-      return table === "lobby_members" && predecessor === "0012_third_human_cannonball"
-        ? rows.map((row) => ({ ...row, guest_session_id: null })) : rows;
+      if (table === "lobby_members" && predecessor === "0012_third_human_cannonball") return rows.map((row) => ({ ...row, guest_session_id: null }));
+      // 0016 adds the text settings with D-19's defaults: existing rooms keep running the same texts.
+      return table === "lobby_settings" ? rows.map((row) => ({ ...row, ...D19_TEXT_COLUMNS })) : rows;
     }));
     const before = await readRaceForEntrant(db, race, account);
     const stats = await readAccountStatistics(db, account);
     const resultRows = (await pool.query("select * from race_results")).rows;
-    const settings = (await pool.query("select * from lobby_settings")).rows;
+    const settings = (await pool.query("select * from lobby_settings")).rows.map((row) => ({ ...row, ...D19_TEXT_COLUMNS }));
     const photos = (await pool.query("select * from profile_photos")).rows;
     expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: journal.entries.length - entries.length });
     const storedAfter = await Promise.all(protectedTables.map(async (table) => (await pool.query(`select * from ${table}`)).rows));

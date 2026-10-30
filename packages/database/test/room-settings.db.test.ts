@@ -7,7 +7,7 @@ import { type RaceToCreate, startRace } from "../src/races/lifecycle";
 import { createRoomWithHost } from "../src/rooms/create-room";
 import { configureRoom } from "../src/rooms/host-actions";
 import { joinRoomByCode, leaveCurrentRoom, readRoomSnapshot } from "../src/rooms/membership";
-import { readOwnRoomSettings } from "../src/rooms/settings";
+import { DEFAULT_TEXT_SETTINGS, readOwnRoomSettings } from "../src/rooms/settings";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let database: TemporaryDatabase;
@@ -34,7 +34,7 @@ afterAll(async () => {
 });
 
 const OWNER = "00000000-0000-4000-8000-00000000000a";
-const ENGLISH_ONE_MINUTE = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" } as const;
+const ENGLISH_ONE_MINUTE = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } as const;
 
 /** Stand-in for the engine's start in these transaction tests only (the server wires `createRace`). */
 const atLeastTwo = ({ entrants }: RaceToCreate) =>
@@ -106,6 +106,31 @@ describe("room settings (F-03.1)", () => {
       expect((await readRoomSnapshot(db, lobbyId))?.settings.wordCount).toBe(50);
     }
   });
+  it("persists random text settings for every member, then a switch back to coherent, each at the next revision (F-03.1e)", async () => {
+    const { lobbyId, hostId, guestId } = await room("ABCDEF");
+    const random = {
+      ...ENGLISH_ONE_MINUTE, textKind: "random" as const, complexity: "hard" as const, punctuation: false, numbers: true, capitals: false, accents: false,
+      includeCharacters: ["k", "w"], excludeCharacters: ["e", "7"],
+    };
+    expect(await configureRoom(db, { accountId: guestId, code: code("ABCDEF"), revision: 0, settings: random })).toEqual({ ok: false, error: "NOT_HOST" });
+    expect(await configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings: random })).toMatchObject({ ok: true, revision: 1 });
+    for (const accountId of [hostId, guestId]) expect((await readOwnRoomSettings(db, accountId))?.settings).toEqual({ ...random, revision: 1 });
+    expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ ...random, revision: 1 });
+    expect(await configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings: ENGLISH_ONE_MINUTE })).toEqual({ ok: false, error: "STALE_REVISION" });
+    expect(await configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 1, settings: ENGLISH_ONE_MINUTE })).toMatchObject({ ok: true, revision: 2 });
+    expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ ...ENGLISH_ONE_MINUTE, revision: 2 });
+  });
+
+  it("refuses in PostgreSQL characters in coherent mode and more than 100 of them, changing nothing", async () => {
+    const { lobbyId, hostId } = await room("ABCDEF");
+    // A save the server's checks would have refused: the database refuses it too, and nothing is written.
+    const coherentWithCharacters = { ...ENGLISH_ONE_MINUTE, includeCharacters: ["k"] };
+    await expect(configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings: coherentWithCharacters })).rejects.toMatchObject({ cause: { constraint: "lobby_settings_characters_random_only" } });
+    const tooMany = { ...ENGLISH_ONE_MINUTE, textKind: "random" as const, excludeCharacters: Array.from({ length: 101 }, (_, index) => String(index)) };
+    await expect(configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings: tooMany })).rejects.toMatchObject({ cause: { constraint: "lobby_settings_characters_bounded" } });
+    expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ ...ENGLISH_ONE_MINUTE, textLanguage: "fr", timeLimitMs: null, revision: 0 });
+  });
+
   it("persists free typing for both members and refuses a stale switch back", async () => {
     const { lobbyId, hostId, guestId } = await room("ABCDEF");
     const settings = { ...ENGLISH_ONE_MINUTE, errorMode: "free" as const };
@@ -121,7 +146,7 @@ describe("room settings (F-03.1)", () => {
     const { lobbyId } = await room("ABCDEF", { textLanguage: "en" });
     const rows = await pool.query("select lobby_id, revision, text_language, time_limit_ms, error_mode from lobby_settings");
     expect(rows.rows).toEqual([{ lobby_id: lobbyId, revision: 0, text_language: "en", time_limit_ms: null, error_mode: "mandatory" }]);
-    expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ revision: 0, textLanguage: "en", wordCount: 50, timeLimitMs: null, errorMode: "mandatory" });
+    expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ revision: 0, textLanguage: "en", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS });
   });
 
   it("keeps an existing saved duration when another new room gets no limit", async () => {
@@ -140,7 +165,7 @@ describe("room settings (F-03.1)", () => {
   it("read as the initial ones for a room without a row (created by an older process), then saved", async () => {
     const { lobbyId, hostId } = await room("ABCDEF", { textLanguage: "en" });
     await pool.query("delete from lobby_settings where lobby_id = $1", [lobbyId]);
-    const initial = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory" };
+    const initial = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS };
     expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual(initial);
     expect((await readOwnRoomSettings(db, hostId))?.settings).toEqual(initial);
     expect(await configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings: ENGLISH_ONE_MINUTE })).toEqual({ ok: true, lobbyId, revision: 1 });
@@ -157,7 +182,7 @@ describe("room settings (F-03.1)", () => {
   it("read a stored \"no limit\" back as it is, never as another limit", async () => {
     const { lobbyId, hostId } = await room("ABCDEF");
     await pool.query("update lobby_settings set time_limit_ms = null where lobby_id = $1", [lobbyId]);
-    const noLimit = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory" };
+    const noLimit = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS };
     expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual(noLimit);
     expect((await readOwnRoomSettings(db, hostId))?.settings).toEqual(noLimit);
   });
@@ -203,7 +228,7 @@ describe("room settings (F-03.1)", () => {
     // A host who left closed the room: nothing to save in it any more.
     await leaveCurrentRoom(db, hostId, () => new Set());
     expect(await configureRoom(db, { accountId: hostId, code: code("ABCDEF"), revision: 0, settings: ENGLISH_ONE_MINUTE })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
-    expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory" });
+    expect((await readRoomSnapshot(db, lobbyId))?.settings).toEqual({ revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS });
   });
 
   it("are locked from the countdown on", async () => {

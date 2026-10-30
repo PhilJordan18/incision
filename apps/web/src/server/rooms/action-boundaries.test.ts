@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { roomPresence } from "@/server/realtime/room-presence";
 
+/** D-19's text settings, as the parser reads the fields of a page that never changed them. */
+const DEFAULT_TEXT_SETTINGS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [] };
+
 // Exercise the exported server actions directly: rendering a protected page is not an
 // authorization boundary. Database stubs expose any call made before the session guard.
 const boundary = vi.hoisted(() => ({
@@ -44,6 +47,7 @@ function form(): FormData {
   value.set("textLanguage", "fr");
   value.set("wordCount", "50");
   value.set("timeLimitSeconds", "60");
+  for (const [name, field] of Object.entries({ textKind: "coherent", complexity: "medium", punctuation: "true", numbers: "false", capitals: "true", accents: "true", includeCharacters: "", excludeCharacters: "" })) value.set(name, field);
   value.set("errorMode", "mandatory");
   return value;
 }
@@ -84,7 +88,7 @@ describe("server-action identity boundaries (SEC-01)", () => {
       name: "configure",
       invoke: configureRoomAction,
       mutation: boundary.configure,
-      expected: { accountId: "session-account", code: "ABCDEF", revision: 0, settings: { textLanguage: "fr", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" } },
+      expected: { accountId: "session-account", code: "ABCDEF", revision: 0, settings: { textLanguage: "fr", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } },
     },
   ])("$name ignores a forged host identity and preserves the transactional refusal", async ({ invoke, mutation, expected }) => {
     mutation.mockResolvedValue({ ok: false, error: "NOT_HOST" });

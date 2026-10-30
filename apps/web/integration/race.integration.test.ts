@@ -1,5 +1,6 @@
-import { configureRoom, createDatabase, createRoomWithHost, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
+import { configureRoom, createDatabase, createRoomWithHost, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
 import { countWords, parseRoomCode, passageCut, ROOM_CODE_ALPHABET } from "@incision/domain";
+import { EXCLUSIONS, FORBIDDEN_PAIRS, WORD_LISTS } from "@incision/domain/words";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LOCALE_COOKIE } from "../src/i18n/locale";
@@ -374,8 +375,8 @@ describe("an integrated race (F-04.0)", () => {
     expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
     expect(await g.ask("room:watch", { code })).toMatchObject({ ok: true });
 
-    // Migrated, nothing imported yet: refused, no race written, never the fixtures.
-    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "NO_COMPATIBLE_PASSAGE" });
+    // Migrated, nothing imported yet: refused as texts unavailable (not the settings), no race written, never the fixtures.
+    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "TEXTS_UNAVAILABLE" });
     // The server's last read of the corpus happened before this answer.
     const refusedAt = Date.now();
     expect(await query<{ races: number; phase: string }>("select count(r.id)::int as races, l.phase from lobbies l left join races r on r.lobby_id = l.id where l.code = $1 group by l.phase", [code])).toEqual([
@@ -420,7 +421,7 @@ describe("an integrated race (F-04.0)", () => {
     }
     // The host saves English texts and a 60 s limit with the revision a new room's page shows, through the
     // database function configureRoomAction calls.
-    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" } as const;
+    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: english })).toMatchObject({ ok: true, revision: 1 });
     // Both browse the site in French.
     const h = await tab(c.origin, `${host.cookie}; ${LOCALE_COOKIE}=fr`);
@@ -443,6 +444,48 @@ describe("an integrated race (F-04.0)", () => {
       ok: false,
       error: "ROOM_NOT_WAITING",
     });
+  }, 60_000);
+
+  it("runs a random-words race with the host's saved settings, or refuses it with no race while only fixtures ship (F-03.1e)", async () => {
+    const c = servers.at(-1);
+    expect(c?.output()).toContain("[races] corpus contract-2026-10-21: 1 fr, 1 en selectable passages");
+    const host = await account("int-host-random", "Hôte aléatoire");
+    const guest = await account("int-guest-random", "Invité aléatoire");
+    const code = parseRoomCode(await room(host, [guest]));
+    if (c === undefined || !code.ok) throw new Error("no server or no room");
+    const random = {
+      textLanguage: "fr", wordCount: 30, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS,
+      textKind: "random", complexity: "easy", numbers: true, includeCharacters: ["z"], excludeCharacters: [],
+    } as const;
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: random })).toMatchObject({ ok: true, revision: 1 });
+    const h = await tab(c.origin, host.cookie);
+    const g = await tab(c.origin, guest.cookie);
+    expect(await h.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { revision: 1, textKind: "random", includeCharacters: ["z"] } } });
+    expect(await g.ask("room:watch", { code: code.code })).toMatchObject({ ok: true });
+    const approved = ![WORD_LISTS.fr, EXCLUSIONS.fr, FORBIDDEN_PAIRS.fr].some((data) => data.version.startsWith("fixture"));
+    if (!approved) {
+      // No fallback on the hand-written fixtures: the start is refused and nothing is written.
+      expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "TEXTS_UNAVAILABLE" });
+      expect(await query("select r.id from races r join lobbies l on l.id = r.lobby_id where l.code = $1", [code.code])).toEqual([]);
+      return;
+    }
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const text = reveal.reveal.text.join("");
+    expect(countWords(text)).toBe(30);
+    expect(text.toLowerCase()).toContain("z");
+    expect(/\d/u.test(text)).toBe(true);
+    const [stored] = await query<{ text: string; config: Record<string, unknown> }>("select text_snapshot as text, config_snapshot as config from races where id = $1", [reveal.reveal.raceId]);
+    expect(stored?.text).toBe(text);
+    expect(stored?.config).toMatchObject({
+      language: "fr", text: "random", wordCount: 30,
+      wordsVersions: { list: WORD_LISTS.fr.version, exclusions: EXCLUSIONS.fr.version, pairs: FORBIDDEN_PAIRS.fr.version },
+      textSettings: { kind: "random", language: "fr", wordCount: 30, complexity: "easy", options: { numbers: true }, include: ["z"], exclude: [] },
+    });
+    // Every word of the race text is a playable word of the approved list.
+    const listed = new Set(WORD_LISTS.fr.entries.map((entry) => entry.word));
+    const words = text.split(" ").map((token) => token.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")).filter((core) => /\p{L}/u.test(core));
+    expect(words.filter((word) => !listed.has(word))).toEqual([]);
   }, 60_000);
 
   it("closes new races without RACES_ENABLED: a direct start creates nothing, rooms and stored results stay", async () => {

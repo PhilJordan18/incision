@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { createServer, type Server as HttpServer } from "node:http";
-import type { ActiveMembership, RoomRecovery, RoomSnapshot } from "@incision/database";
+import { type ActiveMembership, DEFAULT_TEXT_SETTINGS, type RoomRecovery, type RoomSnapshot } from "@incision/database";
 import type { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,7 +39,7 @@ const raceUnfollows: string[] = [];
 const raceFollowFails = { next: false };
 const memberships = new Map<string, ActiveMembership>();
 const snapshots = new Map<string, RoomSnapshot>();
-const SETTINGS = { revision: 3, textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory" } as const;
+const SETTINGS = { revision: 3, textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } as const;
 const clients: Socket[] = [];
 
 async function authenticate(cookie: string | undefined): Promise<HumanHandshake> {

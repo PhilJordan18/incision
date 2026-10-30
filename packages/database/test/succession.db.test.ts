@@ -6,6 +6,7 @@ import { runMigrations } from "../src/migrations";
 import { closeRoom, configureRoom, startNextRound } from "../src/rooms/host-actions";
 import { createRoomWithHost } from "../src/rooms/create-room";
 import { findActiveMembership, joinRoomByCode, leaveCurrentRoom, readRoomSnapshot } from "../src/rooms/membership";
+import { DEFAULT_TEXT_SETTINGS } from "../src/rooms/settings";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let database: TemporaryDatabase;
@@ -141,7 +142,7 @@ describe("voluntary host succession (SALLE-08 / D-03)", () => {
     const successor = await join("Successor", "spectator");
     const other = await join("Other");
     await leaveCurrentRoom(db, host, () => new Set([successor.memberId, other.memberId]));
-    const settings = { code: roomCode, revision: 0, settings: { textLanguage: "en" as const, wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" as const } };
+    const settings = { code: roomCode, revision: 0, settings: { textLanguage: "en" as const, wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" as const, ...DEFAULT_TEXT_SETTINGS } };
     expect(await configureRoom(db, { ...settings, accountId: host })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
     expect(await configureRoom(db, { ...settings, accountId: other.accountId })).toEqual({ ok: false, error: "NOT_HOST" });
     expect(await configureRoom(db, { ...settings, accountId: successor.accountId })).toMatchObject({ ok: true, lobbyId, revision: 1 });

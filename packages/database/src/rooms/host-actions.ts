@@ -158,7 +158,8 @@ export async function configureRoom(
       if (input.revision !== current) {
         return { ok: false, error: "STALE_REVISION" };
       }
-      const saved = { ...input.settings, revision: current + 1 };
+      const { includeCharacters, excludeCharacters } = input.settings;
+      const saved = { ...input.settings, includeCharacters: [...includeCharacters], excludeCharacters: [...excludeCharacters], revision: current + 1 };
       await tx
         .insert(lobbySettings)
         .values({ ...saved, lobbyId: room.lobbyId })

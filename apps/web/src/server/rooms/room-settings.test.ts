@@ -1,4 +1,4 @@
-import { initialRoomSettings, type RoomSettings } from "@incision/database";
+import { DEFAULT_TEXT_SETTINGS, initialRoomSettings, type RoomSettings } from "@incision/database";
 import { TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS } from "@incision/domain";
 import { describe, expect, it } from "vitest";
 import { isRunnable, parseConfigureRoomForm } from "./room-settings";
@@ -13,7 +13,10 @@ function form(fields: Readonly<Record<string, string | readonly string[]>>): For
   return value;
 }
 
-const VALID = { code: "ABCDEF", revision: "3", textLanguage: "en", wordCount: "50", timeLimitSeconds: "90", errorMode: "mandatory" } as const;
+const VALID = {
+  code: "ABCDEF", revision: "3", textLanguage: "en", wordCount: "50", timeLimitSeconds: "90", errorMode: "mandatory",
+  textKind: "coherent", complexity: "medium", punctuation: "true", numbers: "false", capitals: "true", accents: "true", includeCharacters: "", excludeCharacters: "",
+} as const;
 
 describe("parseConfigureRoomForm", () => {
   it("accepts only 10–200 whole words and never substitutes the default for invalid input", () => {
@@ -29,8 +32,35 @@ describe("parseConfigureRoomForm", () => {
     expect(parseConfigureRoomForm(form(VALID))).toEqual({
       code: "ABCDEF",
       revision: 3,
-      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory" },
+      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 90_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS },
     });
+  });
+
+  it("reads the text settings: kind, complexity, the four options as true or false, and random-only characters", () => {
+    const random = { ...VALID, textKind: "random", complexity: "hard", punctuation: "false", numbers: "true", capitals: "false", accents: "false", includeCharacters: "KwK z", excludeCharacters: "é" };
+    expect(parseConfigureRoomForm(form(random))?.settings).toMatchObject({
+      textKind: "random", complexity: "hard", punctuation: false, numbers: true, capitals: false, accents: false,
+      // One character per grapheme, lowercase, repeats and spaces dropped, in the order typed.
+      includeCharacters: ["k", "w", "z"], excludeCharacters: ["é"],
+    });
+    // A character the language cannot hold is kept as typed, so the engine names the refusal.
+    expect(parseConfigureRoomForm(form({ ...random, includeCharacters: "ß" }))?.settings.includeCharacters).toEqual(["ß"]);
+  });
+
+  it("refuses characters in coherent mode, which cannot express them (D-10)", () => {
+    expect(parseConfigureRoomForm(form({ ...VALID, includeCharacters: "k" }))).toBeUndefined();
+    expect(parseConfigureRoomForm(form({ ...VALID, excludeCharacters: "e" }))).toBeUndefined();
+  });
+
+  it.each([
+    ["an unknown kind", { textKind: "custom" }],
+    ["an unknown complexity", { complexity: "expert" }],
+    ["an option spelled otherwise", { punctuation: "on" }],
+    ["an option left out", { numbers: [] as string[] }],
+    ["a repeated option", { accents: ["true", "false"] }],
+    ["more characters than the bound", { textKind: "random", includeCharacters: "a".repeat(1_601) }],
+  ])("refuses %s", (_, fields) => {
+    expect(parseConfigureRoomForm(form({ ...VALID, ...fields }))).toBeUndefined();
   });
 
   it("canonicalises the code as the other room actions do", () => {
@@ -81,6 +111,7 @@ describe("parseConfigureRoomForm", () => {
       wordCount: 50,
       timeLimitMs: 90_000,
       errorMode: "free",
+      ...DEFAULT_TEXT_SETTINGS,
     });
   });
 
@@ -103,6 +134,9 @@ describe("isRunnable", () => {
 
   it("runs mandatory correction with a 30 s to 600 s limit, a new room's settings included", () => {
     expect(isRunnable(initialRoomSettings("en"))).toBe(true);
+    // Characters a coherent room could only hold if written by hand.
+    expect(isRunnable(settings({ includeCharacters: ["k"] }))).toBe(false);
+    expect(isRunnable(settings({ textKind: "random", includeCharacters: ["k"] }))).toBe(true);
     expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MIN_MS }))).toBe(true);
     expect(isRunnable(settings({ timeLimitMs: TIME_LIMIT_MAX_MS }))).toBe(true);
   });

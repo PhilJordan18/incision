@@ -87,6 +87,15 @@ const PAIRED: Readonly<Record<string, string>> = { "(": ")", ")": "(" };
 export const MAX_SETTING_CHARACTERS = 100;
 
 /**
+ * The characters of one typed field, as the browser shows them and the server reads them: one entry
+ * per grapheme, blanks dropped, lowercase, repeats removed, in the order typed. It decides nothing
+ * about support: `textSettingsRefusal` refuses what the language cannot hold.
+ */
+export function characterEntries(value: string): string[] {
+  return [...new Set(toGraphemes(value).filter((grapheme) => grapheme.trim() !== "").map((grapheme) => grapheme.toLowerCase()))];
+}
+
+/**
  * A character the host may include or exclude: one letter of the language, a digit or a mark,
  * lowercased. Returns undefined for anything else (two graphemes, a space, "ß" in French, and œ or
  * æ, which random mode avoids in this version: P-4).
