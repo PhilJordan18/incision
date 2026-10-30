@@ -8,7 +8,7 @@ Code/test target: `582c69d2260ff84a04f96835563d9b04e36353db`, branch `feat/01-3-
 
 The host can change capacity to an integer from 2 through 30 while waiting. Active human participants and bots count; spectators do not. The lobby row lock serializes changes with admission and bot changes. A stale revision, non-host, invalid guest proof, expired guest or non-waiting phase cannot change capacity. Guest activity renews only on success. Text settings are not modified. No migration, dependency or recipe data change.
 
-Creation still defaults to 30. Visibility controls, invitation admission, moderation and public discovery are NOT delivered here. The visibility domain helpers are preliminary policy tests, not activated UI. Existing role-change paths are not claimed as newly implemented or tested.
+Creation defaults to 30 and now accepts a validated choice from 2 through 30 (creation follow-up below). Visibility controls, invitation admission, moderation and public discovery are NOT delivered here. The visibility domain helpers are preliminary policy tests, not activated UI. Existing role-change paths are not claimed as newly implemented or tested.
 
 ## Verification
 
@@ -36,4 +36,13 @@ Codex applied these repository roles sequentially, not as independent reviewers.
 1. As host, set capacity to 2 and then 30; verify another member receives the value and a reload retains it.
 2. Add participants/bots and try reducing below occupancy; confirm refusal without expulsion. Spectators remain independent.
 3. Check guest-host editing, keyboard navigation, both themes and translations in the human recipe once this branch is integrated there with separate authorization.
-4. Keep #33 open: creation controls, visibility/invitation integration, public listing dependency #46 and human acceptance remain outstanding. #34 and #35 are separate approved upcoming work, not included in this PR.
+4. Keep #33 open: visibility/invitation integration, public listing dependency #46 and human acceptance remain outstanding. #34 and #35 are separate approved upcoming work, not included in this PR.
+
+## Creation follow-up — `aea45de`
+
+Creation now has an accessible FR/EN numeric capacity input, retaining 30 as the default. The server validates a single value before spending its room-change budget. Missing fields on older forms keep 30; empty, duplicate, fractional and out-of-range supplied values refuse. The database creation transaction already validates capacity and remains unchanged.
+
+- Root no-JS/lint/types/**2398 unit tests**/build: passed on `aea45de` (959 web, other workspace counts unchanged).
+- Browser: **4 passed in 34.8 seconds**, adding FR/EN creation without JavaScript and chosen-capacity persistence. Both creation and waiting pages have axe/overflow checks and screenshots at all four widths in both themes. Creation screenshots at 1440 and 390 were inspected; existing page structure is retained rather than introducing the unfinished design controls.
+- SQL remains unchanged from the 48-test verified tree. No new schema or admission logic.
+- Sequential follow-up reviews: code/security verify validated input before database access and budget consumption, authenticated host still derived from session; UI/QA verify native form submission without JavaScript, translated labels, bounds, focus and persistence. No blocking finding in this added slice. Full browser suite and human acceptance are still pending.
