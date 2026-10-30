@@ -1,0 +1,73 @@
+{
+  "version": "wf311-r1",
+  "selectionPolicy": {
+    "version": 1,
+    "minCentiZipf": 350
+  },
+  "source": {
+    "name": "wordfreq",
+    "version": "3.1.1",
+    "wheelSha256": "4b1c6ecffc6198be3396d5cf871c4423ca71c907c231348d352dd54d62b97473"
+  },
+  "inputs": {
+    "notices/wordfreq-3.1.1.md": "1de60f78c5f7af00370ee190bbf776f90759a5da422e2ab453c97e45b6da92f4",
+    "wordfreq-3.1.1/wordfreq/data/large_fr.msgpack.gz": "6f16cd80b9b66c5698ed002becea83ae30d0584c3205f1cf01714ad562c00c8b",
+    "review/wf311-r1/fr.review.tsv": "61a6652942df493dd1d3976c91c51e3c20932133fa83b408b16afcca3c8ef706",
+    "review/wf311-r1/fr.pairs.tsv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "candidate fr (exporter policy 1)": "c51390d49e93d7cc250f3d31e194266f84e2c06eac1e737a7487ee488ed191cf",
+    "wordfreq-3.1.1/wordfreq/data/large_en.msgpack.gz": "dffae8066b78dce0a6667cf5f58e567054f902674667090a7ac8a8a44628b05c",
+    "review/wf311-r1/en.review.tsv": "ab8ea21e56423b3351f6c1198e5c85b6563f06c016a44d252706ca52f79304cd",
+    "review/wf311-r1/en.pairs.tsv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "candidate en (exporter policy 1)": "9c00764a60cd1c8939838fbeffe5992f528de3537dc64e94e2db87d5a05980a7"
+  },
+  "outputs": {
+    "packages/domain/src/words/data/fr.ts": "0496b633f88a1b7d77cb51301830e2c008cbf3acf146a8e2775dfdca1b379cbf",
+    "packages/domain/src/words/data/en.ts": "61d11d5c1eabd1573a9908303d817f3e145172039e359f30b755663303d60b07",
+    "packages/domain/src/words/data/exclusions.ts": "914db46691db45be923a7e452431f503945ace90380fe981596037c6e985a798",
+    "packages/domain/src/words/data/pairs.ts": "2e8670da9b21834023b442a4ca20db727a4716144658c788c92e0e9f8a92e11d"
+  },
+  "counts": {
+    "fr": {
+      "candidate": 304773,
+      "aboveFloor": 15476,
+      "removed": {
+        "abbreviation": 314,
+        "foreign": 377,
+        "fragment": 69,
+        "nonstandard": 124,
+        "proper-noun": 1267
+      },
+      "excluded": {
+        "degrading": 7,
+        "insult": 20,
+        "sexual": 49,
+        "slur": 3,
+        "swear": 32
+      },
+      "playable": 13214,
+      "exclusions": 111,
+      "pairs": 10560
+    },
+    "en": {
+      "candidate": 307629,
+      "aboveFloor": 14999,
+      "removed": {
+        "abbreviation": 448,
+        "foreign": 54,
+        "fragment": 60,
+        "nonstandard": 94,
+        "proper-noun": 1702
+      },
+      "excluded": {
+        "degrading": 9,
+        "insult": 14,
+        "sexual": 47,
+        "slur": 9,
+        "swear": 21
+      },
+      "playable": 12541,
+      "exclusions": 100,
+      "pairs": 1125
+    }
+  }
+}
