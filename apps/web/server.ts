@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import {
   beginRacing,
+  canResumeInvitationMembership,
   endDisconnectedGuestPresence,
   maintainGuestRetention,
   endDisconnectedHostPresence,
@@ -25,7 +26,8 @@ import {
 } from "@incision/database";
 import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
-import { assignClientAddress } from "./src/server/http/client-address";
+import { assignClientAddress, clientAddress } from "./src/server/http/client-address";
+import { invitationAddressDigest } from "./src/server/rooms/invitation-credentials";
 import { registerRaceChannel } from "./src/server/realtime/race-channel";
 import { followedMember, followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
 import { GuestCommandGate } from "./src/server/realtime/guest-command-gate";
@@ -190,6 +192,10 @@ async function main(): Promise<void> {
     events: roomEvents(),
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
     findGuestMembership: (guestSessionId) => findActiveHumanMembership(databaseOf(env), { kind: "guest", guestSessionId }),
+    canResumeMembership: (socket, member) => canResumeInvitationMembership(databaseOf(env), {
+      memberId: member.memberId,
+      addressDigest: invitationAddressDigest({ address: clientAddress(socket.request, env.trustedProxyHops), lobbyId: member.lobbyId, key: process.env.INVITATION_IP_SECRET }),
+    }),
     readGuest: (proof) => readGuestSession(databaseOf(env), proof),
     guestGrace,
     hostGrace,

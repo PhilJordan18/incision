@@ -8,11 +8,13 @@ import { publicSnapshot } from "@/rooms/public-snapshot";
 import { authDatabase } from "@/server/auth/store";
 import { temporaryRoomResults } from "@/server/races/temporary-room-results";
 import { RoomView } from "./room-view";
+import { canResumeInvitationRequest } from "@/server/rooms/invitation-resume";
 
 /** Server component only. The proof never crosses into RoomView's client props. */
 export async function GuestRoomPage({ code, proof }: { readonly code: string; readonly proof: GuestSessionProof }) {
   const state = await readGuestRoom(authDatabase(), proof, code);
   if (state === undefined) redirect(`/guest?code=${code}`);
+  if (!await canResumeInvitationRequest({ memberId: state.memberId, lobbyId: state.snapshot.lobbyId })) redirect("/invite");
   const { t, locale } = await getRequestDictionary();
   const self = state.snapshot.members.find((member) => member.memberId === state.memberId);
   const result = state.snapshot.phase === "results" && state.snapshot.race?.state === "finished"

@@ -30,6 +30,7 @@ let registry: SessionRegistry;
 let findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
 let readGuest: GuestSessionReader;
 let findGuestMembership: (id: string) => Promise<ActiveMembership | undefined>;
+let canResumeMembership: () => Promise<boolean>;
 let readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
 let recoverAbandonedRace: (lobbyId: string) => Promise<RoomRecovery>;
 const ownedRaces = new Set<string>();
@@ -94,6 +95,7 @@ beforeEach(async () => {
     settings: SETTINGS,
   });
   findActiveMembership = vi.fn(async (accountId: string) => memberships.get(accountId));
+  canResumeMembership = vi.fn(async () => true);
   findGuestMembership = vi.fn(async () => ({ lobbyId: "lobby-1", code: "ABCDEF", memberId: "guest-member", isHost: false }));
   readGuest = vi.fn<GuestSessionReader>(async () => ({ kind: "valid", session: { id: ALICE, expiresAt: new Date(Date.now() + 60_000) } }));
   readRoomSnapshot = vi.fn(async (lobbyId: string) => snapshots.get(lobbyId));
@@ -132,6 +134,7 @@ beforeEach(async () => {
     findActiveMembership: (accountId) => findActiveMembership(accountId),
     readGuest: (proof) => readGuest(proof),
     findGuestMembership: (id) => findGuestMembership(id),
+    canResumeMembership: () => canResumeMembership(),
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(lobbyId),
     raceRecovery: { recover: (lobbyId) => recoverAbandonedRace(lobbyId), ownsRace: (lobbyId) => ownedRaces.has(lobbyId) },
     recoveryTiming: { failedLookRetryMs: 50, maxFailedLooks: 3 },
@@ -216,6 +219,15 @@ function until(condition: () => boolean): Promise<void> {
 }
 
 describe("room channel", () => {
+  it.each(["session=alice", "session=guest"])("refuses an IP-bound presence before following with %s", async (cookie) => {
+    canResumeMembership = vi.fn(async () => false);
+    const client = await open(cookie);
+    expect(await watch(client)).toEqual({ ok: false, error: "NOT_A_MEMBER" });
+    expect(presence.onlineMembers("lobby-1").size).toBe(0);
+    expect(raceFollows).toEqual([]);
+    expect(readRoomSnapshot).not.toHaveBeenCalled();
+  });
+
   it("gives a member the room's snapshot with the member online and the room settings, from the session only", async () => {
     const alice = await open("session=alice");
     const ack = await watch(alice, " abcdef ");
