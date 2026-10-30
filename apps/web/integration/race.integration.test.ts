@@ -1,4 +1,4 @@
-import { configureRoom, createDatabase, createRoomWithHost, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
+import { configureRoom, createDatabase, createRoomWithHost, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
 import { countWords, parseRoomCode, passageCut, ROOM_CODE_ALPHABET } from "@incision/domain";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -420,7 +420,7 @@ describe("an integrated race (F-04.0)", () => {
     }
     // The host saves English texts and a 60 s limit with the revision a new room's page shows, through the
     // database function configureRoomAction calls.
-    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" } as const;
+    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: english })).toMatchObject({ ok: true, revision: 1 });
     // Both browse the site in French.
     const h = await tab(c.origin, `${host.cookie}; ${LOCALE_COOKIE}=fr`);

@@ -15,6 +15,7 @@ import { notifyGuestLeft, notifyRoomChanged, roomEvents } from "./room-events";
 import type { BotActionState } from "./bot-actions";
 import { parseBotForm } from "./bot-form";
 import { parseConfigureRoomForm } from "./room-settings";
+import { roomTextSettings, textSettingsProblem } from "./text-settings";
 
 export async function guestNextRoundAction(formData: FormData): Promise<HostActionState> {
   try {
@@ -34,6 +35,8 @@ export async function guestConfigureRoomAction(formData: FormData): Promise<Conf
   try {
     const guest = await requestGuest(); if (guest === undefined) return { error: "NOT_IN_A_ROOM" };
     const input = parseConfigureRoomForm(formData); if (input === undefined) return { error: "INVALID_SETTINGS" };
+    const textProblem = textSettingsProblem(roomTextSettings(input.settings));
+    if (textProblem !== undefined) return { error: "TEXT_SETTINGS_REFUSED", textProblem };
     if (!allowSettingsChange(`guest:${guest.proof.id}`)) return { error: "RATE_LIMITED" };
     const result = await configureRoom(authDatabase(), { ...input, accountId: null, guestProof: guest.proof });
     if (!result.ok) return { error: result.error };

@@ -27,6 +27,7 @@ import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
 import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
 import { allowRoomChange, allowSettingsChange, forgiveRoomChange } from "./room-change-limiter";
 import { parseConfigureRoomForm } from "./room-settings";
+import { roomTextSettings, textSettingsProblem, type TextSettingsProblem } from "./text-settings";
 import { roomPresence } from "../realtime/room-presence";
 import { notifyMemberLeft, notifyRoomChanged } from "./room-events";
 
@@ -286,15 +287,19 @@ export async function closeRoomAction(formData: FormData): Promise<HostActionSta
   return {};
 }
 
-export type ConfigureRoomError = Extract<ConfigureRoomResult, { readonly ok: false }>["error"] | "INVALID_SETTINGS" | "RATE_LIMITED" | "UNAVAILABLE";
+export type ConfigureRoomError = Extract<ConfigureRoomResult, { readonly ok: false }>["error"] | "INVALID_SETTINGS" | "TEXT_SETTINGS_REFUSED" | "RATE_LIMITED" | "UNAVAILABLE";
 
-/** `revision`: the settings revision saved, for the page's next change. */
-export type ConfigureRoomState = { readonly error?: ConfigureRoomError; readonly revision?: number };
+/**
+ * `revision`: the settings revision saved, for the page's next change. `textProblem`: why
+ * TEXT_SETTINGS_REFUSED, so the panel says which setting to change (CONF-04 to CONF-07).
+ */
+export type ConfigureRoomState = { readonly error?: ConfigureRoomError; readonly textProblem?: TextSettingsProblem; readonly revision?: number };
 
 /**
  * The host saves the settings of the room its page shows (`code`), while it waits (F-03.1,
- * CONF-01/02/12): the text language and a time limit of 30 s to 120 s, with the settings revision
- * the page shows. The fields are checked before the budget and the database; the host, the room's
+ * CONF-01 to CONF-08, CONF-12): the text settings, a time limit and the typing mode, with the
+ * settings revision the page shows. The fields and the text settings (the engine's proofs, on the
+ * approved lists in random mode) are checked before the budget and the database; the host, the room's
  * phase and the revision under the room lock. Every member's page gets the settings with the room's
  * next snapshot.
  */
@@ -303,6 +308,10 @@ export async function configureRoomAction(formData: FormData): Promise<Configure
   const request = parseConfigureRoomForm(formData);
   if (request === undefined) {
     return { error: "INVALID_SETTINGS" };
+  }
+  const textProblem = textSettingsProblem(roomTextSettings(request.settings));
+  if (textProblem !== undefined) {
+    return { error: "TEXT_SETTINGS_REFUSED", textProblem };
   }
   if (!allowSettingsChange(accountId)) {
     return { error: "RATE_LIMITED" };

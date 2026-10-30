@@ -1,4 +1,4 @@
-import { BOT_LEVELS, ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
+import { BOT_LEVELS, COMPLEXITIES, ERROR_MODES, MAX_GRAPHEME_LENGTH, MAX_SETTING_CHARACTERS, MEMBER_ROLES, ROOM_PHASES, TEXT_KINDS, TEXT_LANGUAGES, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import { z } from "zod";
 
 /** The states of a race and the reasons it ended without results (`races`, ADR-0004, D-06). */
@@ -66,6 +66,18 @@ export const roomSnapshotSchema = z.object({
       /** Null: no time limit. */
       timeLimitMs: z.number().int().positive().nullable(),
       errorMode: z.enum(ERROR_MODES),
+      /**
+       * The text settings (F-03.1e). A server older than them ran D-19's text settings, which the
+       * defaults restore. Characters are only shown back, so they are bounded, not re-checked.
+       */
+      textKind: z.enum(TEXT_KINDS).default("coherent"),
+      complexity: z.enum(COMPLEXITIES).default("medium"),
+      punctuation: z.boolean().default(true),
+      numbers: z.boolean().default(false),
+      capitals: z.boolean().default(true),
+      accents: z.boolean().default(true),
+      includeCharacters: z.array(z.string().max(MAX_GRAPHEME_LENGTH * 3)).max(MAX_SETTING_CHARACTERS).default([]),
+      excludeCharacters: z.array(z.string().max(MAX_GRAPHEME_LENGTH * 3)).max(MAX_SETTING_CHARACTERS).default([]),
     })
     .optional(),
 });
