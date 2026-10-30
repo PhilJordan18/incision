@@ -5,6 +5,7 @@ import { createDatabase, type Database } from "../src/client";
 import { runMigrations } from "../src/migrations";
 import { startRace } from "../src/races/lifecycle";
 import { changeRoomCapacity } from "../src/rooms/capacity";
+import { changeRoomBots } from "../src/rooms/bots";
 import { createRoomWithHost } from "../src/rooms/create-room";
 import { joinRoomByCode } from "../src/rooms/membership";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
@@ -90,6 +91,19 @@ describe("host capacity changes under the room lock", () => {
     expect(changed.ok && joined.ok).toBe(false);
     const count = await pool.query<{ count: number }>("select count(*)::int as count from lobby_members where lobby_id=$1 and role='participant' and left_at is null", [lobbyId]);
     expect(count.rows[0]!.count).toBeLessThanOrEqual((await state(lobbyId)).capacity);
+  });
+  it("serializes a bot addition against a capacity reduction", async () => {
+    const { host, lobbyId } = await fixture();
+    await joinRoomByCode(db, { accountId: await account("Second"), code, role: "participant" });
+    const { revision } = await state(lobbyId);
+    const [changed, added] = await Promise.all([
+      changeRoomCapacity(db, { accountId: host, code, revision, capacity: 2 }),
+      changeRoomBots(db, { accountId: host, code, revision, change: { kind: "add", level: "intermediate" } }),
+    ]);
+    expect(Number(changed.ok) + Number(added.ok)).toBe(1);
+    const bots = await pool.query<{ count: number }>("select count(*)::int as count from lobby_bots where lobby_id=$1", [lobbyId]);
+    expect(2 + bots.rows[0]!.count).toBeLessThanOrEqual((await state(lobbyId)).capacity);
+    expect(await joinRoomByCode(db, { accountId: await account("Viewer"), code, role: "spectator" })).toMatchObject({ ok: true });
   });
   it.each(["countdown", "racing", "results"])("rejects a change in %s", async (phase) => {
     const { host, lobbyId } = await fixture();
