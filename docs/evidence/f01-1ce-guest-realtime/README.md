@@ -809,3 +809,14 @@ unproven attribution to a CLI defect is made.
   Central EXIGENCES/IA/board were intentionally not edited concurrently.
 
 **Ready to deliver; await the coordinator's deliver before pushing the same branch.**
+
+## Operational documentation correction — October 29, 2026 (Toronto)
+
+Coordinator review identified missing TECH-10 environment documentation. A docs-only
+follow-up adds `GUEST_ENTRY_ENABLED=false` and an empty `GUEST_SESSION_SECRET` to
+`.env.example`, with explicit activation, dedicated-key handling, browser requirements
+and restart/cache limits in `docs/SETUP.md` and `docs/DEPLOYMENT.md`. No runtime,
+activation, migration, recipe or remote resource changed. Executable/test SHA remains
+`2658d5ffca9ca8ad9582083e978a987b015773ee`; prior test counts are unchanged and were
+not rerun for this documentation edit. Documentation diff/whitespace and scope were
+checked. Coordinator's overall review is still pending; no push is authorized.

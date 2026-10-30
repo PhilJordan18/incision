@@ -48,6 +48,61 @@ App Service fournit `PORT`. App Service sous Linux accepte les WebSockets; le sm
 - Secret `DATABASE_URL_UNPOOLED` : URL **directe** de Neon (console Neon → Connect, connection pooling désactivé : le nom d'hôte n'a pas de `-pooler`) avec `sslmode=verify-full`, même base de données et même rôle que l'application, utilisée seulement par l'étape migrate. node-postgres ignore `channel_binding=require` (sans danger, mais cela n'impose rien : c'est le TLS vérifié qui protège) et lit `sslrootcert` comme un chemin de fichier; retirer donc `sslrootcert=system` des exemples libpq. Le définir avant la première promotion qui contient des migrations, en tapant la valeur à l'invite plutôt que sur la ligne de commande : `gh secret set DATABASE_URL_UNPOOLED --env production -R PhilJordan18/incision`. Sans lui, le job migrate échoue et rien n'est déployé (le corriger, puis *Re-run failed jobs*). Le garder **seulement** comme secret de l'environnement `production` : supprimer toute copie au niveau du dépôt, que les workflows de n'importe quelle branche pourraient lire. Une fois que cela fonctionne, retirer `DATABASE_URL_UNPOOLED` d'App Service (cela redémarre l'application).
 - Comme migrate et deploy utilisent tous deux l'environnement `production`, chaque exécution enregistre deux déploiements; des approbateurs obligatoires (required reviewers) sur cet environnement exigeraient deux approbations par exécution.
 
+## Activation invitée (#31)
+
+**Procédure à préparer, pas activation effectuée.** Livrer le code et ouvrir le
+parcours sont deux opérations distinctes. Toute modification de la recette partagée
+ou d'une ressource distante exige l'autorisation de Philippe pour cette cible ;
+ne pas exécuter cette procédure sur recette3880, ses données ou ses sauvegardes
+pendant la revue. Le [rapport cumulatif](evidence/f01-1ce-guest-realtime/README.md)
+identifie le SHA réellement testé et les limites de validation.
+
+| Paramètre serveur | Valeur initiale sûre | Activation explicite |
+|---|---|---|
+| `GUEST_ENTRY_ENABLED` | absent ou `false` | exactement `true` |
+| `GUEST_SESSION_SECRET` | vide dans l'exemple, aucune clé réelle versionnée | clé aléatoire dédiée à cet environnement, distincte d'`AUTH_SECRET`, 32 à 1 024 octets |
+
+La clé se configure dans le mécanisme privé de l'environnement cible (App settings
+pour App Service), jamais dans le build client, `NEXT_PUBLIC_`, une capture, un log
+ou le dépôt. La générer séparément ; ne pas réutiliser les valeurs éphémères des
+E2E. Une clé absente/invalide ne rend pas les invités utilisables même avec le flag
+ouvert. Changer la clé invalide la vérification des anciens cookies : ne pas la
+renouveler à chaque déploiement. Le flag et la clé ne sont pas automatiquement
+provisionnés par cette livraison ; les App settings survivent aux déploiements et
+retours arrière.
+
+Après autorisation de l'environnement cible :
+
+1. Vérifier la version livrée, ses migrations publiées et les prérequis habituels
+   (base, serveur personnalisé/Socket.IO, `APP_URL` et `AUTH_URL` cohérents, HTTPS,
+   proxys de confiance). Ne pas réappliquer d'anciennes migrations cloud. Ce dernier
+   raccordement ne demande aucune migration nouvelle.
+2. Provisionner la clé dédiée de manière privée, puis fixer explicitement
+   `GUEST_ENTRY_ENABLED=true` et redémarrer le processus avec ces paramètres.
+   L'enregistrement d'App settings redémarre App Service ; prévoir l'interruption
+   des courses et la perte des résultats temporaires en mémoire.
+3. Vérifier `/guest`, l'admission par code dans une salle existante, deux onglets,
+   refus de pseudo occupé, reconnexion, départ puis connexion à un compte sans
+   transfert de résultats. Pour la course complète, conserver ses propres
+   prérequis : `RACES_ENABLED=true` et corpus compatible. Ne jamais activer
+   `RACE_FIXTURE_TEXTS` sur la cible distante.
+4. Vérifier FR/EN, Aube/Abysse, clavier et navigateurs cibles. Le navigateur invité
+   doit fournir JavaScript et Web Locks en contexte sécurisé ; leur absence ferme
+   l'entrée explicitement. Un health check vert ne prouve pas ce parcours.
+
+Pour refermer l'entrée, retirer le flag ou le fixer à `false` puis faire prendre
+la configuration au processus. Cela masque le lien, ferme `/guest`, refuse les
+actions d'admission/réinitialisation et le rendu invité des salles. **Ce n'est pas
+un arrêt global des API d'identité ni une révocation de toutes les sessions/sockets** ;
+ne pas le présenter comme un coupe-circuit de sécurité ou une purge des données.
+
+Les résultats invités temporaires sont locaux au processus et peuvent disparaître
+au redémarrage ; aucun stockage distribué n'est ajouté. Une réponse de
+synchronisation perdue peut raccourcir la durée du cookie par rapport à SQL. Une
+panne ou un retard de traitement peut retarder la purge physique, sans prolonger
+les droits expirés. La procédure et les tests isolés de [SETUP.md](SETUP.md#3-ter-activer-explicitement-le-parcours-invité-31)
+ne constituent pas une preuve de recette ou de déploiement.
+
 ## Migrations de la base de données
 
 Règles pour chaque changement de schéma (voir aussi [SETUP.md](SETUP.md)) :
