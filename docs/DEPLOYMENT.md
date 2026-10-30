@@ -96,6 +96,18 @@ actions d'admission/réinitialisation et le rendu invité des salles. **Ce n'est
 un arrêt global des API d'identité ni une révocation de toutes les sessions/sockets** ;
 ne pas le présenter comme un coupe-circuit de sécurité ou une purge des données.
 
+L'activité de frappe acceptée est maintenue en mémoire et persistée par lots
+(intervalle de 60 secondes), avec son horodatage d'acceptation + 24 h, jamais celui
+du flush. L'arrêt normal tente de vider les écritures en attente ; un arrêt brutal
+peut perdre l'activité depuis le dernier checkpoint. Les pauses du processus ou
+les délais SQL ne permettent pas de promettre une fenêtre de perte strictement
+limitée à 60 secondes. Après redémarrage, l'échéance SQL fait autorité ; une panne
+de persistance coupe les sockets invités concernés. Le rafraîchissement du cookie
+peut lire l'échéance acceptée en mémoire après validation SQL du justificatif,
+sans créer d'activité. Ce fonctionnement suppose le runtime à instance unique ;
+les mutations de présence utilisent une barrière locale, pas un protocole de
+révocation distribué.
+
 Les résultats invités temporaires sont locaux au processus et peuvent disparaître
 au redémarrage ; aucun stockage distribué n'est ajouté. Une réponse de
 synchronisation perdue peut raccourcir la durée du cookie par rapport à SQL. Une

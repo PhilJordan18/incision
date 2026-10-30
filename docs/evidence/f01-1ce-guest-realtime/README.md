@@ -1,32 +1,42 @@
 # #31 — guest integration evidence
 
-## Current status — October 29, 2026 (Toronto)
+## Current status — October 29, 2026 (Toronto), after PERF-02 correction
 
-**Ready to deliver the approved #31/#36C2 scope; not pushed or activated.**
-PR #187 remains draft at published `95f89babd35b01fd296a1300e0ece4d3d093d65f`.
-Verified executable: `2658d5ffca9ca8ad9582083e978a987b015773ee`.
-The subsequent evidence-only commit records these results without changing code.
+**Approved #31/#36C2 implementation and PERF-02 correction locally verified;
+coordinator's consolidated review/deliver still pending. Nothing pushed or activated.**
+PR #187's last published head remains `95f89babd35b01fd296a1300e0ece4d3d093d65f`.
+Current verified executable: `4f380ab160b7ee7cb5eecb94c10b5f58a8fc1297`.
+The subsequent evidence-only commit changes no executable file.
 
-Implemented: signed guest identity and transactional admission; coordinated first
-cookie/multi-tab browser entry; generated avatar; room/race commands and accepted
-activity; non-host outside-race grace; account/guest host succession (#36C2);
-inherited host start/configure/bots/next/close; temporary results; explicit departure
-and account-transition fence; identity retirement and bounded closed-room retention;
-cache eviction on SQL failure. Existing settings keep their 10–200-word semantics.
+Implemented: guest identity/admission/browser coordination/avatar, race commands,
+non-host grace, account/guest host succession (#36C2), inherited host controls/bots,
+temporary results, explicit departure/transition, retirement and retention. Settings
+retain their 10–200-word semantics. The coordinator found per-batch SQL in the
+previous implementation; its earlier ready-to-deliver assessment was not consolidated.
+The correction now uses fenced runtime grants and coalesced accepted-activity writes.
 
-On the exact executable SHA: no-JS policy, lint, typecheck, build and **2,354 unit
-tests passed**; **353 SQL passed / 9 existing PgBouncer skips**; **81 Chromium
-E2Es passed (7.7 minutes)**, covering the complete guest journey and account/bot/
-settings/succession regressions. Details and limits are in the final increment below.
+On the current exact executable SHA: no-JS policy, lint, typecheck, build and
+**2,363 unit tests passed**; **357 SQL passed / 9 existing PgBouncer skips**;
+**39 targeted Chromium E2Es passed (5.2 minutes)**. The previous 81-E2E run is
+historical evidence at 2658d5f, not a rerun claim for this head.
 
-Public entry stays closed by default (`GUEST_ENTRY_ENABLED` must explicitly equal
-`true`). Only the isolated E2E server enabled it. No new push/PR, merge, deployment,
-remote resource, recipe, central matrix/board, migration or dependency change.
-Coordinator deliver is awaited. Browser/assistive-technology human checks remain;
-no further approved implementation item is identified as outstanding.
+The cost test runs 18,000 batches for 30 guests with 30 initial SQL transactions
+and 30 checkpoint writes. No SQL is awaited on the normal cached typing path.
+Membership mutations invalidate authority before their transaction starts. A
+conservative process-wide mutation fence can briefly delay other rooms. Abrupt
+crash can lose uncheckpointed activity; graceful stop drains it, and persistence
+failure disconnects the guest. See the final PERF-02 section for exact scope,
+concurrency/latency evidence, single-instance assumptions and limitations.
 
-Sections below are chronological evidence. **Historical limits apply to their
-commits, not to the current cumulative implementation.**
+Public entry stays closed by default (`GUEST_ENTRY_ENABLED=true` is explicit);
+only the isolated E2E server enabled it. Operational configuration is documented
+in `.env.example`, SETUP and DEPLOYMENT. No recipe/remote resource, published
+migration, dependency or central matrix/board changed. Browser/assistive-technology
+human checks and coordinator acceptance remain outstanding.
+
+Sections below are chronological evidence. **Historical limits and review verdicts
+apply to their commits; the final PERF-02 correction supersedes the earlier cost
+assessment.**
 
 ## Historical initial realtime increment (superseded by later increments)
 
@@ -820,3 +830,118 @@ activation, migration, recipe or remote resource changed. Executable/test SHA re
 `2658d5ffca9ca8ad9582083e978a987b015773ee`; prior test counts are unchanged and were
 not rerun for this documentation edit. Documentation diff/whitespace and scope were
 checked. Coordinator's overall review is still pending; no push is authorized.
+
+## PERF-02 correction after coordinator review — October 29, 2026 (Toronto)
+
+The coordinator correctly identified one transaction/room lock/session UPDATE per
+accepted guest batch. The previous review missed it: functional tests did not
+prove PERF-02. The previous ready-to-deliver assessment was withdrawn pending this
+correction and consolidated coordinator review.
+
+Executable and final verification target:
+`4f380ab160b7ee7cb5eecb94c10b5f58a8fc1297`.
+Runtime implementation: `0063626470e52acda95593a1244267b3228c60a8`;
+4f380ab corrects the socket-failure test to require immediate disconnection.
+No published history, migrations, dependencies, corpus/settings semantics or board
+was changed. The preceding operational documentation commit is d005f806.
+
+### Mechanism and authority
+
+`GuestCommandGate` now shares a grant and pending acceptance timestamp per guest
+across tabs. After SQL authorization, the normal typing path applies the engine
+synchronously without SQL. Only accepted actions update the pending timestamp and
+runtime deadline; refusals and duplicate sequences do not. The deadline remains
+last accepted activity + 24 hours. A timer persists pending activity every 60 seconds
+using **acceptance time**, never flush time; after flushing, idle sessions perform
+no further writes. Initial authorization, grant revalidation after 60 seconds,
+near-expiry checks and membership transitions retain SQL checks. The ten-command
+budget remains an abuse limit, not the mechanism that amortizes SQL writes.
+
+A process-global fence begins before departure/closure transactions and ends after
+commit or rollback. It covers account/guest voluntary departure, host close,
+non-host guest timeout and host timeout (including retention's expiry calls).
+Commands wait for a pending mutation; its generation invalidates cached grants.
+A mutation starting while authorization awaits SQL prevents the engine callback.
+The next command revalidates SQL before executing. No asynchronous gap exists
+between the cached authority check and the synchronous engine action. Timers still
+revalidate membership/proof/expiry under the existing room-before-session locks.
+
+The fence is deliberately conservative across the single process: a membership
+mutation in another room can briefly delay/revalidate guest commands. It does not
+serialize normal batches and introduces no distributed authority mechanism. Tests
+prove the normal cached path does not wait for SQL; they are not a production
+latency benchmark under cross-room mutation load. Arbitrary out-of-band SQL edits
+or a second independently serving process are not an immediate-revocation protocol;
+all application membership mutation paths must keep using the fence.
+
+Persistence failure drops the grant and disconnects that guest's sockets, without
+replaying an engine callback. Graceful shutdown attempts to drain pending activity
+before stopping races. An abrupt crash can lose activity since the last successful
+checkpoint (60-second scheduling interval; event-loop/SQL delay is not a hard SLA).
+After restart, SQL is authoritative; no idle time is invented or credited. This is
+an explicit durability limitation of the process-local race runtime, not a new
+24-hour rule or a promise of crash-proof per-keystroke persistence.
+
+Cookie refresh still requires a valid SQL proof. It may synchronize the newer
+accepted runtime deadline while a flush is pending, provided the membership fence
+has not changed during the read. Reading this deadline neither renews activity nor
+writes SQL. Revocation removes the runtime deadline. HttpOnly credentials never
+enter the browser's JavaScript.
+
+### Final executed verification
+
+- `npm run check:no-js`, `npm run lint`, `npm run typecheck`, `npm run build`: passed.
+- `npm test`: **2,363 passed** (web 937, database 146, domain 1,198, load 20,
+  word-list tools 62).
+- `TEST_DATABASE_URL=<isolated cloud PostgreSQL> npm run test:db -w @incision/database`:
+  **357 passed, 9 existing PgBouncer skips**, 34 files passed / 1 skipped.
+- `E2E_DATABASE_URL=<isolated cloud fixture> E2E_PORT=3221 npm run test:e2e -w @incision/web --`
+  `guest-journey.spec.ts guest-entry-refusals.spec.ts guest-session.spec.ts`
+  `guest-race-commands.spec.ts guest-temporary-results.spec.ts`
+  `host-network-succession.spec.ts host-succession.spec.ts race.spec.ts`:
+  **39 passed, no skips, Chromium, 5.2 minutes**.
+
+All final commands target 4f380ab with no source edits during execution/review.
+Transient logs: `/tmp/guest-perf-verified-{nojs,lint,types,unit,build,db,e2e}.log`.
+The earlier 81-E2E run remains evidence at 2658d5f, not a claim of 81 reruns here.
+The subsequent evidence-only commit changes no executable file.
+
+| Check | Actual evidence |
+| --- | --- |
+| Cost independent of accepted batch volume, 30 guests | Unit controlled-clock test: 18,000 batches in 60 seconds, 30 initial store calls + 30 timed flushes. Real PostgreSQL test: the same 18,000 calls, 30 initial transactions + 30 drained writes, exact persisted last-acceptance timestamps for all 30 guests. This is a deterministic cost test, not a 30-browser load benchmark. |
+| No per-batch database latency | After initial authorization, a store configured never to resolve does not delay the next cached batch acknowledgement; store call count remains one. |
+| Concurrent departure/closure | Real room lock held by another SQL connection; mutation starts, engine callback stays uncalled; release/commit makes the pending command unauthorized. |
+| Expiry and revocation | Controlled-clock expired grant refused before callback; existing SQL forged/expired/member mismatch and lock-wait cases pass; non-host/host expiry suites retained. |
+| Multi-tab, refusals, duplicates | Shared identity rate/in-flight budget; cached refusals/duplicates neither write nor renew; full browser multi-tab journey and reconnect pass. |
+| Flush time, idle, failure and stop | Past accepted timestamp persists unchanged with exactly +24h; no idle repeat flush; failure revokes without callback replay; graceful stop drains pending activity. |
+| Cookies | Read-only registry deadline test, HttpOnly/expiry/origin/account-precedence browser regressions. |
+
+An initial final-unit run failed because an existing socket test expected an
+UNAVAILABLE acknowledgement before disconnect. The new fail-closed path disconnects
+immediately, so the test now requires the disconnected request, closed socket and
+no engine execution. The complete final unit suite passes; this failed intermediate
+run is not hidden or counted as success.
+
+### Reviews and handoff
+
+Manual sequential roles on the exact target (same agent, no independent audit):
+
+- Code review: normal batch path has no store call; grants/timers are bounded,
+  shared across tabs and invalidated by mutation generation. Failure callbacks
+  are never replayed; stale timers cannot flush replacement grants. Conservative
+  process-wide mutation pauses are an explicit performance limitation.
+- Security: server-owned membership/proof, synchronous application after authority
+  check, fences around every live membership removal/closure path, expiry retained,
+  SQL failure disconnects. Cached authority is for the existing single-instance
+  runtime only; there is no claim of cross-instance or direct-SQL revocation.
+- DBA: SQL remains at authorization/checkpoint/transition boundaries, same lock
+  order, accepted timestamp preserved with monotonic SQL greatest(), no migration.
+  Real SQL concurrency and conservation suites pass. PgBouncer remains skipped.
+- Functional QA: targeted guest journey, account race and succession regressions
+  above; no UI implementation change or new product rule. Browser matrix beyond
+  Chromium and the previously listed human accessibility checks remain unverified.
+
+Coordinator proposal only: review this correction as resolution of the identified
+PERF-02 per-batch SQL defect, with the explicit durability and mutation-pause limits.
+The coordinator's consolidated review and deliver are still required. No push,
+merge, activation, recipe access or remote resource operation was performed.
