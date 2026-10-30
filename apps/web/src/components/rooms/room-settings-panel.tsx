@@ -5,12 +5,25 @@ import { guestConfigureRoomAction } from "@/server/rooms/guest-actions";
 
 import { unstable_rethrow } from "next/navigation";
 import { useCallback, useId, useRef, useState, useTransition } from "react";
-import { TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
+import { COMPLEXITIES, TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import { card, discreetButton, fieldLabel, monoLabel, secondaryButton, textField } from "@/components/ui/styles";
 import type { Locale } from "@/i18n/locale";
 import { roomSettingsCopy } from "@/i18n/room-settings";
 import { configureRoomAction, type ConfigureRoomState } from "@/server/rooms/actions";
-import { awaitingSettings, draftConflict, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings, type SettingsDraft } from "./room-settings-state";
+import {
+  awaitingSettings,
+  draftConflict,
+  draftTextRefusal,
+  editableSettings,
+  MAX_CHARACTERS_INPUT,
+  requiresSettingsRefresh,
+  settingsDraft,
+  settingsForm,
+  TEXT_OPTIONS,
+  validDraft,
+  type SavedRoomSettings,
+  type SettingsDraft,
+} from "./room-settings-state";
 
 type Props = {
   readonly guest?: boolean;
@@ -39,6 +52,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
   const uncertain = answer.error === "UNAVAILABLE";
   const needsRefresh = requiresSettingsRefresh(answer.error);
   const canEdit = host && live && supported && !pending && !awaiting && !needsRefresh;
+  const draftRefusal = draft === null ? undefined : draftTextRefusal(draft);
 
   function cancel() {
     if (submitting.current) return;
@@ -94,6 +108,14 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.wordCount}</dt><dd>{settings.wordCount}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.duration}</dt><dd>{settings.timeLimitMs === null ? t.unlimited : settings.timeLimitMs / 1000}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.mode}</dt><dd>{settings.errorMode === "mandatory" ? t.mandatory : t.free}</dd></div>
+          <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.textKind}</dt><dd>{settings.textKind === "random" ? t.random : t.coherent}</dd></div>
+          <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.complexity}</dt><dd>{t[settings.complexity]}</dd></div>
+          <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.options}</dt>
+            <dd>{TEXT_OPTIONS.map((option) => `${t[option]} ${settings[option] ? t.on : t.off}`).join(" · ")}</dd></div>
+          {settings.textKind === "random" && <>
+            <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.include}</dt><dd className="font-mono">{settings.includeCharacters.join(" ") || t.none}</dd></div>
+            <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.exclude}</dt><dd className="font-mono">{settings.excludeCharacters.join(" ") || t.none}</dd></div>
+          </>}
         </dl>
       )}
       {settings !== undefined && !supported && <p className="text-brume">{t.unsupported}</p>}
@@ -140,7 +162,44 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                 onChange={(event) => setDraft({ ...draft, wordCount: event.target.value })} />
               <span id={`${id}-words-hint`} className="text-sm font-normal text-brume">{t.wordCountHint}</span>
             </label>
+            <div className="flex flex-col gap-2">
+              <label className={fieldLabel} htmlFor={`${id}-kind`}>{t.textKind}</label>
+              <select id={`${id}-kind`} className={textField} value={draft.textKind} aria-describedby={`${id}-kind-hint`}
+                onChange={(event) => setDraft({ ...draft, textKind: event.target.value === "random" ? "random" : "coherent" })}>
+                <option value="coherent">{t.coherent}</option><option value="random">{t.random}</option>
+              </select>
+              <span id={`${id}-kind-hint`} className="text-sm font-normal text-brume">{draft.textKind === "random" ? t.randomHint : t.coherentHint}</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className={fieldLabel} htmlFor={`${id}-complexity`}>{t.complexity}</label>
+              <select id={`${id}-complexity`} className={textField} value={draft.complexity} aria-describedby={`${id}-complexity-hint`}
+                onChange={(event) => { const complexity = COMPLEXITIES.find((level) => level === event.target.value); if (complexity !== undefined) setDraft({ ...draft, complexity }); }}>
+                {COMPLEXITIES.map((level) => <option key={level} value={level}>{t[level]}</option>)}
+              </select>
+              <span id={`${id}-complexity-hint`} className="text-sm font-normal text-brume">{t.complexityHint}</span>
+            </div>
+            <fieldset className="flex min-w-0 flex-col gap-2 sm:col-span-2">
+              <legend className={`${fieldLabel} mb-2`}>{t.options}</legend>
+              <div className="flex flex-wrap gap-2">
+                {TEXT_OPTIONS.map((option) => (
+                  <button key={option} type="button" aria-pressed={draft[option]}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-houle px-4 text-sm text-embrun transition-colors duration-200 ease-incision hover:text-ecume aria-pressed:border-moi aria-pressed:bg-moi/10 aria-pressed:text-moi"
+                    onClick={() => setDraft({ ...draft, [option]: !draft[option] })}>
+                    <span aria-hidden="true">{draft[option] ? "✓" : "○"}</span>{t[option]}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            {(["include", "exclude"] as const).map((field) => (
+              <label key={field} className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-${field}`}>{t[field]}
+                <input id={`${id}-${field}`} className={`${textField} font-mono`} type="text" autoComplete="off" spellCheck={false}
+                  maxLength={MAX_CHARACTERS_INPUT} disabled={draft.textKind !== "random"} value={draft.textKind === "random" ? draft[field] : ""}
+                  aria-describedby={`${id}-characters-hint`} onChange={(event) => setDraft({ ...draft, [field]: event.target.value })} />
+              </label>
+            ))}
+            <span id={`${id}-characters-hint`} className="text-sm font-normal text-brume sm:col-span-2">{draft.textKind === "random" ? t.charactersHint : t.charactersDisabled}</span>
           </fieldset>
+          {draftRefusal !== undefined && <p role="alert" className="text-sm text-erreur">⚠ {t.textRefusals[draftRefusal]}</p>}
           <p id={`${id}-hint`} className="text-sm text-brume">{t.hint}</p>
           {conflict && <p role="alert" className="text-sm text-or">⚠ {t.conflict}</p>}
           <div className="flex flex-wrap gap-3">
@@ -149,7 +208,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
           </div>
         </form>
       )}
-      {answer.error !== undefined && <p role="alert" className="text-sm text-erreur">⚠ {t.errors[answer.error]}</p>}
+      {answer.error !== undefined && <p role="alert" className="text-sm text-erreur">⚠ {t.errors[answer.error]}{answer.textProblem === undefined ? "" : ` ${t.textRefusals[answer.textProblem]}`}</p>}
       {answer.revision !== undefined && <p role="status" className="text-sm text-embrun">{awaiting ? t.waiting : t.saved}</p>}
       {(conflict || needsRefresh || awaiting || settings === undefined) && <button type="button" disabled={pending} onClick={reload} className={`${discreetButton} self-start`}>{t.reload}</button>}
     </section>

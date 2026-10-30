@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { awaitingSettings, draftConflict, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings } from "./room-settings-state";
+import { awaitingSettings, draftConflict, draftTextRefusal, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings } from "./room-settings-state";
+
+const TEXT_DEFAULTS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [] };
 import { roomSettingsCopy, roomStartNote } from "@/i18n/room-settings";
 import { parseConfigureRoomForm } from "@/server/rooms/room-settings";
 
-const saved: SavedRoomSettings & { timeLimitMs: number } = { revision: 7, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory" };
+const saved: SavedRoomSettings & { timeLimitMs: number } = {
+  revision: 7, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory",
+  textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [],
+};
 
 describe("waiting-room settings state", () => {
   it("blocks stale authority and unknown outcomes until a read, even before the snapshot catches up", () => {
@@ -13,11 +18,15 @@ describe("waiting-room settings state", () => {
   it("pins the settings revision, not the unrelated room revision", () => {
     const draft = { ...settingsDraft(saved), textLanguage: "en" as const, seconds: "60" };
     const form = settingsForm("ABCDEF", draft);
-    expect([...form.entries()]).toEqual([["code", "ABCDEF"], ["revision", "7"], ["textLanguage", "en"], ["wordCount", "50"], ["timeLimitSeconds", "60"], ["errorMode", "mandatory"]]);
-    expect(parseConfigureRoomForm(form)?.settings).toEqual({ textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" });
+    expect([...form.entries()]).toEqual([
+      ["code", "ABCDEF"], ["revision", "7"], ["textLanguage", "en"], ["wordCount", "50"], ["timeLimitSeconds", "60"], ["errorMode", "mandatory"],
+      ["textKind", "coherent"], ["complexity", "medium"], ["punctuation", "true"], ["numbers", "false"], ["capitals", "true"], ["accents", "true"],
+      ["includeCharacters", ""], ["excludeCharacters", ""],
+    ]);
+    expect(parseConfigureRoomForm(form)?.settings).toEqual({ textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...TEXT_DEFAULTS });
     expect(draftConflict(draft, { ...saved })).toBe(false);
     expect(draftConflict(draft, { ...saved, revision: 8 })).toBe(true);
-    expect(draft).toEqual({ revision: 7, textLanguage: "en", wordCount: "50", seconds: "60", errorMode: "mandatory" });
+    expect(draft).toEqual({ revision: 7, textLanguage: "en", wordCount: "50", seconds: "60", errorMode: "mandatory", textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include: "", exclude: "" });
   });
   it("handles ack before snapshot, snapshot before ack, and a newer snapshot without rollback", () => {
     expect(awaitingSettings(8, saved)).toBe(true);
@@ -47,7 +56,7 @@ describe("waiting-room settings state", () => {
       expect(validDraft(draft)).toBe(true);
       expect(parseConfigureRoomForm(settingsForm("ABCDEF", draft))).toEqual({
         code: "ABCDEF", revision: saved.revision,
-        settings: { textLanguage: "fr", wordCount: 50, errorMode: "free", timeLimitMs },
+        settings: { textLanguage: "fr", wordCount: 50, errorMode: "free", timeLimitMs, ...TEXT_DEFAULTS },
       });
     }
   });
@@ -74,7 +83,33 @@ describe("waiting-room settings state", () => {
       expect(roomStartNote({ ...saved, timeLimitMs: null, errorMode: "free" }, locale)).toContain(roomSettingsCopy(locale).unlimited);
       expect(roomStartNote({ ...saved, errorMode: "free" }, locale)).toContain(roomSettingsCopy(locale).free);
       expect(roomStartNote(undefined, locale)).toBe(roomSettingsCopy(locale).unavailable);
-      expect(Object.keys(roomSettingsCopy(locale).errors)).toHaveLength(7);
+      expect(Object.keys(roomSettingsCopy(locale).errors)).toHaveLength(8);
+      expect(roomStartNote({ ...saved, textKind: "random", complexity: "hard" }, locale)).toContain(roomSettingsCopy(locale).random);
     }
+  });
+
+  it("round-trips random settings and sends characters only in random mode (D-10)", () => {
+    const random = { ...saved, textKind: "random" as const, complexity: "hard" as const, numbers: true, accents: false, includeCharacters: ["k", "w"], excludeCharacters: ["e"] };
+    const draft = settingsDraft(random);
+    expect(draft).toMatchObject({ textKind: "random", include: "kw", exclude: "e" });
+    expect(validDraft(draft)).toBe(true);
+    expect(parseConfigureRoomForm(settingsForm("ABCDEF", draft))?.settings).toMatchObject({ textKind: "random", complexity: "hard", numbers: true, accents: false, includeCharacters: ["k", "w"], excludeCharacters: ["e"] });
+    // Switching back to coherent keeps the typed characters in the draft but never sends them.
+    const coherent = { ...draft, textKind: "coherent" as const };
+    expect(validDraft(coherent)).toBe(true);
+    expect(parseConfigureRoomForm(settingsForm("ABCDEF", coherent))?.settings).toMatchObject({ textKind: "coherent", includeCharacters: [], excludeCharacters: [] });
+  });
+
+  it("refuses with the engine's reason the drafts the server would refuse, before any request", () => {
+    const random = { ...settingsDraft(saved), textKind: "random" as const };
+    expect(draftTextRefusal({ ...random, include: "k", exclude: "K" })).toBe("CHARACTER_INCLUDED_AND_EXCLUDED");
+    expect(draftTextRefusal({ ...random, include: "7" })).toBe("INCLUDED_CHARACTER_DISABLED");
+    expect(draftTextRefusal({ ...random, include: "ß" })).toBe("UNSUPPORTED_CHARACTER");
+    expect(draftTextRefusal({ ...random, numbers: true, exclude: "0123456789" })).toBe("OPTION_FULLY_EXCLUDED");
+    expect(draftTextRefusal({ ...random, include: "(", exclude: ")" })).toBe("CHARACTER_INCLUDED_AND_EXCLUDED");
+    expect(validDraft({ ...random, include: "k", exclude: "k" })).toBe(false);
+    // The same characters in coherent mode are not settings at all.
+    expect(draftTextRefusal({ ...random, textKind: "coherent", include: "k", exclude: "k" })).toBeUndefined();
+    for (const locale of ["fr", "en"] as const) expect(Object.keys(roomSettingsCopy(locale).textRefusals)).toHaveLength(10);
   });
 });
