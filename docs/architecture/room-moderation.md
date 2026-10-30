@@ -20,7 +20,8 @@ not pushed. No runtime admission rule or UI is activated by this domain-only ste
    never rename or rewrite published migration history.
 2. Under the room lock: re-read host, validate target from that room, persist ban,
    revoke target invitations and end presence atomically. Preserve guest command
-   fencing and existing retention policy; refused/repeated commands are harmless.
+   fencing and the approved minimal-session retention exception below;
+   refused/repeated commands are harmless.
 3. Reject banned identities in code and invitation admission, including concurrent
    reentry. Do not ban the shared classroom address or unrelated identities.
 4. Reuse committed departure events for race termination; evict every target tab
@@ -35,9 +36,23 @@ not pushed. No runtime admission rule or UI is activated by this domain-only ste
 
 ## Coordination gate
 
-L2 migration0015 is accessible in PR190 on `feat/01-4-invitation-links` at
-`115817d1a74eba0a1ca72e30ec9a32634e9742bf`. Claude owns subsequent C2/C3 migrations
-0016/0017. Their regenerated chain is not available in this worktree yet.
-Philippe has been asked whether dependent PRs may be stacked rather than waiting
-for human merges. Do not infer that authorization from this file. No recipe3880,
-database, backup or server changes are permitted by this integration note.
+L2/PR190 and C2/PR191 are merged. This branch integrates dev `39fafdb` through
+`777e9f9`, including migrations0015/0016. Claude owns C3 migration0017, still
+unpublished at the latest check. Generate0018 only after its actual snapshot is
+available. No recipe3880, database, backup or server changes are permitted by this
+integration note.
+
+## Approved guest retention exception (October 30, 2026)
+
+Philippe approved retaining an expelled guest's minimal session until its normal
+expiry so the same signed cookie cannot rejoin the banned room. Expulsion does
+not renew expiry, keep race results, or ban an IP address. Other rooms remain
+available. A fresh browser identity can bypass an identity-only ban; this is an
+explicit limitation, not a promise of device identification. Existing room-ban
+cleanup deadlines still apply. This decision is approved, not yet implemented;
+update D-07 and its evidence when the persistence path is verified.
+
+The form parser and internal committed-expulsion event are preparatory adapters:
+they do not expose or activate moderation without its atomic persistence/action
+path. The event cuts all followed tabs for the exact room/member pair, including
+a pending watch, without relying on a successful SQL snapshot broadcast.

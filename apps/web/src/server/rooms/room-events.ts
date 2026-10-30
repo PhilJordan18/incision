@@ -1,6 +1,8 @@
 import { EventEmitter } from "node:events";
 
 export type RoomEvents = {
+  /** Committed moderation only: disconnect every tab of this room membership. */
+  expelled: [lobbyId: string, memberId: string];
   changed: [lobbyId: string];
   closed: [lobbyId: string];
   guestLeft: [lobbyId: string, memberId: string, closed: boolean];
@@ -37,4 +39,8 @@ export function notifyMemberLeft(lobbyId: string, accountId: string, closed: boo
 /** A committed guest departure carries live membership only, never an account surrogate. */
 export function notifyGuestLeft(lobbyId: string, memberId: string, closed: boolean): void {
   roomEvents().emit("guestLeft", lobbyId, memberId, closed);
+}
+
+export function notifyMemberExpelled(lobbyId: string, memberId: string): void {
+  roomEvents().emit("expelled", lobbyId, memberId);
 }

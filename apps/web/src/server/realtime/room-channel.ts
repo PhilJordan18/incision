@@ -136,6 +136,19 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     }
   }
 
+  events.on("expelled", (lobbyId, memberId) => {
+    // Local, synchronous eviction: do not wait for a database-backed broadcast.
+    for (const socket of io.sockets.sockets.values()) {
+      const watched = watchedRoomOf(socket.data);
+      if (watched?.lobbyId !== lobbyId || watched.memberId !== memberId) continue;
+      socket.leave(channelOf(lobbyId));
+      presence.remove(lobbyId, memberId, socket.id);
+      // Clear before disconnect so an ended membership cannot start a grace timer.
+      socket.data.room = undefined;
+      dependencies.races?.unfollow(socket.id);
+      socket.disconnect(true);
+    }
+  });
   events.on("changed", scheduleBroadcast);
   events.on("changed", (lobbyId) => {
     dependencies.guestGrace?.changed(lobbyId);
@@ -295,7 +308,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       }
       return { ok: false, error: snapshot === undefined ? "UNAVAILABLE" : "NOT_A_MEMBER" };
     }
-    if (subject.kind === "guest" && (!socket.connected || currentGuestSession(socket, dependencies) === undefined)) {
+    if (!socket.connected || (subject.kind === "guest" && currentGuestSession(socket, dependencies) === undefined)) {
       return { ok: false, error: "UNAUTHORIZED" };
     }
     if (socket.connected) {
