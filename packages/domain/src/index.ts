@@ -21,6 +21,7 @@ export * from "./race/typing";
 export * from "./race/views";
 export * from "./random/prng";
 export * from "./rooms/host-succession";
+export * from "./rooms/moderation";
 export * from "./rooms/room-admission";
 export * from "./rooms/room-code";
 export * from "./rooms/room-configuration";
