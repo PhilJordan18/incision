@@ -1,7 +1,8 @@
-import { ERROR_MODES, MEMBER_ROLES, ROOM_PHASES, TEXT_LANGUAGES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
+import { COMPLEXITIES, ERROR_MODES, MAX_SETTING_CHARACTERS, MEMBER_ROLES, ROOM_PHASES, TEXT_KINDS, TEXT_LANGUAGES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  boolean,
   check,
   foreignKey,
   index,
@@ -25,6 +26,8 @@ export const lobbyPhase = pgEnum("lobby_phase", ROOM_PHASES);
 export const memberRole = pgEnum("member_role", MEMBER_ROLES);
 export const textLanguage = pgEnum("text_language", TEXT_LANGUAGES);
 export const errorMode = pgEnum("error_mode", ERROR_MODES);
+export const textKind = pgEnum("text_kind", TEXT_KINDS);
+export const textComplexity = pgEnum("text_complexity", COMPLEXITIES);
 
 /** Presence of an account in a room. Leaving sets `left_at`; rows are kept. */
 export const lobbyMembers = pgTable(
@@ -117,7 +120,8 @@ export const lobbies = pgTable(
  * A room's race configuration (F-03.1, CONF-01/02/08/12): one row per room, written with the room
  * (rooms of a process older than migration 0006 may lack it; readers then use the defaults). The
  * revision increases with every change the host saves, and a start checks it under the room lock.
- * The other text settings keep D-19's defaults until the host can choose them.
+ * The text columns of F-03.1e (CONF-03 to CONF-07) default to D-19, so rows written before them
+ * keep running coherent, medium texts with punctuation, capitals and accents, without numbers.
  */
 export const lobbySettings = pgTable(
   "lobby_settings",
@@ -132,9 +136,27 @@ export const lobbySettings = pgTable(
     /** Null: no time limit at all (CONF-01, D-17). */
     timeLimitMs: integer("time_limit_ms"),
     errorMode: errorMode("error_mode").notNull(),
+    textKind: textKind("text_kind").notNull().default("coherent"),
+    complexity: textComplexity().notNull().default("medium"),
+    punctuation: boolean().notNull().default(true),
+    numbers: boolean().notNull().default(false),
+    capitals: boolean().notNull().default(true),
+    accents: boolean().notNull().default(true),
+    /** Random mode only (D-10): one lowercase character each, checked by the engine before saving. */
+    includeCharacters: text("include_characters").array().notNull().default(sql`'{}'::text[]`),
+    excludeCharacters: text("exclude_characters").array().notNull().default(sql`'{}'::text[]`),
   },
   (table) => [
     check("lobby_settings_revision_non_negative", sql`${table.revision} >= 0`),
+    // Coherent mode cannot express characters to include or exclude (D-10).
+    check(
+      "lobby_settings_characters_random_only",
+      sql`${table.textKind} = 'random' or (cardinality(${table.includeCharacters}) = 0 and cardinality(${table.excludeCharacters}) = 0)`,
+    ),
+    check(
+      "lobby_settings_characters_bounded",
+      sql`cardinality(${table.includeCharacters}) <= ${sql.raw(String(MAX_SETTING_CHARACTERS))} and cardinality(${table.excludeCharacters}) <= ${sql.raw(String(MAX_SETTING_CHARACTERS))}`,
+    ),
     check("lobby_settings_word_count_range", sql`${table.wordCount} between ${sql.raw(String(MIN_TEXT_WORDS))} and ${sql.raw(String(MAX_TEXT_WORDS))}`),
     // The engine's bounds (TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS), whatever the server accepts today.
     check(
