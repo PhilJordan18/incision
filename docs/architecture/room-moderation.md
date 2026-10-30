@@ -1,58 +1,64 @@
-# F-01.5 — moderation integration boundary
+# F-01.5 — identity-scoped room moderation
 
-Approved L3 scope: SALLE-07 / SEC-01, issue35. This is a work-in-progress record,
-not a delivery or acceptance report.
+Approved L3 scope: issue #35, SALLE-07 / SEC-01. Branch
+`feat/01-5-kick-and-ban`, integrated with dev `b6aac6a` (including C3/#192).
+Human acceptance remains outstanding; implementation is not an acceptance claim.
 
-## Implemented independently
+## Authority and transaction
 
-`e56f472`: pure `decideExpulsion` rule. Server-read current host authority, active
-target, no self-expulsion, account/guest identity retained without an IP ban.
-Participants and spectators are eligible in each open room phase. No change to
-race ranking or terminal semantics. Domain lint/typecheck and24 focused tests pass.
+Actions parse intent only (code, target membership UUID, room revision).
+Identity comes from the verified account session or signed guest proof. Under the
+room lock, the transaction re-reads host and target, rejects non-host, self,
+other-room, departed, closed and stale requests, inserts an identity ban, revokes
+target-bound invitations, ends membership and bumps revision atomically.
+Participants and spectators are eligible in every open phase; bots keep their
+separate removal control.
 
-Branch `feat/01-5-kick-and-ban` starts at dev `1a0ed97`; it is not stacked and is
-not pushed. No runtime admission rule or UI is activated by this domain-only step.
+Code and invitation admission check bans under the same room lock. No IP is
+stored in a ban; classmates sharing a network remain eligible. Account and guest
+UUID namespaces remain distinct. Concurrent/duplicate commands cannot restore
+banned membership or duplicate bans.
 
-## Remaining integration
+## Realtime and interface
 
-1. Add identity-scoped room bans, with account/guest distinction and uniqueness.
-   Generate migration0018 against the real preceding0015/0016/0017 snapshots;
-   never rename or rewrite published migration history.
-2. Under the room lock: re-read host, validate target from that room, persist ban,
-   revoke target invitations and end presence atomically. Preserve guest command
-   fencing and the approved minimal-session retention exception below;
-   refused/repeated commands are harmless.
-3. Reject banned identities in code and invitation admission, including concurrent
-   reentry. Do not ban the shared classroom address or unrelated identities.
-4. Reuse committed departure events for race termination; evict every target tab
-   from room/race following. Do not write into Claude's race-service code without
-   coordination. Preserve countdown/racing/results rules and historical results.
-5. Separate host-only FR/EN moderation control with confirmation, visible focus,
-   existing design tokens and no text-settings form changes.
-6. Real SQL tests: invalid/non-host/self/other-room target, account/guest, duplicate
-   commands, concurrent admission/expulsion, invitation revocation, shared NAT,
-   closure and retention. Browser: multiple tabs, target and non-target sessions,
-   countdown/racing/results, reload/reconnect, keyboard, axe and both themes.
+After commit, the internal expulsion event synchronously removes all followed
+sockets for the exact room/member from presence and race following, sends an
+explicit expulsion notice and disconnects them. Pending watches cannot restore
+following; eviction does not wait for a SQL broadcast. Existing departure events
+then terminate active participation; ranking, Arcade and completed results are
+not rewritten.
 
-## Coordination gate
+The host-only FR/EN panel confirms expulsion, focuses Cancel, restores the trigger
+after cancellation and refuses disconnected/pending/stale submissions. Existing
+tokens and secondary buttons preserve the primary red action. During a race,
+moderation remains below typing.
 
-L2/PR190 and C2/PR191 are merged. This branch integrates dev `39fafdb` through
-`777e9f9`, including migrations0015/0016. Claude owns C3 migration0017, still
-unpublished at the latest check. Generate0018 only after its actual snapshot is
-available. No recipe3880, database, backup or server changes are permitted by this
-integration note.
+## Retention decision approved October 30, 2026
 
-## Approved guest retention exception (October 30, 2026)
+An expelled guest loses live membership/nickname, but their minimal session is
+retained while a ban references it, until normal expiry. Expulsion never renews
+the target expiry or retains results for a ban. Closed-room retention removes
+bans within 24 hours; session deletion cascades bans. Accepted activity in another
+room still follows the existing sliding expiry rule. A fresh browser identity can
+bypass an identity-only ban; no device/IP ban is claimed.
 
-Philippe approved retaining an expelled guest's minimal session until its normal
-expiry so the same signed cookie cannot rejoin the banned room. Expulsion does
-not renew expiry, keep race results, or ban an IP address. Other rooms remain
-available. A fresh browser identity can bypass an identity-only ban; this is an
-explicit limitation, not a promise of device identification. Existing room-ban
-cleanup deadlines still apply. This decision is approved, not yet implemented;
-update D-07 and its evidence when the persistence path is verified.
+## Migration and recovery
 
-The form parser and internal committed-expulsion event are preparatory adapters:
-they do not expose or activate moderation without its atomic persistence/action
-path. The event cuts all followed tabs for the exact room/member pair, including
-a pending watch, without relying on a successful SQL snapshot broadcast.
+Generated additive migration `0018_lobby_bans` follows C3's actual published
+`0017` snapshot. No published migration is renamed. Identity foreign keys cascade,
+a CHECK requires exactly one identity, unique indexes enforce per-room bans, and
+a guest index supports retirement.
+
+Verification uses isolated local databases only. Recipe3880, backups and remote
+resources stay untouched. Keep the additive table during an application rollback;
+do not drop bans as a shortcut. Pre-L3 code does not enforce bans: rollback
+requires an explicit operational decision and restricted admission, not a claim
+of continued protection.
+
+## Evidence and acceptance
+
+See [verification report](../evidence/f01-5-room-moderation/README.md).
+Countdown authorization has domain/SQL coverage; browser scenarios cover waiting,
+racing and results. Human acceptance includes account/guest/spectator, multiple
+tabs, cancellation, code/invitation reentry and an unaffected shared-network peer.
+Do not close #35 or its parent solely because the PR is merged.
