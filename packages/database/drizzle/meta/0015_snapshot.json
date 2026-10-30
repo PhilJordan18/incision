@@ -1,5 +1,5 @@
 {
-  "id": "aa32b17d-3a42-49b4-838d-eb6d2d7cae7c",
+  "id": "24a20356-7cf0-497f-8fa5-82a02c1304f0",
   "prevId": "8b141c52-cbae-4e93-a3ef-35cb7cd71abf",
   "version": "7",
   "dialect": "postgresql",
@@ -584,64 +584,6 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
-        },
-        "text_kind": {
-          "name": "text_kind",
-          "type": "text_kind",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'coherent'"
-        },
-        "complexity": {
-          "name": "complexity",
-          "type": "text_complexity",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'medium'"
-        },
-        "punctuation": {
-          "name": "punctuation",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "numbers": {
-          "name": "numbers",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "capitals": {
-          "name": "capitals",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "accents": {
-          "name": "accents",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "include_characters": {
-          "name": "include_characters",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
-        },
-        "exclude_characters": {
-          "name": "exclude_characters",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
         }
       },
       "indexes": {},
@@ -667,14 +609,6 @@
         "lobby_settings_revision_non_negative": {
           "name": "lobby_settings_revision_non_negative",
           "value": "\"lobby_settings\".\"revision\" >= 0"
-        },
-        "lobby_settings_characters_random_only": {
-          "name": "lobby_settings_characters_random_only",
-          "value": "\"lobby_settings\".\"text_kind\" = 'random' or (cardinality(\"lobby_settings\".\"include_characters\") = 0 and cardinality(\"lobby_settings\".\"exclude_characters\") = 0)"
-        },
-        "lobby_settings_characters_bounded": {
-          "name": "lobby_settings_characters_bounded",
-          "value": "cardinality(\"lobby_settings\".\"include_characters\") <= 100 and cardinality(\"lobby_settings\".\"exclude_characters\") <= 100"
         },
         "lobby_settings_word_count_range": {
           "name": "lobby_settings_word_count_range",
@@ -1865,6 +1799,173 @@
         }
       },
       "isRLSEnabled": false
+    },
+    "public.lobby_invitations": {
+      "name": "lobby_invitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "lobby_id": {
+          "name": "lobby_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_digest": {
+          "name": "token_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "bound_member_id": {
+          "name": "bound_member_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bound_ip_digest": {
+          "name": "bound_ip_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bound_at": {
+          "name": "bound_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "lobby_invitations_token_unique": {
+          "name": "lobby_invitations_token_unique",
+          "columns": [
+            {
+              "expression": "token_digest",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lobby_invitations_room_idx": {
+          "name": "lobby_invitations_room_idx",
+          "columns": [
+            {
+              "expression": "lobby_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lobby_invitations_holder_idx": {
+          "name": "lobby_invitations_holder_idx",
+          "columns": [
+            {
+              "expression": "bound_member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lobby_invitations_lobby_id_lobbies_id_fk": {
+          "name": "lobby_invitations_lobby_id_lobbies_id_fk",
+          "tableFrom": "lobby_invitations",
+          "tableTo": "lobbies",
+          "columnsFrom": [
+            "lobby_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "lobby_invitations_holder_room_fk": {
+          "name": "lobby_invitations_holder_room_fk",
+          "tableFrom": "lobby_invitations",
+          "tableTo": "lobby_members",
+          "columnsFrom": [
+            "lobby_id",
+            "bound_member_id"
+          ],
+          "columnsTo": [
+            "lobby_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "lobby_invitations_token_digest": {
+          "name": "lobby_invitations_token_digest",
+          "value": "\"lobby_invitations\".\"token_digest\" ~ '^[0-9a-f]{64}$'"
+        },
+        "lobby_invitations_ip_digest": {
+          "name": "lobby_invitations_ip_digest",
+          "value": "\"lobby_invitations\".\"bound_ip_digest\" is null or \"lobby_invitations\".\"bound_ip_digest\" ~ '^[0-9a-f]{64}$'"
+        },
+        "lobby_invitations_binding_complete": {
+          "name": "lobby_invitations_binding_complete",
+          "value": "(\"lobby_invitations\".\"bound_member_id\" is null and \"lobby_invitations\".\"bound_ip_digest\" is null and \"lobby_invitations\".\"bound_at\" is null) or (\"lobby_invitations\".\"bound_member_id\" is not null and \"lobby_invitations\".\"bound_ip_digest\" is not null and \"lobby_invitations\".\"bound_at\" is not null)"
+        },
+        "lobby_invitations_times_ordered": {
+          "name": "lobby_invitations_times_ordered",
+          "value": "(\"lobby_invitations\".\"bound_at\" is null or \"lobby_invitations\".\"bound_at\" >= \"lobby_invitations\".\"created_at\") and (\"lobby_invitations\".\"revoked_at\" is null or \"lobby_invitations\".\"revoked_at\" >= \"lobby_invitations\".\"created_at\")"
+        }
+      },
+      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -1910,23 +2011,6 @@
       "values": [
         "participant",
         "spectator"
-      ]
-    },
-    "public.text_complexity": {
-      "name": "text_complexity",
-      "schema": "public",
-      "values": [
-        "easy",
-        "medium",
-        "hard"
-      ]
-    },
-    "public.text_kind": {
-      "name": "text_kind",
-      "schema": "public",
-      "values": [
-        "coherent",
-        "random"
       ]
     },
     "public.text_language": {

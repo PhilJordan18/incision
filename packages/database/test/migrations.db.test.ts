@@ -109,10 +109,10 @@ describe("runMigrations", () => {
     expect(await query("select * from profile_photos")).toEqual(photosBefore);
     expect(await runMigrations({ connectionString: database.url, migrationsFolder: previous })).toEqual({ applied: 0 });
   });
-  it("gives populated settings D-19's text settings (0015) without touching their other values or historical races", async () => {
-    // The migration before the text settings: whatever number the coordinator gives 0015, the test
+  it("gives populated settings D-19's text settings (0016) without touching their other values or historical races", async () => {
+    // The migration before the text settings (L2's invitations): the test
     // upgrades from its predecessor and counts what is applied from the journal.
-    const predecessor = "0014_anonymous_guest_results";
+    const predecessor = "0015_room_invitations";
     const previous = releasedMigrationsUpTo(predecessor);
     await runMigrations({ connectionString: database.url, migrationsFolder: previous });
     await query("insert into lobbies (code, capacity) values ('C8M5RT', 12)");

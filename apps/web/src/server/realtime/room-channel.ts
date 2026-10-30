@@ -22,6 +22,7 @@ export type RoomChannelDependencies = {
   readonly events: EventEmitter<RoomEvents>;
   readonly findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
   readonly findGuestMembership?: (guestSessionId: string) => Promise<ActiveMembership | undefined>;
+  readonly canResumeMembership?: (socket: Socket, membership: ActiveMembership) => Promise<boolean>;
   readonly readGuest?: GuestSessionReader;
   readonly guestGrace?: GuestPresenceGrace;
   readonly hostGrace?: HostPresenceGrace;
@@ -253,6 +254,8 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     let membership: ActiveMembership | undefined;
     try {
       membership = await (subject.kind === "account" ? dependencies.findActiveMembership(subject.accountId) : dependencies.findGuestMembership?.(subject.guestSessionId));
+      if (membership !== undefined && dependencies.canResumeMembership !== undefined
+        && !await dependencies.canResumeMembership(socket, membership)) return { ok: false, error: "NOT_A_MEMBER" };
     } catch (error: unknown) {
       console.error("[rooms] membership check failed:", describeDatabaseError(error));
       return { ok: false, error: "UNAVAILABLE" };
