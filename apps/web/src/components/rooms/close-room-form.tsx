@@ -1,5 +1,8 @@
 "use client";
 
+import { guestAwareAction } from "@/identity/guest-browser";
+import { guestCloseRoomAction } from "@/server/rooms/guest-actions";
+
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { SubmitButton } from "@/components/submit-button";
@@ -10,6 +13,7 @@ import { closeRoomAction, type HostActionError } from "@/server/rooms/actions";
 import { FIRST_VIEW, type HostRoundView, isStaleRefusal, nextHostRoundView } from "./host-round-view";
 
 type CloseRoomFormProps = {
+  readonly guest?: boolean;
   readonly t: Dictionary["rooms"]["hostActions"];
   /** The room the page shows: closing applies to it only. */
   readonly code: string;
@@ -23,12 +27,12 @@ type CloseRoomFormProps = {
  * The confirming form of « Fermer la salle ». Its answer lives with it: the question gone, a
  * refusal goes too, and reopening the question starts clean (as the host's leave does).
  */
-export function CloseRoomForm({ t, code, describedBy, onPendingChange }: CloseRoomFormProps) {
+export function CloseRoomForm({ guest = false, t, code, describedBy, onPendingChange }: CloseRoomFormProps) {
   const router = useRouter();
   const [view, act, pending] = useActionState<HostRoundView, FormData>(async (previous, formData) => {
     let error: HostActionError | undefined;
     try {
-      ({ error } = await closeRoomAction(formData));
+      ({ error } = await guestAwareAction(guest, () => guest ? guestCloseRoomAction(formData) : closeRoomAction(formData)));
     } catch (thrown: unknown) {
       // Next's own signals (a redirect to sign in) go through; anything else did not reach the server.
       unstable_rethrow(thrown);

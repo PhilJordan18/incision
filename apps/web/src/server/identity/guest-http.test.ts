@@ -170,3 +170,29 @@ describe("account/guest separation", () => {
     expect(await resolveAccountIdentity("authjs.session-token.bad=abc", async () => ({ kind: "refused", reason: "INVALID_TOKEN" }))).toEqual({ kind: "invalid" });
   });
 });
+
+describe("read-only guest cookie deadline synchronization", () => {
+  it("sets only the remaining lifetime without creating or renewing SQL identity", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-29T00:00:00Z") });
+    try {
+      const deps = dependencies();
+      const cookie = issueGuestCookie(key);
+      vi.mocked(deps.store.read).mockResolvedValue({ kind: "valid", session: { id: cookie.credential.id, expiresAt: new Date(Date.now() + 60_000) } });
+      const input = () => request({ cookie: `__Host-incision.guest=${cookie.value}`, body: "{}" });
+      expect((await handleGuestRequest(input(), "refresh", deps)).headers.get("set-cookie")).toContain("Max-Age=60;");
+      vi.advanceTimersByTime(10_000);
+      expect((await handleGuestRequest(input(), "refresh", deps)).headers.get("set-cookie")).toContain("Max-Age=50;");
+      vi.advanceTimersByTime(50_000);
+      expect((await handleGuestRequest(input(), "refresh", deps)).status).toBe(401);
+      expect(deps.store.touch).not.toHaveBeenCalled(); expect(deps.store.create).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("requires same-origin POST body validation and refuses absent identity", async () => {
+    const deps = dependencies();
+    expect((await handleGuestRequest(request({ origin: "https://evil.example", body: "{}" }), "refresh", deps)).status).toBe(403);
+    expect((await handleGuestRequest(request({ body: '{"activity":true}' }), "refresh", deps)).status).toBe(400);
+    expect((await handleGuestRequest(request({ body: "{}" }), "refresh", deps)).status).toBe(401);
+    expect(deps.store.touch).not.toHaveBeenCalled(); expect(deps.store.create).not.toHaveBeenCalled();
+  });
+});

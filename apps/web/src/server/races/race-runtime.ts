@@ -38,9 +38,9 @@ import type { OwnedRace, ShutdownOutcome } from "./race-registry";
 import { RaceWpmSeries } from "./race-wpm-series";
 
 /** One open tab following the room, as the room channel admitted it (session checked, member of the room). */
-export type RaceConnection = {
+export type RaceConnection = ({ readonly accountId: string; readonly memberId?: string } |
+  { readonly accountId: null; readonly memberId: string }) & {
   readonly id: string;
-  readonly accountId: string;
   /**
    * The page this socket belongs to, kept by the page across its reconnections; a page that
    * reconnects takes the input back from its own former socket even before the server has
@@ -58,6 +58,8 @@ export type RaceConnection = {
 export type RaceEntrant = {
   readonly entrantId: string;
   readonly accountId: string | null;
+  /** Live membership only; guest results never persist this link. */
+  readonly memberId?: string | null;
   readonly displayName: string;
   readonly kind?: "human" | "bot";
   readonly botLevel?: BotLevel | null;
@@ -222,7 +224,7 @@ export class RaceRuntime implements OwnedRace {
     }
     this.#apply({ type: "tick", now: this.#now() });
     for (const entrant of this.#entrants.values()) {
-      if (entrant.accountId !== null && !this.#hasTab(entrant.accountId)) {
+      if (entrant.kind !== "bot" && !this.#hasTab(entrant)) {
         this.#connectionLost(entrant.entrantId);
       }
     }
@@ -233,7 +235,7 @@ export class RaceRuntime implements OwnedRace {
     if (this.#stage !== "running" && this.#stage !== "saving") {
       return;
     }
-    const entrant = this.#entrantOf(connection.accountId);
+    const entrant = this.#entrantOf(connection);
     if (entrant !== undefined && this.#lost.delete(entrant.entrantId)) {
       // Before any batch of this tab, which can only come once it follows (D-06).
       this.#apply({ type: "connectionResumed", entrantId: asEntrantId(entrant.entrantId), now: this.#now() });
@@ -266,9 +268,9 @@ export class RaceRuntime implements OwnedRace {
    * most recent other open tab takes it and learns it (state-machines §2). If it was the
    * entrant's last tab, the engine learns the loss now, at the server's detection (D-06).
    */
-  unfollow(connectionId: string, accountId: string): void {
-    const entrant = this.#entrantOf(accountId);
-    if (entrant !== undefined && !this.#hasTab(entrant.accountId)) {
+  unfollow(connectionId: string, identity: string | null | RaceConnection): void {
+    const entrant = this.#entrantOf(identity);
+    if (entrant !== undefined && !this.#hasTab(entrant)) {
       this.#connectionLost(entrant.entrantId);
     }
     for (const [entrantId, controller] of this.#control) {
@@ -290,7 +292,7 @@ export class RaceRuntime implements OwnedRace {
       return;
     }
     const entrant = this.#entrants.get(entrantId);
-    const next = entrant === undefined ? undefined : [...this.#connectionsOf(entrant.accountId)].at(-1);
+    const next = entrant === undefined ? undefined : [...this.#connectionsOf(entrant)].at(-1);
     if (next === undefined) {
       return;
     }
@@ -323,7 +325,7 @@ export class RaceRuntime implements OwnedRace {
     if (this.#stage !== "running") {
       return "NO_RACE";
     }
-    const entrant = this.#entrantOf(connection.accountId);
+    const entrant = this.#entrantOf(connection);
     if (entrant === undefined) {
       return "NOT_AN_ENTRANT";
     }
@@ -348,7 +350,7 @@ export class RaceRuntime implements OwnedRace {
    * session's account, never from the payload.
    */
   keystrokes(connection: RaceConnection, payload: KeystrokeBatchPayload): RaceBatchAck {
-    const entrant = this.#entrantOf(connection.accountId);
+    const entrant = this.#entrantOf(connection);
     if (entrant === undefined) {
       return { ok: false, error: "NOT_AN_ENTRANT" };
     }
@@ -383,7 +385,7 @@ export class RaceRuntime implements OwnedRace {
 
   /** Authenticated controlling tab only; one synchronous coordinator transition, no SQL or await. */
   activateBonus(connection: RaceConnection, payload: BonusActivationPayload): BonusActivationAck {
-    const entrant = this.#entrantOf(connection.accountId);
+    const entrant = this.#entrantOf(connection);
     if (entrant === undefined) return { ok: false, error: "NOT_AN_ENTRANT" };
     if ((this.#stage !== "running" && this.#stage !== "saving") || payload.raceId !== this.ownership.raceId) return { ok: false, error: "NO_RACE" };
     if (this.#control.get(entrant.entrantId)?.connectionId !== connection.id) return { ok: false, error: "NOT_CONTROLLING" };
@@ -423,7 +425,7 @@ export class RaceRuntime implements OwnedRace {
     connection: RaceConnection,
     event: (entrantId: EntrantId) => RaceEvent,
   ): "ok" | "NOT_AN_ENTRANT" | "NO_RACE" | "SUSPENDED" {
-    const entrant = this.#entrantOf(connection.accountId);
+    const entrant = this.#entrantOf(connection);
     if (entrant === undefined) {
       return "NOT_AN_ENTRANT";
     }
@@ -447,6 +449,14 @@ export class RaceRuntime implements OwnedRace {
   /** The member left the room during the race: an immediate abandon (state-machines §3). */
   memberLeft(accountId: string): void {
     const entrant = this.#entrantOf(accountId);
+    if (entrant !== undefined && this.#stage === "running") {
+      this.#apply({ type: "abandon", entrantId: asEntrantId(entrant.entrantId), now: this.#now() });
+    }
+  }
+
+  /** A guest membership ended in SQL; an account with the same UUID is unrelated. */
+  guestMemberLeft(memberId: string): void {
+    const entrant = [...this.#entrants.values()].find((one) => one.accountId === null && one.kind !== "bot" && one.memberId === memberId);
     if (entrant !== undefined && this.#stage === "running") {
       this.#apply({ type: "abandon", entrantId: asEntrantId(entrant.entrantId), now: this.#now() });
     }
@@ -493,7 +503,7 @@ export class RaceRuntime implements OwnedRace {
       this.#scheduleProgress();
       for (const entrant of this.#entrants.values()) {
         this.#sendSelf(entrant.entrantId, { volatile: false });
-        for (const connection of this.#connectionsOf(entrant.accountId)) connection.emit(RACE_BONUS_SELF_EVENT, this.#bonusSelf(entrant.entrantId));
+        for (const connection of this.#connectionsOf(entrant)) connection.emit(RACE_BONUS_SELF_EVENT, this.#bonusSelf(entrant.entrantId));
       }
     }
   }
@@ -575,28 +585,22 @@ export class RaceRuntime implements OwnedRace {
     return asInstant(this.#options.now());
   }
 
-  #entrantOf(accountId: string): RaceEntrant | undefined {
+  #entrantOf(identity: string | null | RaceConnection): RaceEntrant | undefined {
+    if (identity === null) return undefined;
     for (const entrant of this.#entrants.values()) {
-      if (entrant.accountId === accountId) {
-        return entrant;
-      }
+      if (typeof identity === "string" ? entrant.accountId === identity : matchesEntrant(identity, entrant)) return entrant;
     }
     return undefined;
   }
 
-  #hasTab(accountId: string | null): boolean {
-    for (const _ of this.#connectionsOf(accountId)) {
-      return true;
-    }
+  #hasTab(entrant: RaceEntrant): boolean {
+    for (const _ of this.#connectionsOf(entrant)) return true;
     return false;
   }
 
-  *#connectionsOf(accountId: string | null): Iterable<RaceConnection> {
-    if (accountId === null) return;
+  *#connectionsOf(entrant: RaceEntrant): Iterable<RaceConnection> {
     for (const connection of this.#options.followers()) {
-      if (connection.accountId === accountId) {
-        yield connection;
-      }
+      if (matchesEntrant(connection, entrant)) yield connection;
     }
   }
 
@@ -687,7 +691,7 @@ export class RaceRuntime implements OwnedRace {
         if (previous?.textVersion !== current?.textVersion) this.#sendSelf(entrant.entrantId, { volatile: false });
         const oldProjection = bonusPrivateKey(beforeBonus, entrant.entrantId);
         if (oldProjection !== bonusPrivateKey(this.#bonus, entrant.entrantId)) {
-          for (const connection of this.#connectionsOf(entrant.accountId)) connection.emit(RACE_BONUS_SELF_EVENT, this.#bonusSelf(entrant.entrantId));
+          for (const connection of this.#connectionsOf(entrant)) connection.emit(RACE_BONUS_SELF_EVENT, this.#bonusSelf(entrant.entrantId));
         }
       }
       for (const announcement of bonusOutput.announcements) {
@@ -1076,7 +1080,7 @@ export class RaceRuntime implements OwnedRace {
     if (entrant === undefined) {
       return;
     }
-    for (const connection of this.#connectionsOf(entrant.accountId)) {
+    for (const connection of this.#connectionsOf(entrant)) {
       if (connection.id === except) {
         continue;
       }
@@ -1086,6 +1090,11 @@ export class RaceRuntime implements OwnedRace {
       }
       connection.emit(RACE_SELF_EVENT, self, { volatile });
     }
+  }
+
+  /** Server-only display projection after the fenced finalization was confirmed. */
+  resultsForDisplay(): readonly RaceResultRow[] | undefined {
+    return this.#stage === "saved" ? this.#results : undefined;
   }
 
   /** For tests: resolves once the frozen results are settled. */
@@ -1131,4 +1140,17 @@ export function toResultRow(result: EntrantResult, wpmSeries: StoredWpmSeries): 
 function abandonReasonOf(state: RaceState, entrantId: string): { readonly abandonReason?: NonNullable<EntrantState["abandonReason"]> } {
   const reason = state.entrants.find((entrant) => entrant.entrantId === entrantId)?.abandonReason;
   return reason === undefined ? {} : { abandonReason: reason };
+}
+
+/** Guest identity is the admitted live member, never a nullable account comparison. */
+function matchesEntrant(connection: RaceConnection, entrant: RaceEntrant): boolean {
+  if (entrant.kind === "bot") return false;
+  return connection.accountId !== null
+    ? entrant.accountId === connection.accountId
+    : entrant.accountId === null && entrant.memberId === connection.memberId;
+}
+
+/** Separate namespaces keep limits shared across tabs without account/guest collisions. */
+export function raceConnectionKey(connection: RaceConnection): string {
+  return connection.accountId === null ? `guest-member:${connection.memberId}` : `account:${connection.accountId}`;
 }

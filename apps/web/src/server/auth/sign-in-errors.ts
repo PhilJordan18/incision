@@ -1,5 +1,5 @@
 /** Messages of the sign-in page, keys of `signIn.errors` in the dictionaries. */
-export type SignInErrorKey = "invalidCredentials" | "rateLimited" | "providerFailed" | "unavailable";
+export type SignInErrorKey = "guestPresence" | "invalidCredentials" | "rateLimited" | "providerFailed" | "unavailable";
 
 const PROVIDER_ERRORS = new Set(["OAuthCallbackError", "OAuthSignInError", "OAuthAccountNotLinked", "AccessDenied"]);
 
@@ -11,6 +11,7 @@ export function signInErrorKey(error: unknown, code: unknown): SignInErrorKey | 
   if (typeof error !== "string" || error === "") {
     return undefined;
   }
+  if (error === "GuestPresence") return "guestPresence";
   if (error === "CredentialsSignin") {
     if (code === "busy") {
       return "unavailable";

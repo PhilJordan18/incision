@@ -1,3 +1,4 @@
+import { GUEST_ACTIVITY_EVENT } from "../../identity/guest-contract";
 import { RACE_BONUS_ACTIVATE_EVENT, type BonusActivationAck } from "../../races/bonus-protocol";
 import type { Server, Socket } from "socket.io";
 import {
@@ -13,14 +14,18 @@ import {
 } from "../../races/protocol";
 import type { RaceService, RoomConnection } from "../races/race-service";
 import type { SessionRegistry } from "./session-registry";
-import { currentSession } from "./socket-server";
+import type { GuestCommandGate } from "./guest-command-gate";
+import { currentGuestSession, currentSession } from "./socket-server";
 
 export type RaceChannelDependencies = {
   readonly allowedOrigin: string;
   readonly registry: SessionRegistry;
   readonly races: Pick<RaceService, "start" | "keystrokes" | "takeControl" | "present" | "abandon" | "activateBonus">;
+  readonly guestStart?: RaceService["startGuest"];
   /** The room the socket follows, as the room channel admitted it. */
   readonly followedRoom: (socket: Socket) => string | undefined;
+  readonly guestCommands?: GuestCommandGate;
+  readonly followedMember?: (socket: Socket) => { readonly lobbyId: string; readonly memberId: string } | undefined;
   readonly now?: () => number;
 };
 
@@ -44,6 +49,42 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
     const controls = { windowStart: now(), used: 0 };
     const entrantActions = { windowStart: now(), used: 0 };
 
+    function guestCommand(kind: "batch" | "control" | "present" | "abandon", payload: unknown, acknowledge: (answer: unknown) => void): void {
+      const guest = currentGuestSession(socket, dependencies);
+      const member = dependencies.followedMember?.(socket);
+      const gate = dependencies.guestCommands;
+      if (guest === undefined || gate === undefined) { acknowledge({ ok: false, error: "UNAUTHORIZED" }); return; }
+      if (member === undefined) { acknowledge({ ok: false, error: "NO_RACE" }); return; }
+      const budget = kind === "control" ? controls : entrantActions;
+      const limit = kind === "control" ? CONTROL_LIMIT : ENTRANT_ACTION_LIMIT;
+      if (kind !== "batch") {
+        if (now() - budget.windowStart >= limit.windowMs) { budget.windowStart = now(); budget.used = 0; }
+        budget.used += 1;
+        if (budget.used > limit.maxRequests) { acknowledge({ ok: false, error: "RATE_LIMITED" }); return; }
+      }
+      const connection = guestConnectionOf(socket, member.memberId);
+      void gate.run<RaceBatchAck | RaceControlAck | RaceEntrantActionAck>({
+        proof: guest.proof, ...member,
+        alive: () => socket.connected && currentGuestSession(socket, dependencies) !== undefined &&
+          dependencies.followedMember?.(socket)?.memberId === member.memberId,
+        apply: () => {
+          if (kind === "batch") {
+            const answer = dependencies.races.keystrokes(connection, payload);
+            return { answer, activity: answer.ok && answer.result.outcome === "applied" };
+          }
+          const answer = kind === "control" ? dependencies.races.takeControl(connection, payload)
+            : kind === "present" ? dependencies.races.present(connection, payload) : dependencies.races.abandon(connection, payload);
+          return { answer, activity: answer.ok };
+        },
+      }).then((answer) => {
+        acknowledge(answer);
+        if (answer.ok && (kind !== "batch" || ("result" in answer && answer.result.outcome === "applied"))) {
+          socket.emit(GUEST_ACTIVITY_EVENT, {});
+        }
+        if (!answer.ok && answer.error === "UNAUTHORIZED") socket.disconnect(true);
+      });
+    }
+
     socket.on(RACE_BONUS_ACTIVATE_EVENT, (payload: unknown, acknowledge: unknown) => {
       if (typeof acknowledge !== "function") return;
       const session = currentSession(socket, dependencies);
@@ -63,7 +104,8 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
         return;
       }
       const session = currentSession(socket, dependencies);
-      if (session === undefined) {
+      const guest = session === undefined ? currentGuestSession(socket, dependencies) : undefined;
+      if (session === undefined && (guest === undefined || dependencies.guestStart === undefined)) {
         acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies RaceStartAck);
         return;
       }
@@ -76,10 +118,21 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
         acknowledge({ ok: false, error: "RATE_LIMITED" } satisfies RaceStartAck);
         return;
       }
-      void dependencies.races
-        .start(connectionOf(socket, session.accountId), payload)
-        .catch((): RaceStartAck => ({ ok: false, error: "UNAVAILABLE" }))
-        .then((answer) => acknowledge(answer));
+      const member = dependencies.followedMember?.(socket);
+      if (session === undefined && member === undefined) {
+        acknowledge({ ok: false, error: "NOT_IN_A_ROOM" } satisfies RaceStartAck);
+        return;
+      }
+      const pending = session !== undefined
+        ? dependencies.races.start(connectionOf(socket, session.accountId), payload)
+        : guest !== undefined && member !== undefined && dependencies.guestStart !== undefined
+          ? dependencies.guestStart(guestConnectionOf(socket, member.memberId), guest.proof, payload)
+          : Promise.resolve<RaceStartAck>({ ok: false, error: "UNAUTHORIZED" });
+      void pending.catch((): RaceStartAck => ({ ok: false, error: "UNAVAILABLE" }))
+        .then((answer) => {
+          acknowledge(answer);
+          if (answer.ok && guest !== undefined) socket.emit(GUEST_ACTIVITY_EVENT, {});
+        });
     });
 
     socket.on(RACE_BATCH_EVENT, (payload: unknown, acknowledge: unknown) => {
@@ -88,7 +141,7 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
       }
       const session = currentSession(socket, dependencies);
       if (session === undefined) {
-        acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies RaceBatchAck);
+        guestCommand("batch", payload, (answer) => acknowledge(answer));
         return;
       }
       if (dependencies.followedRoom(socket) === undefined) {
@@ -104,7 +157,7 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
       }
       const session = currentSession(socket, dependencies);
       if (session === undefined) {
-        acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies RaceControlAck);
+        guestCommand("control", payload, (answer) => acknowledge(answer));
         return;
       }
       if (now() - controls.windowStart >= CONTROL_LIMIT.windowMs) {
@@ -135,7 +188,7 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
         }
         const session = currentSession(socket, dependencies);
         if (session === undefined) {
-          acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies RaceEntrantActionAck);
+          guestCommand(event === RACE_PRESENT_EVENT ? "present" : "abandon", payload, (answer) => acknowledge(answer));
           return;
         }
         if (now() - entrantActions.windowStart >= ENTRANT_ACTION_LIMIT.windowMs) {
@@ -158,11 +211,18 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
 }
 
 /** The tab as the races see it: its id and its session's account (the room settings give the text language, F-03.1). */
-export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile">, accountId: string, pageId?: string): RoomConnection {
+export function connectionOf(socket: Pick<Socket, "id" | "emit" | "volatile">, accountId: string, pageId?: string): RoomConnection & { readonly accountId: string } {
   return {
     id: socket.id,
     accountId,
     ...(pageId === undefined ? {} : { pageId }),
+    emit: (event, payload, options) => void (options?.volatile === true ? socket.volatile.emit(event, payload) : socket.emit(event, payload)),
+  };
+}
+
+/** Guest members come from the server's validated room watch, never from event payloads. */
+export function guestConnectionOf(socket: Pick<Socket, "id" | "emit" | "volatile">, memberId: string, pageId?: string): RoomConnection & { readonly accountId: null } {
+  return { id: socket.id, accountId: null, memberId, ...(pageId === undefined ? {} : { pageId }),
     emit: (event, payload, options) => void (options?.volatile === true ? socket.volatile.emit(event, payload) : socket.emit(event, payload)),
   };
 }

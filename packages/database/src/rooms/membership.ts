@@ -1,3 +1,7 @@
+import { guestCommandFence } from "../identity/guest-command-fence";
+import type { GuestSessionProof } from "../identity/guest-sessions";
+import { retireUnreferencedGuest } from "../identity/guest-retirement";
+import { lockLiveGuest } from "./guest-host";
 import {
   type AdmissionRefusal,
   type HumanSubject,
@@ -257,7 +261,7 @@ function admissionRefusalResult(refusal: AdmissionRefusal, phase: RoomPhase): Jo
   }
 }
 
-export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boolean };
+export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boolean; readonly memberId?: string };
 
 /**
  * The account leaves its current room. A departing host transfers to the oldest connected
@@ -269,9 +273,18 @@ export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boole
  * lock (`statement_timestamp()`), so they never precede a join committed just before.
  */
 export async function leaveCurrentRoom(db: Database, accountId: string, online: (lobbyId: string) => ReadonlySet<string>): Promise<LeaveRoomResult | undefined> {
-  // It may interrupt a race: bounded on the server like every transaction.
-  return boundedTransaction(db, async (tx) => {
-    const seen = await findActiveMembership(tx, accountId);
+  return leaveHumanRoom(db, accountId, online);
+}
+
+export async function leaveGuestRoom(db: Database, proof: GuestSessionProof, online: (lobbyId: string) => ReadonlySet<string>): Promise<LeaveRoomResult | undefined> {
+  return leaveHumanRoom(db, proof, online);
+}
+
+async function leaveHumanRoom(db: Database, actor: string | GuestSessionProof, online: (lobbyId: string) => ReadonlySet<string>): Promise<LeaveRoomResult | undefined> {
+  return guestCommandFence().mutation(() => boundedTransaction(db, async (tx) => {
+    const membership = () => typeof actor === "string" ? findActiveMembership(tx, actor)
+      : findActiveHumanMembership(tx, { kind: "guest", guestSessionId: actor.id });
+    const seen = await membership();
     if (seen === undefined) {
       return undefined;
     }
@@ -280,7 +293,8 @@ export async function leaveCurrentRoom(db: Database, accountId: string, online: 
       .from(lobbies)
       .where(eq(lobbies.id, seen.lobbyId))
       .for("update");
-    const current = await findActiveMembership(tx, accountId);
+    if (typeof actor !== "string" && !await lockLiveGuest(tx, actor)) return undefined;
+    const current = await membership();
     if (lobby === undefined || current?.memberId !== seen.memberId) {
       return undefined;
     }
@@ -292,6 +306,9 @@ export async function leaveCurrentRoom(db: Database, accountId: string, online: 
     }
     if (closesRoom) {
       await closeLockedRoom(tx, current.lobbyId);
+    } else if (typeof actor !== "string") {
+      await tx.delete(lobbyMembers).where(eq(lobbyMembers.id, current.memberId));
+      await retireUnreferencedGuest(tx, actor.id);
     } else {
       await tx
         .update(lobbyMembers)
@@ -299,6 +316,6 @@ export async function leaveCurrentRoom(db: Database, accountId: string, online: 
         .where(and(eq(lobbyMembers.id, current.memberId), isNull(lobbyMembers.leftAt)));
     }
     await bumpRevision(tx, current.lobbyId);
-    return { lobbyId: current.lobbyId, closed: closesRoom };
-  }, READ_COMMITTED);
+    return { lobbyId: current.lobbyId, closed: closesRoom, ...(typeof actor === "string" ? {} : { memberId: current.memberId }) };
+  }, READ_COMMITTED));
 }

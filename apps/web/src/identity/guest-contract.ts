@@ -12,3 +12,6 @@ export const guestStartSchema = z.object({ nickname: z.string().max(256) }).stri
     return { nickname: result.value };
   });
 export const guestRenewSchema = z.object({}).strict();
+
+/** Server-only accepted activity notification; contains no credential or identity. */
+export const GUEST_ACTIVITY_EVENT = "guest:activity";

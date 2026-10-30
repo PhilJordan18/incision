@@ -3,8 +3,15 @@ import { createServer } from "node:http";
 import path from "node:path";
 import {
   beginRacing,
+  endDisconnectedGuestPresence,
+  maintainGuestRetention,
+  endDisconnectedHostPresence,
+  runGuestMemberCommand,
   finalizeRace,
   findActiveMembership,
+  findActiveHumanMembership,
+  readGuestSession,
+  readGuestRoomSettings,
   getDatabase,
   interruptOwnRace,
   loadActiveCorpus,
@@ -20,11 +27,17 @@ import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
 import { assignClientAddress } from "./src/server/http/client-address";
 import { registerRaceChannel } from "./src/server/realtime/race-channel";
-import { followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
+import { followedMember, followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
+import { GuestCommandGate } from "./src/server/realtime/guest-command-gate";
+import { GuestRetentionWorker } from "./src/server/identity/guest-retention-worker";
+import { temporaryRoomResults } from "./src/server/races/temporary-room-results";
+import { HostPresenceGrace } from "./src/server/realtime/host-presence-grace";
+import { currentSession, currentGuestSession } from "./src/server/realtime/socket-server";
+import { GuestPresenceGrace } from "./src/server/realtime/guest-presence-grace";
 import { roomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
-import { authenticateHandshake } from "./src/server/realtime/socket-session";
+import { authenticateHumanHandshake } from "./src/server/realtime/human-handshake";
 import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
 import { processOwnerId } from "./src/server/races/process-owner";
 import { RaceService, serverClock } from "./src/server/races/race-service";
@@ -57,7 +70,9 @@ async function main(): Promise<void> {
     allowedOrigin: env.appOrigin,
     isProduction: env.isProduction,
     authenticate: (cookieHeader) =>
-      authenticateHandshake(cookieHeader, {
+      authenticateHumanHandshake(cookieHeader, {
+        guestKey: process.env.GUEST_SESSION_SECRET,
+        readGuest: (proof) => readGuestSession(databaseOf(env), proof),
         secret: env.authSecret,
         secureCookie: env.secureCookies,
         readVersion: (accountId) => readSessionVersion(databaseOf(env), accountId),
@@ -74,6 +89,7 @@ async function main(): Promise<void> {
     store: {
       startRace: (input) => startRace(databaseOf(env), input),
       readOwnRoomSettings: (accountId) => readOwnRoomSettings(databaseOf(env), accountId),
+      readGuestRoomSettings: (proof) => readGuestRoomSettings(databaseOf(env), proof),
       beginRacing: (ownership) => beginRacing(databaseOf(env), ownership),
       finalizeRace: (ownership, results) => finalizeRace(databaseOf(env), ownership, results),
       interruptOwnRace: (ownership, reason) => interruptOwnRace(databaseOf(env), ownership, reason),
@@ -87,6 +103,8 @@ async function main(): Promise<void> {
       return () => clearTimeout(timer);
     },
     onRoomChanged: notifyRoomChanged,
+    onSavedResults: (input) => temporaryRoomResults().save(input),
+    onGuestActivity: (session) => registry.refreshGuest(session.id, session.expiresAt.getTime()),
     onRaceLost: (lobbyId) => roomEvents().emit("raceLost", lobbyId),
     texts: corpusTexts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
     // Whether races may start at all; never which texts they run (the fixtures stay local only).
@@ -108,11 +126,61 @@ async function main(): Promise<void> {
   // A departure committed by a server action ends the leaver's race, or the race if the room closed.
   // It runs inside that action: a failure here must not turn the committed departure into an error.
   roomEvents().on("left", (lobbyId, accountId, closed) => {
+    if (closed) temporaryRoomResults().discard(lobbyId);
     try {
       races.memberLeft(lobbyId, accountId, { roomClosed: closed });
     } catch (error: unknown) {
       console.error("[races] departure not applied to the race:", error instanceof Error ? error.name : "unknown error");
     }
+  });
+  roomEvents().on("closed", (lobbyId) => { temporaryRoomResults().discard(lobbyId); races.roomClosed(lobbyId); });
+  roomEvents().on("guestLeft", (lobbyId, memberId, closed) => {
+    temporaryRoomResults().forgetMember(lobbyId, memberId);
+    if (closed) { temporaryRoomResults().discard(lobbyId); races.roomClosed(lobbyId); }
+    else races.guestMemberLeft(lobbyId, memberId);
+  });
+  roomEvents().on("changed", (lobbyId) => {
+    void temporaryRoomResults().reconcile(lobbyId, () => readRoomSnapshot(databaseOf(env), lobbyId))
+      .catch(() => console.error("[races] temporary display cleanup unavailable"));
+  });
+  const authorizedOnlineMembers = (lobbyId: string): ReadonlySet<string> => {
+      const members = new Set<string>();
+      for (const socket of io.sockets.sockets.values()) {
+        const member = followedMember(socket);
+        if (member?.lobbyId !== lobbyId || !socket.connected) continue;
+        const guard = { allowedOrigin: env.appOrigin, registry };
+        if (currentSession(socket, guard) !== undefined || currentGuestSession(socket, guard) !== undefined) members.add(member.memberId);
+      }
+      return members;
+    };
+  const hostGrace = new HostPresenceGrace({
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
+    membersOnline: authorizedOnlineMembers,
+    end: (input) => endDisconnectedHostPresence(databaseOf(env), input),
+    departed: ({ lobbyId, memberId }, result) => {
+      temporaryRoomResults().forgetMember(lobbyId, memberId);
+      if (result.closed) temporaryRoomResults().discard(lobbyId);
+      try {
+        if (result.closed) races.roomClosed(lobbyId);
+        else if (result.accountId === null) races.guestMemberLeft(lobbyId, memberId);
+        else races.memberLeft(lobbyId, result.accountId, { roomClosed: false });
+      } finally { notifyRoomChanged(lobbyId); }
+    },
+    failed: () => console.error("[rooms] host departure unavailable; retry scheduled"),
+  });
+  const guestGrace = new GuestPresenceGrace({
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
+    end: (input) => endDisconnectedGuestPresence(databaseOf(env), input),
+    departed: ({ lobbyId, memberId }) => {
+      temporaryRoomResults().forgetMember(lobbyId, memberId);
+      try { races.guestMemberLeft(lobbyId, memberId); }
+      finally { notifyRoomChanged(lobbyId); }
+    },
+    failed: () => console.error("[guests] presence departure unavailable; retry scheduled"),
   });
   // Room presence (CP-06): membership from the database, changes from the server actions.
   const roomChannel = registerRoomChannel(io, {
@@ -121,6 +189,10 @@ async function main(): Promise<void> {
     presence: roomPresence(),
     events: roomEvents(),
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
+    findGuestMembership: (guestSessionId) => findActiveHumanMembership(databaseOf(env), { kind: "guest", guestSessionId }),
+    readGuest: (proof) => readGuestSession(databaseOf(env), proof),
+    guestGrace,
+    hostGrace,
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
     raceRecovery: {
       recover: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),
@@ -128,7 +200,12 @@ async function main(): Promise<void> {
     },
     races,
   });
-  registerRaceChannel(io, { allowedOrigin: env.appOrigin, registry, races, followedRoom });
+  const guestCommands = new GuestCommandGate({ registry, now: Date.now,
+    store: (input) => runGuestMemberCommand(databaseOf(env), input),
+  });
+  registerRaceChannel(io, { allowedOrigin: env.appOrigin, registry, races, followedRoom, followedMember, guestCommands,
+    guestStart: (connection, proof, payload) => races.startGuest(connection, proof, payload),
+  });
 
   // Races a previous process left behind (ADR-0004): recovered without delaying the server.
   if (env.databaseUrl !== undefined) {
@@ -141,6 +218,23 @@ async function main(): Promise<void> {
     });
   }
 
+  const guestRetention = env.databaseUrl === undefined ? undefined : new GuestRetentionWorker({
+    run: () => maintainGuestRetention(databaseOf(env), authorizedOnlineMembers),
+    schedule: (callback, delay) => { const timer = setTimeout(callback, delay); timer.unref(); return () => clearTimeout(timer); },
+    committed: (report) => {
+      for (const member of report.departed) {
+        roomEvents().emit("guestLeft", member.lobbyId, member.memberId, member.closed);
+        notifyRoomChanged(member.lobbyId);
+      }
+      for (const lobbyId of report.purgedRooms) temporaryRoomResults().discard(lobbyId);
+    },
+    failed: () => {
+      // Earlier transactions in a failed batch may already have committed departures.
+      temporaryRoomResults().clear();
+      console.error("[guests] retention batch unavailable; next bounded batch scheduled");
+    },
+  });
+
   httpServer.listen(env.port, () => {
     console.log(`[server] ${env.isProduction ? "production" : "development"} on port ${env.port}`);
   });
@@ -148,12 +242,17 @@ async function main(): Promise<void> {
   // App Service sends SIGTERM before replacing the process: stop accepting work, then exit.
   process.once("SIGTERM", () => {
     console.log("[server] SIGTERM received, closing");
+    guestGrace.stop();
+    hostGrace.stop();
+    guestRetention?.stop();
+    temporaryRoomResults().clear();
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
     // Own races first (ADR-0004): no new start, then each one ends through its own shutdown
     // (its frozen results saved, or interrupted as server_stopped); their rooms are told before
     // the sockets close.
     void (async () => {
       try {
+        await guestCommands.stop();
         const report = await races.stop({ onEnded: (lobbyId) => notifyRoomChanged(lobbyId), timeoutMs: RACE_STOP_MS });
         if (report.finalised + report.interrupted + report.left > 0) {
           console.log(`[races] stopped: ${report.finalised} finalised, ${report.interrupted} interrupted, ${report.left} left to their lease`);

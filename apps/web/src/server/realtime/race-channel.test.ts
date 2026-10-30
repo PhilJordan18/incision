@@ -8,7 +8,8 @@ import { RACE_BONUS_ACTIVATE_EVENT } from "../../races/bonus-protocol";
 import { CONTROL_LIMIT, connectionOf, ENTRANT_ACTION_LIMIT, registerRaceChannel, START_LIMIT } from "./race-channel";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
-import type { HandshakeAuthentication } from "./socket-session";
+import type { HumanHandshake } from "./human-handshake";
+import { GuestCommandGate } from "./guest-command-gate";
 
 const ALICE = "0b6f3c1e-5d2a-4f7b-9c8e-1a2b3c4d5e6f";
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
@@ -18,6 +19,8 @@ let io: Server;
 let baseUrl: string;
 const clients: Socket[] = [];
 const following = new Set<string>();
+const guestActivity: boolean[] = [];
+const guestStore = { invalid: false, unavailable: false, calls: 0 };
 const races = {
   activateBonus: vi.fn<RaceService["activateBonus"]>(() => ({ ok: false, error: "NO_RACE" })),
   start: vi.fn<RaceService["start"]>(async () => ({ ok: true })),
@@ -27,7 +30,8 @@ const races = {
   abandon: vi.fn<RaceService["abandon"]>(() => ({ ok: true })),
 };
 
-async function authenticate(cookie: string | undefined): Promise<HandshakeAuthentication> {
+async function authenticate(cookie: string | undefined): Promise<HumanHandshake> {
+  if (cookie === "session=guest") return { kind: "guest", session: { proof: { id: ALICE, secretDigest: "synthetic" }, expiresAt: Date.now() + 60_000 } };
   return cookie?.includes("session=alice") === true
     ? { kind: "authenticated", session: { accountId: ALICE, sessionVersion: 1, expiresAt: Date.now() + 60_000 } }
     : { kind: "anonymous" };
@@ -43,9 +47,21 @@ beforeEach(async () => {
   baseUrl = `http://127.0.0.1:${address.port}`;
   const registry = new SessionRegistry();
   following.clear();
+  guestActivity.length = 0;
+  Object.assign(guestStore, { invalid: false, unavailable: false, calls: 0 });
   vi.clearAllMocks();
   io = attachRealtimeServer(httpServer, { allowedOrigin: baseUrl, isProduction: true, authenticate, registry });
-  registerRaceChannel(io, { allowedOrigin: baseUrl, registry, races, followedRoom: (socket) => (following.has(socket.id) ? "lobby-1" : undefined) });
+  const guestCommands = new GuestCommandGate({ now: Date.now, registry, store: async (input) => {
+    guestStore.calls++;
+    if (guestStore.unavailable) throw new Error("synthetic SQL failure");
+    if (guestStore.invalid) return { kind: "unauthorized" };
+    const result = input.run(); guestActivity.push(result.activity);
+    return { kind: "authorized", answer: result.answer, session: { id: input.proof.id, expiresAt: new Date(Date.now() + 60_000) } };
+  } });
+  registerRaceChannel(io, { allowedOrigin: baseUrl, registry, races, guestCommands,
+    followedRoom: (socket) => (following.has(socket.id) ? "lobby-1" : undefined),
+    followedMember: (socket) => following.has(socket.id) ? { lobbyId: "lobby-1", memberId: "guest-member" } : undefined,
+  });
 });
 
 afterEach(async () => {
@@ -174,5 +190,45 @@ describe("race channel", () => {
     connection.emit("race:reveal", {});
     expect(sent).toEqual(["volatile race:progress", "emit race:reveal"]);
     expect(connection).toMatchObject({ id: "s-1", accountId: ALICE, pageId: "4b7f2c1e-3d5a-4e6f-8a9b-0c1d2e3f4a5b" });
+  });
+});
+
+
+describe("guest race commands", () => {
+  it("requires a followed member before any command SQL", async () => {
+    const guest = await open("session=guest");
+    expect(await ask(guest, RACE_PRESENT_EVENT, { raceId: RACE })).toEqual({ ok: false, error: "NO_RACE" });
+    expect(guestStore.calls).toBe(0);
+  });
+
+  it("uses the server member identity for accepted presence/control and never a payload identity", async () => {
+    const guest = await open("session=guest"); following.add(guest.id!);
+    expect(await ask(guest, RACE_PRESENT_EVENT, { raceId: RACE, memberId: "forged" })).toEqual({ ok: true });
+    expect(races.present.mock.calls[0]?.[0]).toMatchObject({ accountId: null, memberId: "guest-member" });
+    expect(guestActivity).toEqual([true]);
+    expect(await ask(guest, RACE_CONTROL_EVENT, { raceId: RACE })).toEqual({ ok: true });
+    expect(guestActivity).toEqual([true, true]);
+  });
+
+  it("does not renew on a refused batch or unsupported Escape event", async () => {
+    const guest = await open("session=guest"); following.add(guest.id!);
+    expect(await ask(guest, RACE_BATCH_EVENT, {})).toEqual({ ok: false, error: "NO_RACE" });
+    expect(guestActivity).toEqual([false]);
+    guest.emit("race:escape", {});
+    expect(guestStore.calls).toBe(1);
+  });
+
+  it("fails closed when SQL cannot verify membership and never executes the runtime action", async () => {
+    const guest = await open("session=guest"); following.add(guest.id!); guestStore.unavailable = true;
+    await expect(ask(guest, RACE_PRESENT_EVENT, { raceId: RACE })).rejects.toThrow("socket has been disconnected");
+    expect(guest.connected).toBe(false);
+    expect(races.present).not.toHaveBeenCalled(); expect(guestActivity).toEqual([]);
+  });
+
+  it("disconnects a guest revoked in SQL before executing its command", async () => {
+    const guest = await open("session=guest"); following.add(guest.id!); guestStore.invalid = true;
+    const disconnected = new Promise<void>((resolve) => guest.once("disconnect", () => resolve()));
+    guest.emit(RACE_PRESENT_EVENT, { raceId: RACE }, () => undefined); await disconnected;
+    expect(races.present).not.toHaveBeenCalled(); expect(guestActivity).toEqual([]);
   });
 });

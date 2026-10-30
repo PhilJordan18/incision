@@ -1,15 +1,18 @@
+import type { HostPresenceGrace } from "./host-presence-grace";
+import type { GuestPresenceGrace } from "./guest-presence-grace";
+import type { GuestSessionReader } from "./human-handshake";
 import type { EventEmitter } from "node:events";
 import { describeDatabaseError, type ActiveMembership, type RoomRecovery, type RoomSnapshot } from "@incision/database";
-import { parseRoomCode, type RoomPhase } from "@incision/domain";
+import { humanSubjectKey, type HumanSubject, parseRoomCode, type RoomPhase } from "@incision/domain";
 import type { Server, Socket } from "socket.io";
 import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
 import { publicSnapshot } from "../../rooms/public-snapshot";
 import type { RaceService } from "../races/race-service";
 import type { RoomEvents } from "../rooms/room-events";
-import { connectionOf } from "./race-channel";
+import { connectionOf, guestConnectionOf } from "./race-channel";
 import type { RoomPresence } from "./room-presence";
 import type { SessionRegistry } from "./session-registry";
-import { currentSession } from "./socket-server";
+import { currentGuestSession, currentSession } from "./socket-server";
 
 export type RoomChannelDependencies = {
   readonly allowedOrigin: string;
@@ -18,6 +21,10 @@ export type RoomChannelDependencies = {
   /** Committed membership changes, emitted by the server actions. */
   readonly events: EventEmitter<RoomEvents>;
   readonly findActiveMembership: (accountId: string) => Promise<ActiveMembership | undefined>;
+  readonly findGuestMembership?: (guestSessionId: string) => Promise<ActiveMembership | undefined>;
+  readonly readGuest?: GuestSessionReader;
+  readonly guestGrace?: GuestPresenceGrace;
+  readonly hostGrace?: HostPresenceGrace;
   readonly readRoomSnapshot: (lobbyId: string) => Promise<RoomSnapshot | undefined>;
   /** Recovery of races nobody runs any more (ADR-0004); both parts together, or none. */
   readonly raceRecovery?: {
@@ -108,9 +115,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       return;
     }
     const members = new Set(snapshot.members.map((member) => member.memberId));
-    // Everyone following the room gets the snapshot, including the members who just left
-    // or whose room closed: that is how their pages learn it. Then they stop following.
-    io.to(channelOf(lobbyId)).emit(ROOM_SNAPSHOT_EVENT, publicSnapshot(snapshot, presence.onlineMembers(lobbyId)));
+    const publicView = publicSnapshot(snapshot, presence.onlineMembers(lobbyId));
     lastBroadcast.set(lobbyId, Math.max(snapshot.revision, lastBroadcast.get(lobbyId) ?? -1));
     for (const socket of await io.in(channelOf(lobbyId)).fetchSockets()) {
       const watched = watchedRoomOf(socket.data);
@@ -120,11 +125,21 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
         presence.remove(lobbyId, watched.memberId, socket.id);
         socket.data.room = undefined;
         dependencies.races?.unfollow(socket.id);
+        if (socket.data.guestSession !== undefined) {
+          // Ended guest presence receives no further room data, even on an old tab.
+          socket.disconnect(true);
+          continue;
+        }
       }
+      socket.emit(ROOM_SNAPSHOT_EVENT, publicView);
     }
   }
 
   events.on("changed", scheduleBroadcast);
+  events.on("changed", (lobbyId) => {
+    dependencies.guestGrace?.changed(lobbyId);
+    dependencies.hostGrace?.changed(lobbyId);
+  });
   const recovery = recoveryOnWatch(dependencies, {
     scheduleBroadcast,
     followed: (lobbyId) => (io.sockets.adapter.rooms.get(channelOf(lobbyId))?.size ?? 0) > 0,
@@ -149,41 +164,62 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
         socket.disconnect(true);
         return;
       }
-      const session = currentSession(socket, dependencies);
-      if (session === undefined) {
-        acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies RoomWatchAck);
-        return;
-      }
-      const { accountId } = session;
-      const accountWatches = watchesInFlight.get(accountId) ?? 0;
-      if (budget.inFlight || accountWatches >= ACCOUNT_WATCHES_IN_FLIGHT) {
+      if (budget.inFlight) {
         acknowledge({ ok: false, error: "RATE_LIMITED" } satisfies RoomWatchAck);
         return;
       }
       budget.inFlight = true;
-      watchesInFlight.set(accountId, accountWatches + 1);
-      void watch(socket, payload, accountId)
+      void watchAsHuman(socket, payload)
         .catch((): RoomWatchAck => ({ ok: false, error: "UNAVAILABLE" }))
         .then((answer) => acknowledge(answer))
-        .finally(() => {
-          budget.inFlight = false;
-          const left = (watchesInFlight.get(accountId) ?? 1) - 1;
-          if (left > 0) {
-            watchesInFlight.set(accountId, left);
-          } else {
-            watchesInFlight.delete(accountId);
-          }
-        });
+        .finally(() => { budget.inFlight = false; });
     });
 
     socket.on("disconnect", () => {
       dependencies.races?.unfollow(socket.id);
       const watched = watchedRoomOf(socket.data);
       if (watched !== undefined && presence.remove(watched.lobbyId, watched.memberId, socket.id)) {
+        dependencies.hostGrace?.lost(watched);
+        if (socket.data.guestSession !== undefined) dependencies.guestGrace?.lost(watched);
         scheduleBroadcast(watched.lobbyId);
       }
     });
   });
+
+  async function watchAsHuman(socket: Socket, payload: unknown): Promise<RoomWatchAck> {
+    const account = currentSession(socket, dependencies);
+    const guest = account === undefined ? currentGuestSession(socket, dependencies) : undefined;
+    const subject: HumanSubject | undefined = account !== undefined
+      ? { kind: "account", accountId: account.accountId }
+      : guest === undefined ? undefined : { kind: "guest", guestSessionId: guest.proof.id };
+    if (subject === undefined) return { ok: false, error: "UNAUTHORIZED" };
+    // Reserve the shared budget before any SQL, including guest proof revalidation.
+    const key = humanSubjectKey(subject);
+    const inFlight = watchesInFlight.get(key) ?? 0;
+    if (inFlight >= ACCOUNT_WATCHES_IN_FLIGHT) return { ok: false, error: "RATE_LIMITED" };
+    watchesInFlight.set(key, inFlight + 1);
+    try {
+      if (guest !== undefined) {
+        if (dependencies.readGuest === undefined || dependencies.findGuestMembership === undefined) {
+          return { ok: false, error: "UNAUTHORIZED" };
+        }
+        const verified = await dependencies.readGuest(guest.proof);
+        if (verified.kind !== "valid" || verified.session.id !== guest.proof.id ||
+          !Number.isFinite(verified.session.expiresAt.getTime()) || verified.session.expiresAt.getTime() <= now()) {
+          socket.disconnect(true);
+          return { ok: false, error: "UNAUTHORIZED" };
+        }
+        dependencies.registry.refreshGuest(verified.session.id, verified.session.expiresAt.getTime());
+        if (!socket.connected || currentGuestSession(socket, dependencies) === undefined) {
+          return { ok: false, error: "UNAUTHORIZED" };
+        }
+      }
+      return await watch(socket, payload, subject);
+    } finally {
+      const left = (watchesInFlight.get(key) ?? 1) - 1;
+      if (left > 0) watchesInFlight.set(key, left); else watchesInFlight.delete(key);
+    }
+  }
 
   function follow(socket: Socket, room: WatchedRoom): boolean {
     const previous = watchedRoomOf(socket.data);
@@ -201,12 +237,14 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     socket.data.room = undefined;
     dependencies.races?.unfollow(socket.id);
     if (presence.remove(room.lobbyId, room.memberId, socket.id)) {
+      dependencies.hostGrace?.lost(room);
+      if (socket.data.guestSession !== undefined) dependencies.guestGrace?.lost(room);
       scheduleBroadcast(room.lobbyId);
     }
   }
 
   /** Follows the room of `accountId`, whose session the caller has just checked. */
-  async function watch(socket: Socket, payload: unknown, accountId: string): Promise<RoomWatchAck> {
+  async function watch(socket: Socket, payload: unknown, subject: HumanSubject): Promise<RoomWatchAck> {
     const parsed = roomWatchPayloadSchema.safeParse(payload);
     const code = parsed.success ? parseRoomCode(parsed.data.code) : undefined;
     if (code === undefined || !code.ok) {
@@ -214,7 +252,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     }
     let membership: ActiveMembership | undefined;
     try {
-      membership = await dependencies.findActiveMembership(accountId);
+      membership = await (subject.kind === "account" ? dependencies.findActiveMembership(subject.accountId) : dependencies.findGuestMembership?.(subject.guestSessionId));
     } catch (error: unknown) {
       console.error("[rooms] membership check failed:", describeDatabaseError(error));
       return { ok: false, error: "UNAVAILABLE" };
@@ -225,6 +263,19 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     }
     if (membership === undefined || membership.code !== code.code) {
       return { ok: false, error: "NOT_A_MEMBER" };
+    }
+    if (subject.kind === "guest" && currentGuestSession(socket, dependencies) === undefined) {
+      return { ok: false, error: "UNAUTHORIZED" };
+    }
+    if (dependencies.hostGrace !== undefined && !await dependencies.hostGrace.resume(membership)) {
+      return { ok: false, error: "NOT_A_MEMBER" };
+    }
+    if (subject.kind === "guest" && dependencies.guestGrace !== undefined &&
+      !await dependencies.guestGrace.resume(membership)) {
+      return { ok: false, error: "NOT_A_MEMBER" };
+    }
+    if (!socket.connected || (subject.kind === "guest" && currentGuestSession(socket, dependencies) === undefined)) {
+      return { ok: false, error: "UNAUTHORIZED" };
     }
     // Follow before reading, so no change between the read and the join is missed.
     const room = { lobbyId: membership.lobbyId, memberId: membership.memberId };
@@ -241,10 +292,15 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       }
       return { ok: false, error: snapshot === undefined ? "UNAVAILABLE" : "NOT_A_MEMBER" };
     }
+    if (subject.kind === "guest" && (!socket.connected || currentGuestSession(socket, dependencies) === undefined)) {
+      return { ok: false, error: "UNAUTHORIZED" };
+    }
     if (socket.connected) {
       socket.data.room = { ...room, since: snapshot.revision } satisfies WatchedRoom;
       // A member now: the race run here, if any, reaches this tab.
-      dependencies.races?.follow(room.lobbyId, connectionOf(socket, accountId, parsed.data?.pageId));
+      dependencies.races?.follow(room.lobbyId, subject.kind === "account"
+        ? connectionOf(socket, subject.accountId, parsed.data?.pageId)
+        : guestConnectionOf(socket, room.memberId, parsed.data?.pageId));
     }
     await recovery.onWatch(room.lobbyId, snapshot.phase);
     // A broadcast newer than this read went out meanwhile and skipped this socket: one more
@@ -383,4 +439,10 @@ function watchedRoomOf(data: unknown): WatchedRoom | undefined {
     typeof room.since === "number"
     ? { lobbyId: room.lobbyId, memberId: room.memberId, since: room.since }
     : undefined;
+}
+
+/** Internal server projection; never accepted from a client command. */
+export function followedMember(socket: Pick<Socket, "data">): { readonly lobbyId: string; readonly memberId: string } | undefined {
+  const room = watchedRoomOf(socket.data);
+  return room === undefined ? undefined : { lobbyId: room.lobbyId, memberId: room.memberId };
 }

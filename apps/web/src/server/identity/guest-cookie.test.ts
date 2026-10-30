@@ -18,7 +18,8 @@ describe("guest signed cookies", () => {
     const parts = value.split(".");
     for (let i = 0; i < 4; i += 1) {
       const changed = [...parts];
-      changed[i] = `X${changed[i]?.slice(1)}`;
+      const replacement = changed[i]?.startsWith("X") ? "Y" : "X";
+      changed[i] = `${replacement}${changed[i]?.slice(1)}`;
       expect(read(changed.join("."))).toEqual({ kind: "invalid" });
     }
     expect(readGuestCookie(`__Host-incision.guest=${value}`, { secure: true, key: "other-test-only-key-at-least-32-bytes" })).toEqual({ kind: "invalid" });

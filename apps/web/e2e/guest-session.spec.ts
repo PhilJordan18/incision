@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
-import { connectSocket, query, signInWithCredentials } from "./support";
+import { connectSocket, expectNoAccessibilityViolation, expectNoHorizontalScroll, query, signInWithCredentials } from "./support";
 
 const COOKIE = "incision.guest";
 test.use({ locale: "fr-CA" });
@@ -41,7 +41,7 @@ test("forged, expired and malformed cookies cannot be renewed or implicitly repl
   }
 });
 
-test("guest credentials grant no account, room or race access", async ({ page, context, baseURL }) => {
+test("guest credentials grant no account or race access and require room membership", async ({ page, context, baseURL }) => {
   const origin = baseURL ?? "";
   expect((await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } })).status()).toBe(200);
   expect(await (await context.request.get("/api/auth/session")).json()).toBeNull();
@@ -54,7 +54,7 @@ test("guest credentials grant no account, room or race access", async ({ page, c
   const { socket } = await connectSocket(origin, `${COOKIE}=${cookie?.value ?? ""}`);
   try {
     expect(await socket.timeout(5000).emitWithAck("session:whoami", {})).toEqual({ ok: false, error: "UNAUTHORIZED" });
-    expect(await socket.timeout(5000).emitWithAck("room:watch", { code: "ABCDEF" })).toEqual({ ok: false, error: "UNAUTHORIZED" });
+    expect(await socket.timeout(5000).emitWithAck("room:watch", { code: "ABCDEF" })).toEqual({ ok: false, error: "NOT_A_MEMBER" });
   } finally { socket.close(); }
 });
 
@@ -62,14 +62,14 @@ test("a valid account takes precedence without merging or renewing its old guest
   const origin = baseURL ?? "";
   await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } });
   const guest = (await context.cookies()).find((value) => value.name === COOKIE);
-  const before = await query("select * from guest_sessions where id=$1", [guest?.value.split(".")[1]]);
+
   const account = DEMO_ACCOUNTS[0];
   if (!account) throw new Error("Missing fixture account");
   await signInWithCredentials(page, account.login, account.password);
   await expect(page).toHaveURL(/\/account$/);
   const response = await context.request.post("/api/guest/session/renew", { headers: { Origin: origin }, data: {} });
   expect(response.status()).toBe(409);
-  expect(await query("select * from guest_sessions where id=$1", [guest?.value.split(".")[1]])).toEqual(before);
+  expect(await query("select * from guest_sessions where id=$1", [guest?.value.split(".")[1]])).toEqual([]);
   await expect(page).toHaveURL(/\/account$/);
 });
 
@@ -89,4 +89,115 @@ test("malformed account chunks cannot fall back to a valid guest", async ({ cont
   const response = await context.request.post("/api/guest/session/renew", { headers: { Origin: origin }, data: {} });
   expect(response.status()).toBe(401);
   expect(response.headers()["set-cookie"]).toBeUndefined();
+});
+
+
+test("guest room watch is read-only and an explicit renewal updates both live socket deadlines", async ({ context, baseURL }) => {
+  const origin = baseURL ?? "";
+  await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } });
+  const cookie = (await context.cookies()).find((value) => value.name === COOKIE);
+  if (!cookie) throw new Error("Missing guest cookie");
+  const id = cookie.value.split(".")[1];
+  // Synthetic SQL fixture only: public guest admission remains unavailable in this unit.
+  const [room] = await query<{ id: string }>("insert into lobbies(code,capacity) values('GHJKMN',30) returning id");
+  if (!room) throw new Error("Missing fixture room");
+  const [member] = await query<{ id: string }>("insert into lobby_members(lobby_id,guest_session_id,role,display_name,display_name_canonical) values($1,$2,'participant','Visitor','visitor') returning id", [room.id, id]);
+  await query("update guest_sessions set created_at=now()-interval '24 hours', last_seen_at=now()-interval '24 hours'+interval '2 seconds', expires_at=now()+interval '2 seconds' where id=$1", [id]);
+  const header = `${COOKIE}=${cookie.value}`;
+  const { socket: first } = await connectSocket(origin, header);
+  const { socket: second } = await connectSocket(origin, header);
+  try {
+    const before = await query("select last_seen_at,expires_at from guest_sessions where id=$1", [id]);
+    for (const socket of [first, second]) {
+      const ack = await socket.timeout(5000).emitWithAck("room:watch", { code: "GHJKMN" });
+      expect(ack).toMatchObject({ ok: true, selfMemberId: member?.id });
+      expect(JSON.stringify(ack)).not.toContain(id);
+      expect(JSON.stringify(ack)).not.toContain(cookie.value);
+    }
+    expect(await query("select last_seen_at,expires_at from guest_sessions where id=$1", [id])).toEqual(before);
+    expect((await context.request.post("/api/guest/session/renew", { headers: { Origin: origin }, data: {} })).status()).toBe(200);
+    // Cross the old deadline; the explicit accepted POST refreshed both registered tabs.
+    await new Promise((resolve) => setTimeout(resolve, 2_100));
+    expect(first.connected).toBe(true);
+    expect(second.connected).toBe(true);
+    await query("update guest_sessions set created_at=now()-interval '2 days', last_seen_at=now()-interval '25 hours', expires_at=now()-interval '1 hour' where id=$1", [id]);
+    const disconnected = new Promise<void>((resolve) => first.once("disconnect", () => resolve()));
+    first.emit("room:watch", { code: "GHJKMN" }, () => undefined);
+    await disconnected;
+  } finally {
+    first.close(); second.close();
+    await query("delete from lobbies where id=$1", [room.id]);
+  }
+});
+
+test("a non-host guest keeps membership on reconnect, then loses it after the last socket's grace", async ({ context, baseURL }) => {
+  test.setTimeout(45_000);
+  const origin = baseURL ?? "";
+  await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } });
+  const cookie = (await context.cookies()).find((value) => value.name === COOKIE);
+  if (!cookie) throw new Error("Missing guest cookie");
+  const id = cookie.value.split(".")[1];
+  const [room] = await query<{ id: string }>("insert into lobbies(code,capacity) values('PQRSTU',30) returning id");
+  if (!room) throw new Error("Missing fixture room");
+  const [member] = await query<{ id: string; joined_at: Date }>("insert into lobby_members(lobby_id,guest_session_id,role,display_name,display_name_canonical) values($1,$2,'participant','Visitor','visitor') returning id,joined_at", [room.id, id]);
+  if (!member) throw new Error("Missing fixture member");
+  const header = `${COOKIE}=${cookie.value}`;
+  const { socket: first } = await connectSocket(origin, header);
+  const { socket: second } = await connectSocket(origin, header);
+  const sockets = [first, second];
+  try {
+    for (const socket of sockets) expect(await socket.timeout(5000).emitWithAck("room:watch", { code: "PQRSTU" })).toMatchObject({ ok: true, selfMemberId: member.id });
+    first.close();
+    expect(await second.timeout(5000).emitWithAck("room:watch", { code: "PQRSTU" })).toMatchObject({ ok: true, selfMemberId: member.id });
+    second.close();
+    const { socket: returning } = await connectSocket(origin, header); sockets.push(returning);
+    expect(await returning.timeout(5000).emitWithAck("room:watch", { code: "PQRSTU" })).toMatchObject({ ok: true, selfMemberId: member.id });
+    expect(await query("select id,joined_at from lobby_members where id=$1", [member.id])).toEqual([member]);
+    returning.close();
+    await expect.poll(async () => (await query("select id from lobby_members where id=$1", [member.id])).length,
+      { timeout: 35_000, intervals: [500] }).toBe(0);
+    expect(await query("select id from guest_sessions where id=$1", [id])).toEqual([]);
+    const late = await connectSocket(origin, header); sockets.push(late.socket);
+    expect(late.socket.connected).toBe(false);
+    expect(late.error).toBeDefined();
+  } finally {
+    sockets.forEach((socket) => socket.close());
+    await query("delete from lobbies where id=$1", [room.id]);
+  }
+});
+
+test("an active guest must explicitly leave before account login, including a direct Auth.js callback", async ({ page, context, baseURL }) => {
+  const origin = baseURL ?? "";
+  const account = DEMO_ACCOUNTS[0]; if (!account) throw new Error("Missing fixture account");
+  await context.request.post("/api/guest/session", { headers: { Origin: origin }, data: { nickname: "Visitor" } });
+  const guest = (await context.cookies()).find((cookie) => cookie.name === COOKIE);
+  const id = guest?.value.split(".")[1];
+  const [room] = await query<{ id: string }>("insert into lobbies(code,capacity) values('GHJNPR',30) returning id");
+  if (!room) throw new Error("Missing fixture room");
+  await query("insert into lobby_members(lobby_id,guest_session_id,role,display_name,display_name_canonical) values($1,$2,'participant','Visitor','visitor')", [room.id, id]);
+  try {
+    const csrf = await (await context.request.get("/api/auth/csrf")).json() as { csrfToken: string };
+    const direct = await context.request.post("/api/auth/callback/credentials", {
+      headers: { Origin: origin, "X-Auth-Return-Redirect": "1" },
+      form: { csrfToken: csrf.csrfToken, login: account.login, password: account.password, callbackUrl: `${origin}/account` },
+    });
+    expect(await direct.text()).toContain("GuestPresence");
+    expect((await context.cookies()).some((cookie) => cookie.name.startsWith("authjs.session-token"))).toBe(false);
+    await page.goto("/sign-in");
+    await expect(page.getByText("Quitte d’abord ta salle invitée", { exact: false })).toBeVisible();
+    await expect(page.getByLabel("Nom d’utilisateur", { exact: true })).toHaveCount(0);
+    for (const width of [390, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await expectNoHorizontalScroll(page);
+      await expectNoAccessibilityViolation(page);
+      await page.screenshot({ path: `/tmp/guest-transition-${width}.png`, fullPage: true });
+    }
+    await page.getByRole("button", { name: "Confirmer le départ pour me connecter" }).click();
+    await expect(page.getByLabel("Nom d’utilisateur", { exact: true })).toBeVisible();
+    expect(await query("select id from guest_sessions where id=$1", [id])).toEqual([]);
+    expect(await query("select id from lobby_members where guest_session_id=$1", [id])).toEqual([]);
+    expect((await context.cookies()).some((cookie) => cookie.name === COOKIE)).toBe(false);
+    await signInWithCredentials(page, account.login, account.password);
+    await expect(page).toHaveURL(/\/account$/);
+  } finally { await query("delete from lobbies where id=$1", [room.id]); }
 });

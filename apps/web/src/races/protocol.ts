@@ -77,7 +77,7 @@ export type RaceStartAck = z.infer<typeof raceStartAckSchema>;
  */
 export const RACE_CONTROL_EVENT = "race:control";
 export const raceControlPayloadSchema = z.object({ raceId: z.uuid() }).strict();
-export const RACE_CONTROL_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NO_RACE", "RATE_LIMITED"] as const;
+export const RACE_CONTROL_ERRORS = ["UNAVAILABLE", "UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NO_RACE", "RATE_LIMITED"] as const;
 export const raceControlAckSchema = z.union([z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), error: z.enum(RACE_CONTROL_ERRORS) })]);
 export type RaceControlAck = z.infer<typeof raceControlAckSchema>;
 
@@ -90,7 +90,7 @@ export const RACE_PRESENT_EVENT = "race:present";
 export const RACE_ABANDON_EVENT = "race:abandon";
 /** The payload of both: the race they are about; the entrant comes from the session. */
 export const raceEntrantActionPayloadSchema = z.object({ raceId: z.uuid() }).strict();
-export const RACE_ENTRANT_ACTION_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NO_RACE", "SUSPENDED", "RATE_LIMITED"] as const;
+export const RACE_ENTRANT_ACTION_ERRORS = ["UNAVAILABLE", "UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NO_RACE", "SUSPENDED", "RATE_LIMITED"] as const;
 export type RaceEntrantActionError = (typeof RACE_ENTRANT_ACTION_ERRORS)[number];
 export const raceEntrantActionAckSchema = z.union([
   z.object({ ok: z.literal(true) }),
@@ -203,7 +203,7 @@ const keystrokeResultSchema = z.discriminatedUnion("outcome", [
  * or not its controlling tab, no race run here, a lease not confirmed in time (ADR-0004), or
  * more than MAX_BATCHES_PER_SECOND messages.
  */
-export const RACE_BATCH_ERRORS = ["UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NOT_CONTROLLING", "NO_RACE", "SUSPENDED", "RATE_LIMITED"] as const;
+export const RACE_BATCH_ERRORS = ["UNAVAILABLE", "UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NOT_CONTROLLING", "NO_RACE", "SUSPENDED", "RATE_LIMITED"] as const;
 export type RaceBatchError = (typeof RACE_BATCH_ERRORS)[number];
 
 export const raceBatchAckSchema = z.union([

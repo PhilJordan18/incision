@@ -1,5 +1,8 @@
 "use client";
 
+import { guestAwareAction } from "@/identity/guest-browser";
+import { guestConfigureRoomAction } from "@/server/rooms/guest-actions";
+
 import { unstable_rethrow } from "next/navigation";
 import { useCallback, useId, useRef, useState, useTransition } from "react";
 import { TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
@@ -10,6 +13,7 @@ import { configureRoomAction, type ConfigureRoomState } from "@/server/rooms/act
 import { awaitingSettings, draftConflict, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings, type SettingsDraft } from "./room-settings-state";
 
 type Props = {
+  readonly guest?: boolean;
   readonly code: string;
   readonly settings: SavedRoomSettings | undefined;
   readonly host: boolean;
@@ -19,7 +23,7 @@ type Props = {
 };
 
 /** Waiting-room only. The snapshot, never the draft or action ack, supplies the public summary. */
-export function RoomSettingsPanel({ code, settings, host, live, locale, refresh }: Props) {
+export function RoomSettingsPanel({ guest = false, code, settings, host, live, locale, refresh }: Props) {
   const t = roomSettingsCopy(locale);
   const id = useId();
   const editButton = useRef<HTMLButtonElement>(null);
@@ -59,7 +63,7 @@ export function RoomSettingsPanel({ code, settings, host, live, locale, refresh 
     setAnswer({});
     startTransition(async () => {
       try {
-        const result = await configureRoomAction(form);
+        const result = await guestAwareAction(guest, () => guest ? guestConfigureRoomAction(form) : configureRoomAction(form));
         // A malformed/empty reply is not evidence of success.
         setAnswer(result.error !== undefined || result.revision !== undefined ? result : { error: "UNAVAILABLE" });
         if (result.error === undefined && result.revision !== undefined) {

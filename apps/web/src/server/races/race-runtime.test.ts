@@ -1136,3 +1136,74 @@ describe("RaceRuntime: lost connections, inactivity and the confirmed abandon (F
     expect(runtime.state.revision).toBe(revision);
   });
 });
+
+describe("RaceRuntime: live guest members", () => {
+  function guestSetup() {
+    const time = fakeTime();
+    const lease = fakeLease();
+    const store = fakeStore();
+    const first = tab("guest-tab-1", "unused");
+    const second = tab("guest-tab-2", "unused");
+    const guest = { ...first, connection: { ...first.connection, accountId: null, memberId: "guest-member-a" } satisfies RaceConnection };
+    const other = { ...second, connection: { ...second.connection, accountId: null, memberId: "guest-member-b" } satisfies RaceConnection };
+    const followers: RaceConnection[] = [guest.connection, other.connection];
+    const runtime = new RaceRuntime({ ownership, state: created(), language: "fr", store, lease,
+      entrants: [{ ...ALICE, accountId: null, memberId: "guest-member-a" }, { ...BOB, accountId: null, memberId: "guest-member-b" }],
+      now: time.now, schedule: time.schedule, followers: () => followers, onSettled: vi.fn(), log: vi.fn() });
+    return { runtime, time, store, guest, other, followers };
+  }
+
+  it("isolates two guests' control and private typing state by live member, never null account", async () => {
+    const { runtime, time, guest, other } = guestSetup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    expect(guest.last<RaceRevealPayload>(RACE_REVEAL_EVENT)?.selfEntrantId).toBe(ALICE.entrantId);
+    expect(other.last<RaceRevealPayload>(RACE_REVEAL_EVENT)?.selfEntrantId).toBe(BOB.entrantId);
+    expect(runtime.keystrokes(guest.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(other.last<RaceSelfPayload>(RACE_SELF_EVENT)?.snapshot.typed).toEqual([]);
+    const accountWithSameId = tab("account-tab", "guest-member-a");
+    runtime.follow(accountWithSameId.connection);
+    expect(accountWithSameId.last<RaceRevealPayload>(RACE_REVEAL_EVENT)?.selfEntrantId).toBeNull();
+    expect(accountWithSameId.count(RACE_SELF_EVENT)).toBe(0);
+  });
+
+  it("starts a grace only when all guest tabs are lost and transfers control to a returning tab", async () => {
+    const { runtime, time, guest, followers } = guestSetup();
+    const second = { ...guest.connection, id: "second-tab" };
+    followers.push(second);
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    followers.splice(followers.indexOf(guest.connection), 1);
+    runtime.unfollow(guest.connection.id, guest.connection);
+    expect(runtime.state.entrants[0]?.disconnectedAt).toBeUndefined();
+    followers.splice(followers.indexOf(second), 1);
+    runtime.unfollow(second.id, second);
+    expect(runtime.state.entrants[0]?.disconnectedAt).toBe(time.now());
+    await time.advance(29_999);
+    followers.push(guest.connection);
+    runtime.follow(guest.connection);
+    expect(runtime.state.entrants[0]?.disconnectedAt).toBeUndefined();
+    expect(runtime.keystrokes(guest.connection, batch(1, "a"))).toMatchObject({ ok: true, result: { outcome: "applied" } });
+  });
+
+  it("applies committed guest departure only to the matching live guest, idempotently", async () => {
+    const { runtime, time } = guestSetup(); runtime.start(); await time.advance(COUNTDOWN_MS);
+    runtime.guestMemberLeft("guest-member-a"); runtime.guestMemberLeft("guest-member-a");
+    expect(runtime.state.entrants[0]?.status).toBe("abandoned");
+    expect(runtime.state.entrants[1]?.status).toBe("racing");
+    runtime.guestMemberLeft("unrelated");
+    expect(runtime.state.entrants[1]?.status).toBe("racing");
+  });
+
+  it.each([29_999, 30_000, 30_001])("uses D-06's inclusive reconnect deadline at %s ms", async (delay) => {
+    const { runtime, time, guest, followers } = guestSetup();
+    runtime.start();
+    await time.advance(COUNTDOWN_MS);
+    followers.splice(followers.indexOf(guest.connection), 1);
+    runtime.unfollow(guest.connection.id, guest.connection);
+    await time.advance(delay);
+    followers.push(guest.connection);
+    runtime.follow(guest.connection);
+    expect(runtime.state.entrants[0]?.status).toBe(delay <= 30_000 ? "racing" : "abandoned");
+  });
+});

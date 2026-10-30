@@ -57,7 +57,7 @@ async function readBody(request: Request): Promise<unknown> {
 }
 
 /** Foundation endpoint only: it cannot create memberships, accounts or race results. */
-export async function handleGuestRequest(request: Request, operation: "read" | "start" | "renew", dependencies: GuestHttpDependencies): Promise<Response> {
+export async function handleGuestRequest(request: Request, operation: "read" | "start" | "renew" | "refresh", dependencies: GuestHttpDependencies): Promise<Response> {
   const url = new URL(dependencies.origin);
   const secure = url.protocol === "https:";
   if (!secure && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))) return failure("UNAVAILABLE", 503);
@@ -87,9 +87,13 @@ export async function handleGuestRequest(request: Request, operation: "read" | "
     if (result.kind === "unavailable") return failure("UNAVAILABLE", 503);
     if (result.kind === "absent" && operation === "read") return Response.json({ ok: true, status: "absent" }, { headers: HEADERS });
     if (result.kind !== "valid") return failure("UNAUTHORIZED", 401);
+    // Cookie synchronization reads verified SQL/accepted-runtime activity, never creates activity.
+    // Repeating it cannot keep an idle identity alive.
+    const remaining = operation === "refresh" ? Math.min(86_400, Math.ceil((result.session.expiresAt.getTime() - Date.now()) / 1000)) : 86_400;
+    if (!Number.isFinite(remaining) || remaining <= 0) return failure("UNAUTHORIZED", 401);
     // No identity/proof/deadline in JSON. Nickname is an unpersisted draft for later admission.
     return Response.json({ ok: true, status: "guest", ...(nickname === undefined ? {} : { nickname }) }, {
-      headers: { ...HEADERS, ...(operation === "read" ? {} : { "Set-Cookie": guestSetCookie(result.cookie, secure) }) },
+      headers: { ...HEADERS, ...(operation === "read" ? {} : { "Set-Cookie": guestSetCookie(result.cookie, secure, remaining) }) },
     });
   } catch {
     return failure("UNAVAILABLE", 503);

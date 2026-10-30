@@ -55,12 +55,13 @@ const join = (proof: Awaited<ReturnType<typeof guest>>, nickname = "Éva", value
   joinRoomByCodeAsGuest(db, { proof, nickname, code: code(value), role: "participant" });
 
 describe("internal guest admission", () => {
-  it("normalizes the nickname, projects the guest and keeps the same member across tabs without renewal", async () => {
+  it("normalizes the nickname, projects the guest and keeps the same member across tabs without duplicate renewal", async () => {
     const lobbyId = await room(); const proof = await guest();
-    const before = (await pool.query("select * from guest_sessions where id=$1", [proof.id])).rows;
     const first = await join(proof, "  Ｅ́va   Marin  ");
     expect(first).toMatchObject({ ok: true, alreadyMember: false, lobbyId });
     const member = (await pool.query("select * from lobby_members")).rows[0];
+    const before = (await pool.query("select * from guest_sessions where id=$1", [proof.id])).rows;
+    expect(first).toMatchObject({ guestSession: { id: proof.id } });
     const second = await join(proof, "Other");
     expect(second).toMatchObject({ ok: true, alreadyMember: true, memberId: member.id });
     expect((await pool.query("select * from lobby_members")).rows).toEqual([member]);

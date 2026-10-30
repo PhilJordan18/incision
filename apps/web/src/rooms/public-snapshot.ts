@@ -9,11 +9,12 @@ export function publicSnapshot(snapshot: RoomSnapshot, online: ReadonlySet<strin
     capacity: snapshot.capacity,
     revision: snapshot.revision,
     bots: snapshot.bots.map(({ botId, level }) => ({ botId, level })),
-    members: snapshot.members.map(({ memberId, displayName, role, isHost }) => ({
+    members: snapshot.members.map(({ memberId, accountId, displayName, role, isHost }) => ({
       memberId,
       displayName,
       role,
       isHost,
+      ...(accountId === null ? { isGuest: true } : {}),
       online: online.has(memberId),
     })),
     ...(snapshot.race === undefined ? {} : { race: snapshot.race }),

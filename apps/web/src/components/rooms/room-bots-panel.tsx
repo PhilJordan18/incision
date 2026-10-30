@@ -1,5 +1,8 @@
 "use client";
 
+import { guestAwareAction } from "@/identity/guest-browser";
+import { guestChangeRoomBotAction } from "@/server/rooms/guest-actions";
+
 import { BOT_LEVELS } from "@incision/domain";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
@@ -9,7 +12,8 @@ import type { PublicRoomSnapshot } from "@/rooms/protocol";
 import { changeRoomBotAction, type BotActionState } from "@/server/rooms/bot-actions";
 import { card, discreetButton, fieldLabel, monoLabel, secondaryButton, textField } from "@/components/ui/styles";
 
-export function RoomBotsPanel({ snapshot, host, live, locale, refresh }: {
+export function RoomBotsPanel({ guest = false, snapshot, host, live, locale, refresh }: {
+  readonly guest?: boolean;
   readonly snapshot: PublicRoomSnapshot; readonly host: boolean; readonly live: boolean; readonly locale: Locale; readonly refresh: () => void;
 }) {
   const t = roomBotsCopy(locale);
@@ -34,7 +38,7 @@ export function RoomBotsPanel({ snapshot, host, live, locale, refresh }: {
     setAnswer({});
     transition(async () => {
       try {
-        const result = await changeRoomBotAction(form);
+        const result = await guestAwareAction(guest, () => guest ? guestChangeRoomBotAction(form) : changeRoomBotAction(form));
         setAnswer(result.error !== undefined || result.revision !== undefined ? result : { error: "UNAVAILABLE" });
         if (result.revision !== undefined && form.get("kind") === "remove") restoreFocus.current = true;
       } catch (error) {

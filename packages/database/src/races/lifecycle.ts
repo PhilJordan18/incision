@@ -1,9 +1,12 @@
+import { checkTemporaryResults } from "./temporary-results";
 import { randomUUID } from "node:crypto";
 import type { BotLevel, RoomPhase } from "@incision/domain";
 import { lobbyBots } from "../schema/room-bots";
-import { and, asc, count, eq, exists, inArray, isNull, max, notExists, sql } from "drizzle-orm";
+import { and, asc, count, eq, exists, gt, inArray, isNull, max, notExists, or, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { findActiveMembership } from "../rooms/membership";
+import type { GuestSessionProof, GuestSessionRow } from "../identity/guest-sessions";
+import { lockLiveGuest, renewGuestAfterHostAction } from "../rooms/guest-host";
+import { findActiveHumanMembership, findActiveMembership } from "../rooms/membership";
 import { readSettingsRevision } from "../rooms/settings";
 import { firstRow } from "../rows";
 import {
@@ -11,6 +14,7 @@ import {
   type AbandonmentReason,
   type InterruptionReason,
   lobbies,
+  guestSessions,
   lobbyMembers,
   raceEntrants,
   raceResults,
@@ -65,9 +69,10 @@ export type RaceToCreate = {
   readonly entrants: readonly { readonly entrantId: string; readonly kind: "human" | "bot" }[];
 };
 
-export type StartRaceInput<Refusal extends string, Created> = {
-  /** The account asking to start, from its session: it must host the room it occupies. */
-  readonly accountId: string;
+export type StartRaceInput<Refusal extends string, Created> = (
+  { readonly accountId: string; readonly guestProof?: never } |
+  { readonly accountId: null; readonly guestProof: GuestSessionProof }
+) & {
   /** This process (ADR-0004). */
   readonly ownerId: string;
   readonly text: string;
@@ -98,8 +103,9 @@ export type StartRaceResult<Refusal extends string, Created> =
       readonly entrants: readonly StartedEntrant[];
       /** What `create` returned: the race in memory, committed with its rows. */
       readonly created: Created;
+      readonly guestSession?: GuestSessionRow;
     }
-  | { readonly ok: false; readonly error: "NOT_IN_A_ROOM" | "NOT_HOST" | "ROOM_NOT_WAITING" | "SETTINGS_CHANGED" | "GUEST_RESULTS_REQUIRE_ACCOUNT" | Refusal };
+  | { readonly ok: false; readonly error: "NOT_IN_A_ROOM" | "NOT_HOST" | "ROOM_NOT_WAITING" | "SETTINGS_CHANGED" | Refusal };
 
 /**
  * The host starts a race (COURSE-02/03): under the room lock, the room must be waiting, the
@@ -113,7 +119,10 @@ export async function startRace<Refusal extends string, Created>(
   input: StartRaceInput<Refusal, Created>,
 ): Promise<StartRaceResult<Refusal, Created>> {
   return boundedTransaction(db, async (tx): Promise<StartRaceResult<Refusal, Created>> => {
-    const seen = await findActiveMembership(tx, input.accountId);
+    const membership = () => input.accountId === null
+      ? findActiveHumanMembership(tx, { kind: "guest", guestSessionId: input.guestProof.id })
+      : findActiveMembership(tx, input.accountId);
+    const seen = await membership();
     if (seen === undefined) {
       return { ok: false, error: "NOT_IN_A_ROOM" };
     }
@@ -123,7 +132,10 @@ export async function startRace<Refusal extends string, Created>(
       .where(eq(lobbies.id, seen.lobbyId))
       .for("update");
     // Read again under the lock: the account may have left, or the room closed, meanwhile.
-    const current = await findActiveMembership(tx, input.accountId);
+    if (input.accountId === null && !await lockLiveGuest(tx, input.guestProof)) {
+      return { ok: false, error: "NOT_IN_A_ROOM" };
+    }
+    const current = await membership();
     if (lobby === undefined || current?.lobbyId !== lobby.id) {
       return { ok: false, error: "NOT_IN_A_ROOM" };
     }
@@ -140,13 +152,10 @@ export async function startRace<Refusal extends string, Created>(
     const participants = await tx
       .select({ memberId: lobbyMembers.id, accountId: lobbyMembers.accountId, displayName: lobbyMembers.displayName })
       .from(lobbyMembers)
-      .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, "participant"), isNull(lobbyMembers.leftAt)))
+      .leftJoin(guestSessions, eq(guestSessions.id, lobbyMembers.guestSessionId))
+      .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, "participant"), isNull(lobbyMembers.leftAt),
+        or(isNull(lobbyMembers.guestSessionId), gt(guestSessions.expiresAt, sql`statement_timestamp()`))))
       .orderBy(asc(lobbyMembers.joinedAt), asc(lobbyMembers.id));
-    // This preparatory persistence path covers D-08 account histories only. Guest-only
-    // races require a separate temporary-results path, not durable persistence here.
-    if (participants.some((p) => p.accountId === null) && !participants.some((p) => p.accountId !== null)) {
-      return { ok: false, error: "GUEST_RESULTS_REQUIRE_ACCOUNT" };
-    }
     // Ids drawn here, not by the database, so the engine creates the race with the ids the rows keep.
     const raceId = randomUUID();
     const entrants = participants.map(
@@ -228,6 +237,7 @@ export async function startRace<Refusal extends string, Created>(
       },
       entrants,
       created: created.race,
+      ...(input.accountId === null ? { guestSession: await renewGuestAfterHostAction(tx, input.guestProof.id) } : {}),
     };
   }, READ_COMMITTED);
 }
@@ -302,12 +312,16 @@ async function savedBy(tx: Transaction, ownership: RaceOwnership): Promise<boole
   }
   const saved = firstRow(
     await tx
-      .select({ entrants: count(), results: count(raceResults.entrantId) })
+      .select({ entrants: count(), results: count(raceResults.entrantId),
+        humans: sql<number>`count(*) filter (where ${raceEntrants.kind} = 'human')`.mapWith(Number),
+        guests: sql<number>`count(*) filter (where ${raceEntrants.kind} = 'guest')`.mapWith(Number),
+      })
       .from(raceEntrants)
       .leftJoin(raceResults, and(eq(raceResults.raceId, raceEntrants.raceId), eq(raceResults.entrantId, raceEntrants.id)))
       .where(eq(raceEntrants.raceId, ownership.raceId)),
   );
-  return saved.entrants === saved.results;
+  return saved.humans === 0 && saved.guests > 0
+    ? saved.results === 0 : saved.entrants === saved.results;
 }
 
 /** COUNTDOWN → RACING at the common start (COURSE-03), by the owner only: the first fenced write. */
@@ -377,6 +391,13 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
     const entrants = await tx.select({ id: raceEntrants.id, kind: raceEntrants.kind }).from(raceEntrants).where(eq(raceEntrants.raceId, ownership.raceId));
     if (entrants.length !== results.length) {
       throw new Error("Every entrant needs exactly one result");
+    }
+    if (!entrants.some((entrant) => entrant.kind === "human") && entrants.some((entrant) => entrant.kind === "guest")) {
+      // Approved no-account path: keep fencing/room state in SQL, never metrics,
+      // series or private errors. The live process holds the displayed results.
+      checkTemporaryResults(entrants.map((entrant) => entrant.id), results);
+      await moveRoom(tx, ownership.lobbyId, ownership.raceId, "results");
+      return { won: true, alreadyDone: false };
     }
     // After the owner CAS: a losing/replayed attempt writes nothing and validates no new data.
     // Before either insert: malformed series rolls back the phase change too.

@@ -1,4 +1,4 @@
-import { describeDatabaseError, type OwnRoomSettings, type RaceOwnership, type StartRaceInput, type StartRaceResult } from "@incision/database";
+import { describeDatabaseError, type GuestSessionProof, type GuestSessionRow, type OwnRoomSettings, type RaceOwnership, type StartRaceInput, type StartRaceResult } from "@incision/database";
 import {
   asDuration,
   asEntrantId,
@@ -24,13 +24,15 @@ import {
 } from "../../races/protocol";
 import { type LeaseTiming, RaceLease, type Schedule } from "./race-lease";
 import { RaceRegistry, type StopReport } from "./race-registry";
-import { type RaceConnection, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
+import { type RaceConnection, raceConnectionKey, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
 import type { RaceTextDraw, RaceTextSource } from "./race-texts";
 import { isRunnable } from "../rooms/room-settings";
 import { BonusActivationLimiter } from "./bonus-limiter";
 
 /** A tab admitted into a room by the room channel. */
 export type RoomConnection = RaceConnection;
+type StartConnection = (RoomConnection & { readonly accountId: string }) |
+  (RoomConnection & { readonly accountId: null; readonly guestProof: GuestSessionProof });
 
 /**
  * Draws a start makes at most: settings saved between the draw and the room lock refuse the start
@@ -55,6 +57,7 @@ export type RaceServiceOptions = {
     readonly renewRaceLease: (ownership: RaceOwnership) => Promise<{ readonly renewed: boolean }>;
     /** The account's room and its settings, read without a lock before the draw (F-03.1). */
     readonly readOwnRoomSettings: (accountId: string) => Promise<OwnRoomSettings | undefined>;
+    readonly readGuestRoomSettings?: (proof: GuestSessionProof) => Promise<OwnRoomSettings | undefined>;
   };
   /** The server's clock (`serverClock`), in integer milliseconds since the epoch. */
   readonly now: () => number;
@@ -62,6 +65,8 @@ export type RaceServiceOptions = {
   readonly monotonic: () => number;
   readonly schedule: Schedule;
   /** A room's race changed in the database (started, saved, interrupted): its members get a fresh snapshot. */
+  readonly onSavedResults?: (input: { readonly ownership: RaceOwnership; readonly entrants: readonly import("@incision/database").StartedEntrant[]; readonly results: readonly import("@incision/database").RaceResultRow[] }) => void;
+  readonly onGuestActivity?: (session: GuestSessionRow) => void;
   readonly onRoomChanged: (lobbyId: string) => void;
   /**
    * Where race texts come from: the corpus (CorpusTexts, F-02.3b), or the fixed test fixtures
@@ -151,7 +156,7 @@ export class RaceService {
       this.#followers.delete(lobbyId);
     }
     if (leaving !== undefined) {
-      this.#registry.get(lobbyId)?.unfollow(connectionId, leaving.accountId);
+      this.#registry.get(lobbyId)?.unfollow(connectionId, leaving);
     }
   }
 
@@ -161,7 +166,15 @@ export class RaceService {
    * creates the race (`createRace`, with its own checks); once that commits, this process runs it
    * under its lease (ADR-0004).
    */
-  async start(connection: RoomConnection, payload: unknown): Promise<RaceStartAck> {
+  start(connection: RoomConnection & { readonly accountId: string }, payload: unknown): Promise<RaceStartAck> {
+    return this.#startAsHuman(connection, payload);
+  }
+
+  startGuest(connection: RoomConnection & { readonly accountId: null }, proof: GuestSessionProof, payload: unknown): Promise<RaceStartAck> {
+    return this.#startAsHuman({ ...connection, guestProof: proof }, payload);
+  }
+
+  async #startAsHuman(connection: StartConnection, payload: unknown): Promise<RaceStartAck> {
     if (!raceStartPayloadSchema.safeParse(payload).success) {
       return { ok: false, error: "INVALID_PAYLOAD" };
     }
@@ -172,15 +185,16 @@ export class RaceService {
     if (!this.#options.racesOpen) {
       return { ok: false, error: "RACES_CLOSED" };
     }
+    const identity = raceConnectionKey(connection);
     this.#prune(this.#startTimes, START_WINDOW.windowMs);
-    if (!this.#withinWindow(this.#startTimes, connection.accountId, START_WINDOW.maxStarts, START_WINDOW.windowMs)) {
+    if (!this.#withinWindow(this.#startTimes, identity, START_WINDOW.maxStarts, START_WINDOW.windowMs)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
     // One start in flight per account; the database refuses a second start of the room anyway.
-    if (this.#starting.has(connection.accountId)) {
+    if (this.#starting.has(identity)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
-    this.#starting.add(connection.accountId);
+    this.#starting.add(identity);
     try {
       for (let draw = 1; draw <= START_DRAWS; draw += 1) {
         const answer = await this.#drawAndStart(connection);
@@ -192,15 +206,17 @@ export class RaceService {
       this.#logError("[races] start refused: the room settings changed during each draw");
       return { ok: false, error: "UNAVAILABLE" };
     } finally {
-      this.#starting.delete(connection.accountId);
+      this.#starting.delete(identity);
     }
   }
 
   /** One draw with the room's current settings, then the start transaction. */
-  async #drawAndStart(connection: RoomConnection): Promise<RaceStartAck | "SETTINGS_CHANGED"> {
+  async #drawAndStart(connection: StartConnection): Promise<RaceStartAck | "SETTINGS_CHANGED"> {
     let room: OwnRoomSettings | undefined;
     try {
-      room = await this.#options.store.readOwnRoomSettings(connection.accountId);
+      room = connection.accountId === null
+        ? await this.#options.store.readGuestRoomSettings?.(connection.guestProof)
+        : await this.#options.store.readOwnRoomSettings(connection.accountId);
     } catch (error: unknown) {
       this.#logError(`[races] start failed: ${describeDatabaseError(error)}`);
       return { ok: false, error: "UNAVAILABLE" };
@@ -235,7 +251,7 @@ export class RaceService {
   }
 
   async #start(
-    connection: RoomConnection,
+    connection: StartConnection,
     { text, record }: Extract<RaceTextDraw, { ok: true }>,
     lobbyId: string,
     settings: OwnRoomSettings["settings"],
@@ -247,7 +263,9 @@ export class RaceService {
     let started: StartRaceResult<CreateRaceRefusal, BonusRaceState>;
     try {
       started = await store.startRace({
-        accountId: connection.accountId,
+        ...(connection.accountId === null
+          ? { accountId: null, guestProof: connection.guestProof }
+          : { accountId: connection.accountId }),
         ownerId,
         text,
         config: { errorMode, timeLimitMs, wordCount: settings.wordCount, ...record, bonuses: false },
@@ -289,6 +307,7 @@ export class RaceService {
       this.#logError(`[races] start refused by the engine: ${error}`);
       return { ok: false, error: "UNAVAILABLE" };
     }
+    if (started.guestSession !== undefined) this.#options.onGuestActivity?.(started.guestSession);
     const ownership: RaceOwnership = started.race;
     const runtime = this.#runtime({ ownership, state: started.created, entrants: started.entrants, acquiredAt, language: record.language });
     if (!this.#registry.add(runtime)) {
@@ -310,7 +329,7 @@ export class RaceService {
   }: {
     readonly ownership: RaceOwnership;
     readonly state: BonusRaceState;
-    readonly entrants: readonly import("./race-runtime").RaceEntrant[];
+    readonly entrants: readonly import("@incision/database").StartedEntrant[];
     readonly acquiredAt: number;
     readonly language: Locale;
   }): RaceRuntime {
@@ -349,6 +368,8 @@ export class RaceService {
       schedule,
       followers: () => this.#followers.get(ownership.lobbyId)?.values() ?? [],
       onSettled: (settled, outcome) => {
+        const results = runtime.resultsForDisplay();
+        if (outcome === "saved" && results !== undefined) this.#options.onSavedResults?.({ ownership: settled, entrants, results });
         this.#registry.remove(settled);
         this.#options.onRoomChanged(settled.lobbyId);
         if (outcome === "lost") {
@@ -376,7 +397,7 @@ export class RaceService {
 
   /** One keystroke batch from a tab (F-04.4): bounded per tab, structure checked, then the engine. */
   keystrokes(connection: RoomConnection, payload: unknown): RaceBatchAck {
-    if (!this.#withinWindow(this.#batchTimes, connection.accountId, MAX_BATCHES_PER_SECOND, BATCH_WINDOW_MS)) {
+    if (!this.#withinWindow(this.#batchTimes, raceConnectionKey(connection), MAX_BATCHES_PER_SECOND, BATCH_WINDOW_MS)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
     const parsed = parseKeystrokeBatch(payload);
@@ -391,7 +412,7 @@ export class RaceService {
   activateBonus(connection: RoomConnection, payload: unknown): BonusActivationAck {
     const followed = this.#followed(connection);
     if (followed === undefined) return { ok: false, error: "NO_RACE" };
-    if (!this.#bonusLimiter.allow(connection.accountId)) return { ok: false, error: "RATE_LIMITED" };
+    if (!this.#bonusLimiter.allow(raceConnectionKey(connection))) return { ok: false, error: "RATE_LIMITED" };
     const parsed = bonusActivationPayloadSchema.safeParse(payload);
     if (!parsed.success) return { ok: false, error: "INVALID_PAYLOAD" };
     return followed.runtime.activateBonus(followed.connection, parsed.data);
@@ -405,7 +426,7 @@ export class RaceService {
     }
     // Per account as well as per socket: many tabs taking the input in turn would multiply the
     // state sent to every one of them.
-    if (!this.#withinWindow(this.#controlTimes, connection.accountId, CONTROL_WINDOW.maxRequests, CONTROL_WINDOW.windowMs)) {
+    if (!this.#withinWindow(this.#controlTimes, raceConnectionKey(connection), CONTROL_WINDOW.maxRequests, CONTROL_WINDOW.windowMs)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
     const followed = this.#followed(connection);
@@ -435,7 +456,7 @@ export class RaceService {
     if (!parsed.success) {
       return { ok: false, error: "INVALID_PAYLOAD" };
     }
-    if (!this.#withinWindow(this.#entrantActionTimes, connection.accountId, ENTRANT_ACTION_WINDOW.maxRequests, ENTRANT_ACTION_WINDOW.windowMs)) {
+    if (!this.#withinWindow(this.#entrantActionTimes, raceConnectionKey(connection), ENTRANT_ACTION_WINDOW.maxRequests, ENTRANT_ACTION_WINDOW.windowMs)) {
       return { ok: false, error: "RATE_LIMITED" };
     }
     const followed = this.#followed(connection);
@@ -457,6 +478,15 @@ export class RaceService {
     } else {
       runtime.memberLeft(accountId);
     }
+  }
+
+  roomClosed(lobbyId: string): void {
+    this.#registry.get(lobbyId)?.roomClosed();
+  }
+
+  /** Server-committed guest departure, addressed by live membership only. */
+  guestMemberLeft(lobbyId: string, memberId: string): void {
+    this.#registry.get(lobbyId)?.guestMemberLeft(memberId);
   }
 
   /** SIGTERM: no new start, then each race ends through its own shutdown (ADR-0004). */
@@ -499,7 +529,7 @@ export class RaceService {
     const lobbyId = this.#rooms.get(connection.id);
     const followed = lobbyId === undefined ? undefined : this.#followers.get(lobbyId)?.get(connection.id);
     const runtime = lobbyId === undefined ? undefined : this.#registry.get(lobbyId);
-    return followed === undefined || runtime === undefined || followed.accountId !== connection.accountId ? undefined : { runtime, connection: followed };
+    return followed === undefined || runtime === undefined || raceConnectionKey(followed) !== raceConnectionKey(connection) ? undefined : { runtime, connection: followed };
   }
 }
 

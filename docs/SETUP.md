@@ -65,6 +65,66 @@ Les tests d'intégration de la course lancent eux aussi le build de production, 
 npm run test:integration -w @incision/web
 ```
 
+## 3 ter. Activer explicitement le parcours invité (#31)
+
+La copie de `.env.example` laisse `GUEST_ENTRY_ENABLED=false` et
+`GUEST_SESSION_SECRET` vide. Sans activation, le lien invité est masqué, `/guest`
+indique son indisponibilité et les actions d'admission sont refusées. Ce flag ne
+coupe pas globalement les API d'identité invitée ni les sockets déjà livrés.
+
+Procédure pour un **environnement de développement isolé choisi explicitement**,
+pas pour la recette partagée, ses données ou ses sauvegardes :
+
+1. Utiliser une version contenant le parcours invité et sa base migrée par la
+   procédure habituelle (migrations publiées immuables, aucune ancienne migration
+   cloud à réappliquer). Aucun changement de schéma supplémentaire n'est nécessaire
+   pour ce raccordement navigateur.
+2. Dans le `.env` ignoré de cet environnement seulement, renseigner
+   `GUEST_SESSION_SECRET` avec une nouvelle clé aléatoire dédiée, par exemple générée
+   séparément avec `openssl rand -base64 32`. Ne pas réutiliser `AUTH_SECRET`, une
+   clé de test ou celle d'un autre environnement. Le serveur accepte 32 à 1 024
+   octets ; ne jamais publier la valeur, la journaliser ni employer `NEXT_PUBLIC_`.
+3. Définir explicitement `GUEST_ENTRY_ENABLED=true`, puis redémarrer le serveur
+   personnalisé. Toute autre valeur ferme l'entrée. Une clé absente/invalide rend
+   l'identité invitée indisponible, même si le flag vaut `true`.
+4. Conserver `APP_URL` et `AUTH_URL` sur la même origine. Pour courir, les prérequis
+   existants restent nécessaires : `RACES_ENABLED=true` et corpus compatible.
+   Un invité rejoint par code une salle existante ; il ne crée pas de salle.
+5. Depuis un navigateur avec JavaScript et Web Locks (contexte sécurisé : HTTPS,
+   ou localhost en développement), ouvrir `/guest`, puis vérifier deux onglets,
+   le refus d'un pseudo occupé, une course et le départ avant connexion à un compte.
+   Sans Web Locks, l'entrée invitée est refusée explicitement ; la connexion locale
+   des comptes reste utilisable sans JavaScript.
+
+Le cookie reste HttpOnly ; seul le serveur utilise la clé. La synchronisation du
+cookie déclenchée par les événements temps réel suit une activité acceptée, au plus
+une fois par minute par onglet monté, sans heartbeat de renouvellement. Les actions
+HTTP acceptées peuvent aussi rafraîchir le cookie dans leur réponse. Une réponse perdue peut laisser le cookie expirer
+avant la session SQL. Les résultats temporaires sont en mémoire du processus : un
+redémarrage peut les perdre et interrompt les courses selon les règles existantes.
+L'activité de frappe acceptée est maintenue en mémoire et persistée par lots
+(intervalle de 60 secondes), avec son horodatage d'acceptation + 24 h, jamais celui
+du flush. L'arrêt normal tente de vider les écritures en attente ; un arrêt brutal
+peut perdre l'activité depuis le dernier checkpoint. Les pauses du processus ou
+les délais SQL ne permettent pas de promettre une fenêtre de perte strictement
+limitée à 60 secondes. Après redémarrage, l'échéance SQL fait autorité ; une panne
+de persistance coupe les sockets invités concernés. Le rafraîchissement du cookie
+peut lire l'échéance acceptée en mémoire après validation SQL du justificatif,
+sans créer d'activité. Ce fonctionnement suppose le runtime à instance unique ;
+les mutations de présence utilisent une barrière locale, pas un protocole de
+révocation distribué.
+
+La purge physique peut prendre du retard pendant une panne ; l'expiration des
+droits reste vérifiée côté serveur. Ce mécanisme ne constitue pas un cache distribué.
+
+Les E2E configurent eux-mêmes `GUEST_ENTRY_ENABLED=true`, une clé invitée aléatoire
+éphémère distincte de celle des comptes et `RACES_ENABLED=true`, sur leur base
+jetable. Ne pas recopier leurs clés ni `RACE_FIXTURE_TEXTS` dans un environnement
+réel. Le [rapport #187](evidence/f01-1ce-guest-realtime/README.md) distingue les tests
+exécutés et les validations humaines restantes. Aucun accès à la recette ou à une
+ressource distante n'est autorisé par cette procédure ; voir aussi
+[Activation invitée](DEPLOYMENT.md#activation-invitée-31).
+
 ## 4. Ajouter les modules de l'application
 
 `packages/domain` (règles pures) et `packages/database` (schéma Drizzle, migrations, création de salle) existent déjà; `packages/contracts` sera créé avec les premiers événements temps réel partagés. Ajouter les dépendances avec `npm install --workspace=<path>` et garder des **versions stables verrouillées par `package-lock.json`**.

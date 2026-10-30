@@ -30,6 +30,12 @@ const selfState = (raceId: string, status: string, abandonReason?: string) => ({
 });
 
 describe("RaceClient", () => {
+  it("forgets private guest typing and race data when presence ends", () => {
+    const client = new RaceClient({ now: () => 0, schedule: () => () => undefined });
+    client.reveal(reveal(RACE)); client.self(selfState(RACE, "racing"));
+    client.forget(); client.forget();
+    expect(client.getState()).toEqual({ entrants: [], selfEntrantId: null, confirming: false });
+  });
   it("shows why its entrant abandoned, and forgets it with the next race", () => {
     const client = new RaceClient({ now: () => 0, schedule: () => () => undefined });
     client.reveal(reveal(RACE));

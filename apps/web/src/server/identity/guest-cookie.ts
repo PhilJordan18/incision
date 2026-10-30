@@ -65,6 +65,7 @@ export function readGuestCookie(header: string | null, options: { readonly secur
 }
 
 /** Values are produced by the codec, never echoed from an unvalidated request. */
-export function guestSetCookie(value: string, secure: boolean): string {
-  return `${guestCookieName(secure)}=${value}; Path=/; Max-Age=${GUEST_IDLE_SECONDS}; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
+export function guestSetCookie(value: string, secure: boolean, maxAge: number = GUEST_IDLE_SECONDS): string {
+  if (!Number.isSafeInteger(maxAge) || maxAge <= 0 || maxAge > GUEST_IDLE_SECONDS) throw new RangeError("Invalid guest cookie lifetime");
+  return `${guestCookieName(secure)}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
 }

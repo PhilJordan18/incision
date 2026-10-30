@@ -37,6 +37,7 @@ export default defineConfig({
       AUTH_URL: baseURL,
       AUTH_SECRET: process.env.E2E_AUTH_SECRET,
       GUEST_SESSION_SECRET: guestSessionSecret,
+      GUEST_ENTRY_ENABLED: "true",
       DATABASE_URL: process.env.E2E_DATABASE_URL,
       E2E_DATABASE_URL: process.env.E2E_DATABASE_URL,
       // As in production (one trusted front end). Requests without X-Forwarded-For keep the TCP
