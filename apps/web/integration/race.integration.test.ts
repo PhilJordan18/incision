@@ -231,22 +231,23 @@ describe("an integrated race (F-04.0)", () => {
     // The guest's Enter: the server applies the extension to the leader, the host, with three words of the reviewed list.
     const ack = (await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })) as { ok: boolean; result?: { ok: boolean; receipt?: { grant: { kind: string }; targetId: string } } };
     expect(ack).toMatchObject({ ok: true, result: { ok: true, receipt: { grant: { kind: "extendLeader" }, targetId: hostId } } });
-    const extended = (await h.next("race:self", (payload: RaceSelfPayload) => payload.snapshot.textVersion === 1, 5_000)) as RaceSelfPayload;
-    expect(extended.snapshot.target.slice(0, reveal.reveal.text.length)).toEqual(reveal.reveal.text);
-    const added = extended.snapshot.target.slice(reveal.reveal.text.length).join("").trim().split(/\s+/);
-    expect(added).toHaveLength(3);
-    const listed = new Set(WORD_LISTS.fr.entries.map((entry) => entry.word));
-    const excluded = new Set(EXCLUSIONS.fr.words);
-    // With capitals and punctuation on (D-19), only the first word may take a capital, after a sentence end.
-    added.forEach((word, index) => {
-      const entry = index === 0 ? word.charAt(0).toLocaleLowerCase("fr") + word.slice(1) : word;
-      expect(listed.has(entry), word).toBe(true);
-      expect(excluded.has(entry), word).toBe(false);
-    });
     // The bot uses its own grant within its delay (D-16), through the same transition, announced to every follower.
     const announced = (await h.next("race:bonus:announcement", (payload: { announcement: { type: string; receipt?: { grant: { entrantId: string } } } }) =>
       payload.announcement.type === "activated" && payload.announcement.receipt?.grant.entrantId === botId, 15_000)) as { announcement: { receipt: { grant: { kind: string }; targetId: string } } };
     expect(announced.announcement.receipt).toMatchObject({ grant: { kind: "extendLeader" }, targetId: hostId });
+    // Both extensions, the guest's and the bot's in either order, lengthen the host's text by three words each.
+    const extended = (await h.next("race:self", (payload: RaceSelfPayload) => payload.snapshot.textVersion === 2, 5_000)) as RaceSelfPayload;
+    expect(extended.snapshot.target.slice(0, reveal.reveal.text.length)).toEqual(reveal.reveal.text);
+    const added = extended.snapshot.target.slice(reveal.reveal.text.length).join("").trim().split(/\s+/);
+    expect(added).toHaveLength(6);
+    const listed = new Set(WORD_LISTS.fr.entries.map((entry) => entry.word));
+    const excluded = new Set(EXCLUSIONS.fr.words);
+    // With capitals and punctuation on (D-19), only an extension's first word may take a capital, after a sentence end.
+    added.forEach((word, index) => {
+      const entry = index % 3 === 0 ? word.charAt(0).toLocaleLowerCase("fr") + word.slice(1) : word;
+      expect(listed.has(entry), word).toBe(true);
+      expect(excluded.has(entry), word).toBe(false);
+    });
     expect(JSON.stringify(announced)).not.toMatch(/"random"|"seed"|"cursors"|"words"/);
   }, 90_000);
 
