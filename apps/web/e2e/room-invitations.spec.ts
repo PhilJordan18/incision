@@ -25,7 +25,10 @@ for (const locale of ["fr-CA", "en-US"]) test(`invitation lifecycle, privacy and
   await query("update lobbies set visibility='private' where code=$1", [code]);
   const panel = host.getByRole("region", { name: "Invitations", exact: true });
   await expect(panel).toHaveCount(1);
-  await panel.getByRole("button", { name: /^(Générer une invitation|Generate an invitation)$/ }).click();
+  const generate = panel.getByRole("button", { name: /^(Générer une invitation|Generate an invitation)$/ });
+  await generate.focus();
+  await expect(generate).toBeFocused();
+  await generate.press("Enter");
   const field = panel.getByLabel(/^(Lien d’invitation|Invitation link)$/);
   await expect(field).toHaveValue(/\/invite#[A-Za-z0-9_-]{43}$/);
   const link = await field.inputValue(); const token = link.split("#")[1]!;
@@ -34,7 +37,10 @@ for (const locale of ["fr-CA", "en-US"]) test(`invitation lifecycle, privacy and
   await member.goto(link);
   await expect(member.getByRole("heading", { name: /^(Rejoindre par invitation|Join by invitation)$/ })).toBeVisible();
   await expectNoAccessibilityViolation(member);
-  await member.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
+  const enter = member.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ });
+  await enter.focus();
+  await expect(enter).toBeFocused();
+  await enter.press("Enter");
   await expect(member).toHaveURL(new RegExp(`/rooms/${code}$`));
   await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
   expect(urls.every((url) => !url.includes(token))).toBe(true);
@@ -55,9 +61,13 @@ for (const locale of ["fr-CA", "en-US"]) test(`invitation lifecycle, privacy and
   await host.reload();
   await expect(host.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
   await panel.getByRole("button", { name: /^(Afficher \/ actualiser les invitations|Show \/ refresh invitations)$/ }).click();
+  await expect(panel.getByRole("listitem")).toContainText("Member");
   for (const theme of ["abysse", "aube"]) {
-    await host.evaluate((value) => document.documentElement.dataset.theme = value, theme);
-    for (const width of [1440, 1024, 390]) {
+    if (await host.locator("html").getAttribute("data-theme") !== theme) {
+      await host.getByRole("button", { name: /^(Passer au thème|Switch to the)/ }).click();
+    }
+    await expect(host.locator("html")).toHaveAttribute("data-theme", theme);
+    for (const width of [1440, 1024, 390, 360]) {
       await host.setViewportSize({ width, height: 1000 });
       await expectNoHorizontalScroll(host); await expectNoAccessibilityViolation(host);
       await host.screenshot({ path: info.outputPath(`${locale}-${theme}-${width}.png`), fullPage: true });

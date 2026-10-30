@@ -8,6 +8,7 @@ import { createGuestSession } from "../src/identity/guest-sessions";
 import { createRoomWithHost } from "../src/rooms/create-room";
 import { canResumeInvitationMembership, createRoomInvitation, joinRoomByInvitation, listRoomInvitations, revokeRoomInvitation } from "../src/rooms/invitations";
 import { joinRoomByCode } from "../src/rooms/membership";
+import { closeRoom } from "../src/rooms/host-actions";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let database: TemporaryDatabase;
@@ -58,6 +59,33 @@ async function binding() {
 }
 
 describe("room invitations", () => {
+  it("serializes closure against first use without allowing a later resume", async () => {
+    const { host, lobbyId } = await fixture();
+    const bob = await account("Bob");
+    const [admission, closure] = await Promise.all([join(bob), closeRoom(db, { accountId: host, code })]);
+    expect(closure).toEqual({ ok: true, lobbyId });
+    expect(admission.ok || (!admission.ok && admission.error === "INVITATION_UNAVAILABLE")).toBe(true);
+    expect(await join(bob)).toEqual(unavailable);
+    expect((await pool.query("select count(*)::int as count from lobby_members where lobby_id=$1 and left_at is null", [lobbyId])).rows[0].count).toBe(0);
+  });
+
+  it("allows a verified guest successor to manage links but rejects its forged proof and the former host", async () => {
+    const { host, lobbyId } = await fixture();
+    const proof = { id: randomUUID(), secretDigest: "e".repeat(64) };
+    await createGuestSession(db, proof);
+    const admitted = await joinRoomByInvitation(db, { tokenDigest, actor: { kind: "guest", proof, nickname: "Sailor" },
+      role: "participant", addressDigestForRoom: () => address });
+    if (!admitted.ok) throw new Error("Guest fixture admission failed");
+    await pool.query("update lobbies set host_member_id=$2 where id=$1", [lobbyId, admitted.memberId]);
+    const actor = { accountId: null, guestProof: proof, code };
+    expect(await listRoomInvitations(db, { ...actor, page: 0 })).toMatchObject({ ok: true });
+    expect(await listRoomInvitations(db, { accountId: host, code, page: 0 })).toEqual(unavailable);
+    expect(await createRoomInvitation(db, { ...actor, guestProof: { ...proof, secretDigest: "f".repeat(64) }, tokenDigest: "c".repeat(64) })).toEqual(unavailable);
+    const created = await createRoomInvitation(db, { ...actor, tokenDigest: "c".repeat(64) });
+    if (!created.ok) throw new Error("Guest host invitation failed");
+    expect(await revokeRoomInvitation(db, { ...actor, invitationId: created.invitationId })).toMatchObject({ ok: true });
+  });
+
   it("enforces the bound IP on direct resume, including after link revocation", async () => {
     const { host, invitationId } = await fixture();
     const bob = await account("Bob");
