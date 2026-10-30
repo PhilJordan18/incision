@@ -11,7 +11,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
-import { account, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, startStallingProxy, type StallingProxy, type Tab } from "./servers";
+import { account, BONUS_SEED_EXTEND, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, startStallingProxy, type StallingProxy, type Tab } from "./servers";
 
 /**
  * F-04.0 integration evidence, without a browser: real server processes (production build),
@@ -192,24 +192,20 @@ describe("an integrated race (F-04.0)", () => {
     expect(hidden).not.toContain("Invitée");
   }, 90_000);
 
-  it("runs an Arcade race with two people and a bot: grants, a player's Enter, the bot's own activation, frozen in the race (C3, D-16, D-18)", async () => {
+  it("runs an Arcade race with two people and a bot: grants, a player's extension from the reviewed lists, the bot's own activation, frozen in the race (C3, D-16, D-18)", async () => {
     const a = servers[0];
     if (a === undefined) throw new Error("no server");
+    // The servers run with BONUS_SEED_EXTEND: every grant is extendLeader, whoever receives it at each milestone.
+    // Extension words come from the reviewed lists (C1), never the fixtures.
+    expect([WORD_LISTS.fr, EXCLUSIONS.fr, FORBIDDEN_PAIRS.fr].map((data) => data.version.startsWith("fixture"))).toEqual([false, false, false]);
     const host = await account("int-host-arcade", "Hôte arcade");
     const guest = await account("int-guest-arcade", "Invitée arcade");
     const code = parseRoomCode(await room(host, [guest]));
     if (!code.ok) throw new Error("bad code");
     const arcade = { textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, bonusesEnabled: true } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: arcade })).toMatchObject({ ok: true, revision: 1 });
-    // Each bot's first grant has a random kind. extendLeader needs approved words: while only the fixtures
-    // ship it is refused and, first in FIFO order, blocks that bot's other grants. With approved lists every
-    // bot can act; without them, six bots leave a (1/3)^6 ≈ 0.14 % chance that none can.
-    const approvedWords = ![WORD_LISTS.fr, EXCLUSIONS.fr, FORBIDDEN_PAIRS.fr].some((data) => data.version.startsWith("fixture"));
-    const botCount = approvedWords ? 1 : 6;
-    for (let added = 0; added < botCount; added++) {
-      const [lobby] = await query<{ revision: number }>("select revision from lobbies where code = $1", [code.code]);
-      expect(await changeRoomBots(db(), { accountId: host.id, code: code.code, revision: lobby?.revision ?? 0, change: { kind: "add", level: "noob" } })).toMatchObject({ ok: true });
-    }
+    const [lobby] = await query<{ revision: number }>("select revision from lobbies where code = $1", [code.code]);
+    expect(await changeRoomBots(db(), { accountId: host.id, code: code.code, revision: lobby?.revision ?? 0, change: { kind: "add", level: "noob" } })).toMatchObject({ ok: true });
     const h = await tab(a.origin, host.cookie);
     const g = await tab(a.origin, guest.cookie);
     expect(await h.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { bonusesEnabled: true } } });
@@ -218,28 +214,40 @@ describe("an integrated race (F-04.0)", () => {
     const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
     const hostReveal = (await h.next("race:reveal")) as RaceRevealPayload;
     const raceId = reveal.reveal.raceId;
-    const people = new Set([reveal.selfEntrantId, hostReveal.selfEntrantId]);
-    const bots = new Set(reveal.entrants.filter((entrant) => !people.has(entrant.entrantId)).map((entrant) => entrant.entrantId));
-    expect(reveal.entrants).toHaveLength(2 + botCount);
-    expect(bots.size).toBe(botCount);
+    const hostId = hostReveal.selfEntrantId;
+    const botId = reveal.entrants.find((entrant) => entrant.entrantId !== hostId && entrant.entrantId !== reveal.selfEntrantId)?.entrantId;
+    expect(reveal.entrants).toHaveLength(3);
+    expect(botId).toBeDefined();
     const [stored] = await query<{ config: Record<string, unknown> }>("select config_snapshot as config from races where id = $1", [raceId]);
     expect(stored?.config.bonuses).toBe(true);
+    // The fixed seed is the test build's, never stored with the race.
+    expect(JSON.stringify(stored?.config)).not.toContain(BONUS_SEED_EXTEND.join(","));
     await startsAt(reveal);
-    // The host leads past 75 %; the guest and the bot fall behind and receive grants.
-    await typeAll(h, raceId, reveal.reveal.text.slice(0, Math.ceil(reveal.reveal.text.length * 0.8)));
+    // The host leads past 75 %; the guest (last, at 0) receives a grant at 25 %, the bot once it is far behind.
+    const typed = Math.ceil(reveal.reveal.text.length * 0.8);
+    await typeAll(h, raceId, reveal.reveal.text.slice(0, typed));
     const self = (await g.next("race:bonus:self", (payload: { grants: readonly unknown[] }) => payload.grants.length > 0, 10_000)) as { grants: { milestone: number; kind: string }[] };
-    expect(self.grants[0]?.milestone).toBe(25);
-    // The guest's Enter: the server decides the effect. extendLeader needs approved words: without them
-    // it is refused and keeps the grant, never served from fixtures.
-    const ack = (await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })) as { ok: boolean; result?: { ok: boolean; reason?: string } };
-    expect(ack.ok).toBe(true);
-    // A refusal keeps the grant. Besides missing words, it can only come from the race's state: the bots
-    // act on their own delays and may already have fogged the same target.
-    if (ack.result?.ok === false) expect(["CONTENT_UNAVAILABLE", "FOG_ALREADY_ACTIVE", "NO_VALID_TARGET"]).toContain(ack.result.reason);
-    // A bot uses its own grant within its delay, announced to every follower like a player's.
+    expect(self.grants[0]).toEqual({ milestone: 25, kind: "extendLeader" });
+    // The guest's Enter: the server applies the extension to the leader, the host, with three words of the reviewed list.
+    const ack = (await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })) as { ok: boolean; result?: { ok: boolean; receipt?: { grant: { kind: string }; targetId: string } } };
+    expect(ack).toMatchObject({ ok: true, result: { ok: true, receipt: { grant: { kind: "extendLeader" }, targetId: hostId } } });
+    const extended = (await h.next("race:self", (payload: RaceSelfPayload) => payload.snapshot.textVersion === 1, 5_000)) as RaceSelfPayload;
+    expect(extended.snapshot.target.slice(0, reveal.reveal.text.length)).toEqual(reveal.reveal.text);
+    const added = extended.snapshot.target.slice(reveal.reveal.text.length).join("").trim().split(/\s+/);
+    expect(added).toHaveLength(3);
+    const listed = new Set(WORD_LISTS.fr.entries.map((entry) => entry.word));
+    const excluded = new Set(EXCLUSIONS.fr.words);
+    // With capitals and punctuation on (D-19), only the first word may take a capital, after a sentence end.
+    added.forEach((word, index) => {
+      const entry = index === 0 ? word.charAt(0).toLocaleLowerCase("fr") + word.slice(1) : word;
+      expect(listed.has(entry), word).toBe(true);
+      expect(excluded.has(entry), word).toBe(false);
+    });
+    // The bot uses its own grant within its delay (D-16), through the same transition, announced to every follower.
     const announced = (await h.next("race:bonus:announcement", (payload: { announcement: { type: string; receipt?: { grant: { entrantId: string } } } }) =>
-      payload.announcement.type === "activated" && bots.has(payload.announcement.receipt?.grant.entrantId ?? ""), 15_000)) as object;
-    expect(JSON.stringify(announced)).not.toMatch(/"random"|"seed"|"cursors"/);
+      payload.announcement.type === "activated" && payload.announcement.receipt?.grant.entrantId === botId, 15_000)) as { announcement: { receipt: { grant: { kind: string }; targetId: string } } };
+    expect(announced.announcement.receipt).toMatchObject({ grant: { kind: "extendLeader" }, targetId: hostId });
+    expect(JSON.stringify(announced)).not.toMatch(/"random"|"seed"|"cursors"|"words"/);
   }, 90_000);
 
   it("notices a runner whose connection goes silent within about 15 s, keeps its place 30 s, then ranks it as abandoned (D-06)", async () => {
@@ -413,7 +421,8 @@ describe("an integrated race (F-04.0)", () => {
 
   it("draws the race text from the imported corpus in production, refuses without one, and records the passage", async () => {
     // The process of the previous test has exited: its port is free again.
-    const c = await startServer(PORTS[1] ?? 3302, { RACE_FIXTURE_TEXTS: "" });
+    // A corpus server, as in production: no fixtures, so no test seed either.
+    const c = await startServer(PORTS[1] ?? 3302, { RACE_FIXTURE_TEXTS: "", RACE_TEST_BONUS_SEED: "" });
     servers.push(c);
     expect(c.output()).toContain("[races] race texts: drawn from the active corpus (coherent, room word count, medium)");
     expect(c.output()).not.toContain("RACE_FIXTURE_TEXTS=allowed");
