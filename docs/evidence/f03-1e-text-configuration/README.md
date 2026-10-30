@@ -8,9 +8,9 @@ of 30 October 2026.
 ## Migration number and dependencies
 
 - **Number.** The coordinator assigned `0016` to this slice, after Codex's `0015` (invitations, L2). The technical order is L2 → C2 → C3 → L3.
-- **Local state.** On this branch, the migration is still `0015_lobby_text_settings`. Once Codex's exact `0015` ref is known, it is regenerated with `drizzle-kit generate` on top of it, with its snapshot and journal entry. No file is renamed and no published migration is touched (request on #45).
-- **Upgrade test.** It counts the applied migrations from its predecessor's journal index. Its predecessor becomes `0015` of L2.
-- **Base of the PR.** It is `dev` if L2 has merged by then. Otherwise the PR is stacked on L2, and the stack is announced before publication.
+- **Regenerated.** The migration is `0016_lobby_text_settings`. It was regenerated with `drizzle-kit generate` after L2's published `0015_room_invitations` (`115817d`, merged into `dev` by PR #190). The local `0015` was deleted first (`549bd5b`) and the merge came next (`d90526c`). The regeneration is `f3db6dc`; its SQL is byte-identical to the earlier local migration. No file was renamed, and no published migration was touched.
+- **Upgrade test.** It counts the applied migrations from its predecessor's journal index; its predecessor is `0015_room_invitations`.
+- **Base of the PR.** `dev`. L2 (#190) and C1 (#188) were merged by Philippe and are brought in by merging `dev`.
 - **Development.** The migration was developed and tested on an isolated local database only.
 
 ## What changed
@@ -42,15 +42,9 @@ of 30 October 2026.
 
 ## Merge order
 
-This branch is independent of PR #188 (C1). After C1 merges, random mode is served from the reviewed
-lists without any code change. A local trial merge of C1 into this branch passed:
-- 959 web tests;
-- the build;
-- the three text-settings E2E tests, with saves, reloads and summaries;
-- integration, with a real random race drawn from the reviewed French lists.
-
-Two tests compare a criteria version string. Merging `dev` after C1 resolves them automatically
-(checked in the trial merge).
+- **Base.** `dev`, which carries C1 (#188) and L2 (#190).
+- **Random mode.** It is now served from C1's reviewed lists, with no code change.
+- **C3.** C3 (Arcade, migration `0017`) follows this branch.
 
 ## Checks on this branch
 
@@ -93,7 +87,7 @@ The code is in `d718344`. The FR/EN messages live in the shared root dictionarie
 Accepted (Fable QA, minor): a random draw the engine refuses also maps to `NO_COMPATIBLE_PASSAGE`, whose wording says "passage". That only happens when the data change between the save and the start (the save already ran the same proofs).
 
 Proposed text for `docs/architecture/data-model.md` (migration list and the `lobby_settings` row), for the coordinator:
-- `0016` (assigned; local name `0015_lobby_text_settings` until regenerated): enums `text_kind` and `text_complexity`. The columns are `text_kind`, `complexity`, `punctuation`, `numbers`, `capitals`, `accents`, `include_characters text[]` and `exclude_characters text[]`. Their defaults are D-19's: coherent, medium, true/false/true/true, empty arrays.
+- `0016_lobby_text_settings`: enums `text_kind` and `text_complexity`. The columns are `text_kind`, `complexity`, `punctuation`, `numbers`, `capitals`, `accents`, `include_characters text[]` and `exclude_characters text[]`. Their defaults are D-19's: coherent, medium, true/false/true/true, empty arrays.
 - CHECK `lobby_settings_characters_random_only`: characters are allowed only when `text_kind = 'random'`.
 - CHECK `lobby_settings_characters_bounded`: at most 100 characters in each array.
 - Rows written before this migration read as D-19.
