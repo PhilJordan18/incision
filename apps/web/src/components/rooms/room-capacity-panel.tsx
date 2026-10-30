@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { ROOM_MIN_CAPACITY, ROOM_MAX_CAPACITY } from "@incision/domain";
 import { guestAwareAction } from "@/identity/guest-browser";
@@ -16,6 +16,8 @@ export function RoomCapacityPanel({ code, capacity, revision, host, guest, live,
   const t = roomAccessCopy(locale);
   const id = useId();
   const edit = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  const focusCapacity = useCallback((element: HTMLInputElement | null) => { element?.focus(); }, []);
   const busy = useRef(false);
   const [draft, setDraft] = useState<{ capacity: string; revision: number } | null>(null);
   const [answer, setAnswer] = useState<CapacityActionState>({});
@@ -24,7 +26,13 @@ export function RoomCapacityPanel({ code, capacity, revision, host, guest, live,
   const conflict = draft !== null && draft.revision !== revision;
   const valid = draft !== null && /^\d{1,2}$/.test(draft.capacity) && Number(draft.capacity) >= ROOM_MIN_CAPACITY && Number(draft.capacity) <= ROOM_MAX_CAPACITY;
   const enabled = host && live && !pending && !awaiting && answer.error === undefined;
-  function reset() { setDraft(null); setAnswer({}); edit.current?.focus(); }
+  useEffect(() => {
+    if (restoreFocus.current && draft === null && enabled) {
+      edit.current?.focus();
+      restoreFocus.current = false;
+    }
+  }, [draft, enabled]);
+  function reset() { restoreFocus.current = true; setDraft(null); setAnswer({}); }
   function save() {
     if (!enabled || !valid || conflict || draft === null || busy.current) return;
     const form = new FormData();
@@ -34,7 +42,7 @@ export function RoomCapacityPanel({ code, capacity, revision, host, guest, live,
       try {
         const result = await guestAwareAction(guest, () => guest ? guestChangeCapacityAction(form) : changeCapacityAction(form));
         setAnswer(result.error !== undefined || result.revision !== undefined ? result : { error: "UNAVAILABLE" });
-        if (result.error === undefined && result.revision !== undefined) { setDraft(null); edit.current?.focus(); }
+        if (result.error === undefined && result.revision !== undefined) { restoreFocus.current = true; setDraft(null); }
       } catch (error) { unstable_rethrow(error); setAnswer({ error: "UNAVAILABLE" }); }
       finally { busy.current = false; }
     });
@@ -43,16 +51,16 @@ export function RoomCapacityPanel({ code, capacity, revision, host, guest, live,
     <h2 id={`${id}-title`} className={monoLabel}>{t.title}</h2>
     <p aria-live="polite">{t.capacity} : {capacity}</p>
     <p id={`${id}-hint`} className="text-sm text-brume">{t.hint}</p>
-    {host && draft === null && <button ref={edit} type="button" className={`${discreetButton} self-start`} disabled={!enabled}
+    {host && <button ref={edit} type="button" className={`${discreetButton} self-start`} disabled={!enabled || draft !== null}
       onClick={() => { setDraft({ capacity: String(capacity), revision }); setAnswer({}); }}>{t.edit}</button>}
     {host && !live && <p role="status">{t.disconnected}</p>}
     {host && draft !== null && <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); save(); }}>
       <label className={fieldLabel} htmlFor={`${id}-capacity`}>{t.capacity}</label>
-      <input id={`${id}-capacity`} className={textField} type="number" min={ROOM_MIN_CAPACITY} max={ROOM_MAX_CAPACITY} step="1" required
+      <input ref={focusCapacity} id={`${id}-capacity`} className={textField} type="number" min={ROOM_MIN_CAPACITY} max={ROOM_MAX_CAPACITY} step="1" required
         value={draft.capacity} disabled={!enabled || conflict} aria-describedby={`${id}-hint`}
         onChange={(event) => setDraft({ ...draft, capacity: event.target.value })} />
       <div className="flex flex-wrap gap-3"><button type="submit" className={secondaryButton} disabled={!enabled || !valid || conflict}>{t.save}</button>
-        <button type="button" className={discreetButton} disabled={pending} onClick={() => { setDraft(null); edit.current?.focus(); }}>{t.cancel}</button></div>
+        <button type="button" className={discreetButton} disabled={pending} onClick={reset}>{t.cancel}</button></div>
     </form>}
     {(conflict || answer.error !== undefined) && <p role="alert" className="text-erreur">⚠ {t.errors[answer.error ?? "STALE_REVISION"]}</p>}
     {answer.revision !== undefined && <p role="status">{awaiting ? t.waiting : t.saved}</p>}

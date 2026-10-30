@@ -26,13 +26,17 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await panel.getByRole("button", { name: /^(Modifier la capacité|Edit capacity)$/ }).focus();
       await page.keyboard.press("Enter");
       const input = panel.getByRole("spinbutton");
+      await expect(input).toBeFocused();
       for (const value of ["1", "31", "2.5"]) {
         await input.fill(value);
         await expect(panel.getByRole("button", { name: /^(Enregistrer la capacité|Save capacity)$/ })).toBeDisabled();
       }
       await input.fill("2");
-      await panel.getByRole("button", { name: /^(Enregistrer la capacité|Save capacity)$/ }).click();
+      await page.keyboard.press("Tab");
+      await expect(panel.getByRole("button", { name: /^(Enregistrer la capacité|Save capacity)$/ })).toBeFocused();
+      await page.keyboard.press("Enter");
       await expect(panel.getByRole("status")).toHaveText(/^(Capacité enregistrée\.|Capacity saved\.)$/);
+      await expect(panel.getByRole("button", { name: /^(Modifier la capacité|Edit capacity)$/ })).toBeFocused();
       await expect(memberPanel.getByText(/ : 2$/)).toBeVisible();
       await page.reload();
       await expect(panel.getByText(/ : 2$/)).toBeVisible();
