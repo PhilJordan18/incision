@@ -1,4 +1,4 @@
-import { configureRoom, createDatabase, createRoomWithHost, DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
+import { changeRoomBots, configureRoom, createDatabase, createRoomWithHost, DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
 import { countWords, parseRoomCode, passageCut, ROOM_CODE_ALPHABET } from "@incision/domain";
 import { EXCLUSIONS, FORBIDDEN_PAIRS, WORD_LISTS } from "@incision/domain/words";
 import pg from "pg";
@@ -190,6 +190,47 @@ describe("an integrated race (F-04.0)", () => {
     const hidden = await (await fetch(`${a.origin}/races/${raceId}`, { headers: { cookie: stranger.cookie, "accept-language": "fr" } })).text();
     expect(hidden).toContain("Course introuvable");
     expect(hidden).not.toContain("Invitée");
+  }, 90_000);
+
+  it("runs an Arcade race with two people and a bot: grants, a player's Enter, the bot's own activation, frozen in the race (C3, D-16, D-18)", async () => {
+    const a = servers[0];
+    if (a === undefined) throw new Error("no server");
+    const host = await account("int-host-arcade", "Hôte arcade");
+    const guest = await account("int-guest-arcade", "Invitée arcade");
+    const code = parseRoomCode(await room(host, [guest]));
+    if (!code.ok) throw new Error("bad code");
+    const arcade = { textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, bonusesEnabled: true } as const;
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: arcade })).toMatchObject({ ok: true, revision: 1 });
+    const [lobby] = await query<{ revision: number }>("select revision from lobbies where code = $1", [code.code]);
+    expect(await changeRoomBots(db(), { accountId: host.id, code: code.code, revision: lobby?.revision ?? 0, change: { kind: "add", level: "noob" } })).toMatchObject({ ok: true });
+    const h = await tab(a.origin, host.cookie);
+    const g = await tab(a.origin, guest.cookie);
+    expect(await h.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { bonusesEnabled: true } } });
+    expect(await g.ask("room:watch", { code: code.code })).toMatchObject({ ok: true });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const hostReveal = (await h.next("race:reveal")) as RaceRevealPayload;
+    const raceId = reveal.reveal.raceId;
+    const people = new Set([reveal.selfEntrantId, hostReveal.selfEntrantId]);
+    const botId = reveal.entrants.find((entrant) => !people.has(entrant.entrantId))?.entrantId;
+    expect(reveal.entrants).toHaveLength(3);
+    expect(botId).toBeDefined();
+    const [stored] = await query<{ config: Record<string, unknown> }>("select config_snapshot as config from races where id = $1", [raceId]);
+    expect(stored?.config.bonuses).toBe(true);
+    await startsAt(reveal);
+    // The host leads past 75 %; the guest and the bot fall behind and receive grants.
+    await typeAll(h, raceId, reveal.reveal.text.slice(0, Math.ceil(reveal.reveal.text.length * 0.8)));
+    const self = (await g.next("race:bonus:self", (payload: { grants: readonly unknown[] }) => payload.grants.length > 0, 10_000)) as { grants: { milestone: number; kind: string }[] };
+    expect(self.grants[0]?.milestone).toBe(25);
+    // The guest's Enter: the server decides the effect. extendLeader needs approved words: without them
+    // it is refused and keeps the grant, never served from fixtures.
+    const ack = (await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })) as { ok: boolean; result?: { ok: boolean; reason?: string } };
+    expect(ack.ok).toBe(true);
+    if (ack.result?.ok === false) expect(ack.result.reason).toBe("CONTENT_UNAVAILABLE");
+    // The bot uses its own grant within its delay, announced to every follower like a player's.
+    const announced = (await h.next("race:bonus:announcement", (payload: { announcement: { type: string; receipt?: { grant: { entrantId: string } } } }) =>
+      payload.announcement.type === "activated" && payload.announcement.receipt?.grant.entrantId === botId, 15_000)) as object;
+    expect(JSON.stringify(announced)).not.toMatch(/"random"|"seed"|"cursors"/);
   }, 90_000);
 
   it("notices a runner whose connection goes silent within about 15 s, keeps its place 30 s, then ranks it as abandoned (D-06)", async () => {

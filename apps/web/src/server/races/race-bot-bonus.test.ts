@@ -102,7 +102,8 @@ describe("bots use their bonuses (D-16)", () => {
     };
     const first = await at([5, 6, 7, 8]);
     expect(await at([5, 6, 7, 8])).toBe(first);
-    const others = await Promise.all([[9, 9, 9, 9], [11, 12, 13, 14], [21, 22, 23, 24]].map((seed) => at(seed as RandomState)));
+    const seeds: readonly RandomState[] = [[9, 9, 9, 9], [11, 12, 13, 14], [21, 22, 23, 24]];
+    const others = await Promise.all(seeds.map((seed) => at(seed)));
     expect(others.some((delay) => delay !== first)).toBe(true);
   });
 
