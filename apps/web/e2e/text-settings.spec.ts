@@ -71,7 +71,7 @@ test("complexity and text options reach another member, survive reload and are f
   await expect(panel(host).getByRole("status")).toHaveText("Réglages enregistrés.");
 
   await expect(summary(member, /^Complexité$/)).toHaveText("Difficile");
-  await expect(summary(member, /^Options du texte$/)).toHaveText("Ponctuation activé · Chiffres activé · Majuscules désactivé · Accents activé");
+  await expect(summary(member, /^Options du texte$/)).toHaveText("ponctuation, chiffres, accents");
   await member.reload();
   await expect(summary(member, /^Complexité$/)).toHaveText("Difficile");
   expect(await settingsRow(code)).toEqual({ text_kind: "coherent", complexity: "hard", punctuation: true, numbers: true, capitals: false, accents: true, include_characters: [], exclude_characters: [] });
@@ -104,6 +104,8 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       ? "⚠ The same character is both included and excluded (a parenthesis counts with its pair)."
       : "⚠ Un même caractère est à la fois inclus et exclu (une parenthèse compte avec sa paire).");
     await expect(saveButton(page)).toBeDisabled();
+    await expect(include).toHaveAttribute("aria-invalid", "true");
+    await expect(exclude).toHaveAttribute("aria-invalid", "true");
     // A digit needs the numbers option.
     await exclude.fill("");
     await include.fill("7");
