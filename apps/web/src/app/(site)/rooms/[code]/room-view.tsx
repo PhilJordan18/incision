@@ -5,6 +5,7 @@ import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
 import { GuestAvatar } from "@/components/rooms/guest-avatar";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
 import { RoomCapacityPanel } from "@/components/rooms/room-capacity-panel";
+import { RoomModerationPanel } from "@/components/rooms/room-moderation-panel";
 import { RoomInvitationsPanel } from "@/components/rooms/room-invitations-panel";
 
 import Link from "next/link";
@@ -538,7 +539,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
           onPresent={(raceId) => entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
           onAbandon={(raceId) => entrantActionRef.current(RACE_ABANDON_EVENT, raceId)}
           reconnecting={connection === "reconnecting"}
-          below={self.isHost ? leave : undefined}
+          below={self.isHost ? <>{leave}<RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} /></> : undefined}
         />
       </div>
     );
@@ -551,6 +552,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
           {connectionLine}
           {leave}
         </div>
+        {self.isHost && <RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />}
         {results !== undefined && results.raceId === snapshot.race?.raceId ? (
           results.panel
         ) : (
@@ -595,6 +597,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
 
       {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
       <RoomBotsPanel guest={guest} snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
+      {self.isHost && <RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />}
       <RoomCapacityPanel guest={guest} code={snapshot.code} capacity={snapshot.capacity} revision={snapshot.revision} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && <RoomInvitationsPanel key={`invitations:${snapshot.code}`} code={snapshot.code} locale={locale} live={connection === "live"} />}

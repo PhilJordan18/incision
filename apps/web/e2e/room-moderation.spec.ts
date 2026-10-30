@@ -1,0 +1,62 @@
+import { expect, test, type BrowserContext } from "@playwright/test";
+import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
+
+async function authenticate(context: BrowserContext, name: string) {
+  const [row] = await query<{ id: string; session_version: number }>("insert into accounts(display_name) values($1) returning id,session_version", [name]);
+  if (!row) throw new Error("No account");
+  await context.addCookies([{ name: SESSION_COOKIE, value: await forgeSessionCookie({ sub: row.id, sessionVersion: row.session_version, authTime: Math.floor(Date.now() / 1000) }), url: test.info().project.use.baseURL ?? "" }]);
+  return row.id;
+}
+
+for (const locale of ["fr-CA", "en-CA"]) {
+  test(`host expels all account tabs with confirmation and persistent ban (${locale})`, async ({ browser }) => {
+    const host = await browser.newContext({ locale, reducedMotion: "reduce" });
+    const target = await browser.newContext({ locale, reducedMotion: "reduce" });
+    try {
+      await authenticate(host, "Moderation host");
+      const targetId = await authenticate(target, "Moderation target");
+      const page = await host.newPage();
+      await page.goto("/rooms/new");
+      await page.getByRole("button", { name: /^(Ouvrir la salle|Open the room)$/ }).click();
+      await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+      const url = page.url();
+      const member = await target.newPage();
+      await member.goto(url);
+      await member.getByRole("button", { name: /^(Rejoindre la salle|Join the room)$/ }).click();
+      await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+      const tab = await target.newPage(); await tab.goto(url);
+      await expect(tab.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+      await expect(member.getByRole("region", { name: /^(Modération de la salle|Room moderation)$/ })).toHaveCount(0);
+      const panel = page.getByRole("region", { name: /^(Modération de la salle|Room moderation)$/ });
+      const expel = panel.getByRole("button", { name: /^(Expulser|Expel) Moderation target$/ });
+      await expect(expel).toBeVisible();
+      await expel.click();
+      const cancel = panel.getByRole("button", { name: /^(Annuler|Cancel)$/ });
+      await expect(cancel).toBeFocused();
+      await cancel.click();
+      await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+      await expel.click();
+      for (const colorScheme of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme });
+        await expect(page.locator("html")).toHaveAttribute("data-theme", colorScheme === "light" ? "aube" : "abysse");
+        await page.evaluate(async () => { await Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined))); });
+        for (const width of [1440, 1024, 390]) {
+          await page.setViewportSize({ width, height: 1000 });
+          await expectNoHorizontalScroll(page); await expectNoAccessibilityViolation(page);
+          await page.screenshot({ path: test.info().outputPath(`${locale}-${colorScheme}-${width}.png`), fullPage: true });
+        }
+      }
+      await panel.getByRole("button", { name: /^(Confirmer l’expulsion|Confirm expulsion)$/ }).click();
+      await expect(panel.getByRole("status")).toHaveText(/^(Expulsion enregistrée\.|Expulsion saved\.)$/);
+      await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toHaveCount(0);
+      await expect(tab.getByText(/^\[\.(En direct|Live)\]$/)).toHaveCount(0);
+      await expect.poll(async () => (await query<{ n: number }>("select count(*)::int n from lobby_bans where account_id=$1", [targetId]))[0]?.n).toBe(1);
+      await member.reload();
+      const join = member.getByRole("button", { name: /^(Rejoindre la salle|Join the room)$/ });
+      if (await join.isVisible()) await join.click();
+      await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toHaveCount(0);
+      expect((await query("select id from lobby_members where account_id=$1 and left_at is null", [targetId]))).toHaveLength(0);
+      await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+    } finally { await host.close(); await target.close(); }
+  });
+}
