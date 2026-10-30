@@ -39,11 +39,22 @@ for (const locale of ["fr-CA", "en-US"]) test(`invitation lifecycle, privacy and
   await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
   expect(urls.every((url) => !url.includes(token))).toBe(true);
   await expect(member.getByRole("region", { name: "Invitations", exact: true })).toHaveCount(0);
+  await member.context().setExtraHTTPHeaders({ "X-Forwarded-For": "192.0.2.88" });
+  await member.goto(`/rooms/${code}`);
+  await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toHaveCount(0);
+  await expect(member.getByRole("region", { name: "Invitations", exact: true })).toHaveCount(0);
+  await member.context().setExtraHTTPHeaders({});
+  await member.goto(`/rooms/${code}`);
+  await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
   await panel.getByRole("button", { name: /^(Afficher \/ actualiser les invitations|Show \/ refresh invitations)$/ }).click();
   await expect(panel.getByRole("listitem")).toContainText("Member");
   await other.goto(link);
   await other.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
   await expect(other.getByRole("main").getByRole("alert")).toContainText(/Invitation (indisponible|unavailable)/);
+  // Evidence must not retain even a temporary bearer token.
+  await host.reload();
+  await expect(host.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+  await panel.getByRole("button", { name: /^(Afficher \/ actualiser les invitations|Show \/ refresh invitations)$/ }).click();
   for (const theme of ["abysse", "aube"]) {
     await host.evaluate((value) => document.documentElement.dataset.theme = value, theme);
     for (const width of [1440, 1024, 390]) {

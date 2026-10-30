@@ -21,6 +21,11 @@ identity behind the same NAT cannot reuse the link. Capacity, phase, guest proof
 nickname and one-active-room checks still run before binding. Refusal does not
 consume the invitation. Room-first locking serializes admission and revocation.
 
+Direct room-page access and WebSocket watches check the persisted IP binding too,
+before returning a room snapshot or attaching realtime presence. This is a room
+resume rule, not a replacement for identity-based authorization of all actions.
+Re-admission by the original holder moves the binding to their new presence.
+
 There is no arbitrary invitation expiry. Closing the room or revoking the link
 invalidates it. Revoking an invitation alone does not expel an admitted member;
 expulsion and the associated identity ban belong to F-01.5.
@@ -33,9 +38,11 @@ fail closed: no invitation is issued or admitted. Provisioning any remote secret
 is a separate human-authorized operation; this change provisions none.
 
 Keep the key stable across server restarts. Rotating it prevents reuse of
-previously bound links because their IP fingerprints no longer match. Existing
-room memberships are not invalidated. Hosts can revoke old links and issue new
-ones; unused links bind with the current key. Do not backfill raw addresses or
+previously bound links and direct room resumption because their IP fingerprints
+no longer match. Membership rows remain, but affected members cannot resume them.
+Rotate only with an explicit recovery plan for active rooms; a fresh link does
+not bypass an existing presence's binding. Unused links bind with the current
+key. Do not backfill raw addresses or
 persist plaintext tokens to work around rotation.
 
 Migration `0015_room_invitations` is additive. It references the holder's room

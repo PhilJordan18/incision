@@ -6,7 +6,7 @@ import { createDatabase, type Database } from "../src/client";
 import { runMigrations } from "../src/migrations";
 import { createGuestSession } from "../src/identity/guest-sessions";
 import { createRoomWithHost } from "../src/rooms/create-room";
-import { createRoomInvitation, joinRoomByInvitation, listRoomInvitations, revokeRoomInvitation } from "../src/rooms/invitations";
+import { canResumeInvitationMembership, createRoomInvitation, joinRoomByInvitation, listRoomInvitations, revokeRoomInvitation } from "../src/rooms/invitations";
 import { joinRoomByCode } from "../src/rooms/membership";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
@@ -58,6 +58,35 @@ async function binding() {
 }
 
 describe("room invitations", () => {
+  it("enforces the bound IP on direct resume, including after link revocation", async () => {
+    const { host, invitationId } = await fixture();
+    const bob = await account("Bob");
+    await join(bob);
+    const memberId = (await binding()).bound_member_id as string;
+    expect(await canResumeInvitationMembership(db, { memberId, addressDigest: address })).toBe(true);
+    expect(await canResumeInvitationMembership(db, { memberId, addressDigest: "c".repeat(64) })).toBe(false);
+    expect(await canResumeInvitationMembership(db, { memberId, addressDigest: undefined })).toBe(false);
+    await revokeRoomInvitation(db, { accountId: host, code, invitationId });
+    expect(await canResumeInvitationMembership(db, { memberId, addressDigest: address })).toBe(true);
+    expect(await canResumeInvitationMembership(db, { memberId, addressDigest: "c".repeat(64) })).toBe(false);
+    const hostMember = (await pool.query<{ id: string }>("select id from lobby_members where account_id=$1", [host])).rows[0]!;
+    expect(await canResumeInvitationMembership(db, { memberId: hostMember.id, addressDigest: undefined })).toBe(true);
+  });
+
+  it("moves the IP binding to the new presence after the holder leaves and rejoins", async () => {
+    await fixture();
+    const bob = await account("Bob");
+    await join(bob);
+    const original = await binding();
+    await pool.query("update lobby_members set left_at=statement_timestamp() where id=$1", [original.bound_member_id]);
+    expect(await join(bob)).toMatchObject({ ok: true, alreadyMember: false });
+    const current = await binding();
+    expect(current.bound_member_id).not.toBe(original.bound_member_id);
+    expect(current.bound_at).toEqual(original.bound_at);
+    expect(await canResumeInvitationMembership(db, { memberId: current.bound_member_id, addressDigest: address })).toBe(true);
+    expect(await canResumeInvitationMembership(db, { memberId: current.bound_member_id, addressDigest: "c".repeat(64) })).toBe(false);
+  });
+
   it("discloses status only to the current host, never hashes, and does not accept invalid pages", async () => {
     const { host } = await fixture();
     const bob = await account("Bob");

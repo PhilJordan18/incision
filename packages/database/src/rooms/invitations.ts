@@ -15,6 +15,15 @@ import { bumpRevision } from "./room-writes";
 const DIGEST = /^[0-9a-f]{64}$/;
 const unavailable = { ok: false, error: "INVITATION_UNAVAILABLE" } as const;
 
+/** Existing presence keeps its IP binding even when the user skips the invitation page. */
+export async function canResumeInvitationMembership(db: Database | Transaction, input: {
+  readonly memberId: string; readonly addressDigest: string | undefined;
+}): Promise<boolean> {
+  const bindings = await db.select({ digest: lobbyInvitations.boundIpDigest }).from(lobbyInvitations)
+    .where(eq(lobbyInvitations.boundMemberId, input.memberId));
+  return bindings.length === 0 || (input.addressDigest !== undefined && bindings.every((binding) => binding.digest === input.addressDigest));
+}
+
 async function lockedHostRoom(tx: Transaction, input: RoomHostActor & { readonly code: RoomCode }) {
   const read = () => input.accountId === null
     ? findActiveHumanMembership(tx, { kind: "guest", guestSessionId: input.guestProof.id })
@@ -123,11 +132,15 @@ export async function joinRoomByInvitation(db: Database, input: {
         ? await admitAccountToLockedRoom(tx, { accountId: input.actor.accountId, role: input.role, lobby: room })
         : await admitGuestToLockedRoom(tx, { proof: input.actor.proof, nickname: input.actor.nickname, role: input.role, room });
       if (!admitted.ok) return admitted;
+      if (!await canResumeInvitationMembership(tx, { memberId: admitted.memberId, addressDigest })) return unavailable;
       if (access.kind === "bind") {
         await tx.update(lobbyInvitations).set({ boundMemberId: admitted.memberId, boundIpDigest: addressDigest,
           boundAt: sql`statement_timestamp()` }).where(eq(lobbyInvitations.id, invitation.id));
         // Admission already changed the room revision, except for a pre-existing member.
         if (admitted.alreadyMember) await bumpRevision(tx, room.id);
+      } else if (invitation.boundMemberId !== admitted.memberId) {
+        // Re-admission after departure moves the binding to the new presence of the same identity.
+        await tx.update(lobbyInvitations).set({ boundMemberId: admitted.memberId }).where(eq(lobbyInvitations.id, invitation.id));
       }
       return admitted;
     }, READ_COMMITTED);
