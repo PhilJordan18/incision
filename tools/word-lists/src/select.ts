@@ -8,6 +8,7 @@
 import { foldForExclusion } from "../../../packages/domain/src/words/pool";
 import { parseExclusionSource, parsePairSource, parseWordListSource, WORD_DATA_SENTINEL } from "../../../packages/domain/src/words/data/format";
 import { usesWordLetters } from "../../../packages/domain/src/text/typable";
+import { compareCodeUnits } from "./candidate";
 
 export type Language = "fr" | "en";
 
@@ -23,7 +24,7 @@ export const EXCLUDE_CATEGORIES = ["swear", "insult", "slur", "sexual", "degradi
 export type ReviewEntry = { readonly word: string; readonly action: ReviewAction; readonly category: string; readonly reason: string };
 export type ExtraPair = { readonly first: string; readonly second: string; readonly reason: string };
 
-const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+const compare = compareCodeUnits;
 const LINE = /^[^\t\r]+$/;
 
 function categoryAllowed(action: ReviewAction, category: string): boolean {
@@ -59,13 +60,23 @@ export function parseReview(source: string, language: Language): readonly Review
 /** `word<TAB>word<TAB>reason` per line: pairs added to the identity × pejorative product. */
 export function parseExtraPairs(source: string, language: Language): readonly ExtraPair[] {
   if (source.includes("\r")) throw new RangeError("pairs: LF line endings only");
-  return source.split("\n").filter((line) => line !== "").map((line, index) => {
+  const pairs: ExtraPair[] = [];
+  for (const [index, line] of source.split("\n").entries()) {
+    if (line === "") continue;
     const fields = line.split("\t");
+    const where = `pairs ${language} line ${index + 1}`;
     if (fields.length !== 3 || !fields.every((field) => LINE.test(field) && field.trim() === field)) {
-      throw new RangeError(`pairs ${language} line ${index + 1}: three non-empty, trimmed fields expected`);
+      throw new RangeError(`${where}: three non-empty, trimmed fields expected`);
     }
-    return { first: fields[0] ?? "", second: fields[1] ?? "", reason: fields[2] ?? "" };
-  });
+    const [first = "", second = "", reason = ""] = fields;
+    const key = `${first}\t${second}`;
+    const previous = pairs.at(-1);
+    if (compare(first, second) >= 0 || (previous !== undefined && compare(`${previous.first}\t${previous.second}`, key) >= 0)) {
+      throw new RangeError(`${where}: each pair sorted, pairs unique and sorted`);
+    }
+    pairs.push({ first, second, reason });
+  }
+  return pairs;
 }
 
 export type SelectionCounts = {
@@ -73,6 +84,8 @@ export type SelectionCounts = {
   readonly aboveFloor: number;
   readonly removed: Readonly<Record<string, number>>;
   readonly excluded: Readonly<Record<string, number>>;
+  /** Words dropped only because they fold like an excluded word. */
+  readonly foldDropped: number;
   readonly playable: number;
   readonly exclusions: number;
   readonly pairs: number;
@@ -116,13 +129,15 @@ export function selectPlayable(input: {
     if (!playableWords.has(word)) throw new RangeError(`review ${language}: kept word "${word}" is not in the playable list`);
   }
   const pairs = new Map<string, readonly [string, string]>();
-  const addPair = (first: string, second: string): void => {
+  /** Generated pairs skip two words that fold alike; an extra pair that does is a register error. */
+  const addPair = (first: string, second: string, explicit: boolean): void => {
     if (!playableWords.has(first) || !playableWords.has(second)) throw new RangeError(`pairs ${language}: "${first} ${second}" names a word outside the playable list`);
     const sorted = [first, second].sort(compare) as [string, string];
     if (foldForExclusion(sorted[0]) !== foldForExclusion(sorted[1])) pairs.set(sorted.join(" "), sorted);
+    else if (explicit) throw new RangeError(`pairs ${language}: "${first} ${second}" are the same word once folded`);
   };
-  for (const identity of marked("identity")) for (const pejorative of marked("pejorative")) addPair(identity, pejorative);
-  for (const pair of input.extraPairs) addPair(pair.first, pair.second);
+  for (const identity of marked("identity")) for (const pejorative of marked("pejorative")) addPair(identity, pejorative, false);
+  for (const pair of input.extraPairs) addPair(pair.first, pair.second, true);
 
   const bins = new Map<number, string[]>();
   for (const entry of playable) {
@@ -148,6 +163,7 @@ export function selectPlayable(input: {
       aboveFloor: aboveFloor.length,
       removed: tally(dropped.filter((entry) => entry.action === "remove")),
       excluded: tally(excluded),
+      foldDropped: aboveFloor.filter((entry) => !droppedWords.has(entry.word) && excludedFolds.has(foldForExclusion(entry.word))).length,
       playable: playable.length,
       exclusions: excluded.length,
       pairs: pairs.size,

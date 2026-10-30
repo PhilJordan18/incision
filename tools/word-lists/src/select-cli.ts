@@ -4,11 +4,13 @@
  * Rebuilds the server-only word data of `@incision/domain/words` from the pinned wordfreq files and
  * the committed register `review/<version>/`, then writes `review/<version>/manifest.json` with
  * every input and output digest. Re-running it on the same inputs rewrites the same bytes.
+ * Everything is computed and checked before the first write; the files are then written one by
+ * one, without staging: a failed write leaves a difference that Git shows and the manifest test catches.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readCbPack } from "./cbpack";
-import { serializeCandidate, sha256, verifiedCreditsDigest } from "./candidate";
+import { serializeCandidate, sha256, verifiedCreditsDigest, WORDFREQ_WHEEL_SHA256 } from "./candidate";
 import { readPinned } from "./pinned";
 import { parseExtraPairs, parseReview, selectPlayable, SELECTION_POLICY, type Language, type Selection } from "./select";
 
@@ -48,7 +50,7 @@ function run(rawDir: string, version: string): void {
   const manifest = {
     version,
     selectionPolicy: SELECTION_POLICY,
-    source: { name: "wordfreq", version: "3.1.1", wheelSha256: "4b1c6ecffc6198be3396d5cf871c4423ca71c907c231348d352dd54d62b97473" },
+    source: { name: "wordfreq", version: "3.1.1", wheelSha256: WORDFREQ_WHEEL_SHA256 },
     inputs,
     outputs: Object.fromEntries(Object.entries(files).map(([name, content]) => [`packages/domain/src/words/data/${name}`, sha256(content)])),
     counts: { fr: fr.counts, en: en.counts },

@@ -9,7 +9,11 @@ import { readPinned } from "./pinned";
 export type CandidateOptions = { rawDir: string; language: string; version: string; outDir: string };
 type CandidateCounts = { input: number; accepted: number; duplicates: number; rejected: { frequency: number; syntax: number; alphabet: number } };
 export const sha256 = (input: string | Uint8Array): string => createHash("sha256").update(input).digest("hex");
-const compare = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
+/** Locale-independent order by UTF-16 code units, shared by the exporter and the selection. */
+export const compareCodeUnits = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
+const compare = compareCodeUnits;
+/** The pinned wordfreq 3.1.1 wheel the language files and the credits excerpt come from. */
+export const WORDFREQ_WHEEL_SHA256 = "4b1c6ecffc6198be3396d5cf871c4423ca71c907c231348d352dd54d62b97473";
 
 /** Exact upstream bytes, including the complete bibliography; never a shortened notice. */
 export function verifiedCreditsDigest(credits: string): string {
@@ -92,7 +96,7 @@ export function exportCandidate(options: CandidateOptions, testPins?: Readonly<R
     counts, output: { file: filename, sha256: sha256(source) }, noticeSha256: sha256(NOTICE),
     upstreamCredits: {
       file: creditsFile, sha256: creditsDigest,
-      wheelSha256: "4b1c6ecffc6198be3396d5cf871c4423ca71c907c231348d352dd54d62b97473",
+      wheelSha256: WORDFREQ_WHEEL_SHA256,
       member: "wordfreq-3.1.1.dist-info/METADATA", excerpt: "## License through end of file, unchanged UTF-8",
     },
   };

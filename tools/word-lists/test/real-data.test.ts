@@ -13,7 +13,7 @@ import {
   type TextOptions,
 } from "../../../packages/domain/src/index";
 import { EXCLUSIONS, FORBIDDEN_PAIRS, WORD_LISTS } from "../../../packages/domain/src/words/data/index";
-import { foldForExclusion } from "../../../packages/domain/src/words/pool";
+import { foldForExclusion, forbiddenPairRule } from "../../../packages/domain/src/words/pool";
 
 /**
  * The engine on the shipped, reviewed data (#42, #43): the engine's own tests use fixtures, and its
@@ -47,15 +47,35 @@ describe.each(LANGUAGES)("random texts on the reviewed %s lists", (language) => 
     expect(generateRaceText({ settings, words: words(language), state: state(8) })).not.toEqual(first);
   });
 
-  it("never draws an excluded word, its folded form or a forbidden neighbour across many draws", () => {
+  it("keeps every guarantee across many long draws, forbidden neighbours included", () => {
+    const rule = forbiddenPairRule(FORBIDDEN_PAIRS[language]);
     const excluded = new Set(EXCLUSIONS[language].words.map(foldForExclusion));
+    let pairsSeen = 0;
     for (let seed = 1; seed <= 20; seed += 1) {
-      const result = generateRaceText({ settings: random(language, { complexity: "hard", wordCount: 200 }), words: words(language), state: state(seed) });
+      const settings = random(language, { complexity: "hard", wordCount: 200, options: { punctuation: true, numbers: true, capitals: true, accents: true } });
+      const result = generateRaceText({ settings, words: words(language), state: state(seed) });
       expect(result.ok).toBe(true);
       if (!result.ok) continue;
-      const cores = result.text.split(" ").map((token) => token.toLowerCase().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, "")).filter((core) => core !== "");
+      // The engine's own final checks: list, exclusions, pairs (numbers transparent), marks, capitals.
+      expect(raceTextViolations(result.text, { settings, words: words(language) })).toEqual([]);
+      // And an independent reading: adjacent words, numbers skipped, never a forbidden pair.
+      const cores = result.text.split(" ").map((token) => token.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")).filter((core) => /\p{L}/u.test(core));
+      for (let index = 1; index < cores.length; index += 1) {
+        expect(rule(cores[index - 1] ?? "", cores[index] ?? "")).toBe(false);
+        pairsSeen += 1;
+      }
       expect(cores.filter((core) => excluded.has(foldForExclusion(core)))).toEqual([]);
     }
+    expect(pairsSeen).toBeGreaterThan(3_000);
+  });
+
+  it("serves demanding include settings despite the forbidden pairs", () => {
+    const refusals: string[] = [];
+    for (let seed = 1; seed <= 10; seed += 1) {
+      const result = generateRaceText({ settings: random(language, { complexity: "medium", wordCount: 20, include: [..."bdfgjkmpvwz"] }), words: words(language), state: state(seed) });
+      if (!result.ok) refusals.push(result.reason);
+    }
+    expect(refusals).toEqual([]);
   });
 
   it("applies the accents option by choosing unaccented words, never by misspelling", () => {

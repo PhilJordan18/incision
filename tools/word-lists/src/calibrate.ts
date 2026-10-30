@@ -20,6 +20,7 @@ import {
   type TextLanguage,
 } from "../../../packages/domain/src/index";
 import { EXCLUSIONS, FORBIDDEN_PAIRS, WORD_LISTS } from "../../../packages/domain/src/words/data/index";
+import { HARD_TO_TYPE_LETTERS } from "../../../packages/domain/src/text/typable";
 import { buildWordPool } from "../../../packages/domain/src/words/pool";
 
 const LANGUAGES: readonly TextLanguage[] = ["fr", "en"];
@@ -55,8 +56,9 @@ function randomSection(language: TextLanguage): string[] {
   lines.push("| Level | Rule | Pool | Pool without accents | Pool mean Zipf | Pool mean letters | Pool share > 9 letters |", "|---|---|---:|---:|---:|---:|---:|");
   for (const complexity of COMPLEXITIES) {
     const level = COMPLEXITY_CRITERIA[complexity];
+    // The pool rule of random mode (random.ts), without the characters a host includes or excludes.
     const accept = (accents: boolean) => (entry: { word: string; zipf: number }) =>
-      [...entry.word].length <= level.maxLetters && entry.zipf >= level.minZipf && !/[œæ]/u.test(entry.word) && (accents || /^[a-z']+$/u.test(entry.word));
+      [...entry.word].length <= level.maxLetters && entry.zipf >= level.minZipf && ![...entry.word].some((character) => HARD_TO_TYPE_LETTERS.includes(character)) && (accents || /^[a-z']+$/u.test(entry.word));
     const pool = buildWordPool({ list: words.list, exclusions: words.exclusions, accept: accept(true) }).entries;
     const plain = buildWordPool({ list: words.list, exclusions: words.exclusions, accept: accept(false) }).entries;
     const letters = pool.map((entry) => [...entry.word].length);
@@ -97,8 +99,29 @@ type CorpusPassage = {
   readonly measures: { readonly m1: number; readonly m2: number; readonly m3: number; readonly m4: number };
 };
 
+/** The fields this report reads, checked: a corpus of another shape fails loudly instead of printing NaN. */
+function corpusFile(value: unknown, language: TextLanguage): { readonly corpusVersion: string; readonly passages: readonly CorpusPassage[] } {
+  const record = (input: unknown): Record<string, unknown> => {
+    if (typeof input !== "object" || input === null || Array.isArray(input)) throw new TypeError(`corpus ${language}: object expected`);
+    return input as Record<string, unknown>;
+  };
+  const file = record(value);
+  if (typeof file.corpusVersion !== "string" || !Array.isArray(file.passages)) throw new TypeError(`corpus ${language}: corpusVersion and passages expected`);
+  const passages = file.passages.map((input): CorpusPassage => {
+    const passage = record(input);
+    const measures = record(passage.measures);
+    const values = [measures.m1, measures.m2, measures.m3, measures.m4];
+    if (typeof passage.id !== "string" || typeof passage.status !== "string" || !COMPLEXITIES.some((level) => level === passage.complexity) || !values.every((m) => typeof m === "number" && Number.isFinite(m))) {
+      throw new TypeError(`corpus ${language}: passage ${String(passage.id)} lacks its id, status, label or measures`);
+    }
+    const [m1, m2, m3, m4] = values as [number, number, number, number];
+    return { id: passage.id, status: passage.status, complexity: passage.complexity as Complexity, measures: { m1, m2, m3, m4 } };
+  });
+  return { corpusVersion: file.corpusVersion, passages };
+}
+
 function passageSection(corpusDir: string, language: TextLanguage): string[] {
-  const file = JSON.parse(readFileSync(join(corpusDir, `${language}.json`), "utf8")) as { corpusVersion: string; passages: readonly CorpusPassage[] };
+  const file = corpusFile(JSON.parse(readFileSync(join(corpusDir, `${language}.json`), "utf8")), language);
   const retained = file.passages.filter((passage) => passage.status === "retained");
   const lines = [`### Coherent passages, ${language.toUpperCase()} (corpus ${file.corpusVersion}, ${retained.length} retained of ${file.passages.length})`, ""];
   lines.push("Stored measures by editorial label, p10 / median / p90.", "", "| Label | Passages | M1 | M2 | M3 | M4 |", "|---|---:|---|---|---|---|");
@@ -129,13 +152,13 @@ function classify(passage: CorpusPassage, thresholds: PassageThresholds): Comple
 
 const agreement = (passages: readonly CorpusPassage[], thresholds: PassageThresholds): number => passages.filter((p) => classify(p, thresholds) === p.complexity).length;
 
+/** A threshold no measure reaches: an easy limit always met, a hard limit never met. */
+const OFF = 1000;
+
 /**
  * Deterministic coordinate search: each threshold in turn takes the observed value (or "off") that
  * most raises the agreement, ties to the first candidate, until nothing improves (bounded rounds).
  */
-/** A threshold no measure reaches: an easy limit always met, a hard limit never met. */
-const OFF = 1000;
-
 function fitThresholds(passages: readonly CorpusPassage[]): { readonly thresholds: PassageThresholds } {
   // Starts with every passage easy: the easy limits off (always met), the hard limits off (never met).
   let thresholds: PassageThresholds = { easyMaxMeanLetters: OFF, easyMaxRareShare: OFF, easyMaxSpecialPer100: OFF, hardMinMeanLetters: OFF, hardMinRareShare: OFF, hardMinLongShare: OFF };
