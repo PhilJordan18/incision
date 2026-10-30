@@ -28,6 +28,7 @@ describe("parseServerEnv", () => {
       trustedProxyHops: 0,
       fixtureRaceTexts: false,
       racesSwitch: "closed",
+      testBonusSeed: undefined,
     });
   });
 
@@ -42,6 +43,7 @@ describe("parseServerEnv", () => {
       trustedProxyHops: 1,
       fixtureRaceTexts: false,
       racesSwitch: "closed",
+      testBonusSeed: undefined,
     });
   });
 
@@ -53,6 +55,18 @@ describe("parseServerEnv", () => {
     expect(parseServerEnv({ NODE_ENV: "test", RACE_FIXTURE_TEXTS: "allowed" }).fixtureRaceTexts).toBe(true);
     for (const value of ["true", "1", "yes", "ALLOWED"]) {
       expect(() => parseServerEnv({ ...production, RACE_FIXTURE_TEXTS: value })).toThrow(/RACE_FIXTURE_TEXTS: must be "allowed" or unset/);
+    }
+  });
+
+  it("fixes the bonus seed only in a local test build, never on a deployed site, and keeps crypto seeds otherwise", () => {
+    const localProduction = { ...production, APP_URL: "http://localhost:8080", AUTH_URL: "http://localhost:8080", RACE_FIXTURE_TEXTS: "allowed" };
+    expect(parseServerEnv({ ...localProduction, RACE_TEST_BONUS_SEED: "2026,1493922,10,30" }).testBonusSeed?.()).toEqual([2026, 1493922, 10, 30]);
+    expect(parseServerEnv(localProduction).testBonusSeed).toBeUndefined();
+    // Without the fixture switch (which a deployed site refuses), the seed is refused too.
+    expect(() => parseServerEnv({ ...production, RACE_TEST_BONUS_SEED: "1,2,3,4" })).toThrow(/RACE_TEST_BONUS_SEED: is for local test builds only/);
+    expect(() => parseServerEnv({ NODE_ENV: "test", RACE_TEST_BONUS_SEED: "1,2,3,4" })).toThrow(/RACE_TEST_BONUS_SEED/);
+    for (const value of ["1,2,3", "a,b,c,d", "0,0,0,0", "1,2,3,4294967296"]) {
+      expect(() => parseServerEnv({ ...localProduction, RACE_TEST_BONUS_SEED: value })).toThrow(/RACE_TEST_BONUS_SEED/);
     }
   });
 

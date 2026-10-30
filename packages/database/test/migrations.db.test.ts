@@ -124,12 +124,29 @@ describe("runMigrations", () => {
     expect({ rooms: await query("select * from lobbies"), races: await query("select * from races") }).toEqual({ rooms: before.rooms, races: before.races });
     expect(await query("select * from lobby_settings")).toEqual(before.settings.map((row) => ({
       ...row, text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [],
+      // Later migrations add their own defaults (0017: training).
+      bonuses_enabled: false,
     })));
     // Coherent mode cannot hold characters to include or exclude (D-10); random mode holds at most 100 of each.
     await expect(query("update lobby_settings set include_characters = '{a}'")).rejects.toThrow("lobby_settings_characters_random_only");
     await query("update lobby_settings set text_kind = 'random', include_characters = '{a}', exclude_characters = '{b}'");
     await expect(query("update lobby_settings set exclude_characters = array_fill('x'::text, array[101])")).rejects.toThrow("lobby_settings_characters_bounded");
     await expect(query("update lobby_settings set text_kind = 'coherent'")).rejects.toThrow("lobby_settings_characters_random_only");
+  });
+
+  it("keeps existing rooms in training (0017) without touching their text settings or historical races", async () => {
+    // Upgrades from the text settings migration, whatever numbers the coordinator assigns.
+    const predecessor = "0016_lobby_text_settings";
+    await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo(predecessor) });
+    await query("insert into lobbies (code, capacity) values ('D9N6SV', 8)");
+    await query("insert into lobby_settings (lobby_id, revision, text_language, word_count, time_limit_ms, error_mode, text_kind, complexity) select id, 2, 'fr', 50, null, 'mandatory', 'random', 'hard' from lobbies");
+    await query(`insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
+      select id, 1, 'finished', 1, 'Texte.', '{"language":"fr","bonuses":false}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`);
+    const before = { races: await query("select * from races"), settings: await query("select * from lobby_settings") };
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - (journalIndex(predecessor) + 1) });
+    expect(await query("select * from races")).toEqual(before.races);
+    expect(await query("select * from lobby_settings")).toEqual(before.settings.map((row) => ({ ...row, bonuses_enabled: false })));
+    await expect(query("update lobby_settings set bonuses_enabled = null")).rejects.toThrow();
   });
 
   it("builds the schema on an empty database, then a second run applies nothing", async () => {

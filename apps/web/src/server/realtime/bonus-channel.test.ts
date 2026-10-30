@@ -14,8 +14,9 @@ const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
 const TEXT = "aa bb cc dd ee ff gg hh ii jj";
 
 /** Real channel, service and engine. Authentication/admission and persistence are
- * explicit doubles, not production or database integration evidence. Only this
- * store fixture enables bonuses; the production service still freezes them off.
+ * explicit doubles, not production or database integration evidence. This store
+ * fixture enables bonuses (in production the room's Arcade choice does), and the
+ * award seed is fixed so the first grant is one that applies without extension words.
  */
 it("activates through real sockets, rejects the observing tab and recovers a lost ack without another effect", async () => {
   const http = createServer();
@@ -47,7 +48,7 @@ it("activates through real sockets, rejects the observing tab and recovers a los
     readOwnRoomSettings: vi.fn(async () => ({ lobbyId: "lobby", phase: "waiting" as const, isHost: true, settings: initialRoomSettings("fr") })),
   };
   const service = new RaceService({ ownerId: "owner", store, now: () => now, monotonic: () => now,
-    schedule: () => () => {}, onRoomChanged: () => {}, log: () => {}, racesOpen: true,
+    schedule: () => () => {}, onRoomChanged: () => {}, log: () => {}, racesOpen: true, bonusSeed: () => [1, 2, 3, 4],
     texts: fixedRaceTexts({ fr: { id: "socket-fixture", text: TEXT }, en: { id: "socket-fixture", text: TEXT } }),
   });
   const following = new Set<string>();

@@ -8,7 +8,12 @@ import {
   createRaceRefusal,
   type CreateRaceRefusal,
   MAX_BATCHES_PER_SECOND,
+  asRandomState,
+  type BonusContent,
   type BonusRaceState,
+  type RandomState,
+  type RandomWords,
+  type TextLanguage,
 } from "@incision/domain";
 import type { Locale } from "../../i18n/locale";
 import { bonusActivationPayloadSchema, type BonusActivationAck } from "../../races/bonus-protocol";
@@ -27,7 +32,8 @@ import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, raceConnectionKey, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
 import type { RaceTextDraw, RaceTextSource } from "./race-texts";
 import { isRunnable } from "../rooms/room-settings";
-import { roomTextSettings } from "../rooms/text-settings";
+import { approvedRandomWords, roomTextSettings } from "../rooms/text-settings";
+import { extensionContent } from "./race-extension";
 import { BonusActivationLimiter } from "./bonus-limiter";
 
 /** A tab admitted into a room by the room channel. */
@@ -86,6 +92,10 @@ export type RaceServiceOptions = {
   readonly logError?: (message: string) => void;
   readonly leaseTiming?: LeaseTiming;
   readonly runtimeTiming?: Partial<RuntimeTiming>;
+  /** Four uint32 from crypto for each private bonus stream (default); tests pass fixed values. */
+  readonly bonusSeed?: (() => RandomState) | undefined;
+  /** The approved word data of extensions (default: the reviewed lists, never the fixtures). */
+  readonly extensionWords?: (language: TextLanguage) => RandomWords | undefined;
 };
 
 /**
@@ -261,6 +271,9 @@ export class RaceService {
     const { revision, timeLimitMs, errorMode } = settings;
     const timeLimit = timeLimitMs === null ? null : asDuration(timeLimitMs);
     const acquiredAt = this.#options.monotonic();
+    // Two private streams per race: grant selection and extension words. Kept in this process's
+    // memory with the race (never stored, sent or logged); a race lost with its process is interrupted.
+    const bonusSeeds = { awards: this.#bonusSeed(), extension: this.#bonusSeed() };
     let started: StartRaceResult<CreateRaceRefusal, BonusRaceState>;
     try {
       started = await store.startRace({
@@ -269,7 +282,7 @@ export class RaceService {
           : { accountId: connection.accountId }),
         ownerId,
         text,
-        config: { errorMode, timeLimitMs, wordCount: settings.wordCount, ...record, bonuses: false },
+        config: { errorMode, timeLimitMs, wordCount: settings.wordCount, ...record, bonuses: settings.bonusesEnabled },
         lobbyId,
         settingsRevision: revision,
         rulesVersion: RULES_VERSION,
@@ -285,9 +298,9 @@ export class RaceService {
           };
           const refusal = createRaceRefusal(input);
           if (refusal !== undefined) return { ok: false, reason: refusal };
-          const result = createBonusRace({ enabled: false, random: [1, 2, 3, 4], race: input });
-          // Disabled until room configuration and approved content land in 62B. This dormant
-          // stream is not used for draws or security; enabled races must receive a private seed.
+          // Arcade (CONF-09, D-18): the room's choice, frozen with the race. The award stream has its
+          // own private seed, drawn for this race only, never the text's or the bots' (D-16).
+          const result = createBonusRace({ enabled: settings.bonusesEnabled, random: bonusSeeds.awards, race: input });
           if (!result.ok) throw new RangeError(result.reason);
           return { ok: true, race: result.state };
         },
@@ -310,7 +323,10 @@ export class RaceService {
     }
     if (started.guestSession !== undefined) this.#options.onGuestActivity?.(started.guestSession);
     const ownership: RaceOwnership = started.race;
-    const runtime = this.#runtime({ ownership, state: started.created, entrants: started.entrants, acquiredAt, language: record.language });
+    const bonusContent = settings.bonusesEnabled
+      ? extensionContent({ settings: roomTextSettings(settings), seed: bonusSeeds.extension, words: this.#options.extensionWords ?? approvedRandomWords, logError: (message) => this.#logError(message) })
+      : undefined;
+    const runtime = this.#runtime({ ownership, state: started.created, entrants: started.entrants, acquiredAt, language: record.language, bonusContent });
     if (!this.#registry.add(runtime)) {
       // The process began stopping during the start.
       await this.#interrupt(ownership, "server_stopped");
@@ -321,18 +337,24 @@ export class RaceService {
     return { ok: true };
   }
 
+  #bonusSeed(): RandomState {
+    return this.#options.bonusSeed?.() ?? asRandomState(Array.from(crypto.getRandomValues(new Uint32Array(4))));
+  }
+
   #runtime({
     ownership,
     state,
     entrants,
     acquiredAt,
     language,
+    bonusContent,
   }: {
     readonly ownership: RaceOwnership;
     readonly state: BonusRaceState;
     readonly entrants: readonly import("@incision/database").StartedEntrant[];
     readonly acquiredAt: number;
     readonly language: Locale;
+    readonly bonusContent?: BonusContent;
   }): RaceRuntime {
     const { store, schedule, log } = this.#options;
     let failing = false;
@@ -363,6 +385,7 @@ export class RaceService {
       state,
       entrants,
       language,
+      ...(bonusContent === undefined ? {} : { bonusContent }),
       store,
       lease,
       now: this.#options.now,

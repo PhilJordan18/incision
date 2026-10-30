@@ -12,9 +12,9 @@ import { readRaceForEntrant } from "../src/races/results";
 import { readAccountStatistics } from "../src/races/profile-statistics";
 import { createTemporaryDatabase } from "./test-database";
 
-/** The text settings columns of 0016 as an existing row reads after the upgrade (D-19). */
+/** The columns 0016 (text settings) and 0017 (bonuses) add, as an existing row reads after the upgrade (D-19). */
 const D19_TEXT_COLUMNS = {
-  text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [],
+  text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [], bonuses_enabled: false,
 };
 
 it.each([
@@ -60,7 +60,7 @@ it.each([
       const rows = (await pool.query(`select * from ${table}`)).rows;
       // 0013 adds this nullable column; its explicit expected value is not data loss.
       if (table === "lobby_members" && predecessor === "0012_third_human_cannonball") return rows.map((row) => ({ ...row, guest_session_id: null }));
-      // 0016 adds the text settings with D-19's defaults: existing rooms keep running the same texts.
+      // 0016 and 0017 add the text settings and bonuses with D-19's defaults: existing rooms keep running the same texts, in training.
       return table === "lobby_settings" ? rows.map((row) => ({ ...row, ...D19_TEXT_COLUMNS })) : rows;
     }));
     const before = await readRaceForEntrant(db, race, account);

@@ -1,4 +1,4 @@
-import { configureRoom, createDatabase, createRoomWithHost, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
+import { changeRoomBots, configureRoom, createDatabase, createRoomWithHost, DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
 import { countWords, parseRoomCode, passageCut, ROOM_CODE_ALPHABET } from "@incision/domain";
 import { EXCLUSIONS, FORBIDDEN_PAIRS, WORD_LISTS } from "@incision/domain/words";
 import pg from "pg";
@@ -11,7 +11,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
-import { account, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, startStallingProxy, type StallingProxy, type Tab } from "./servers";
+import { account, BONUS_SEED_EXTEND, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, startStallingProxy, type StallingProxy, type Tab } from "./servers";
 
 /**
  * F-04.0 integration evidence, without a browser: real server processes (production build),
@@ -192,6 +192,65 @@ describe("an integrated race (F-04.0)", () => {
     expect(hidden).not.toContain("Invitée");
   }, 90_000);
 
+  it("runs an Arcade race with two people and a bot: grants, a player's extension from the reviewed lists, the bot's own activation, frozen in the race (C3, D-16, D-18)", async () => {
+    const a = servers[0];
+    if (a === undefined) throw new Error("no server");
+    // The servers run with BONUS_SEED_EXTEND: every grant is extendLeader, whoever receives it at each milestone.
+    // Extension words come from the reviewed lists (C1), never the fixtures.
+    expect([WORD_LISTS.fr, EXCLUSIONS.fr, FORBIDDEN_PAIRS.fr].map((data) => data.version.startsWith("fixture"))).toEqual([false, false, false]);
+    const host = await account("int-host-arcade", "Hôte arcade");
+    const guest = await account("int-guest-arcade", "Invitée arcade");
+    const code = parseRoomCode(await room(host, [guest]));
+    if (!code.ok) throw new Error("bad code");
+    const arcade = { textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, bonusesEnabled: true } as const;
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: arcade })).toMatchObject({ ok: true, revision: 1 });
+    const [lobby] = await query<{ revision: number }>("select revision from lobbies where code = $1", [code.code]);
+    expect(await changeRoomBots(db(), { accountId: host.id, code: code.code, revision: lobby?.revision ?? 0, change: { kind: "add", level: "noob" } })).toMatchObject({ ok: true });
+    const h = await tab(a.origin, host.cookie);
+    const g = await tab(a.origin, guest.cookie);
+    expect(await h.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { bonusesEnabled: true } } });
+    expect(await g.ask("room:watch", { code: code.code })).toMatchObject({ ok: true });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const hostReveal = (await h.next("race:reveal")) as RaceRevealPayload;
+    const raceId = reveal.reveal.raceId;
+    const hostId = hostReveal.selfEntrantId;
+    const botId = reveal.entrants.find((entrant) => entrant.entrantId !== hostId && entrant.entrantId !== reveal.selfEntrantId)?.entrantId;
+    expect(reveal.entrants).toHaveLength(3);
+    expect(botId).toBeDefined();
+    const [stored] = await query<{ config: Record<string, unknown> }>("select config_snapshot as config from races where id = $1", [raceId]);
+    expect(stored?.config.bonuses).toBe(true);
+    // The fixed seed is the test build's, never stored with the race.
+    expect(JSON.stringify(stored?.config)).not.toContain(BONUS_SEED_EXTEND.join(","));
+    await startsAt(reveal);
+    // The host leads past 75 %; the guest (last, at 0) receives a grant at 25 %, the bot once it is far behind.
+    const typed = Math.ceil(reveal.reveal.text.length * 0.8);
+    await typeAll(h, raceId, reveal.reveal.text.slice(0, typed));
+    const self = (await g.next("race:bonus:self", (payload: { grants: readonly unknown[] }) => payload.grants.length > 0, 10_000)) as { grants: { milestone: number; kind: string }[] };
+    expect(self.grants[0]).toEqual({ milestone: 25, kind: "extendLeader" });
+    // The guest's Enter: the server applies the extension to the leader, the host, with three words of the reviewed list.
+    const ack = (await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })) as { ok: boolean; result?: { ok: boolean; receipt?: { grant: { kind: string }; targetId: string } } };
+    expect(ack).toMatchObject({ ok: true, result: { ok: true, receipt: { grant: { kind: "extendLeader" }, targetId: hostId } } });
+    // The bot uses its own grant within its delay (D-16), through the same transition, announced to every follower.
+    const announced = (await h.next("race:bonus:announcement", (payload: { announcement: { type: string; receipt?: { grant: { entrantId: string } } } }) =>
+      payload.announcement.type === "activated" && payload.announcement.receipt?.grant.entrantId === botId, 15_000)) as { announcement: { receipt: { grant: { kind: string }; targetId: string } } };
+    expect(announced.announcement.receipt).toMatchObject({ grant: { kind: "extendLeader" }, targetId: hostId });
+    // Both extensions, the guest's and the bot's in either order, lengthen the host's text by three words each.
+    const extended = (await h.next("race:self", (payload: RaceSelfPayload) => payload.snapshot.textVersion === 2, 5_000)) as RaceSelfPayload;
+    expect(extended.snapshot.target.slice(0, reveal.reveal.text.length)).toEqual(reveal.reveal.text);
+    const added = extended.snapshot.target.slice(reveal.reveal.text.length).join("").trim().split(/\s+/);
+    expect(added).toHaveLength(6);
+    const listed = new Set(WORD_LISTS.fr.entries.map((entry) => entry.word));
+    const excluded = new Set(EXCLUSIONS.fr.words);
+    // With capitals and punctuation on (D-19), only an extension's first word may take a capital, after a sentence end.
+    added.forEach((word, index) => {
+      const entry = index % 3 === 0 ? word.charAt(0).toLocaleLowerCase("fr") + word.slice(1) : word;
+      expect(listed.has(entry), word).toBe(true);
+      expect(excluded.has(entry), word).toBe(false);
+    });
+    expect(JSON.stringify(announced)).not.toMatch(/"random"|"seed"|"cursors"|"words"/);
+  }, 90_000);
+
   it("notices a runner whose connection goes silent within about 15 s, keeps its place 30 s, then ranks it as abandoned (D-06)", async () => {
     const a = servers[0] ?? (await server(0));
     const host = await account("int-host-6", "Hôte six");
@@ -363,7 +422,8 @@ describe("an integrated race (F-04.0)", () => {
 
   it("draws the race text from the imported corpus in production, refuses without one, and records the passage", async () => {
     // The process of the previous test has exited: its port is free again.
-    const c = await startServer(PORTS[1] ?? 3302, { RACE_FIXTURE_TEXTS: "" });
+    // A corpus server, as in production: no fixtures, so no test seed either.
+    const c = await startServer(PORTS[1] ?? 3302, { RACE_FIXTURE_TEXTS: "", RACE_TEST_BONUS_SEED: "" });
     servers.push(c);
     expect(c.output()).toContain("[races] race texts: drawn from the active corpus (coherent, room word count, medium)");
     expect(c.output()).not.toContain("RACE_FIXTURE_TEXTS=allowed");
@@ -421,7 +481,7 @@ describe("an integrated race (F-04.0)", () => {
     }
     // The host saves English texts and a 60 s limit with the revision a new room's page shows, through the
     // database function configureRoomAction calls.
-    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } as const;
+    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: english })).toMatchObject({ ok: true, revision: 1 });
     // Both browse the site in French.
     const h = await tab(c.origin, `${host.cookie}; ${LOCALE_COOKIE}=fr`);
@@ -454,7 +514,7 @@ describe("an integrated race (F-04.0)", () => {
     const code = parseRoomCode(await room(host, [guest]));
     if (c === undefined || !code.ok) throw new Error("no server or no room");
     const random = {
-      textLanguage: "fr", wordCount: 30, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS,
+      textLanguage: "fr", wordCount: 30, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS,
       textKind: "random", complexity: "easy", numbers: true, includeCharacters: ["z"], excludeCharacters: [],
     } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: random })).toMatchObject({ ok: true, revision: 1 });

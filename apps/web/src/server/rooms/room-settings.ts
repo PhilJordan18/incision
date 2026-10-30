@@ -71,11 +71,12 @@ const configureRoomFieldsSchema = z.object({
   accents: flag,
   includeCharacters: characters,
   excludeCharacters: characters,
+  bonusesEnabled: flag,
 });
 
 const FIELDS = [
   "revision", "textLanguage", "wordCount", "timeLimitSeconds", "errorMode",
-  "textKind", "complexity", "punctuation", "numbers", "capitals", "accents", "includeCharacters", "excludeCharacters",
+  "textKind", "complexity", "punctuation", "numbers", "capitals", "accents", "includeCharacters", "excludeCharacters", "bonusesEnabled",
 ] as const;
 
 export type ConfigureRoomRequest = {
