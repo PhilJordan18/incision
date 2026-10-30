@@ -5,7 +5,7 @@ import { renewGuestAfterHostAction } from "./guest-host";
 import type { GuestSessionProof, GuestSessionRow } from "../identity/guest-sessions";
 import { guestSessions, lobbies, lobbyBots, lobbyMembers } from "../schema";
 import { boundedTransaction, READ_COMMITTED, type Transaction } from "../transaction";
-import { findActiveHumanMembership, type JoinRoomResult } from "./membership";
+import { findActiveHumanMembership, type JoinRoomResult, type LockedAdmissionRoom } from "./membership";
 import { bumpRevision } from "./room-writes";
 
 export type GuestAdmissionInput = {
@@ -34,6 +34,17 @@ export async function joinRoomByCodeAsGuest(db: Database, input: GuestAdmissionI
     const [room] = await tx.select({ id: lobbies.id, phase: lobbies.phase, capacity: lobbies.capacity })
       .from(lobbies).where(and(eq(lobbies.code, input.code), ne(lobbies.visibility, "private"))).for("update");
     if (room === undefined) return { ok: false, error: "ROOM_NOT_FOUND" };
+    return admitGuestToLockedRoom(tx, { ...input, room });
+  }, READ_COMMITTED);
+}
+
+/** Internal transaction helper: caller has locked and authorized access to this room. */
+export async function admitGuestToLockedRoom(tx: Transaction, input: Omit<GuestAdmissionInput, "code"> & {
+  readonly room: LockedAdmissionRoom;
+}): Promise<GuestAdmissionResult> {
+    const nickname = parseGuestNickname(input.nickname);
+    if (!nickname.ok) return nickname;
+    const room = input.room;
     const [session] = await tx.select({ id: guestSessions.id }).from(guestSessions)
       .where(and(eq(guestSessions.id, input.proof.id), eq(guestSessions.secretDigest, input.proof.secretDigest))).for("update");
     if (session === undefined || !await sessionIsActive(tx, session.id)) return { ok: false, error: "INVALID_GUEST_SESSION" };
@@ -70,7 +81,6 @@ export async function joinRoomByCodeAsGuest(db: Database, input: GuestAdmissionI
     await bumpRevision(tx, room.id);
     return { ok: true, lobbyId: room.id, memberId: member.id, alreadyMember: false,
       guestSession: await renewGuestAfterHostAction(tx, session.id) };
-  }, READ_COMMITTED);
 }
 
 async function sessionIsActive(tx: Transaction, id: string): Promise<boolean> {

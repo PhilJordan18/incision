@@ -196,6 +196,15 @@ async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput):
   if (lobby === undefined) {
     return { ok: false, error: "ROOM_NOT_FOUND" };
   }
+  return admitAccountToLockedRoom(tx, { accountId, role, lobby });
+}
+
+export type LockedAdmissionRoom = { readonly id: string; readonly phase: RoomPhase; readonly capacity: number };
+
+/** Internal transaction helper: caller has locked and authorized access to this room. */
+export async function admitAccountToLockedRoom(tx: Transaction, { accountId, role, lobby }: {
+  readonly accountId: string; readonly role: MemberRole; readonly lobby: LockedAdmissionRoom;
+}): Promise<JoinRoomResult> {
   const current = await findActiveMembership(tx, accountId);
   if (current !== undefined) {
     return current.lobbyId === lobby.id
