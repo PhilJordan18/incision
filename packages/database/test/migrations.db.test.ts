@@ -124,7 +124,7 @@ describe("runMigrations", () => {
     expect({ rooms: await query("select * from lobbies"), races: await query("select * from races") }).toEqual({ rooms: before.rooms, races: before.races });
     expect(await query("select * from lobby_settings")).toEqual(before.settings.map((row) => ({
       ...row, text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [],
-      // Later migrations add their own defaults (0016: training).
+      // Later migrations add their own defaults (0017: training).
       bonuses_enabled: false,
     })));
     // Coherent mode cannot hold characters to include or exclude (D-10); random mode holds at most 100 of each.
@@ -134,9 +134,9 @@ describe("runMigrations", () => {
     await expect(query("update lobby_settings set text_kind = 'coherent'")).rejects.toThrow("lobby_settings_characters_random_only");
   });
 
-  it("keeps existing rooms in training (0016) without touching their text settings or historical races", async () => {
+  it("keeps existing rooms in training (0017) without touching their text settings or historical races", async () => {
     // Upgrades from the text settings migration, whatever numbers the coordinator assigns.
-    const predecessor = "0015_lobby_text_settings";
+    const predecessor = "0016_lobby_text_settings";
     await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo(predecessor) });
     await query("insert into lobbies (code, capacity) values ('D9N6SV', 8)");
     await query("insert into lobby_settings (lobby_id, revision, text_language, word_count, time_limit_ms, error_mode, text_kind, complexity) select id, 2, 'fr', 50, null, 'mandatory', 'random', 'hard' from lobbies");
