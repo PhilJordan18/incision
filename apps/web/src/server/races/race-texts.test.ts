@@ -1,7 +1,10 @@
-import type { ActiveCorpus } from "@incision/database";
-import { asDuration, asEntrantId, asRandomState, containsLineBreak, countWords, createRaceRefusal, type Passage, TIME_LIMIT_MAX_MS } from "@incision/domain";
+import { type ActiveCorpus, defaultCoherentSettings } from "@incision/database";
+import { asDuration, asEntrantId, asRandomState, containsLineBreak, countWords, createRaceRefusal, type Passage, type RandomTextSettings, type RandomWords, TIME_LIMIT_MAX_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
-import { CORPUS_RETRY_MS, CorpusTexts, FIXTURE_RACE_TEXTS } from "./race-texts";
+import { CORPUS_RETRY_MS, CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts } from "./race-texts";
+
+/** The coherent settings of D-19 with this word count: what a room that never changed them runs. */
+const coherent = (language: "fr" | "en", wordCount: number) => ({ ...defaultCoherentSettings(language), wordCount });
 
 /**
  * What a keyboard of the language types directly, and nothing else: printable ASCII, plus the
@@ -65,13 +68,78 @@ function corpusTexts(load: () => Promise<ActiveCorpus | undefined>) {
 /** The first `count` words of a passage, as the engine cuts it with D-19's options (numbers off). */
 const firstWords = (text: string, count: number) => text.split(" ").slice(0, count).join(" ");
 
+/** Approved-looking words (a non-fixture version), injected so these tests never depend on the shipped lists. */
+function testWords(language: "fr" | "en"): RandomWords {
+  const version = "test-approved-1";
+  const list = language === "en" ? ["sea", "ship", "wind", "sail", "map", "star", "moon", "wave", "kite", "deck", "tide", "mast"] : ["mer", "vent", "port", "voile", "cap", "phare", "sable", "vague", "quai", "nord", "sud", "ciel"];
+  return {
+    list: { language, version, entries: list.map((word, index) => ({ word, zipf: 6 - index / 100 })) },
+    exclusions: { language, version, words: [] },
+    pairs: { language, version, pairs: [] },
+  };
+}
+
+const randomSettings = (language: "fr" | "en", overrides: Partial<RandomTextSettings> = {}): RandomTextSettings => ({
+  kind: "random", language, wordCount: 20, complexity: "easy", options: { punctuation: true, numbers: false, capitals: true, accents: true }, include: [], exclude: [], ...overrides,
+});
+
+describe("CorpusTexts, random words (F-03.1e)", () => {
+  const source = (words: (language: "fr" | "en") => RandomWords | undefined = testWords) => {
+    const load = vi.fn(async () => undefined);
+    const logError = vi.fn<(message: string) => void>();
+    const texts = new CorpusTexts({ load, words, seed: () => asRandomState([1, 2, 3, 4]), log: () => undefined, logError });
+    return { texts, load, logError };
+  };
+
+  it.each(["fr", "en"] as const)("draws %s words from the approved lists alone, without reading the corpus, and records the settings and versions", async (language) => {
+    const { texts, load } = source();
+    const settings = randomSettings(language);
+    const drawn = await texts.draw(settings);
+    expect(drawn).toMatchObject({ ok: true, record: { language, text: "random", wordsVersions: { list: "test-approved-1", exclusions: "test-approved-1", pairs: "test-approved-1" }, textSettings: settings, textVersions: { generator: 1, criteria: expect.any(String) } } });
+    expect(drawn.ok && countWords(drawn.text)).toBe(20);
+    expect(load).not.toHaveBeenCalled();
+    // The same private seed gives the same text: the start's draw is reproducible from what it records.
+    expect(await texts.draw(settings)).toEqual(drawn);
+  });
+
+  it("applies the included and excluded characters", async () => {
+    const drawn = await source().texts.draw(randomSettings("en", { include: ["k"], exclude: ["o"] }));
+    expect(drawn.ok).toBe(true);
+    if (!drawn.ok) return;
+    expect(drawn.text.toLowerCase()).toContain("k");
+    expect(drawn.text.toLowerCase()).not.toContain("o");
+  });
+
+  it("records the version of each part of the word data, which may differ", async () => {
+    const mixed = (language: "fr" | "en"): RandomWords => {
+      const data = testWords(language);
+      return { ...data, exclusions: { ...data.exclusions, version: "excl-2" }, pairs: { ...data.pairs, version: "pairs-3" } };
+    };
+    expect(await source(mixed).texts.draw(randomSettings("en"))).toMatchObject({ ok: true, record: { wordsVersions: { list: "test-approved-1", exclusions: "excl-2", pairs: "pairs-3" } } });
+  });
+
+  it("is refused by the local fixture source too, never started on a fixed passage", async () => {
+    expect(await fixedRaceTexts(FIXTURE_RACE_TEXTS).draw(randomSettings("fr"))).toEqual({ ok: false, reason: "TEXTS_UNAVAILABLE" });
+  });
+
+  it("refuses without any fallback when no approved list exists (only fixtures ship)", async () => {
+    expect(await source(() => undefined).texts.draw(randomSettings("fr"))).toEqual({ ok: false, reason: "TEXTS_UNAVAILABLE" });
+  });
+
+  it("refuses settings no word can serve, logging the reason and never a word", async () => {
+    const { texts, logError } = source();
+    expect(await texts.draw(randomSettings("en", { exclude: [..."aeiouy"] }))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(logError).toHaveBeenCalledWith("[races] words test-approved-1: draw refused (NO_COMPATIBLE_WORDS)");
+  });
+});
+
 describe("CorpusTexts", () => {
   it.each(["fr", "en"] as const)("cuts exactly 10 or 200 words in %s and freezes the requested count", async (language) => {
     const source = language === "fr" ? FRENCH : ENGLISH;
     const passage = { ...source, text: Array.from({ length: 4 }, () => source.text).join(" ") };
     const { texts } = corpusTexts(async () => corpusOf([passage]));
     for (const wordCount of [10, 200]) {
-      const drawn = await texts.draw(language, wordCount);
+      const drawn = await texts.draw(coherent(language, wordCount));
       expect(drawn).toMatchObject({ ok: true, text: firstWords(passage.text, wordCount), record: { textSettings: { wordCount } } });
       expect(drawn.ok && countWords(drawn.text)).toBe(wordCount);
     }
@@ -79,12 +147,12 @@ describe("CorpusTexts", () => {
 
   it("refuses a requested length the corpus cannot serve instead of falling back to 50 words", async () => {
     const { texts } = corpusTexts(async () => corpusOf([FRENCH, ENGLISH]));
-    expect(await texts.draw("fr", 200)).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
-    expect(await texts.draw("fr", 10)).toMatchObject({ ok: true, record: { textSettings: { wordCount: 10 } } });
+    expect(await texts.draw(coherent("fr", 200))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await texts.draw(coherent("fr", 10))).toMatchObject({ ok: true, record: { textSettings: { wordCount: 10 } } });
   });
   it("draws a 50-word cut of a passage in the race's language, with D-19's defaults, and records where it comes from", async () => {
     const { texts, seed } = corpusTexts(async () => corpusOf([FRENCH, ENGLISH]));
-    const drawn = await texts.draw("fr", 50);
+    const drawn = await texts.draw(coherent("fr", 50));
     expect(drawn).toEqual({
       ok: true,
       text: firstWords(FRENCH.text, 50),
@@ -93,30 +161,30 @@ describe("CorpusTexts", () => {
         text: FRENCH.id,
         corpusVersion: "test-1",
         textSettings: { kind: "coherent", language: "fr", wordCount: 50, complexity: "medium", options: { punctuation: true, numbers: false, capitals: true, accents: true } },
-        textVersions: { generator: 1, criteria: "start-1", normalization: 2, prng: expect.any(String) },
+        textVersions: { generator: 1, criteria: "wf311-1", normalization: 2, prng: expect.any(String) },
       },
     });
     expect(drawn.ok && countWords(drawn.text)).toBe(50);
-    expect(await texts.draw("en", 50)).toMatchObject({ ok: true, text: firstWords(ENGLISH.text, 50), record: { language: "en", text: ENGLISH.id } });
+    expect(await texts.draw(coherent("en", 50))).toMatchObject({ ok: true, text: firstWords(ENGLISH.text, 50), record: { language: "en", text: ENGLISH.id } });
     // A fresh state for each draw.
     expect(seed).toHaveBeenCalledTimes(2);
   });
 
   it("refuses when no passage serves the settings in that language, and never takes another language's or a fixture in its place", async () => {
     const { texts } = corpusTexts(async () => corpusOf([FRENCH, SHORT]));
-    expect(await texts.draw("en", 50)).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await texts.draw(coherent("en", 50))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
     const { texts: shortOnly } = corpusTexts(async () => corpusOf([SHORT, { ...ENGLISH, complexity: "easy" }]));
-    expect(await shortOnly.draw("fr", 50)).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
-    expect(await shortOnly.draw("en", 50)).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await shortOnly.draw(coherent("fr", 50))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await shortOnly.draw(coherent("en", 50))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
   });
 
   it("loads the active version once, shared by starts arriving together, keeps it frozen, and counts what a start can draw", async () => {
     let version = "test-1";
     // SHORT is retained but too short for D-19's 50 words: not counted.
     const { texts, loads, log } = corpusTexts(async () => corpusOf([FRENCH, SHORT, ENGLISH], version));
-    const [first, second] = await Promise.all([texts.draw("fr", 50), texts.draw("en", 50)]);
+    const [first, second] = await Promise.all([texts.draw(coherent("fr", 50)), texts.draw(coherent("en", 50))]);
     version = "test-2";
-    const third = await texts.draw("fr", 50);
+    const third = await texts.draw(coherent("fr", 50));
     for (const drawn of [first, second, third]) expect(drawn).toMatchObject({ ok: true, record: { corpusVersion: "test-1" } });
     expect(loads).toHaveBeenCalledTimes(1);
     expect(log.mock.calls).toEqual([["[races] corpus test-1: 1 fr, 1 en selectable passages"]]);
@@ -126,14 +194,14 @@ describe("CorpusTexts", () => {
     const database: { active?: ActiveCorpus } = {};
     const { texts, loads, log, advance } = corpusTexts(async () => database.active);
     await texts.warm();
-    expect(await texts.draw("fr", 50)).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await texts.draw(coherent("fr", 50))).toEqual({ ok: false, reason: "TEXTS_UNAVAILABLE" });
     expect(loads).toHaveBeenCalledTimes(1);
     database.active = corpusOf([FRENCH, ENGLISH]);
     advance(CORPUS_RETRY_MS - 1);
-    expect(await texts.draw("fr", 50)).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await texts.draw(coherent("fr", 50))).toEqual({ ok: false, reason: "TEXTS_UNAVAILABLE" });
     expect(loads).toHaveBeenCalledTimes(1);
     advance(1);
-    expect(await texts.draw("fr", 50)).toMatchObject({ ok: true, record: { text: FRENCH.id, corpusVersion: "test-1" } });
+    expect(await texts.draw(coherent("fr", 50))).toMatchObject({ ok: true, record: { text: FRENCH.id, corpusVersion: "test-1" } });
     expect(loads).toHaveBeenCalledTimes(2);
     expect(log.mock.calls).toEqual([
       ["[races] corpus: no active version, starts refused until one is imported (docs/DEPLOYMENT.md)"],
@@ -149,13 +217,13 @@ describe("CorpusTexts", () => {
     });
     await texts.warm();
     // Starts arriving together during the delay, then after it: one read each time.
-    expect(await Promise.all([texts.draw("fr", 50), texts.draw("en", 50)])).toEqual([
+    expect(await Promise.all([texts.draw(coherent("fr", 50)), texts.draw(coherent("en", 50))])).toEqual([
       { ok: false, reason: "UNAVAILABLE" },
       { ok: false, reason: "UNAVAILABLE" },
     ]);
     expect(loads).toHaveBeenCalledTimes(1);
     advance(CORPUS_RETRY_MS);
-    expect(await Promise.all([texts.draw("fr", 50), texts.draw("en", 50)])).toEqual([
+    expect(await Promise.all([texts.draw(coherent("fr", 50)), texts.draw(coherent("en", 50))])).toEqual([
       { ok: false, reason: "UNAVAILABLE" },
       { ok: false, reason: "UNAVAILABLE" },
     ]);
@@ -164,14 +232,14 @@ describe("CorpusTexts", () => {
     expect(logError.mock.calls).toEqual([["[races] corpus: load failed, starts refused until it loads: Corpus version test-1 no longer matches its checksum"]]);
     fail = false;
     advance(CORPUS_RETRY_MS);
-    expect(await texts.draw("fr", 50)).toMatchObject({ ok: true, record: { corpusVersion: "test-1" } });
+    expect(await texts.draw(coherent("fr", 50))).toMatchObject({ ok: true, record: { corpusVersion: "test-1" } });
     expect(loads).toHaveBeenCalledTimes(3);
   });
 
   it("answers UNAVAILABLE when the engine refuses the corpus at the draw, and logs the passage id, never its text", async () => {
     const broken: Passage = { ...FRENCH, id: "fr-test-espaces", text: FRENCH.text.replace(" ", "  ") };
     const { texts, logError } = corpusTexts(async () => corpusOf([broken, ENGLISH]));
-    expect(await texts.draw("fr", 50)).toEqual({ ok: false, reason: "UNAVAILABLE" });
+    expect(await texts.draw(coherent("fr", 50))).toEqual({ ok: false, reason: "UNAVAILABLE" });
     expect(logError).toHaveBeenCalledTimes(1);
     const [message] = logError.mock.calls[0] ?? [];
     expect(message).toMatch(/^\[races\] corpus test-1: draw failed: .*fr-test-espaces/);

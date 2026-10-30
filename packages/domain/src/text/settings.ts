@@ -43,9 +43,10 @@ export type RandomTextSettings = BaseTextSettings & {
 export type TextSettings = CoherentTextSettings | RandomTextSettings;
 
 /**
- * What each complexity means for random words (D-10, Q-1, Q-3, Q-4). These are starting values:
- * the thresholds stay parameters until they are calibrated on the real lists (P-1), and
- * `CRITERIA_VERSION` changes with them.
+ * What each complexity means for random words (D-10, Q-1, Q-3, Q-4), calibrated on the reviewed
+ * lists wf311-r1 (#43): the Zipf floors make each level's generated texts measurably harder than the
+ * one below (mean letters and rare-word share, docs/evidence/f02-4-random-word-data/calibration.md).
+ * `CRITERIA_VERSION` changes with any value here.
  */
 export type ComplexityCriteria = {
   /** Most graphemes in a word, apostrophe included. */
@@ -60,12 +61,12 @@ export type ComplexityCriteria = {
   readonly sentenceTokens: readonly [min: number, max: number];
 };
 
-export const CRITERIA_VERSION = "start-1";
+export const CRITERIA_VERSION = "wf311-1";
 
 export const COMPLEXITY_CRITERIA: Readonly<Record<Complexity, ComplexityCriteria>> = {
   easy: { maxLetters: 5, minZipf: 4.0, marks: [".", ","], maxNumber: 99, sentenceTokens: [4, 8] },
-  medium: { maxLetters: 9, minZipf: 3.3, marks: [".", ",", "?", "!"], maxNumber: 9_999, sentenceTokens: [5, 12] },
-  hard: { maxLetters: 16, minZipf: 2.5, marks: [".", ",", "?", "!", ";", ":", '"', "(", ")"], maxNumber: 999_999, sentenceTokens: [6, 16] },
+  medium: { maxLetters: 9, minZipf: 3.75, marks: [".", ",", "?", "!"], maxNumber: 9_999, sentenceTokens: [5, 12] },
+  hard: { maxLetters: 16, minZipf: 3.5, marks: [".", ",", "?", "!", ";", ":", '"', "(", ")"], maxNumber: 999_999, sentenceTokens: [6, 16] },
 };
 
 /** Refusals that need no data, in priority order (the first match wins). */
@@ -84,6 +85,15 @@ const PAIRED: Readonly<Record<string, string>> = { "(": ")", ")": "(" };
  * schema caps the arrays first (TECH-07), so a longer one here is a bug.
  */
 export const MAX_SETTING_CHARACTERS = 100;
+
+/**
+ * The characters of one typed field, as the browser shows them and the server reads them: one entry
+ * per grapheme, blanks dropped, lowercase, repeats removed, in the order typed. It decides nothing
+ * about support: `textSettingsRefusal` refuses what the language cannot hold.
+ */
+export function characterEntries(value: string): string[] {
+  return [...new Set(toGraphemes(value).filter((grapheme) => grapheme.trim() !== "").map((grapheme) => grapheme.toLowerCase()))];
+}
 
 /**
  * A character the host may include or exclude: one letter of the language, a digit or a mark,

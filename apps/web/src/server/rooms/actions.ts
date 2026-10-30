@@ -15,7 +15,8 @@ import {
   type NextRoundResult,
   startNextRound,
 } from "@incision/database";
-import { MEMBER_ROLES, type MemberRole, parseRoomCode, ROOM_MAX_CAPACITY, type RoomCodeError } from "@incision/domain";
+import { MEMBER_ROLES, type MemberRole, parseRoomCode, type RoomCodeError } from "@incision/domain";
+import { parseCreationCapacity } from "./capacity-form";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getRequestLocale } from "@/i18n/server";
@@ -27,6 +28,7 @@ import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
 import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
 import { allowRoomChange, allowSettingsChange, forgiveRoomChange } from "./room-change-limiter";
 import { parseConfigureRoomForm } from "./room-settings";
+import { randomWordsProblem, roomTextSettings, textSettingsCheck, type TextSettingsProblem } from "./text-settings";
 import { roomPresence } from "../realtime/room-presence";
 import { notifyMemberLeft, notifyRoomChanged } from "./room-events";
 
@@ -144,7 +146,7 @@ export async function joinRoomAction(_previous: JoinFormState, formData: FormDat
 }
 
 export type CreateRoomState = {
-  readonly error?: "ALREADY_IN_ROOM" | "RATE_LIMITED" | "UNAVAILABLE";
+  readonly error?: "ALREADY_IN_ROOM" | "RATE_LIMITED" | "UNAVAILABLE" | "INVALID_CAPACITY";
   readonly currentCode?: string;
 };
 
@@ -154,6 +156,8 @@ export type CreateRoomState = {
  */
 export async function createRoomAction(_previous: CreateRoomState, formData: FormData): Promise<CreateRoomState> {
   const { accountId } = await requireAccountSession("/rooms/new");
+  const capacity = parseCreationCapacity(formData);
+  if (capacity === undefined) return { error: "INVALID_CAPACITY" };
   const role = requestedRole(formData);
   if (role === undefined) {
     return { error: "UNAVAILABLE" };
@@ -168,7 +172,7 @@ export async function createRoomAction(_previous: CreateRoomState, formData: For
       accountId,
       role,
       visibility: "code",
-      capacity: ROOM_MAX_CAPACITY,
+      capacity,
       randomIndex: (upperBound) => randomInt(upperBound),
       textLanguage: await getRequestLocale(),
     });
@@ -286,15 +290,19 @@ export async function closeRoomAction(formData: FormData): Promise<HostActionSta
   return {};
 }
 
-export type ConfigureRoomError = Extract<ConfigureRoomResult, { readonly ok: false }>["error"] | "INVALID_SETTINGS" | "RATE_LIMITED" | "UNAVAILABLE";
+export type ConfigureRoomError = Extract<ConfigureRoomResult, { readonly ok: false }>["error"] | "INVALID_SETTINGS" | "TEXT_SETTINGS_REFUSED" | "RATE_LIMITED" | "UNAVAILABLE";
 
-/** `revision`: the settings revision saved, for the page's next change. */
-export type ConfigureRoomState = { readonly error?: ConfigureRoomError; readonly revision?: number };
+/**
+ * `revision`: the settings revision saved, for the page's next change. `textProblem`: why
+ * TEXT_SETTINGS_REFUSED, so the panel says which setting to change (CONF-04 to CONF-07).
+ */
+export type ConfigureRoomState = { readonly error?: ConfigureRoomError; readonly textProblem?: TextSettingsProblem; readonly revision?: number };
 
 /**
  * The host saves the settings of the room its page shows (`code`), while it waits (F-03.1,
- * CONF-01/02/12): the text language and a time limit of 30 s to 120 s, with the settings revision
- * the page shows. The fields are checked before the budget and the database; the host, the room's
+ * CONF-01 to CONF-08, CONF-12): the text settings, a time limit and the typing mode, with the
+ * settings revision the page shows. The fields and the text settings (the engine's proofs, on the
+ * approved lists in random mode) are checked before the budget and the database; the host, the room's
  * phase and the revision under the room lock. Every member's page gets the settings with the room's
  * next snapshot.
  */
@@ -304,8 +312,18 @@ export async function configureRoomAction(formData: FormData): Promise<Configure
   if (request === undefined) {
     return { error: "INVALID_SETTINGS" };
   }
+  const textSettings = roomTextSettings(request.settings);
+  const refusal = textSettingsCheck(textSettings);
+  if (refusal !== undefined) {
+    return { error: "TEXT_SETTINGS_REFUSED", textProblem: refusal };
+  }
   if (!allowSettingsChange(accountId)) {
     return { error: "RATE_LIMITED" };
+  }
+  // The proofs on the word lists cost real work: only within the budget (security review of C2).
+  const textProblem = randomWordsProblem(textSettings);
+  if (textProblem !== undefined) {
+    return { error: "TEXT_SETTINGS_REFUSED", textProblem };
   }
   let result: ConfigureRoomResult;
   try {

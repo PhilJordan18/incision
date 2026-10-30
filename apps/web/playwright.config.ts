@@ -37,6 +37,7 @@ export default defineConfig({
       AUTH_URL: baseURL,
       AUTH_SECRET: process.env.E2E_AUTH_SECRET,
       GUEST_SESSION_SECRET: guestSessionSecret,
+      INVITATION_IP_SECRET: randomBytes(32).toString("base64url"),
       GUEST_ENTRY_ENABLED: "true",
       DATABASE_URL: process.env.E2E_DATABASE_URL,
       E2E_DATABASE_URL: process.env.E2E_DATABASE_URL,

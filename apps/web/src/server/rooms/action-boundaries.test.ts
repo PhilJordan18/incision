@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { roomPresence } from "@/server/realtime/room-presence";
 
+/** D-19's text settings, as the parser reads the fields of a page that never changed them. */
+const DEFAULT_TEXT_SETTINGS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [] };
+
 // Exercise the exported server actions directly: rendering a protected page is not an
 // authorization boundary. Database stubs expose any call made before the session guard.
 const boundary = vi.hoisted(() => ({
@@ -44,6 +47,7 @@ function form(): FormData {
   value.set("textLanguage", "fr");
   value.set("wordCount", "50");
   value.set("timeLimitSeconds", "60");
+  for (const [name, field] of Object.entries({ textKind: "coherent", complexity: "medium", punctuation: "true", numbers: "false", capitals: "true", accents: "true", includeCharacters: "", excludeCharacters: "" })) value.set(name, field);
   value.set("errorMode", "mandatory");
   return value;
 }
@@ -84,7 +88,7 @@ describe("server-action identity boundaries (SEC-01)", () => {
       name: "configure",
       invoke: configureRoomAction,
       mutation: boundary.configure,
-      expected: { accountId: "session-account", code: "ABCDEF", revision: 0, settings: { textLanguage: "fr", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" } },
+      expected: { accountId: "session-account", code: "ABCDEF", revision: 0, settings: { textLanguage: "fr", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } },
     },
   ])("$name ignores a forged host identity and preserves the transactional refusal", async ({ invoke, mutation, expected }) => {
     mutation.mockResolvedValue({ ok: false, error: "NOT_HOST" });
@@ -98,6 +102,25 @@ describe("server-action identity boundaries (SEC-01)", () => {
     boundary.create.mockResolvedValue({ ok: true, room: { id: "room", code: "ABCDEF" } });
     await expect(createRoomAction({}, form())).rejects.toThrow("redirect /rooms/ABCDEF");
     expect(boundary.create).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.objectContaining({ accountId: "session-account", textLanguage: "en" }));
+  });
+
+  it.each([2, 30])("creation uses the validated capacity %i", async (capacity) => {
+    boundary.create.mockResolvedValue({ ok: true, room: { id: "room", code: "ABCDEF" } });
+    const data = form(); data.set("capacity", String(capacity));
+    await expect(createRoomAction({}, data)).rejects.toThrow("redirect /rooms/ABCDEF");
+    expect(boundary.create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ capacity }));
+  });
+
+  it("invalid creation capacity consumes no room-change budget and never writes", async () => {
+    for (const value of ["1", "31", "2.5", "", "2e1"]) {
+      const data = form(); data.set("capacity", value);
+      expect(await createRoomAction({}, data)).toEqual({ error: "INVALID_CAPACITY" });
+    }
+    const data = form(); data.append("capacity", "2"); data.append("capacity", "30");
+    expect(await createRoomAction({}, data)).toEqual({ error: "INVALID_CAPACITY" });
+    expect(boundary.database).not.toHaveBeenCalled();
+    expect(boundary.create).not.toHaveBeenCalled();
+    expect(processGlobal.incisionRoomChanges).toBeUndefined();
   });
 
   it("leaving uses only the authenticated account and cannot redirect off-site", async () => {

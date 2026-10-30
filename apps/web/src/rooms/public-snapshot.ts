@@ -24,6 +24,14 @@ export function publicSnapshot(snapshot: RoomSnapshot, online: ReadonlySet<strin
       wordCount: snapshot.settings.wordCount,
       timeLimitMs: snapshot.settings.timeLimitMs,
       errorMode: snapshot.settings.errorMode,
+      textKind: snapshot.settings.textKind,
+      complexity: snapshot.settings.complexity,
+      punctuation: snapshot.settings.punctuation,
+      numbers: snapshot.settings.numbers,
+      capitals: snapshot.settings.capitals,
+      accents: snapshot.settings.accents,
+      includeCharacters: [...snapshot.settings.includeCharacters],
+      excludeCharacters: [...snapshot.settings.excludeCharacters],
     },
   };
 }

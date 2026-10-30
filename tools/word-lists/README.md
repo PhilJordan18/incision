@@ -51,7 +51,8 @@ It deliberately does not choose difficulty thresholds, apply exclusions/pairs, t
 ligatures, or choose an auxiliary dictionary. French ligatures remain spelled as supplied;
 the existing random generator's typing restrictions still apply later. Full upstream credits
 are copied from the pinned wheel's `wordfreq-3.1.1.dist-info/METADATA`; review/retain those and resolve
-editorial policy before publishing actual data. Do not commit the generated real lists.
+editorial policy before publishing actual data. Candidates are never committed: the playable lists
+come from `select:data` and the review register only.
 
 Validation and serialization finish before writing. A sibling `<out-dir>.lock` serializes
 exporter writers; files are staged in a temporary sibling directory then renamed together.
@@ -62,6 +63,30 @@ can leave a lock/staging directory: inspect ownership before manually removing e
 
 Tests use synthetic packs with injected test pins. The CLI always uses the production pins.
 Verify real-file runs separately; their success does not constitute editorial acceptance.
+
+### Playable lists (F-02.4, #42)
+
+```sh
+npm run select:data -w @incision/word-lists -- --raw-dir /absolute/raw --version wf311-r1
+```
+
+Rebuilds the four server-only data files of `packages/domain/src/words/data/` (`fr.ts`, `en.ts`,
+`exclusions.ts`, `pairs.ts`) from the pinned wordfreq files and the committed review register
+`review/<version>/`, then rewrites `review/<version>/manifest.json` with every input and output digest.
+Only wordfreq is read; LDNOOBW served the reviewers as a hint and is not an input of the selection.
+`src/select.ts` applies the register's decisions and the versioned frequency floor; it decides nothing.
+The method, the coordinator decisions, the homonyms and the limits are in
+[`review/wf311-r1/README.md`](review/wf311-r1/README.md). A new review is a new version folder.
+
+### Calibration (#43)
+
+```sh
+npm run calibrate -w @incision/word-lists -- /absolute/packages/database/corpus/<version>
+```
+
+Measures the shipped lists under the engine's `COMPLEXITY_CRITERIA` (pool sizes and M1–M4 of generated
+texts at 10, 50 and 200 words, fixed seeds) and the corpus passages' stored measures against their
+editorial labels, with thresholds fitted per language. It decides nothing and writes nothing.
 
 ### Existing tools
 

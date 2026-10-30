@@ -1,4 +1,4 @@
-import type { Interruption, OwnRoomSettings, RaceToCreate, RoomSettings, StartRaceInput, StartRaceResult, Transition } from "@incision/database";
+import { DEFAULT_TEXT_SETTINGS, type Interruption, type OwnRoomSettings, type RaceToCreate, type RoomSettings, type StartRaceInput, type StartRaceResult, type Transition } from "@incision/database";
 import { asRandomState, COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, RACE_SELF_EVENT, type RaceProgressPayload, type RaceRevealPayload, type RaceSelfPayload } from "../../races/protocol";
@@ -9,7 +9,7 @@ const START = 1_800_000_000_000;
 const LOBBY = "lobby-1";
 const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
 /** An existing room keeps its saved 120 s limit after the D-19 default changes. */
-const INITIAL_SETTINGS: RoomSettings = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory" };
+const INITIAL_SETTINGS: RoomSettings = { revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS };
 const PARTICIPANTS = [
   { entrantId: "e-host", accountId: "a-host", memberId: "m-host", ordinal: 1, displayName: "Hôte" },
   { entrantId: "e-bea", accountId: "a-bea", memberId: "m-bea", ordinal: 2, displayName: "Bea" },
@@ -249,16 +249,17 @@ describe("RaceService", () => {
       text: CORPUS_FR.id,
       corpusVersion: "test-1",
       textSettings: { kind: "coherent", language: "fr", wordCount: 50, complexity: "medium", options: { punctuation: true, numbers: false, capitals: true, accents: true } },
-      textVersions: { generator: 1, criteria: "start-1", normalization: 2, prng: expect.any(String) },
+      textVersions: { generator: 1, criteria: "wf311-1", normalization: 2, prng: expect.any(String) },
       bonuses: false,
     });
     expect(bea.reveal()?.reveal.text.join("")).toBe(cut);
     expect(bea.reveal()?.language).toBe("fr");
   });
 
-  it("refuses a start before the database when no corpus passage serves it, or when the corpus cannot load, and writes no race", async () => {
+  it("refuses a start before the database when no corpus is active, no passage fits the settings, or the corpus cannot load, and writes no race", async () => {
     for (const [load, error] of [
-      [async () => undefined, "NO_COMPATIBLE_PASSAGE"],
+      // Distinct refusals: no texts at all, texts but none for these settings, a technical failure.
+      [async () => undefined, "TEXTS_UNAVAILABLE"],
       [async () => ({ version: "test-1", passages: Object.freeze([Object.freeze(CORPUS_EN)]) }), "NO_COMPATIBLE_PASSAGE"],
       [
         async () => {
@@ -405,7 +406,7 @@ describe("RaceService", () => {
     const draw = vi.fn(fixedRaceTexts(FIXTURE_RACE_TEXTS).draw);
     const once = harness({ settingsChanges: 1, settings: { textLanguage: "en", wordCount: 10, timeLimitMs: 90_000 }, saved: { textLanguage: "fr", wordCount: 200, timeLimitMs: 60_000 }, texts: { draw } });
     expect(await once.service.start(tab("t-host", "a-host").connection, {})).toEqual({ ok: true });
-    expect(draw.mock.calls).toEqual([["en", 10], ["fr", 200]]);
+    expect(draw.mock.calls.map(([settings]) => [settings.language, settings.wordCount])).toEqual([["en", 10], ["fr", 200]]);
     expect(once.store.startRace.mock.calls.map(([input]) => input.config["wordCount"])).toEqual([10, 200]);
     expect(
       once.store.startRace.mock.calls.map(([input]) => ({ revision: input.settingsRevision, text: input.text, timeLimitMs: input.config["timeLimitMs"] })),

@@ -6,8 +6,10 @@ import { prepareGuestAccountSignIn } from "../src/identity/guest-account-transit
 import { joinRoomByCodeAsGuest } from "../src/rooms/guest-admission";
 import { createGuestSession } from "../src/identity/guest-sessions";
 import { runMigrations } from "../src/migrations";
+import { DEFAULT_TEXT_SETTINGS } from "../src/rooms/settings";
 import { startRace } from "../src/races/lifecycle";
 import { changeRoomBots } from "../src/rooms/bots";
+import { changeRoomCapacity } from "../src/rooms/capacity";
 import { closeRoom, configureRoom, startNextRound } from "../src/rooms/host-actions";
 import { readGuestRoom } from "../src/rooms/guest-room";
 import { leaveGuestRoom } from "../src/rooms/membership";
@@ -58,6 +60,21 @@ if (!parsedCode.ok) throw new Error("Invalid fixture code");
 const code = parsedCode.code;
 
 describe("guest host actions and retirement", () => {
+  it("changes capacity only with a live host proof and renews accepted activity", async () => {
+    const f = await hostFixture();
+    const input = { accountId: null, guestProof: f.guestProof, code, revision: 0, capacity: 2 };
+    const before = await session();
+    expect(await changeRoomCapacity(db, { ...input, guestProof: { ...f.guestProof, secretDigest: "b".repeat(64) } }))
+      .toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
+    expect(await session()).toEqual(before);
+    expect(await changeRoomCapacity(db, input)).toMatchObject({ ok: true, revision: 1, guestSession: { id: f.guestId } });
+    const accepted = await session();
+    expect(await changeRoomCapacity(db, input)).toEqual({ ok: false, error: "STALE_REVISION" });
+    expect(await session()).toEqual(accepted);
+    await pool.query("update guest_sessions set created_at=now()-interval '26 hours', last_seen_at=now()-interval '25 hours', expires_at=now()-interval '1 hour'");
+    expect(await changeRoomCapacity(db, { ...input, revision: 1, capacity: 30 })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
+    expect((await pool.query("select capacity from lobbies where id=$1", [f.lobbyId])).rows[0].capacity).toBe(2);
+  });
   it("reads only the guest's own live room without activity or cross-room disclosure", async () => {
     const f = await hostFixture(); const before = await session();
     expect(await readGuestRoom(db, f.guestProof, code)).toMatchObject({ memberId: f.guestMemberId });
@@ -70,7 +87,7 @@ describe("guest host actions and retirement", () => {
 
   it("uses the existing 10–200 settings contract and renews only accepted changes", async () => {
     const f = await hostFixture(); const actor = { accountId: null, guestProof: f.guestProof };
-    const settings = { textLanguage: "en" as const, wordCount: 10, timeLimitMs: null, errorMode: "mandatory" as const };
+    const settings = { textLanguage: "en" as const, wordCount: 10, timeLimitMs: null, errorMode: "mandatory" as const, ...DEFAULT_TEXT_SETTINGS };
     expect(await configureRoom(db, { ...actor, code, revision: 0, settings })).toMatchObject({ ok: true, revision: 1, guestSession: { id: f.guestId } });
     const before = await session();
     expect(await configureRoom(db, { ...actor, code, revision: 0, settings })).toEqual({ ok: false, error: "STALE_REVISION" });

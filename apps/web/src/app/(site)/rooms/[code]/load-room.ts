@@ -5,6 +5,7 @@ import { cache } from "react";
 import { authDatabase } from "@/server/auth/store";
 import type { CodeAttemptRefusal } from "@/server/rooms/code-attempt-limiter";
 import { codeAttempts, findOwnRoom, lookupSpendsBudget, requestAddressKey } from "@/server/rooms/code-attempts";
+import { canResumeInvitationRequest } from "@/server/rooms/invitation-resume";
 
 /** What a signed-in account finds at `/rooms/<code>`. */
 export type RoomPageState =
@@ -44,6 +45,7 @@ async function readRoomPage(accountId: string, code: RoomCode): Promise<RoomPage
     return { kind: "throttled", refusal: "CODE_RATE_LIMITED" };
   }
   if (own.kind === "own") {
+    if (!await canResumeInvitationRequest(own.membership)) return { kind: "unknown" };
     const snapshot = await readRoomSnapshot(db, own.membership.lobbyId);
     return snapshot === undefined ? { kind: "unknown" } : { kind: "member", snapshot, memberId: own.membership.memberId };
   }

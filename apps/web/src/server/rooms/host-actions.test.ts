@@ -2,6 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AttemptLimiter } from "@/server/auth/attempt-limiter";
 import { ROOM_CHANGE_LIMIT, SETTINGS_CHANGE_LIMIT } from "./room-change-limiter";
 
+/** D-19's text settings, as the parser reads the fields of a page that never changed them. */
+const DEFAULT_TEXT_SETTINGS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [] };
+
+/** The text fields a page sends for D-19's text settings (coherent, medium, default options). */
+const TEXT_FIELDS = { textKind: "coherent", complexity: "medium", punctuation: "true", numbers: "false", capitals: "true", accents: "true", includeCharacters: "", excludeCharacters: "" };
+
 // The host's actions without Next or a database: a signed-in account, the database answers mocked.
 const startNextRound = vi.hoisted(() => vi.fn());
 const closeRoom = vi.hoisted(() => vi.fn());
@@ -48,7 +54,7 @@ function close(code?: string) {
 
 function configure(fields: Readonly<Record<string, string>> = {}) {
   const form = new FormData();
-  for (const [name, value] of Object.entries({ code: "ABCDEF", revision: "2", textLanguage: "en", wordCount: "50", timeLimitSeconds: "60", errorMode: "mandatory", ...fields })) {
+  for (const [name, value] of Object.entries({ code: "ABCDEF", revision: "2", textLanguage: "en", wordCount: "50", timeLimitSeconds: "60", errorMode: "mandatory", ...TEXT_FIELDS, ...fields })) {
     form.set(name, value);
   }
   return configureRoomAction(form);
@@ -157,7 +163,7 @@ describe("configureRoomAction", () => {
     expect(await configure({ errorMode: "free", accountId: "forged" })).toEqual({ revision: 3 });
     expect(configureRoom).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
       accountId: "alice", code: "ABCDEF", revision: 2,
-      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "free" },
+      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "free", ...DEFAULT_TEXT_SETTINGS },
     });
   });
   it("saves the settings the form names for the session's account, tells the room's pages, and answers the new revision", async () => {
@@ -167,7 +173,7 @@ describe("configureRoomAction", () => {
       accountId: "alice",
       code: "ABCDEF",
       revision: 2,
-      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory" },
+      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS },
     });
     expect(notifyRoomChanged).toHaveBeenCalledExactlyOnceWith("L");
     expect(notifyMemberLeft).not.toHaveBeenCalled();
@@ -177,7 +183,7 @@ describe("configureRoomAction", () => {
     configureRoom.mockResolvedValue({ ok: true, lobbyId: "L", revision: 3 });
     expect(await configure({ timeLimitSeconds: seconds })).toEqual({ revision: 3 });
     expect(configureRoom).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: seconds === "none" ? null : Number(seconds) * 1000, errorMode: "mandatory" },
+      settings: { textLanguage: "en", wordCount: 50, timeLimitMs: seconds === "none" ? null : Number(seconds) * 1000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS },
     }));
     expect(notifyRoomChanged).toHaveBeenCalledExactlyOnceWith("L");
   });
@@ -206,6 +212,16 @@ describe("configureRoomAction", () => {
     configureRoom.mockRejectedValueOnce(new Error("connection lost"));
     expect(await configure()).toEqual({ error: "UNAVAILABLE" });
     expect(notifyRoomChanged).not.toHaveBeenCalled();
+  });
+
+  it("refuses data-free text problems before the budget, and runs the word-list proofs only within it", async () => {
+    // A data-free refusal costs nothing and spends no budget.
+    expect(await configure({ textKind: "random", includeCharacters: "k", excludeCharacters: "k" })).toEqual({ error: "TEXT_SETTINGS_REFUSED", textProblem: "CHARACTER_INCLUDED_AND_EXCLUDED" });
+    configureRoom.mockResolvedValue({ ok: false, error: "STALE_REVISION" });
+    for (let index = 0; index < SETTINGS_CHANGE_LIMIT.maxFailures; index += 1) await configure();
+    // Out of budget: random settings get RATE_LIMITED, never the result of a proof on the lists.
+    expect(await configure({ textKind: "random", includeCharacters: "k" })).toEqual({ error: "RATE_LIMITED" });
+    expect(configureRoom).toHaveBeenCalledTimes(SETTINGS_CHANGE_LIMIT.maxFailures);
   });
 
   it("counts its saves apart from the room changes, refused ones included", async () => {

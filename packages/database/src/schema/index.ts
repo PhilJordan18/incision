@@ -7,3 +7,4 @@ export * from "./race-wpm-series";
 export * from "./room-bots";
 export * from "./race-key-errors";
 export * from "./guest-sessions";
+export * from "./room-invitations";

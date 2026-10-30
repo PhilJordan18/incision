@@ -27,6 +27,7 @@ import { RaceRegistry, type StopReport } from "./race-registry";
 import { type RaceConnection, raceConnectionKey, RaceRuntime, type RaceStore, type RuntimeTiming } from "./race-runtime";
 import type { RaceTextDraw, RaceTextSource } from "./race-texts";
 import { isRunnable } from "../rooms/room-settings";
+import { roomTextSettings } from "../rooms/text-settings";
 import { BonusActivationLimiter } from "./bonus-limiter";
 
 /** A tab admitted into a room by the room channel. */
@@ -237,8 +238,8 @@ export class RaceService {
       this.#logError(`[races] start refused: room ${room.lobbyId} has settings races do not run yet`);
       return { ok: false, error: "UNAVAILABLE" };
     }
-    // The text's language is the room's (CONF-02), then the race's for good.
-    const drawn = await this.#options.texts.draw(settings.textLanguage, settings.wordCount);
+    // The text's settings are the room's (CONF-02 to CONF-07), then the race's for good.
+    const drawn = await this.#options.texts.draw(roomTextSettings(settings));
     // Refused before any write: no race is written, the room stays as it was.
     if (!drawn.ok) {
       return { ok: false, error: drawn.reason };
