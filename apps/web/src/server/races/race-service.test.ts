@@ -1,5 +1,5 @@
 import { DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, type Interruption, type OwnRoomSettings, type RaceToCreate, type RoomSettings, type StartRaceInput, type StartRaceResult, type Transition } from "@incision/database";
-import { asRandomState, COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS } from "@incision/domain";
+import { asRandomState, COUNTDOWN_MS, type CreateRaceRefusal, MAX_BATCHES_PER_SECOND, type RaceState, type BonusRaceState, RESUME_GRACE_MS, type RandomState } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
 import { RACE_PROGRESS_EVENT, RACE_REVEAL_EVENT, RACE_SELF_EVENT, type RaceProgressPayload, type RaceRevealPayload, type RaceSelfPayload } from "../../races/protocol";
 import { CONTROL_WINDOW, ENTRANT_ACTION_WINDOW, RaceService, type RoomConnection, START_WINDOW } from "./race-service";
@@ -30,11 +30,14 @@ function harness(
     settingsChanges?: number;
     /** What those saves changed, read with the next draw. */
     saved?: Partial<RoomSettings>;
+    /** The race's private bonus seeds, in the order the service draws them. */
+    bonusSeed?: () => RandomState;
   } = {},
 ) {
   let now = START;
   const timers: { at: number; callback: () => void }[] = [];
   const created: RaceState[] = [];
+  const bonusCreated: BonusRaceState[] = [];
   let changes = 0;
   const readOwnRoomSettings = vi.fn(async (accountId: string): Promise<OwnRoomSettings | undefined> => {
     if (options.room === "none") {
@@ -65,6 +68,7 @@ function harness(
       return { ok: false, error: result.reason };
     }
     created.push(result.race.race);
+    bonusCreated.push(result.race);
     return {
       ok: true,
       race: { raceId: RACE, lobbyId: LOBBY, ownerId: "owner-a", ownerEpoch: 1, roundNo: 1, countdownAt: new Date(START), leaseExpiresAt: new Date(START + 30_000) },
@@ -85,6 +89,7 @@ function harness(
   const changed: string[] = [];
   const lost: string[] = [];
   const logged: string[] = [];
+  const info: string[] = [];
   const service = new RaceService({
     ownerId: "owner-a",
     store,
@@ -99,8 +104,9 @@ function harness(
     onRaceLost: (lobbyId) => lost.push(lobbyId),
     texts: options.texts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
     racesOpen: options.racesOpen ?? true,
-    log: () => undefined,
+    log: (message) => info.push(message),
     logError: (message) => logged.push(message),
+    ...(options.bonusSeed === undefined ? {} : { bonusSeed: options.bonusSeed }),
   });
   const advance = (ms: number) => {
     const target = now + ms;
@@ -116,7 +122,7 @@ function harness(
     }
     now = target;
   };
-  return { service, store, created, changed, lost, logged, advance };
+  return { service, store, created, bonusCreated, changed, lost, logged, info, advance };
 }
 
 function tab(id: string, accountId: string) {
@@ -178,6 +184,31 @@ describe("RaceService", () => {
     // The text reaches the room's tabs only now, never before the countdown (COURSE-03).
     expect(bea.reveal()?.reveal.text.join("")).toBe(FIXTURE_RACE_TEXTS.en.text);
     expect(bea.reveal()?.selfEntrantId).toBe("e-bea");
+  });
+
+  it("freezes Arcade from the room's choice and gives the race two private seeds that are never stored or logged (CONF-09, D-16)", async () => {
+    const seeds: RandomState[] = [asRandomState([101, 102, 103, 104]), asRandomState([201, 202, 203, 204])];
+    const bonusSeed = vi.fn(() => seeds[bonusSeed.mock.calls.length - 1] ?? asRandomState([9, 9, 9, 9]));
+    const { service, store, bonusCreated, logged, info, advance } = harness({ settings: { bonusesEnabled: true }, bonusSeed });
+    const host = tab("t-host", "a-host");
+    service.follow(LOBBY, host.connection);
+    expect(await service.start(host.connection, {})).toEqual({ ok: true });
+    // One seed for grant selection, one for extension words, drawn for this race only.
+    expect(bonusSeed).toHaveBeenCalledTimes(2);
+    const input = store.startRace.mock.calls[0]?.[0];
+    expect(input?.config).toMatchObject({ bonuses: true });
+    expect(bonusCreated[0]?.awards).toMatchObject({ enabled: true, random: seeds[0] });
+    advance(COUNTDOWN_MS + 5_000);
+    // Neither seed reaches the stored configuration, the logs or what the room's tabs receive.
+    const exposed = JSON.stringify([input?.config, logged, info, host.received]);
+    for (const seed of seeds) expect(exposed).not.toContain(seed.join(","));
+    expect(exposed).not.toMatch(/"random"/);
+
+    const training = harness({ bonusSeed: () => asRandomState([1, 2, 3, 4]) });
+    const trainingHost = tab("t-host", "a-host");
+    expect(await training.service.start(trainingHost.connection, {})).toEqual({ ok: true });
+    expect(training.store.startRace.mock.calls[0]?.[0].config).toMatchObject({ bonuses: false });
+    expect(training.bonusCreated[0]?.awards.enabled).toBe(false);
   });
 
   it.each([null, 30_000, 121_000, 600_000])("freezes the actual duration %s at start, without substituting a ceiling", async (timeLimitMs) => {
