@@ -5,14 +5,13 @@ decisions D-10, D-18, D-19. Branch `feat/03-1-text-configuration` from `dev` `1a
 slice C2 of the work order of 29 October 2026. Philippe gave the Go Ahead in the cloud conversation
 of 30 October 2026.
 
-## Blocked integration step: the migration sequence
+## Migration number and dependencies
 
-The text settings need eight `lobby_settings` columns. Migration `0015_lobby_text_settings` is
-additive and keeps D-19's defaults, so existing rooms run the same texts. It was developed and tested
-on an isolated local database only. The local coordinator assigns migration numbers. The proposal on
-#45 (comment of 30 October, 03:10 UTC) is still waiting for an answer, so this branch is **not
-published as a PR**. Everything else is independent and verified. When a number is assigned, the
-migration is regenerated under that number; no other change is needed.
+- **Number.** The coordinator assigned `0016` to this slice, after Codex's `0015` (invitations, L2). The technical order is L2 → C2 → C3 → L3.
+- **Local state.** On this branch, the migration is still `0015_lobby_text_settings`. Once Codex's exact `0015` ref is known, it is regenerated with `drizzle-kit generate` on top of it, with its snapshot and journal entry. No file is renamed and no published migration is touched (request on #45).
+- **Upgrade test.** It counts the applied migrations from its predecessor's journal index. Its predecessor becomes `0015` of L2.
+- **Base of the PR.** It is `dev` if L2 has merged by then. Otherwise the PR is stacked on L2, and the stack is announced before publication.
+- **Development.** The migration was developed and tested on an isolated local database only.
 
 ## What changed
 
@@ -55,18 +54,20 @@ Two tests compare a criteria version string. Merging `dev` after C1 resolves the
 
 ## Checks on this branch
 
-Run in this container with Node 24.22.2 and a disposable PostgreSQL 16.15. CI uses PostgreSQL 17.
+Final run on `783d7e7`, with Node 24.22.2 and a disposable PostgreSQL 16.15 (CI uses PostgreSQL 17).
 
 | Check | Result |
 |---|---|
-| `npm run lint`, `npm run typecheck`, `npm run build` | Pass |
-| `npm test -w @incision/web` | Pass |
-| `npm run test:db -w @incision/database` | Pass, including the 0015 upgrade, constraints, the random save read by every member, and the switch back |
-| `npm run test:integration -w @incision/web` | 10/10. Random mode is refused with no race written while fixtures ship. |
+| `check:no-js`, `lint`, `typecheck`, `build` | Pass |
+| Unit tests | Pass: web 962, database 146, domain 1198, load 20, word-lists 62 |
+| Database tests | 360 pass, 9 skipped. The 9 are the PgBouncer suite, which runs only with a pooled URL (`describe.skipIf`), as on `dev`. They include the upgrade, the constraints, the random save read by every member, and the switch back. |
+| Schema drift (`db:generate`) | No changes |
+| Integration (`test:integration`, two production processes) | 10/10. With no corpus imported, the start is refused as `TEXTS_UNAVAILABLE`. Random mode on fixture data is refused the same way, with no race written. |
 | Playwright `text-settings.spec.ts`, `room-settings.spec.ts` | 15/15. Covers sync, reload, keyboard, the countdown lock, refusals in FR and EN, and axe in both themes at 1440, 1024, 390, 360 and 320 px. |
 
-No-JS: the settings panel needs JavaScript, as before (a client form with a draft). Without JavaScript,
-members still see the saved settings.
+The start-refusal wording was also checked in a browser by the Fable QA on C3 (`332c248`, which includes these commits): `TEXTS_UNAVAILABLE` in FR and EN, start button still usable, room still waiting, no race written. `NO_COMPATIBLE_PASSAGE` needs an imported corpus; it is covered by the unit tests and the dictionaries.
+
+No-JS: the settings panel needs JavaScript, as before (a client form with a draft). Without JavaScript, members still see the saved settings.
 
 ## Reviews on a413cb5, then fixes
 
@@ -82,13 +83,20 @@ Documented departures from the design, for Philippe:
 - The pressed option buttons have no tinted background. A `moi` tint drops Aube below AA, so a 2 px `moi` border and ✓ mark the state instead.
 - The database bounds the number of characters but not each element. The server validates every character before any write.
 
-Decision needed: when coherent settings fit no passage, the start is refused with the shared message "No text is available for this race right now… try again later". A message specific to the settings needs the shared dictionary or `room-view.tsx`, which this slice does not edit. The settings panel's hint now says the start is refused when no passage fits.
+**Start refusal (resolved after Philippe's directive of 30 October).** A start is now refused in three distinct ways:
+- `NO_COMPATIBLE_PASSAGE`: texts exist, but none fits the room's settings. The message says so and says the room stays open; the host can change the length, complexity or options.
+- `TEXTS_UNAVAILABLE` (new): the server has no active corpus or no approved word lists. The room stays open; try again later.
+- `UNAVAILABLE`: a technical failure, unchanged.
+
+The code is in `d718344`. The FR/EN messages live in the shared root dictionaries: they are isolated in `783d7e7` and submitted to the coordinator as a patch on #45. `start-race-button.tsx` already renders `t.startErrors[error]`, so `room-view.tsx` and `packages/database/src/index.ts` are unchanged.
+
+Accepted (Fable QA, minor): a random draw the engine refuses also maps to `NO_COMPATIBLE_PASSAGE`, whose wording says "passage". That only happens when the data change between the save and the start (the save already ran the same proofs).
 
 Proposed text for `docs/architecture/data-model.md` (migration list and the `lobby_settings` row), for the coordinator:
-- `0015_lobby_text_settings` (number to be assigned): enums `text_kind` and `text_complexity`. The columns are `text_kind`, `complexity`, `punctuation`, `numbers`, `capitals`, `accents`, `include_characters text[]` and `exclude_characters text[]`. Their defaults are D-19's: coherent, medium, true/false/true/true, empty arrays.
+- `0016` (assigned; local name `0015_lobby_text_settings` until regenerated): enums `text_kind` and `text_complexity`. The columns are `text_kind`, `complexity`, `punctuation`, `numbers`, `capitals`, `accents`, `include_characters text[]` and `exclude_characters text[]`. Their defaults are D-19's: coherent, medium, true/false/true/true, empty arrays.
 - CHECK `lobby_settings_characters_random_only`: characters are allowed only when `text_kind = 'random'`.
 - CHECK `lobby_settings_characters_bounded`: at most 100 characters in each array.
-- Rows written before 0015 read as D-19.
+- Rows written before this migration read as D-19.
 - Rollback (tested by the DBA review): drop both constraints, the eight columns and the two types, then delete the journal row. The text choices hosts saved are lost.
 
 ## Proposed requirement rows (for the coordinator)
