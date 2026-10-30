@@ -35,10 +35,13 @@ type TextRecordBase = {
  * `race_passages`.
  */
 export type RaceTextRecord =
-  | (TextRecordBase & { readonly corpusVersion?: never; readonly wordsVersion?: never; readonly textSettings?: never; readonly textVersions?: never })
-  | (TextRecordBase & { readonly corpusVersion: string; readonly wordsVersion?: never; readonly textSettings: CoherentTextSettings; readonly textVersions: RaceTextVersions })
-  /** Random words (F-03.1e): `text` is "random", and the list, exclusions and pairs share one version. */
-  | (TextRecordBase & { readonly corpusVersion?: never; readonly wordsVersion: string; readonly textSettings: RandomTextSettings; readonly textVersions: RaceTextVersions });
+  | (TextRecordBase & { readonly corpusVersion?: never; readonly wordsVersions?: never; readonly textSettings?: never; readonly textVersions?: never })
+  | (TextRecordBase & { readonly corpusVersion: string; readonly wordsVersions?: never; readonly textSettings: CoherentTextSettings; readonly textVersions: RaceTextVersions })
+  /** Random words (F-03.1e): `text` is "random", with the versions of the list, exclusions and pairs that filtered it. */
+  | (TextRecordBase & { readonly corpusVersion?: never; readonly wordsVersions: WordsVersions; readonly textSettings: RandomTextSettings; readonly textVersions: RaceTextVersions });
+
+/** The word data a random text came from, each part with its own version (the engine's provenance). */
+export type WordsVersions = { readonly list: string; readonly exclusions: string; readonly pairs: string };
 
 export type RaceTextDraw =
   | { readonly ok: true; readonly text: string; readonly record: RaceTextRecord }
@@ -65,10 +68,15 @@ export type RaceTextSource = {
   draw(settings: TextSettings): Promise<RaceTextDraw>;
 };
 
-/** Fixed texts, whole, one per language: the test fixtures follow no setting but the language. */
+/**
+ * Fixed texts, whole, one per language: the test fixtures follow no setting but the language. Random
+ * settings are refused as production refuses them without approved lists, so a local test build never
+ * starts a random race on a passage.
+ */
 export function fixedRaceTexts(texts: Readonly<Record<TextLanguage, RaceText>>): RaceTextSource {
   return {
-    draw: async ({ language }) => {
+    draw: async ({ kind, language }) => {
+      if (kind === "random") return { ok: false, reason: "NO_COMPATIBLE_PASSAGE" };
       const { id, text } = texts[language];
       return { ok: true, text, record: { language, text: id } };
     },
@@ -152,7 +160,10 @@ export class CorpusTexts implements RaceTextSource {
       return {
         ok: true,
         text: result.text,
-        record: { language: settings.language, text: "random", wordsVersion: words.list.version, textSettings: settings, textVersions: result.versions },
+        record: {
+          language: settings.language, text: "random", textSettings: settings, textVersions: result.versions,
+          wordsVersions: { list: result.provenance.listVersion, exclusions: result.provenance.exclusionsVersion, pairs: result.provenance.pairsVersion },
+        },
       };
     } catch (error: unknown) {
       this.#options.logError(`[races] words ${words.list.version}: draw failed: ${error instanceof Error ? error.message : "unknown error"}`);

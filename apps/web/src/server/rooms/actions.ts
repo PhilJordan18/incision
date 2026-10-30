@@ -27,7 +27,7 @@ import type { CodeAttempt, CodeAttemptRefusal } from "./code-attempt-limiter";
 import { codeAttempts, findOwnRoom, joinSpendsBudget, type OwnRoom, requestAddressKey } from "./code-attempts";
 import { allowRoomChange, allowSettingsChange, forgiveRoomChange } from "./room-change-limiter";
 import { parseConfigureRoomForm } from "./room-settings";
-import { roomTextSettings, textSettingsProblem, type TextSettingsProblem } from "./text-settings";
+import { randomWordsProblem, roomTextSettings, textSettingsCheck, type TextSettingsProblem } from "./text-settings";
 import { roomPresence } from "../realtime/room-presence";
 import { notifyMemberLeft, notifyRoomChanged } from "./room-events";
 
@@ -309,12 +309,18 @@ export async function configureRoomAction(formData: FormData): Promise<Configure
   if (request === undefined) {
     return { error: "INVALID_SETTINGS" };
   }
-  const textProblem = textSettingsProblem(roomTextSettings(request.settings));
-  if (textProblem !== undefined) {
-    return { error: "TEXT_SETTINGS_REFUSED", textProblem };
+  const textSettings = roomTextSettings(request.settings);
+  const refusal = textSettingsCheck(textSettings);
+  if (refusal !== undefined) {
+    return { error: "TEXT_SETTINGS_REFUSED", textProblem: refusal };
   }
   if (!allowSettingsChange(accountId)) {
     return { error: "RATE_LIMITED" };
+  }
+  // The proofs on the word lists cost real work: only within the budget (security review of C2).
+  const textProblem = randomWordsProblem(textSettings);
+  if (textProblem !== undefined) {
+    return { error: "TEXT_SETTINGS_REFUSED", textProblem };
   }
   let result: ConfigureRoomResult;
   try {

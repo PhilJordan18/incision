@@ -519,7 +519,8 @@ describe("an integrated race (F-04.0)", () => {
     const [stored] = await query<{ text: string; config: Record<string, unknown> }>("select text_snapshot as text, config_snapshot as config from races where id = $1", [reveal.reveal.raceId]);
     expect(stored?.text).toBe(text);
     expect(stored?.config).toMatchObject({
-      language: "fr", text: "random", wordsVersion: WORD_LISTS.fr.version, wordCount: 30,
+      language: "fr", text: "random", wordCount: 30,
+      wordsVersions: { list: WORD_LISTS.fr.version, exclusions: EXCLUSIONS.fr.version, pairs: FORBIDDEN_PAIRS.fr.version },
       textSettings: { kind: "random", language: "fr", wordCount: 30, complexity: "easy", options: { numbers: true }, include: ["z"], exclude: [] },
     });
     // Every word of the race text is a playable word of the approved list.

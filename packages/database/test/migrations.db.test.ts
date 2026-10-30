@@ -41,6 +41,14 @@ function releasedMigrationCount(): number {
   return journal.entries.length;
 }
 
+/** The position of a migration in the package's journal. */
+function journalIndex(tag: string): number {
+  const journal: { entries: { tag: string }[] } = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"), "utf8"));
+  const index = journal.entries.findIndex((entry) => entry.tag === tag);
+  if (index === -1) throw new Error(`No migration tagged ${tag}`);
+  return index;
+}
+
 /** Copy of the package's migrations folder truncated after `lastTag`, i.e. an earlier release. */
 function releasedMigrationsUpTo(lastTag: string): string {
   const journal: { entries: { tag: string }[] } = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"), "utf8"));
@@ -102,14 +110,17 @@ describe("runMigrations", () => {
     expect(await runMigrations({ connectionString: database.url, migrationsFolder: previous })).toEqual({ applied: 0 });
   });
   it("gives populated settings D-19's text settings (0015) without touching their other values or historical races", async () => {
-    const previous = releasedMigrationsUpTo("0014_anonymous_guest_results");
+    // The migration before the text settings: whatever number the coordinator gives 0015, the test
+    // upgrades from its predecessor and counts what is applied from the journal.
+    const predecessor = "0014_anonymous_guest_results";
+    const previous = releasedMigrationsUpTo(predecessor);
     await runMigrations({ connectionString: database.url, migrationsFolder: previous });
     await query("insert into lobbies (code, capacity) values ('C8M5RT', 12)");
     await query("insert into lobby_settings (lobby_id, revision, text_language, word_count, time_limit_ms, error_mode) select id, 4, 'en', 120, null, 'free' from lobbies");
     await query(`insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
       select id, 1, 'finished', 1, 'Historical text.', '{"language":"en","errorMode":"free"}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`);
     const before = { rooms: await query("select * from lobbies"), races: await query("select * from races"), settings: await query("select * from lobby_settings") };
-    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 15 });
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - (journalIndex(predecessor) + 1) });
     expect({ rooms: await query("select * from lobbies"), races: await query("select * from races") }).toEqual({ rooms: before.rooms, races: before.races });
     expect(await query("select * from lobby_settings")).toEqual(before.settings.map((row) => ({
       ...row, text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [],

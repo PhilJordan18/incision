@@ -12,7 +12,7 @@ import {
   TIME_LIMIT_MAX_MS,
   MIN_TEXT_WORDS,
   MAX_TEXT_WORDS,
-  toGraphemes,
+  characterEntries,
 } from "@incision/domain";
 import { z } from "zod";
 
@@ -37,7 +37,7 @@ const flag = z.enum(["true", "false"]).transform((value) => value === "true");
 const characters = z
   .string()
   .max(MAX_SETTING_CHARACTERS * MAX_GRAPHEME_LENGTH)
-  .transform((value) => [...new Set(toGraphemes(value).filter((grapheme) => grapheme.trim() !== "").map((grapheme) => grapheme.toLowerCase()))])
+  .transform(characterEntries)
   .pipe(z.array(z.string()).max(MAX_SETTING_CHARACTERS));
 
 /** A character as the engine stores it, or the input as typed when the language cannot hold it. */

@@ -25,6 +25,8 @@ import {
   type SettingsDraft,
 } from "./room-settings-state";
 
+const CHARACTER_REFUSALS: readonly string[] = ["UNSUPPORTED_CHARACTER", "CHARACTER_INCLUDED_AND_EXCLUDED", "INCLUDED_CHARACTER_DISABLED", "OPTION_FULLY_EXCLUDED"];
+
 type Props = {
   readonly guest?: boolean;
   readonly code: string;
@@ -53,6 +55,8 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
   const needsRefresh = requiresSettingsRefresh(answer.error);
   const canEdit = host && live && supported && !pending && !awaiting && !needsRefresh;
   const draftRefusal = draft === null ? undefined : draftTextRefusal(draft);
+  // The refusals about the characters mark both fields as in error, with the message linked (DES « Champ »).
+  const charactersInvalid = draft?.textKind === "random" && draftRefusal !== undefined && CHARACTER_REFUSALS.includes(draftRefusal);
 
   function cancel() {
     if (submitting.current) return;
@@ -112,7 +116,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.textKind}</dt><dd>{settings.textKind === "random" ? t.random : t.coherent}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.complexity}</dt><dd>{t[settings.complexity]}</dd></div>
           <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.options}</dt>
-            <dd>{TEXT_OPTIONS.map((option) => `${t[option]} ${settings[option] ? t.on : t.off}`).join(" · ")}</dd></div>
+            <dd>{TEXT_OPTIONS.filter((option) => settings[option]).map((option) => t[option].toLowerCase()).join(", ") || t.optionsNone}</dd></div>
           {settings.textKind === "random" && <>
             <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.include}</dt><dd className="font-mono">{settings.includeCharacters.join(" ") || t.none}</dd></div>
             <div className="rounded-puce border border-houle px-3 py-2"><dt className="text-brume">{t.exclude}</dt><dd className="font-mono">{settings.excludeCharacters.join(" ") || t.none}</dd></div>
@@ -185,7 +189,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                 onChange={(event) => { const complexity = COMPLEXITIES.find((level) => level === event.target.value); if (complexity !== undefined) setDraft({ ...draft, complexity }); }}>
                 {COMPLEXITIES.map((level) => <option key={level} value={level}>{t[level]}</option>)}
               </select>
-              <span id={`${id}-complexity-hint`} className="text-sm font-normal text-brume">{t.complexityHint}</span>
+              <span id={`${id}-complexity-hint`} className="text-sm font-normal text-brume">{draft.textKind === "random" ? t.complexityHint : t.coherentComplexityHint}</span>
             </div>
             <fieldset className="flex min-w-0 flex-col gap-2 sm:col-span-2">
               <legend className={`${fieldLabel} mb-2`}>{t.options}</legend>
@@ -201,14 +205,15 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
             </fieldset>
             {(["include", "exclude"] as const).map((field) => (
               <label key={field} className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-${field}`}>{t[field]}
-                <input id={`${id}-${field}`} className={`${textField} font-mono disabled:cursor-not-allowed disabled:border-dashed disabled:bg-sillage`} type="text" autoComplete="off" spellCheck={false}
+                <input id={`${id}-${field}`} className={`${textField} font-mono disabled:cursor-not-allowed disabled:border-transparent disabled:bg-sillage disabled:text-voile`} type="text" autoComplete="off" spellCheck={false}
                   maxLength={MAX_CHARACTERS_INPUT} disabled={draft.textKind !== "random"} value={draft.textKind === "random" ? draft[field] : ""}
-                  aria-describedby={`${id}-characters-hint`} onChange={(event) => setDraft({ ...draft, [field]: event.target.value })} />
+                  aria-invalid={charactersInvalid} aria-describedby={charactersInvalid ? `${id}-characters-hint ${id}-text-refusal` : `${id}-characters-hint`}
+                  onChange={(event) => setDraft({ ...draft, [field]: event.target.value })} />
               </label>
             ))}
             <span id={`${id}-characters-hint`} className="text-sm font-normal text-brume sm:col-span-2">{draft.textKind === "random" ? t.charactersHint : t.charactersDisabled}</span>
           </fieldset>
-          {draftRefusal !== undefined && <p role="alert" className="text-sm text-erreur">⚠ {t.textRefusals[draftRefusal]}</p>}
+          {draftRefusal !== undefined && <p id={`${id}-text-refusal`} role="alert" className="text-sm text-erreur">⚠ {t.textRefusals[draftRefusal]}</p>}
           <p id={`${id}-hint`} className="text-sm text-brume">{t.hint}</p>
           {conflict && <p role="alert" className="text-sm text-or">⚠ {t.conflict}</p>}
           <div className="flex flex-wrap gap-3">

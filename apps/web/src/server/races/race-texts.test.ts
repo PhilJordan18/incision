@@ -1,7 +1,7 @@
 import { type ActiveCorpus, defaultCoherentSettings } from "@incision/database";
 import { asDuration, asEntrantId, asRandomState, containsLineBreak, countWords, createRaceRefusal, type Passage, type RandomTextSettings, type RandomWords, TIME_LIMIT_MAX_MS } from "@incision/domain";
 import { describe, expect, it, vi } from "vitest";
-import { CORPUS_RETRY_MS, CorpusTexts, FIXTURE_RACE_TEXTS } from "./race-texts";
+import { CORPUS_RETRY_MS, CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts } from "./race-texts";
 
 /** The coherent settings of D-19 with this word count: what a room that never changed them runs. */
 const coherent = (language: "fr" | "en", wordCount: number) => ({ ...defaultCoherentSettings(language), wordCount });
@@ -95,7 +95,7 @@ describe("CorpusTexts, random words (F-03.1e)", () => {
     const { texts, load } = source();
     const settings = randomSettings(language);
     const drawn = await texts.draw(settings);
-    expect(drawn).toMatchObject({ ok: true, record: { language, text: "random", wordsVersion: "test-approved-1", textSettings: settings, textVersions: { generator: 1, criteria: expect.any(String) } } });
+    expect(drawn).toMatchObject({ ok: true, record: { language, text: "random", wordsVersions: { list: "test-approved-1", exclusions: "test-approved-1", pairs: "test-approved-1" }, textSettings: settings, textVersions: { generator: 1, criteria: expect.any(String) } } });
     expect(drawn.ok && countWords(drawn.text)).toBe(20);
     expect(load).not.toHaveBeenCalled();
     // The same private seed gives the same text: the start's draw is reproducible from what it records.
@@ -108,6 +108,18 @@ describe("CorpusTexts, random words (F-03.1e)", () => {
     if (!drawn.ok) return;
     expect(drawn.text.toLowerCase()).toContain("k");
     expect(drawn.text.toLowerCase()).not.toContain("o");
+  });
+
+  it("records the version of each part of the word data, which may differ", async () => {
+    const mixed = (language: "fr" | "en"): RandomWords => {
+      const data = testWords(language);
+      return { ...data, exclusions: { ...data.exclusions, version: "excl-2" }, pairs: { ...data.pairs, version: "pairs-3" } };
+    };
+    expect(await source(mixed).texts.draw(randomSettings("en"))).toMatchObject({ ok: true, record: { wordsVersions: { list: "test-approved-1", exclusions: "excl-2", pairs: "pairs-3" } } });
+  });
+
+  it("is refused by the local fixture source too, never started on a fixed passage", async () => {
+    expect(await fixedRaceTexts(FIXTURE_RACE_TEXTS).draw(randomSettings("fr"))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
   });
 
   it("refuses without any fallback when no approved list exists (only fixtures ship)", async () => {
