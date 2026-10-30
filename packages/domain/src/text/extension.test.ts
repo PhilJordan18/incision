@@ -136,7 +136,7 @@ describe("extensionViolations: an independent check of a triple", () => {
   it("passes a valid triple and names each broken rule, never a word", () => {
     expect(extensionViolations(request, ["Vent", "nuit", "mer"])).toEqual([]);
     expect(extensionViolations(request, ["Vent", "nuit"])).toEqual(["exactly three words"]);
-    expect(extensionViolations(request, ["Vent", "nuit", "soleil"])).toEqual(["words from the list, at Zipf 3.3 or more"]);
+    expect(extensionViolations(request, ["Vent", "nuit", "soleil"])).toEqual(["words from the list, at Zipf 3.75 or more"]);
     // A band the draw would never produce is caught by the list itself: 10 letters in an easy race.
     const easy = { ...request, words: custom("fr", ["mer", "vent", "port", "scaphandre"]), settings: settings({ complexity: "easy" }) };
     expect(extensionViolations(easy, ["Vent", "scaphandre", "mer"])).toEqual(["words of at most 5 letters"]);
