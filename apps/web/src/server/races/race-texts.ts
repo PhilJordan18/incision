@@ -46,11 +46,15 @@ export type WordsVersions = { readonly list: string; readonly exclusions: string
 export type RaceTextDraw =
   | { readonly ok: true; readonly text: string; readonly record: RaceTextRecord }
   /**
-   * No race is written. NO_COMPATIBLE_PASSAGE: nothing serves the settings: no corpus passage, no
-   * approved word list, or settings the engine refuses (the save refused them already, so only a
-   * change of data between the save and the start gets here).
+   * No race is written; the room stays open.
+   * - NO_COMPATIBLE_PASSAGE: the texts exist, but none fits the settings (no passage of that length,
+   *   complexity and options; or random settings the engine refuses, which only a change of data
+   *   between the save and the start can cause).
+   * - TEXTS_UNAVAILABLE: this server has no texts of that kind to draw from (no active corpus, no
+   *   approved word lists). Changing the settings would not help.
+   * - UNAVAILABLE: a technical failure (the corpus cannot load, a broken engine guarantee).
    */
-  | { readonly ok: false; readonly reason: "NO_COMPATIBLE_PASSAGE" | "UNAVAILABLE" };
+  | { readonly ok: false; readonly reason: "NO_COMPATIBLE_PASSAGE" | "TEXTS_UNAVAILABLE" | "UNAVAILABLE" };
 
 /**
  * TEST FIXTURES, short, for the local production builds of the E2E and integration tests
@@ -76,7 +80,7 @@ export type RaceTextSource = {
 export function fixedRaceTexts(texts: Readonly<Record<TextLanguage, RaceText>>): RaceTextSource {
   return {
     draw: async ({ kind, language }) => {
-      if (kind === "random") return { ok: false, reason: "NO_COMPATIBLE_PASSAGE" };
+      if (kind === "random") return { ok: false, reason: "TEXTS_UNAVAILABLE" };
       const { id, text } = texts[language];
       return { ok: true, text, record: { language, text: id } };
     },
@@ -145,7 +149,7 @@ export class CorpusTexts implements RaceTextSource {
   #drawWords(settings: RandomTextSettings): RaceTextDraw {
     const words = (this.#options.words ?? approvedRandomWords)(settings.language);
     if (words === undefined) {
-      return { ok: false, reason: "NO_COMPATIBLE_PASSAGE" };
+      return { ok: false, reason: "TEXTS_UNAVAILABLE" };
     }
     try {
       const result = generateRaceText({ settings, words, state: (this.#options.seed ?? cryptoSeed)() });
@@ -180,7 +184,7 @@ export class CorpusTexts implements RaceTextSource {
       return { ok: false, reason: "UNAVAILABLE" };
     }
     if (corpus === undefined) {
-      return { ok: false, reason: "NO_COMPATIBLE_PASSAGE" };
+      return { ok: false, reason: "TEXTS_UNAVAILABLE" };
     }
     try {
       const result = generateRaceText({ settings, passages: corpus.passages, state: (this.#options.seed ?? cryptoSeed)() });

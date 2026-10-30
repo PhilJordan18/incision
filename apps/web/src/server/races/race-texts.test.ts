@@ -119,11 +119,11 @@ describe("CorpusTexts, random words (F-03.1e)", () => {
   });
 
   it("is refused by the local fixture source too, never started on a fixed passage", async () => {
-    expect(await fixedRaceTexts(FIXTURE_RACE_TEXTS).draw(randomSettings("fr"))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await fixedRaceTexts(FIXTURE_RACE_TEXTS).draw(randomSettings("fr"))).toEqual({ ok: false, reason: "TEXTS_UNAVAILABLE" });
   });
 
   it("refuses without any fallback when no approved list exists (only fixtures ship)", async () => {
-    expect(await source(() => undefined).texts.draw(randomSettings("fr"))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await source(() => undefined).texts.draw(randomSettings("fr"))).toEqual({ ok: false, reason: "TEXTS_UNAVAILABLE" });
   });
 
   it("refuses settings no word can serve, logging the reason and never a word", async () => {
@@ -194,11 +194,11 @@ describe("CorpusTexts", () => {
     const database: { active?: ActiveCorpus } = {};
     const { texts, loads, log, advance } = corpusTexts(async () => database.active);
     await texts.warm();
-    expect(await texts.draw(coherent("fr", 50))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await texts.draw(coherent("fr", 50))).toEqual({ ok: false, reason: "TEXTS_UNAVAILABLE" });
     expect(loads).toHaveBeenCalledTimes(1);
     database.active = corpusOf([FRENCH, ENGLISH]);
     advance(CORPUS_RETRY_MS - 1);
-    expect(await texts.draw(coherent("fr", 50))).toEqual({ ok: false, reason: "NO_COMPATIBLE_PASSAGE" });
+    expect(await texts.draw(coherent("fr", 50))).toEqual({ ok: false, reason: "TEXTS_UNAVAILABLE" });
     expect(loads).toHaveBeenCalledTimes(1);
     advance(1);
     expect(await texts.draw(coherent("fr", 50))).toMatchObject({ ok: true, record: { text: FRENCH.id, corpusVersion: "test-1" } });

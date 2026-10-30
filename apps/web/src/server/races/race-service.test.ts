@@ -287,9 +287,10 @@ describe("RaceService", () => {
     expect(bea.reveal()?.language).toBe("fr");
   });
 
-  it("refuses a start before the database when no corpus passage serves it, or when the corpus cannot load, and writes no race", async () => {
+  it("refuses a start before the database when no corpus is active, no passage fits the settings, or the corpus cannot load, and writes no race", async () => {
     for (const [load, error] of [
-      [async () => undefined, "NO_COMPATIBLE_PASSAGE"],
+      // Distinct refusals: no texts at all, texts but none for these settings, a technical failure.
+      [async () => undefined, "TEXTS_UNAVAILABLE"],
       [async () => ({ version: "test-1", passages: Object.freeze([Object.freeze(CORPUS_EN)]) }), "NO_COMPATIBLE_PASSAGE"],
       [
         async () => {
