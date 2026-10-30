@@ -183,7 +183,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
               <div className="flex flex-wrap gap-2">
                 {TEXT_OPTIONS.map((option) => (
                   <button key={option} type="button" aria-pressed={draft[option]}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-houle px-4 text-sm text-embrun transition-colors duration-200 ease-incision hover:text-ecume aria-pressed:border-moi aria-pressed:bg-moi/10 aria-pressed:text-moi"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-houle px-4 text-sm text-embrun transition-colors duration-200 ease-incision hover:text-ecume aria-pressed:border-2 aria-pressed:border-moi aria-pressed:text-moi"
                     onClick={() => setDraft({ ...draft, [option]: !draft[option] })}>
                     <span aria-hidden="true">{draft[option] ? "✓" : "○"}</span>{t[option]}
                   </button>
