@@ -5,10 +5,14 @@ import {
   generateRaceText,
   passageCut,
   type RandomState,
+  type RandomTextSettings,
+  type RandomWords,
   type RaceTextVersions,
   TEXT_LANGUAGES,
   type TextLanguage,
+  type TextSettings,
 } from "@incision/domain";
+import { approvedRandomWords } from "../rooms/text-settings";
 
 /** A fixed race text: the short test fixtures only. */
 export type RaceText = {
@@ -31,12 +35,18 @@ type TextRecordBase = {
  * `race_passages`.
  */
 export type RaceTextRecord =
-  | (TextRecordBase & { readonly corpusVersion?: never; readonly textSettings?: never; readonly textVersions?: never })
-  | (TextRecordBase & { readonly corpusVersion: string; readonly textSettings: CoherentTextSettings; readonly textVersions: RaceTextVersions });
+  | (TextRecordBase & { readonly corpusVersion?: never; readonly wordsVersion?: never; readonly textSettings?: never; readonly textVersions?: never })
+  | (TextRecordBase & { readonly corpusVersion: string; readonly wordsVersion?: never; readonly textSettings: CoherentTextSettings; readonly textVersions: RaceTextVersions })
+  /** Random words (F-03.1e): `text` is "random", and the list, exclusions and pairs share one version. */
+  | (TextRecordBase & { readonly corpusVersion?: never; readonly wordsVersion: string; readonly textSettings: RandomTextSettings; readonly textVersions: RaceTextVersions });
 
 export type RaceTextDraw =
   | { readonly ok: true; readonly text: string; readonly record: RaceTextRecord }
-  /** No race is written. NO_COMPATIBLE_PASSAGE: nothing in the corpus serves the settings (or no corpus is active). */
+  /**
+   * No race is written. NO_COMPATIBLE_PASSAGE: nothing serves the settings: no corpus passage, no
+   * approved word list, or settings the engine refuses (the save refused them already, so only a
+   * change of data between the save and the start gets here).
+   */
   | { readonly ok: false; readonly reason: "NO_COMPATIBLE_PASSAGE" | "UNAVAILABLE" };
 
 /**
@@ -51,13 +61,14 @@ export const FIXTURE_RACE_TEXTS: Readonly<Record<TextLanguage, RaceText>> = {
 
 /** Where the races of this process take their texts: the corpus, or fixed texts in tests. */
 export type RaceTextSource = {
-  draw(language: TextLanguage, wordCount: number): Promise<RaceTextDraw>;
+  /** The room's text settings (`roomTextSettings`), frozen with the race's text. */
+  draw(settings: TextSettings): Promise<RaceTextDraw>;
 };
 
-/** Fixed texts, whole, one per language: the test fixtures follow no setting. */
+/** Fixed texts, whole, one per language: the test fixtures follow no setting but the language. */
 export function fixedRaceTexts(texts: Readonly<Record<TextLanguage, RaceText>>): RaceTextSource {
   return {
-    draw: async (language) => {
+    draw: async ({ language }) => {
       const { id, text } = texts[language];
       return { ok: true, text, record: { language, text: id } };
     },
@@ -69,6 +80,8 @@ export type CorpusTextsOptions = {
   readonly load: () => Promise<ActiveCorpus | undefined>;
   /** A fresh state for each draw: four uint32 from crypto (Q-15). Tests pass fixed values. */
   readonly seed?: () => RandomState;
+  /** The approved word data of a language (default: the reviewed lists, never the fixtures). */
+  readonly words?: (language: TextLanguage) => RandomWords | undefined;
   /** Milliseconds for the retry delay (default `performance.now`). */
   readonly monotonic?: () => number;
   readonly log: (message: string) => void;
@@ -85,8 +98,9 @@ export const CORPUS_RETRY_MS = 10_000;
 const cryptoSeed = (): RandomState => asRandomState(Array.from(crypto.getRandomValues(new Uint32Array(4))));
 
 /**
- * The texts races run (F-02.3b): a passage of the active corpus version, drawn and cut by the
- * engine (`generateRaceText`) with the room's word count and D-19's other defaults. The version is loaded
+ * The texts races run (F-02.3b, F-03.1e): a passage of the active corpus version, drawn and cut by
+ * the engine (`generateRaceText`) with the room's text settings, or random words from the reviewed
+ * lists (`approvedRandomWords`), refused while only fixtures ship. The corpus version is loaded
  * from PostgreSQL once per process, checked against its fingerprints and frozen; a version
  * imported later serves after the next restart (docs/DEPLOYMENT.md). While no version is active,
  * or after a failed load, a start reads again, at most once per CORPUS_RETRY_MS. A refused draw
@@ -115,7 +129,39 @@ export class CorpusTexts implements RaceTextSource {
     }
   }
 
-  async draw(language: TextLanguage, wordCount: number): Promise<RaceTextDraw> {
+  async draw(settings: TextSettings): Promise<RaceTextDraw> {
+    return settings.kind === "random" ? this.#drawWords(settings) : this.#drawPassage(settings);
+  }
+
+  /** Random words (CONF-03): the approved lists only, held by the process; no corpus read. */
+  #drawWords(settings: RandomTextSettings): RaceTextDraw {
+    const words = (this.#options.words ?? approvedRandomWords)(settings.language);
+    if (words === undefined) {
+      return { ok: false, reason: "NO_COMPATIBLE_PASSAGE" };
+    }
+    try {
+      const result = generateRaceText({ settings, words, state: (this.#options.seed ?? cryptoSeed)() });
+      if (!result.ok) {
+        // A refusal names a reason, never a word of the lists (they hold excluded words).
+        this.#options.logError(`[races] words ${words.list.version}: draw refused (${result.reason})`);
+        return { ok: false, reason: "NO_COMPATIBLE_PASSAGE" };
+      }
+      if (result.provenance.kind !== "random") {
+        throw new RangeError("A random request drew a passage");
+      }
+      return {
+        ok: true,
+        text: result.text,
+        record: { language: settings.language, text: "random", wordsVersion: words.list.version, textSettings: settings, textVersions: result.versions },
+      };
+    } catch (error: unknown) {
+      this.#options.logError(`[races] words ${words.list.version}: draw failed: ${error instanceof Error ? error.message : "unknown error"}`);
+      return { ok: false, reason: "UNAVAILABLE" };
+    }
+  }
+
+  async #drawPassage(settings: CoherentTextSettings): Promise<RaceTextDraw> {
+    const { language } = settings;
     let corpus: ActiveCorpus | undefined;
     try {
       corpus = await this.#active();
@@ -125,11 +171,10 @@ export class CorpusTexts implements RaceTextSource {
     if (corpus === undefined) {
       return { ok: false, reason: "NO_COMPATIBLE_PASSAGE" };
     }
-    const settings = { ...defaultCoherentSettings(language), wordCount };
     try {
       const result = generateRaceText({ settings, passages: corpus.passages, state: (this.#options.seed ?? cryptoSeed)() });
       if (!result.ok) {
-        // D-19's defaults pass every settings check: only the corpus can lack a passage.
+        // Saved settings passed the data-free checks: only the corpus can lack a passage.
         if (result.reason !== "NO_COMPATIBLE_PASSAGE") {
           this.#options.logError(`[races] corpus ${corpus.version}: draw refused (${result.reason})`);
         }
