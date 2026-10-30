@@ -298,6 +298,7 @@ brady	remove	proper-noun	review: person name
 brandon	remove	proper-noun	review: person name
 brazil	remove	proper-noun	review: place name
 brazilian	remove	proper-noun	review: demonym/nationality, capitalised in English
+breasts	exclude	sexual	coordinator: independent editorial review follow-up; plural mostly anatomical-sexual; "breast" stays (chicken breast); consistent with fr "seins"/"sein"
 brenda	remove	proper-noun	review: person name
 brendan	remove	proper-noun	review: person name
 brennan	remove	proper-noun	review: person name
@@ -500,6 +501,7 @@ colombia	remove	proper-noun	review: name of a person, place, brand or organisati
 colombian	remove	proper-noun	review: demonym/language, capitalised in English
 colorado	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
 colored	homonym-exclude	slur	coordinator: ordinary sense exists, but the racial slur history makes random draws unsuitable
+coloured	homonym-exclude	slur	coordinator: independent editorial review follow-up; same slur history as "colored"
 columbia	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
 columbus	remove	proper-noun	review: name of a person, place, brand or organisation; no common sense
 com	remove	abbreviation	review: abbreviation, acronym or clipped form
@@ -872,6 +874,7 @@ gdp	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playabl
 ge	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 gen	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 geneva	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+genocide	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with fr "génocide", "esclave", "porc"
 geo	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 geoff	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 geoffrey	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -951,6 +954,7 @@ hai	remove	foreign	review: foreign word/fragment, not an English loanword
 haiti	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 hal	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 halifax	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+halloween	remove	proper-noun	coordinator: independent editorial review follow-up; capitalised in English (holiday)
 hamas	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 hamburg	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 hamilton	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -1002,6 +1006,7 @@ herbert	remove	proper-noun	review: name of person/place/brand/organisation, no c
 hercules	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 herman	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 hernandez	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
+heroin	exclude	degrading	coordinator: independent editorial review follow-up; drug name with no other sense; consistent with cocaine, meth, marijuana
 hes	remove	nonstandard	review: informal/phonetic spelling or interjection noise
 hicks	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
 higgins	remove	proper-noun	review: name of person/place/brand/organisation, no common sense
@@ -1089,6 +1094,8 @@ illinois	remove	proper-noun	review: name of person/place/brand/organisation, no 
 im	remove	nonstandard	review: informal/phonetic spelling or interjection noise
 imam	identity	identity	review: identity term (orientation/ethnicity/religion)
 imf	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
+immigrant	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
+immigrants	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
 imo	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 inc	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
 ind	remove	abbreviation	review: abbreviation/acronym/unit/numeral, not a playable word
@@ -1552,6 +1559,8 @@ microsoft	remove	proper-noun	review: name of person/place/brand/org with no comm
 middleton	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 midlands	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 midwest	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+migrant	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
+migrants	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
 miguel	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 mike	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 mil	remove	abbreviation	review: abbreviation/acronym/unit/chat form
@@ -1657,6 +1666,8 @@ nat	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 natalie	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 nate	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 nathan	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+native	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
+natives	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
 nato	remove	abbreviation	review: abbreviation/acronym/unit/chat form
 nazi	remove	proper-noun	review: capitalised in English (language/adjective/month/day/proper adjective)
 nazis	remove	proper-noun	review: capitalised in English (language/adjective/month/day/proper adjective)
@@ -1865,6 +1876,8 @@ phillips	remove	proper-noun	review: name of person/place/brand/org with no commo
 philly	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 photoshop	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
 pierre	remove	proper-noun	review: name of person/place/brand/org with no common lowercase sense
+pig	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with fr "génocide", "esclave", "porc"
+pigs	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with fr "génocide", "esclave", "porc"
 piss	exclude	swear	review: vulgar expletive
 pissed	exclude	swear	review: vulgar expletive
 pissing	exclude	swear	review: vulgar expletive
@@ -1960,6 +1973,8 @@ rebecca	remove	proper-noun	review: name of a person, place, brand, team or organ
 rec	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 reddit	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 redskins	exclude	slur	review: ethnic slur for Native Americans (also former team name)
+refugee	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
+refugees	identity	identity	coordinator: independent editorial review follow-up; identity term (status or origin), consistent with fr "migrants", "immigrés"
 reg	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 reggie	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 regina	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
@@ -2156,6 +2171,8 @@ skinner	remove	proper-noun	review: name of a person, place, brand, team or organ
 skype	remove	proper-noun	review: name of a person, place, brand, team or organisation (capitalised in English)
 sl	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 slaughter	pejorative	pejorative	review: hostile/dehumanising word that next to an identity term could form an attack
+slave	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with fr "génocide", "esclave", "porc"
+slaves	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with fr "génocide", "esclave", "porc"
 slut	exclude	sexual	review: sexual slur/insult
 sm	remove	abbreviation	review: abbreviation, acronym, unit or chat form
 smack	homonym-keep	homonym-keep	review: 'slap/hit' dominates over heroin slang

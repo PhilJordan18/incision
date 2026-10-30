@@ -43,19 +43,19 @@ these data into production.
 
 | Action | Effect | fr | en |
 |---|---|---:|---:|
-| `remove` / `proper-noun` | not playable: names, places, brands; English proper adjectives | 1,267 | 1,702 |
+| `remove` / `proper-noun` | not playable: names, places, brands; English proper adjectives | 1,267 | 1,703 |
 | `remove` / `abbreviation` | acronyms, chat forms, units, roman numerals | 314 | 448 |
-| `remove` / `foreign` | words of another language that are not established loanwords | 377 | 54 |
+| `remove` / `foreign` | words of another language that are not established loanwords | 378 | 54 |
 | `remove` / `nonstandard` | missing accents, phonetic or chat spellings, noise | 124 | 94 |
 | `remove` / `fragment` | tokenisation fragments, lone letters | 69 | 60 |
-| `exclude` | swear words, insults, slurs, sexual or degrading vocabulary (D-21) | 92 | 80 |
-| `homonym-exclude` | ordinary sense exists, but the vulgar or sexual sense dominates for 12–17 | 19 | 20 |
-| `homonym-keep` | vulgar sense exists, but the ordinary sense dominates | 21 | 26 |
-| `identity` | kept; forbidden next to any `pejorative` word | 192 | 25 |
-| `pejorative` | kept; forbidden next to any `identity` word | 55 | 45 |
+| `exclude` | swear words, insults, slurs, sexual or degrading vocabulary (D-21) | 93 | 82 |
+| `homonym-exclude` | ordinary sense exists, but the vulgar or sexual sense dominates for 12–17 | 19 | 21 |
+| `homonym-keep` | vulgar sense exists, but the ordinary sense dominates | 24 | 26 |
+| `identity` | kept; forbidden next to any `pejorative` word | 207 | 33 |
+| `pejorative` | kept; forbidden next to any `identity` word | 64 | 50 |
 
-Result: fr 13,214 playable words, 111 exclusions, 10,560 forbidden pairs; en 12,541 words, 100
-exclusions, 1,125 pairs.
+Result: fr 13,212 playable words, 112 exclusions, 13,248 forbidden pairs; en 12,537 words, 103
+exclusions, 1,650 pairs (counts per category in `manifest.json`).
 
 ## Coordinator decisions
 
@@ -72,6 +72,17 @@ exclusions, 1,125 pairs.
   (`homonym-exclude` / `slur`), like en "homo", "gypsy", "mick" and fr "nègre" (`exclude` / `slur`).
 - **fr "capote"** is excluded (car hood, but the condom sense is common among teenagers).
 - **fr "jean"** stays ("un jean"), although the first name was flagged.
+- **Independent review follow-up.** A separate review agent then read the lists and the register
+  (scan of about 600 targeted terms and of about 4,200 low-frequency words per language) and found no
+  blocking survivor. Its findings were applied as `coordinator:` lines: en "coloured" excluded like
+  "colored"; en "heroin" excluded like "cocaine"; en "breasts" excluded like fr "seins" ("breast"
+  stays); fr "lingerie" and "psycho" excluded like their English forms; en "halloween" and fr "put"
+  removed; fr "caca" kept (childish, like "pipi" and "poop"); fr "héroïne", "vierge" and "vierges"
+  recorded as `homonym-keep`; missing identity tags (fr russe, polonais, portugais, roumain, serbe,
+  québécois, protestant, réfugié and their forms; en migrant, immigrant, refugee, native and plurals)
+  and pejorative tags (fr sauvage, pourri, porc, rat and forms; en genocide, slave, slaves, pig, pigs)
+  added. "gosse" (France: a kid) stays while the plural "gosses" is excluded for its Quebec sense, and
+  en "nude" stays excluded while "naked" ("naked eye") and fr "nu" stay: judgement calls kept as they are.
 - **Category of `homonym-exclude`.** Where a reviewer wrote a free category, the coordinator inferred one
   of the five exclusion categories from the reason; those lines say so.
 
@@ -102,4 +113,6 @@ variants, so a text can mix them.
 - Forbidden pairs cover only identity × pejorative adjacency; a hostile phrase across three words, or a
   pair the lists do not name, is not prevented.
 - The French identity list is wide (nationalities included), so French texts avoid more pairs than
-  English ones; this costs a little variety, never a refusal in practice (tests in `test/real-data.test.ts`).
+  English ones. This costs a little variety; the tests in `test/real-data.test.ts` found no refusal
+  over the defaults at 10, 50 and 200 words, twenty long draws and ten demanding include settings per
+  language, which is evidence for those settings, not a proof for all.

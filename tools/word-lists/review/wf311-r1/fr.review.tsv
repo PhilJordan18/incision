@@ -369,7 +369,6 @@ c	remove	fragment	review: clitic fragment (c')
 ca	remove	nonstandard	review: missing cedilla/accent (ça)
 cable	remove	nonstandard	review: missing accent (câble)
 cac	remove	abbreviation	review: acronym (CAC 40)
-caca	exclude	swear	review: childish scatological vulgarity
 caen	remove	proper-noun	review: city
 caf	remove	abbreviation	review: acronym (CAF)
 caire	remove	proper-noun	review: city (Le Caire)
@@ -1091,6 +1090,7 @@ hydro	remove	fragment	review: lone letter or fragment of a compound/elision
 hébreu	identity	identity	review: identity term (nationality/ethnicity/religion/orientation/disability/migration)
 hélène	remove	proper-noun	review: name of person/brand/organisation/event, no common sense
 hérault	remove	proper-noun	review: place name, no common sense
+héroïne	homonym-keep	homonym-keep	coordinator: independent editorial review follow-up; "heroine" (female hero) dominates; the drug sense is ordinary vocabulary, not slang
 hétéro	identity	identity	review: identity term (nationality/ethnicity/religion/orientation/disability/migration)
 i	remove	fragment	review: lone letter or fragment of a compound/elision
 i'm	remove	foreign	review: word of another language, not an established French loanword
@@ -1386,6 +1386,7 @@ limousin	remove	proper-noun	review: name of a person, place, brand or organisati
 lincoln	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 linda	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 line	remove	foreign	review: word of another language, not an established French loanword
+lingerie	exclude	sexual	coordinator: independent editorial review follow-up; consistent with en "lingerie"
 link	remove	foreign	review: word of another language, not an established French loanword
 linux	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
 lionel	remove	proper-noun	review: name of a person, place, brand or organisation with no common French sense
@@ -1836,12 +1837,21 @@ pol	remove	fragment	review: tokenisation fragment, not a word alone
 pole	remove	nonstandard	review: missing accent or misspelling of a French word
 politico	remove	foreign	review: English or other foreign word, not an established French loanword
 pologne	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+polonais	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
+polonaise	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 pompidou	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+porc	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
+porcs	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
 porno	exclude	sexual	review: sexual vocabulary excluded for minors (D-21)
 pornographie	exclude	sexual	review: sexual vocabulary excluded for minors (D-21)
 porsche	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+portugais	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
+portugaise	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 portugal	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 potter	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+pourri	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
+pourrie	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
+pourris	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
 power	remove	foreign	review: English or other foreign word, not an established French loanword
 pp	remove	abbreviation	review: abbreviation, acronym or SMS form
 pq	remove	abbreviation	review: abbreviation, acronym or SMS form
@@ -1858,15 +1868,19 @@ project	remove	foreign	review: English or other foreign word, not an established
 prostitution	exclude	sexual	review: sexual vocabulary excluded for minors (D-21)
 prostituée	exclude	sexual	review: sexual vocabulary excluded for minors (D-21)
 prostituées	exclude	sexual	review: sexual vocabulary excluded for minors (D-21)
+protestant	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
+protestants	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 proust	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 provence	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 prusse	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 ps	remove	abbreviation	review: abbreviation, acronym or SMS form
 psa	remove	abbreviation	review: abbreviation, acronym or SMS form
 psg	remove	abbreviation	review: abbreviation, acronym or SMS form
+psycho	exclude	insult	coordinator: independent editorial review follow-up; consistent with en "psycho"
 pt	remove	abbreviation	review: abbreviation, acronym or SMS form
 pts	remove	abbreviation	review: abbreviation, acronym or SMS form
 pue	pejorative	pejorative	review: "stinks", hostile next to an identity term
+put	remove	foreign	coordinator: independent editorial review follow-up; English word
 putain	exclude	swear	review: swear word
 putains	exclude	swear	review: swear word
 pute	exclude	sexual	review: prostitution slur / vulgar
@@ -1899,6 +1913,9 @@ quil	remove	nonstandard	review: missing accent or misspelling of a French word
 quimper	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 quo	remove	fragment	review: tokenisation fragment, not a word alone
 québec	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+québécois	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
+québécoise	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
+québécoises	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 r	remove	fragment	review: tokenisation fragment, not a word alone
 ra	remove	fragment	review: tokenisation fragment, not a word alone
 rachel	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
@@ -1908,7 +1925,9 @@ ralph	remove	proper-noun	review: name of a person, place, brand or organisation 
 ram	remove	abbreviation	review: abbreviation, acronym or SMS form
 raoul	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 raphaël	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+rat	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
 ratp	remove	abbreviation	review: abbreviation, acronym or SMS form
+rats	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
 ray	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 raymond	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 rc	remove	abbreviation	review: abbreviation, acronym or SMS form
@@ -1978,6 +1997,7 @@ ross	remove	proper-noun	review: name of a person, place, brand or organisation w
 rothschild	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 roubaix	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 rouen	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+roumain	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 roumanie	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 rousseau	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 roussillon	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
@@ -1989,13 +2009,17 @@ rsa	remove	abbreviation	review: abbreviation, acronym or SMS form
 rt	remove	abbreviation	review: abbreviation, acronym or SMS form
 rtl	remove	abbreviation	review: abbreviation, acronym or SMS form
 run	remove	foreign	review: English or other foreign word, not an established French loanword
+russe	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 russell	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+russes	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 russie	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 ruth	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 rwanda	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 ryan	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 réal	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 réf	remove	abbreviation	review: abbreviation, acronym or SMS form
+réfugié	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
+réfugiés	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 rémi	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 rémy	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 s	remove	fragment	review: tokenisation fragment, not a word alone
@@ -2027,6 +2051,8 @@ sarkozy	remove	proper-noun	review: name of a person, place, brand or organisatio
 sarthe	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 saskatchewan	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 satan	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
+sauvage	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
+sauvages	pejorative	pejorative	coordinator: independent editorial review follow-up; hostile next to an identity term, consistent with en "savage", "rotten", "rat"
 savoie	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 saxe	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 say	remove	foreign	review: English or other foreign word, not an established French loanword
@@ -2050,6 +2076,7 @@ seins	homonym-exclude	sexual	review: plural mostly "breasts" (anatomy); singular
 sen	remove	fragment	review: tokenisation fragment, not a word alone
 seo	remove	abbreviation	review: abbreviation, acronym or SMS form
 ser	remove	fragment	review: tokenisation fragment, not a word alone
+serbe	identity	identity	coordinator: independent editorial review follow-up; identity term (nationality, religion or status), tagged like the other demonyms
 serbie	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 serena	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
 serge	remove	proper-noun	review: name of a person, place, brand or organisation with no common sense
@@ -2373,6 +2400,8 @@ victoria	remove	proper-noun	review: name of a person, place, brand, organisation
 vidal	remove	proper-noun	review: name of a person, place, brand, organisation or event
 video	remove	nonstandard	review: misspelling, missing accent/ligature, phonetic or chat spelling
 videos	remove	nonstandard	review: misspelling, missing accent/ligature, phonetic or chat spelling
+vierge	homonym-keep	homonym-keep	coordinator: independent editorial review follow-up; "forêt vierge", "la Vierge", blank page; the sexual-status sense does not dominate in French
+vierges	homonym-keep	homonym-keep	coordinator: independent editorial review follow-up; as "vierge"
 vietnam	remove	proper-noun	review: name of a person, place, brand, organisation or event
 view	remove	foreign	review: English (or other) word, not an established French loanword
 vih	remove	abbreviation	review: abbreviation, acronym, truncation, unit or roman numeral

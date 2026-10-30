@@ -14,7 +14,6 @@ bordel
 branle
 branler
 bâtard
-caca
 cannabis
 capote
 chatte
@@ -61,6 +60,7 @@ idiots
 imbécile
 imbéciles
 jouir
+lingerie
 merde
 merdes
 merdique
@@ -75,6 +75,7 @@ pornographie
 prostitution
 prostituée
 prostituées
+psycho
 putain
 putains
 pute
@@ -127,11 +128,13 @@ bitch
 bitches
 bong
 boobs
+breasts
 bullshit
 cannabis
 cocaine
 cock
 colored
+coloured
 condom
 condoms
 crap
@@ -156,6 +159,7 @@ fucking
 fucks
 goddamn
 gypsy
+heroin
 ho
 homo
 hooker
