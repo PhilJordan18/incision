@@ -1,6 +1,7 @@
 import type { Locale } from "./locale";
 
 const fr = {
+  expelled: "Expulsion de la salle", explanation: "L’hôte t’a expulsé de cette salle. Cette identité ne peut plus la rejoindre. Tu peux rejoindre une autre salle.",
   title: "Modération de la salle", expel: "Expulser", cancel: "Annuler", confirm: "Confirmer l’expulsion",
   warning: "Cette personne sera déconnectée et son identité ne pourra plus rejoindre cette salle, même avec une invitation.",
   saved: "Expulsion enregistrée.", reload: "Actualiser la salle", disconnected: "Reconnecte-toi pour gérer la salle.",
@@ -12,6 +13,7 @@ const fr = {
   },
 };
 const en: typeof fr = {
+  expelled: "Expelled from the room", explanation: "The host expelled you from this room. This identity can no longer join it. You can join another room.",
   title: "Room moderation", expel: "Expel", cancel: "Cancel", confirm: "Confirm expulsion",
   warning: "This person will be disconnected and their identity will no longer be able to join this room, even with an invitation.",
   saved: "Expulsion saved.", reload: "Refresh the room", disconnected: "Reconnect to manage the room.",

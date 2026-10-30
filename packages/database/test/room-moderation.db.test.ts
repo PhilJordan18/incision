@@ -8,6 +8,9 @@ import { createGuestSession, purgeUnusedGuestSessions } from "../src/identity/gu
 import { joinRoomByCodeAsGuest } from "../src/rooms/guest-admission";
 import { joinRoomByCode } from "../src/rooms/membership";
 import { expelRoomMember } from "../src/rooms/moderation";
+import { createRoomInvitation, joinRoomByInvitation } from "../src/rooms/invitations";
+import { startRace } from "../src/races/lifecycle";
+import { maintainGuestRetention } from "../src/identity/guest-retention";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
 let database: TemporaryDatabase;
@@ -52,6 +55,49 @@ async function target() {
 }
 
 describe("atomic room moderation", () => {
+  it.each(["countdown", "racing", "results"])("allows expulsion in %s without rewriting the race", async (phase) => {
+    const { host, lobbyId } = await fixture(); const victim = await target();
+    await pool.query("update lobby_members set role='participant' where id=$1", [victim.memberId]);
+    const started = await startRace(db, { accountId: host, lobbyId, settingsRevision: 0,
+      ownerId: randomUUID(), text: "La mer est calme.", config: {}, rulesVersion: 1,
+      create: () => ({ ok: true as const, race: true }),
+    });
+    expect(started.ok).toBe(true);
+    await pool.query("update lobbies set phase=$2 where id=$1", [lobbyId, phase]);
+    const races = (await pool.query("select * from races")).rows;
+    expect(await expelRoomMember(db, { accountId: host, code, memberId: victim.memberId, revision: await revision(lobbyId) })).toMatchObject({ ok: true });
+    expect((await pool.query("select * from races")).rows).toEqual(races);
+  });
+  it("refuses a fresh invitation for the banned identity but admits a classmate at the same address", async () => {
+    const { host, lobbyId } = await fixture(); const victim = await target();
+    await expelRoomMember(db, { accountId: host, code, memberId: victim.memberId, revision: await revision(lobbyId) });
+    const tokenDigest = "d".repeat(64);
+    expect(await createRoomInvitation(db, { accountId: host, code, tokenDigest })).toMatchObject({ ok: true });
+    const shared = { tokenDigest, role: "participant" as const, addressDigestForRoom: () => "e".repeat(64) };
+    expect(await joinRoomByInvitation(db, { ...shared, actor: { kind: "account", accountId: victim.accountId } })).toMatchObject({ ok: false });
+    expect(await joinRoomByInvitation(db, { ...shared, actor: { kind: "account", accountId: await account("Classmate") } })).toMatchObject({ ok: true });
+  });
+  it("authorizes a current guest host and rejects a target belonging to another room", async () => {
+    const { host, lobbyId, hostMemberId } = await fixture();
+    const proof = { id: randomUUID(), secretDigest: randomBytes(32).toString("hex") };
+    await createGuestSession(db, proof);
+    const joined = await joinRoomByCodeAsGuest(db, { proof, nickname: "Guest host", code, role: "spectator" });
+    if (!joined.ok) throw new Error(joined.error);
+    await pool.query("update lobbies set host_member_id=$2 where id=$1", [lobbyId, joined.memberId]);
+    expect(await expelRoomMember(db, { accountId: host, code, memberId: joined.memberId, revision: await revision(lobbyId) })).toEqual({ ok: false, error: "NOT_HOST" });
+    const otherRoom = (await pool.query<{ id: string }>("insert into lobbies(code,capacity) values('BCDEFG',30) returning id")).rows[0]!.id;
+    const outsider = await account("Outsider");
+    const outsideMember = (await pool.query<{ id: string }>("insert into lobby_members(lobby_id,account_id,role,display_name,display_name_canonical) values($1,$2,'participant','Outsider','outsider') returning id", [otherRoom, outsider])).rows[0]!.id;
+    expect(await expelRoomMember(db, { accountId: null, guestProof: proof, code, memberId: outsideMember, revision: await revision(lobbyId) })).toEqual({ ok: false, error: "INVALID_TARGET" });
+    expect(await expelRoomMember(db, { accountId: null, guestProof: proof, code, memberId: hostMemberId, revision: await revision(lobbyId) })).toMatchObject({ ok: true, guestSession: { id: proof.id } });
+  });
+  it("purges bans when the closed room reaches its retention deadline", async () => {
+    const { host, lobbyId } = await fixture(); const victim = await target();
+    await expelRoomMember(db, { accountId: host, code, memberId: victim.memberId, revision: await revision(lobbyId) });
+    await pool.query("update lobbies set phase='closed',closed_at=now()-interval '24 hours',host_member_id=null where id=$1", [lobbyId]);
+    expect((await maintainGuestRetention(db, () => new Set())).purgedRooms).toContain(lobbyId);
+    expect((await pool.query("select * from lobby_bans")).rows).toEqual([]);
+  });
   it("bans only the target identity, revokes its invitation and refuses reentry", async () => {
     const { host, lobbyId } = await fixture(); const victim = await target();
     await pool.query(`insert into lobby_invitations(lobby_id,token_digest,bound_member_id,bound_ip_digest,bound_at)

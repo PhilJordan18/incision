@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { guestAwareAction } from "@/identity/guest-browser";
 import { expelMemberAction, guestExpelMemberAction, type ModerationActionState } from "@/server/rooms/moderation-actions";
@@ -16,11 +16,19 @@ export function RoomModerationPanel({ snapshot, guest, live, locale, refresh }: 
   const t = roomModerationCopy(locale), id = useId();
   const heading = useRef<HTMLHeadingElement>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
+  const restoreTrigger = useRef(false);
   const busy = useRef(false);
   const focusCancel = useCallback((element: HTMLButtonElement | null) => { element?.focus(); }, []);
   const [draft, setDraft] = useState<{ memberId: string; name: string; revision: number } | null>(null);
   const [answer, setAnswer] = useState<ModerationActionState>({});
   const [pending, startTransition] = useTransition();
+  useEffect(() => {
+    // Wait for React to re-enable the trigger before returning keyboard focus.
+    if (draft === null && restoreTrigger.current) {
+      restoreTrigger.current = false;
+      trigger.current?.focus();
+    }
+  }, [draft]);
   const conflict = draft !== null && draft.revision !== snapshot.revision;
   const awaiting = answer.revision !== undefined && snapshot.revision < answer.revision;
   const enabled = live && !pending && !awaiting && answer.error === undefined;
@@ -54,7 +62,7 @@ export function RoomModerationPanel({ snapshot, guest, live, locale, refresh }: 
       <p className="break-words">{draft.name} — {t.warning}</p>
       <div className="flex flex-wrap gap-3">
         <button ref={focusCancel} type="button" className={discreetButton} disabled={pending}
-          onClick={() => { setDraft(null); setAnswer({}); trigger.current?.focus(); }}>{t.cancel}</button>
+          onClick={() => { restoreTrigger.current = true; setDraft(null); setAnswer({}); }}>{t.cancel}</button>
         <button type="button" className={secondaryButton} disabled={!enabled || conflict} onClick={confirm}>{t.confirm}</button>
       </div>
     </div>}

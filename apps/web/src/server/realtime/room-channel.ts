@@ -5,7 +5,7 @@ import type { EventEmitter } from "node:events";
 import { describeDatabaseError, type ActiveMembership, type RoomRecovery, type RoomSnapshot } from "@incision/database";
 import { humanSubjectKey, type HumanSubject, parseRoomCode, type RoomPhase } from "@incision/domain";
 import type { Server, Socket } from "socket.io";
-import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
+import { ROOM_EXPELLED_EVENT, ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
 import { publicSnapshot } from "../../rooms/public-snapshot";
 import type { RaceService } from "../races/race-service";
 import type { RoomEvents } from "../rooms/room-events";
@@ -146,6 +146,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       // Clear before disconnect so an ended membership cannot start a grace timer.
       socket.data.room = undefined;
       dependencies.races?.unfollow(socket.id);
+      socket.emit(ROOM_EXPELLED_EVENT);
       socket.disconnect(true);
     }
   });
