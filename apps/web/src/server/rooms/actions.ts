@@ -15,7 +15,8 @@ import {
   type NextRoundResult,
   startNextRound,
 } from "@incision/database";
-import { MEMBER_ROLES, type MemberRole, parseRoomCode, ROOM_MAX_CAPACITY, type RoomCodeError } from "@incision/domain";
+import { MEMBER_ROLES, type MemberRole, parseRoomCode, type RoomCodeError } from "@incision/domain";
+import { parseCreationCapacity } from "./capacity-form";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getRequestLocale } from "@/i18n/server";
@@ -144,7 +145,7 @@ export async function joinRoomAction(_previous: JoinFormState, formData: FormDat
 }
 
 export type CreateRoomState = {
-  readonly error?: "ALREADY_IN_ROOM" | "RATE_LIMITED" | "UNAVAILABLE";
+  readonly error?: "ALREADY_IN_ROOM" | "RATE_LIMITED" | "UNAVAILABLE" | "INVALID_CAPACITY";
   readonly currentCode?: string;
 };
 
@@ -154,6 +155,8 @@ export type CreateRoomState = {
  */
 export async function createRoomAction(_previous: CreateRoomState, formData: FormData): Promise<CreateRoomState> {
   const { accountId } = await requireAccountSession("/rooms/new");
+  const capacity = parseCreationCapacity(formData);
+  if (capacity === undefined) return { error: "INVALID_CAPACITY" };
   const role = requestedRole(formData);
   if (role === undefined) {
     return { error: "UNAVAILABLE" };
@@ -168,7 +171,7 @@ export async function createRoomAction(_previous: CreateRoomState, formData: For
       accountId,
       role,
       visibility: "code",
-      capacity: ROOM_MAX_CAPACITY,
+      capacity,
       randomIndex: (upperBound) => randomInt(upperBound),
       textLanguage: await getRequestLocale(),
     });

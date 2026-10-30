@@ -11,6 +11,19 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await context.addCookies([{ name: SESSION_COOKIE, value: await forgeSessionCookie({ sub: row.id, sessionVersion: row.session_version, authTime: Math.floor(Date.now() / 1000) }), url: test.info().project.use.baseURL ?? "" }]);
       const page = await context.newPage();
       await page.goto("/rooms/new");
+      const creationCapacity = page.getByRole("spinbutton", { name: /^(Nombre maximal de participants|Maximum participants)$/ });
+      await expect(creationCapacity).toHaveValue("30");
+      await creationCapacity.fill("3");
+      for (const theme of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme: theme });
+        for (const width of [1440, 1024, 390, 360]) {
+          await page.setViewportSize({ width, height: 1000 });
+          await expectNoHorizontalScroll(page);
+          await expectNoAccessibilityViolation(page);
+          await page.screenshot({ path: test.info().outputPath(`creation-${locale}-${theme}-${width}.png`), fullPage: true });
+        }
+      }
+      await page.setViewportSize({ width: 1440, height: 1000 });
       await page.getByRole("button", { name: /^(Ouvrir la salle|Open the room)$/ }).click();
       await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
       const [observer] = await query<{ id: string; session_version: number }>("insert into accounts (display_name) values ('Capacity observer') returning id, session_version");
@@ -21,6 +34,7 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await member.getByRole("button", { name: /^(Rejoindre la salle|Join the room)$/ }).click();
       await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
       const panel = page.getByRole("region", { name: /^(Capacité de la salle|Room capacity)$/ });
+      await expect(panel.getByText(/ : 3$/)).toBeVisible();
       const memberPanel = member.getByRole("region", { name: /^(Capacité de la salle|Room capacity)$/ });
       await expect(memberPanel.getByRole("button", { name: /^(Modifier la capacité|Edit capacity)$/ })).toHaveCount(0);
       await panel.getByRole("button", { name: /^(Modifier la capacité|Edit capacity)$/ }).focus();
@@ -50,5 +64,21 @@ for (const locale of ["fr-CA", "en-CA"]) {
         }
       }
     } finally { await context.close(); await observerContext.close(); }
+  });
+
+  test(`creation persists selected capacity without JavaScript (${locale})`, async ({ browser }) => {
+    const [account] = await query<{ id: string; session_version: number }>("insert into accounts (display_name) values ('No JS capacity host') returning id, session_version");
+    if (!account) throw new Error("No fixture account");
+    const context = await browser.newContext({ locale, javaScriptEnabled: false });
+    try {
+      await context.addCookies([{ name: SESSION_COOKIE, value: await forgeSessionCookie({ sub: account.id, sessionVersion: account.session_version, authTime: Math.floor(Date.now() / 1000) }), url: test.info().project.use.baseURL ?? "" }]);
+      const page = await context.newPage();
+      await page.goto("/rooms/new");
+      await page.getByRole("spinbutton", { name: /^(Nombre maximal de participants|Maximum participants)$/ }).fill("2");
+      await page.getByRole("button", { name: /^(Ouvrir la salle|Open the room)$/ }).click();
+      await expect(page).toHaveURL(/\/rooms\/[A-Z2-9]{6}$/);
+      const rows = await query<{ capacity: number }>("select l.capacity from lobbies l join lobby_members m on m.id=l.host_member_id where m.account_id=$1", [account.id]);
+      expect(rows).toEqual([{ capacity: 2 }]);
+    } finally { await context.close(); }
   });
 }
