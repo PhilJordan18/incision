@@ -214,6 +214,16 @@ describe("configureRoomAction", () => {
     expect(notifyRoomChanged).not.toHaveBeenCalled();
   });
 
+  it("refuses data-free text problems before the budget, and runs the word-list proofs only within it", async () => {
+    // A data-free refusal costs nothing and spends no budget.
+    expect(await configure({ textKind: "random", includeCharacters: "k", excludeCharacters: "k" })).toEqual({ error: "TEXT_SETTINGS_REFUSED", textProblem: "CHARACTER_INCLUDED_AND_EXCLUDED" });
+    configureRoom.mockResolvedValue({ ok: false, error: "STALE_REVISION" });
+    for (let index = 0; index < SETTINGS_CHANGE_LIMIT.maxFailures; index += 1) await configure();
+    // Out of budget: random settings get RATE_LIMITED, never the result of a proof on the lists.
+    expect(await configure({ textKind: "random", includeCharacters: "k" })).toEqual({ error: "RATE_LIMITED" });
+    expect(configureRoom).toHaveBeenCalledTimes(SETTINGS_CHANGE_LIMIT.maxFailures);
+  });
+
   it("counts its saves apart from the room changes, refused ones included", async () => {
     configureRoom.mockResolvedValue({ ok: false, error: "STALE_REVISION" });
     for (let index = 0; index < SETTINGS_CHANGE_LIMIT.maxFailures; index += 1) {

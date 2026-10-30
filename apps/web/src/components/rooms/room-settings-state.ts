@@ -9,7 +9,7 @@ import {
   textSettingsRefusal,
   TIME_LIMIT_MAX_MS,
   TIME_LIMIT_MIN_MS,
-  toGraphemes,
+  characterEntries,
 } from "@incision/domain";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
 import type { ConfigureRoomError } from "@/server/rooms/actions";
@@ -39,10 +39,8 @@ export type TextOption = (typeof TEXT_OPTIONS)[number];
 /** Most code units a characters field accepts: the server's bound on the characters themselves. */
 export const MAX_CHARACTERS_INPUT = MAX_SETTING_CHARACTERS;
 
-/** The characters of a field as the server reads them: graphemes, lowercase, repeats dropped. */
-export function draftCharacters(value: string): readonly string[] {
-  return [...new Set(toGraphemes(value).filter((grapheme) => grapheme.trim() !== "").map((grapheme) => grapheme.toLowerCase()))];
-}
+/** The characters of a field as the server reads them (`characterEntries`, shared with the parser). */
+export const draftCharacters = characterEntries;
 
 /** This tranche exposes only settings the current server can save. Never coerce future values. */
 export function editableSettings(settings: SavedRoomSettings | undefined): settings is SavedRoomSettings {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { awaitingSettings, draftConflict, draftTextRefusal, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings } from "./room-settings-state";
-
-const TEXT_DEFAULTS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [] };
 import { roomSettingsCopy, roomStartNote } from "@/i18n/room-settings";
 import { parseConfigureRoomForm } from "@/server/rooms/room-settings";
+
+const TEXT_DEFAULTS = { textKind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, includeCharacters: [], excludeCharacters: [] };
 
 const saved: SavedRoomSettings & { timeLimitMs: number } = {
   revision: 7, textLanguage: "fr", wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory",

@@ -42,17 +42,28 @@ export function approvedRandomWords(language: TextLanguage): RandomWords | undef
 }
 
 /**
- * The refusal a save gets, before any write: the checks that need no data (shared with the
- * browser), then, in random mode, the proofs on the approved lists. Coherent settings are checked
- * against the corpus at the start, which alone holds it (a start without a compatible passage is
- * refused and writes nothing).
+ * The refusal a save gets from the engine's data-free checks (shared with the browser): cheap, run
+ * before the rate budget. Coherent settings are checked against the corpus at the start, which alone
+ * holds it (a start without a compatible passage is refused and writes nothing).
  */
-export function textSettingsProblem(settings: TextSettings, words: (language: TextLanguage) => RandomWords | undefined = approvedRandomWords): TextSettingsProblem | undefined {
-  const refusal = textSettingsRefusal(settings);
-  if (refusal !== undefined || settings.kind === "coherent") return refusal;
+export function textSettingsCheck(settings: TextSettings): TextSettingsRefusal | undefined {
+  return textSettingsRefusal(settings);
+}
+
+/**
+ * In random mode, the engine's proofs on the approved lists. They build the whole pool (tens of
+ * milliseconds on the reviewed lists), so a save runs them only once the rate budget allowed it.
+ */
+export function randomWordsProblem(settings: TextSettings, words: (language: TextLanguage) => RandomWords | undefined = approvedRandomWords): TextSettingsProblem | undefined {
+  if (settings.kind === "coherent") return undefined;
   const data = words(settings.language);
   if (data === undefined) return "WORDS_UNAVAILABLE";
   const proven = raceTextRefusal({ settings, words: data });
-  // raceTextRefusal repeats the data-free checks first, already passed above.
+  // raceTextRefusal repeats the data-free checks first, already passed before the budget.
   return proven === undefined || proven === "NO_COMPATIBLE_PASSAGE" ? undefined : proven;
+}
+
+/** Both checks in their order; for callers outside a rate-limited action (tests, tools). */
+export function textSettingsProblem(settings: TextSettings, words: (language: TextLanguage) => RandomWords | undefined = approvedRandomWords): TextSettingsProblem | undefined {
+  return textSettingsCheck(settings) ?? randomWordsProblem(settings, words);
 }
