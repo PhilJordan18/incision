@@ -839,13 +839,8 @@ export class RaceRuntime implements OwnedRace {
    */
   #botBonusDue(id: string): number | undefined {
     const bonus = this.#botBonus.get(id);
-    if (bonus === undefined) return undefined;
     const [grant] = availableBonusGrants(this.#bonus, asEntrantId(id));
-    if (grant === undefined || this.#state.entrants.find((entrant) => entrant.entrantId === id)?.status !== "racing") {
-      // No usable grant now: a grant usable again later gets a fresh delay.
-      bonus.due = undefined;
-      return undefined;
-    }
+    if (bonus === undefined || grant === undefined || this.#state.entrants.find((entrant) => entrant.entrantId === id)?.status !== "racing") return undefined;
     if (bonus.due?.milestone !== grant.milestone) {
       const [min, max] = BOT_BONUS_DELAY_MS;
       bonus.due = { milestone: grant.milestone, at: this.#options.now() + min + bonus.random.index(max - min + 1) };

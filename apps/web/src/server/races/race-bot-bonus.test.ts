@@ -137,6 +137,9 @@ describe("bots use their bonuses (D-16)", () => {
     // Once content exists, the kept 25 % grant is the one that applies.
     available = true;
     await advance(max);
+    // The kept grant applies once (later grants may follow, each after its own delay).
+    const milestones = botActivations().map(([, payload]) => (payload as { announcement: { receipt: { grant: { milestone: number } } } }).announcement.receipt.grant.milestone);
+    expect(milestones.filter((milestone) => milestone === 25)).toHaveLength(1);
     expect(botActivations()[0]?.[1]).toMatchObject({ announcement: { type: "activated", receipt: { grant: { entrantId: "bot", milestone: 25, kind: "extendLeader" } } } });
   });
 
@@ -149,11 +152,13 @@ describe("bots use their bonuses (D-16)", () => {
     await advance(10_000);
     lease("held");
     const resumed = now();
-    await advance(min - 1);
-    expect(botActivations()).toHaveLength(0);
-    await advance(BOT_BONUS_DELAY_MS[1]);
-    expect(botActivations().length).toBeGreaterThanOrEqual(1);
-    expect(now() - resumed).toBeGreaterThanOrEqual(min);
+    const [, max] = BOT_BONUS_DELAY_MS;
+    // The first activation comes within a fresh delay drawn at the resume, and only one.
+    for (let waited = 0; botActivations().length === 0 && waited <= max; waited += 10) await advance(10);
+    const activated = now() - resumed;
+    expect(activated).toBeGreaterThanOrEqual(min);
+    expect(activated).toBeLessThanOrEqual(max + 10);
+    expect(botActivations()).toHaveLength(1);
   });
 });
 
