@@ -70,7 +70,7 @@ describe("guest host actions and retirement", () => {
     const accepted = await session();
     expect(await changeRoomCapacity(db, input)).toEqual({ ok: false, error: "STALE_REVISION" });
     expect(await session()).toEqual(accepted);
-    await pool.query("update guest_sessions set last_seen_at=now()-interval '2 seconds', expires_at=now()-interval '1 second'");
+    await pool.query("update guest_sessions set created_at=now()-interval '26 hours', last_seen_at=now()-interval '25 hours', expires_at=now()-interval '1 hour'");
     expect(await changeRoomCapacity(db, { ...input, revision: 1, capacity: 30 })).toEqual({ ok: false, error: "NOT_IN_A_ROOM" });
     expect((await pool.query("select capacity from lobbies where id=$1", [f.lobbyId])).rows[0].capacity).toBe(2);
   });
