@@ -26,7 +26,12 @@ export type RoomSettings = {
   /** CONF-07, random mode only (D-10): empty in coherent mode, enforced by the database too. */
   readonly includeCharacters: readonly string[];
   readonly excludeCharacters: readonly string[];
+  /** CONF-09 (D-18): Arcade when true, training otherwise. */
+  readonly bonusesEnabled: boolean;
 };
+
+/** D-19: training, bonuses off; what every room had before the host could choose (CONF-09). */
+export const DEFAULT_BONUS_SETTINGS = { bonusesEnabled: false } as const satisfies Pick<RoomSettings, "bonusesEnabled">;
 
 /** D-19's text settings: what every room had before the host could choose them. */
 export const DEFAULT_TEXT_SETTINGS = {
@@ -45,11 +50,11 @@ export const DEFAULT_TEXT_LANGUAGE: TextLanguage = "fr";
 
 /** D-19 defaults for new rooms only; existing rows are never rewritten. */
 export function initialRoomSettings(textLanguage: TextLanguage): RoomSettings {
-  return { revision: 0, textLanguage, wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS };
+  return { revision: 0, textLanguage, wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS };
 }
 
 /** Preserve the former fallback for rooms created by a process older than migration 0006. */
-const LEGACY_ROOM_SETTINGS: RoomSettings = { revision: 0, textLanguage: DEFAULT_TEXT_LANGUAGE, wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS };
+const LEGACY_ROOM_SETTINGS: RoomSettings = { revision: 0, textLanguage: DEFAULT_TEXT_LANGUAGE, wordCount: 50, timeLimitMs: 120_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS };
 
 /** The settings columns, read with a room through a left join. */
 export const settingsColumns = {
@@ -66,6 +71,7 @@ export const settingsColumns = {
   accents: lobbySettings.accents,
   includeCharacters: lobbySettings.includeCharacters,
   excludeCharacters: lobbySettings.excludeCharacters,
+  bonusesEnabled: lobbySettings.bonusesEnabled,
 };
 
 type SettingsColumns = {
@@ -82,6 +88,7 @@ type SettingsColumns = {
   readonly accents: boolean | null;
   readonly includeCharacters: readonly string[] | null;
   readonly excludeCharacters: readonly string[] | null;
+  readonly bonusesEnabled: boolean | null;
 };
 
 /**
@@ -106,6 +113,7 @@ export function settingsOf(row: SettingsColumns): RoomSettings {
     accents: row.accents ?? DEFAULT_TEXT_SETTINGS.accents,
     includeCharacters: row.includeCharacters ?? DEFAULT_TEXT_SETTINGS.includeCharacters,
     excludeCharacters: row.excludeCharacters ?? DEFAULT_TEXT_SETTINGS.excludeCharacters,
+    bonusesEnabled: row.bonusesEnabled ?? DEFAULT_BONUS_SETTINGS.bonusesEnabled,
   };
 }
 

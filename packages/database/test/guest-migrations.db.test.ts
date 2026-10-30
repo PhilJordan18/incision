@@ -14,7 +14,7 @@ import { createTemporaryDatabase } from "./test-database";
 
 /** The text settings columns of 0015 as an existing row reads after the upgrade (D-19). */
 const D19_TEXT_COLUMNS = {
-  text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [],
+  text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [], bonuses_enabled: false,
 };
 
 it.each([

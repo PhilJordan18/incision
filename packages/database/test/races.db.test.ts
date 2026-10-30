@@ -21,7 +21,7 @@ import { readRaceForEntrant, readRoomRaceForMember } from "../src/races/results"
 import { createRoomWithHost } from "../src/rooms/create-room";
 import { closeRoom, configureRoom, startNextRound } from "../src/rooms/host-actions";
 import { joinRoomByCode, leaveCurrentRoom, readRoomSnapshot } from "../src/rooms/membership";
-import { DEFAULT_TEXT_SETTINGS, readOwnRoomSettings, type RoomSettings } from "../src/rooms/settings";
+import { DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, readOwnRoomSettings, type RoomSettings } from "../src/rooms/settings";
 import { raceResults } from "../src/schema";
 import { createTemporaryDatabase, type TemporaryDatabase } from "./test-database";
 
@@ -1234,7 +1234,7 @@ describe("the host after the results: next round or close (F-04.7, COURSE-11)", 
 });
 
 describe("room settings under the room lock (F-03.1a)", () => {
-  const ENGLISH_ONE_MINUTE = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS } as const;
+  const ENGLISH_ONE_MINUTE = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS } as const;
   const save = (hostId: string, revision: number, value = "ABCDEF", settings: Omit<RoomSettings, "revision"> = ENGLISH_ONE_MINUTE) =>
     configureRoom(db, { accountId: hostId, code: code(value), revision, settings });
   /** A start whose text was drawn in `lobbyId` with the settings of `settingsRevision`. */
@@ -1264,7 +1264,7 @@ describe("room settings under the room lock (F-03.1a)", () => {
     const [begun, late] = await underRoomLock(second.lobbyId, [() => start(second.hostId, second.lobbyId, 0), () => save(second.hostId, 0, "BCDEFG")]);
     expect(begun).toMatchObject({ ok: true });
     expect(late).toEqual({ ok: false, error: "ROOM_NOT_WAITING" });
-    expect(await settingsOf(second.lobbyId)).toEqual({ revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS });
+    expect(await settingsOf(second.lobbyId)).toEqual({ revision: 0, textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS });
   });
 
   it("keeps one of two saves quoting the same revision (two tabs of the host), with or without a stored row", async () => {

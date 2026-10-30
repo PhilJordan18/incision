@@ -6,7 +6,7 @@ import { prepareGuestAccountSignIn } from "../src/identity/guest-account-transit
 import { joinRoomByCodeAsGuest } from "../src/rooms/guest-admission";
 import { createGuestSession } from "../src/identity/guest-sessions";
 import { runMigrations } from "../src/migrations";
-import { DEFAULT_TEXT_SETTINGS } from "../src/rooms/settings";
+import { DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS } from "../src/rooms/settings";
 import { startRace } from "../src/races/lifecycle";
 import { changeRoomBots } from "../src/rooms/bots";
 import { closeRoom, configureRoom, startNextRound } from "../src/rooms/host-actions";
@@ -71,7 +71,7 @@ describe("guest host actions and retirement", () => {
 
   it("uses the existing 10–200 settings contract and renews only accepted changes", async () => {
     const f = await hostFixture(); const actor = { accountId: null, guestProof: f.guestProof };
-    const settings = { textLanguage: "en" as const, wordCount: 10, timeLimitMs: null, errorMode: "mandatory" as const, ...DEFAULT_TEXT_SETTINGS };
+    const settings = { textLanguage: "en" as const, wordCount: 10, timeLimitMs: null, errorMode: "mandatory" as const, ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS };
     expect(await configureRoom(db, { ...actor, code, revision: 0, settings })).toMatchObject({ ok: true, revision: 1, guestSession: { id: f.guestId } });
     const before = await session();
     expect(await configureRoom(db, { ...actor, code, revision: 0, settings })).toEqual({ ok: false, error: "STALE_REVISION" });
