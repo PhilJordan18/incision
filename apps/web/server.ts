@@ -109,6 +109,8 @@ async function main(): Promise<void> {
     texts: corpusTexts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
     // Whether races may start at all; never which texts they run (the fixtures stay local only).
     racesOpen: racesOpenOf(env.racesSwitch),
+    // Crypto seeds per race, except a local test build given RACE_TEST_BONUS_SEED (config.ts).
+    bonusSeed: env.testBonusSeed,
     log: (message) => console.log(message),
     logError: (message) => console.error(message),
   });
