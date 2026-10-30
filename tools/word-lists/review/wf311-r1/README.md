@@ -90,10 +90,11 @@ exclusions, 1,650 pairs (counts per category in `manifest.json`).
 
 - Excluded (vulgar, sexual or drug sense dominates): fr anal, baiser (verb; "baisers" stays), branle,
   bâtard, capote, chatte, coke, défoncé, gosses (Quebec slang), gueule, gueules, homo, jouir, pédale,
-  seins, strip, suce, sucer, érection; en ass, asses, bitch, bitches, bong, cock, colored, dick, dong, dope,
+  seins, strip, suce, sucer, érection; en ass, asses, bitch, bitches, bong, cock, colored, coloured, dick, dong, dope,
   erection, fetish, ho, hooker, intercourse, oriental, prick, pussy, tits, virgin.
 - Kept (ordinary sense dominates): fr baisers, bourré, chienne, crack, défoncer, folle, fous, gaule,
-  gosse, joint, joints, jouissance, jouit, pervers, pipe, pète, pénétration, péter, pété, queue, sein; en
+  gosse, héroïne, joint, joints, jouissance, jouit, pervers, pipe, pète, pénétration, péter, pété, queue, sein,
+  vierge, vierges; en
   balls, beaver, bloody, booty (pirate treasure), bum, butt, butts, coke, damned, escort, hardcore, jerk,
   joint, loser, losers, mistress, paddy, polish, pot, screw, screwed, smack, snatch, suck, sucker, sucks.
 
