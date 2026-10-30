@@ -93,7 +93,7 @@ export type RaceServiceOptions = {
   readonly leaseTiming?: LeaseTiming;
   readonly runtimeTiming?: Partial<RuntimeTiming>;
   /** Four uint32 from crypto for each private bonus stream (default); tests pass fixed values. */
-  readonly bonusSeed?: () => RandomState;
+  readonly bonusSeed?: (() => RandomState) | undefined;
   /** The approved word data of extensions (default: the reviewed lists, never the fixtures). */
   readonly extensionWords?: (language: TextLanguage) => RandomWords | undefined;
 };
