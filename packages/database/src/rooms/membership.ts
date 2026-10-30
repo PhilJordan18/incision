@@ -1,4 +1,5 @@
 import { guestCommandFence } from "../identity/guest-command-fence";
+import { isBannedFromRoom } from "./room-ban";
 import type { GuestSessionProof } from "../identity/guest-sessions";
 import { retireUnreferencedGuest } from "../identity/guest-retirement";
 import { lockLiveGuest } from "./guest-host";
@@ -205,6 +206,7 @@ export type LockedAdmissionRoom = { readonly id: string; readonly phase: RoomPha
 export async function admitAccountToLockedRoom(tx: Transaction, { accountId, role, lobby }: {
   readonly accountId: string; readonly role: MemberRole; readonly lobby: LockedAdmissionRoom;
 }): Promise<JoinRoomResult> {
+  if (await isBannedFromRoom(tx, lobby.id, { kind: "account", accountId })) return { ok: false, error: "ROOM_NOT_FOUND" };
   const current = await findActiveMembership(tx, accountId);
   if (current !== undefined) {
     return current.lobbyId === lobby.id

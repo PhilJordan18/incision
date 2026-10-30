@@ -687,11 +687,56 @@ describe("the races of the room", () => {
 });
 
 
+describe("committed moderation eviction", () => {
+  it("disconnects all target tabs without waiting for SQL and preserves other members", async () => {
+    const first = await open("session=bob");
+    const second = await open("session=bob");
+    const alice = await open("session=alice");
+    await watch(first); await watch(second); await watch(alice);
+    await channel.whenIdle();
+    const ids = [first.id, second.id];
+    readRoomSnapshot = vi.fn(async () => { throw new Error("offline"); });
+    events.emit("expelled", "lobby-2", "member-b");
+    expect(first.connected).toBe(true);
+    events.emit("expelled", "lobby-1", "member-b");
+    await until(() => !first.connected && !second.connected);
+    expect(alice.connected).toBe(true);
+    expect(presence.onlineMembers("lobby-1").has("member-b")).toBe(false);
+    for (const id of ids) expect(raceUnfollows).toContain(id);
+    expect(readRoomSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("does not restore a race follower from a watch snapshot held before expulsion", async () => {
+    const bob = await open("session=bob");
+    const id = bob.id;
+    const held = holdNextRead();
+    const answer = watch(bob).catch(() => undefined);
+    await until(() => held.started);
+    events.emit("expelled", "lobby-1", "member-b");
+    held.release();
+    await answer;
+    await until(() => !bob.connected);
+    expect(raceFollows.some((entry) => entry.id === id)).toBe(false);
+  });
+});
+
 describe("guest room watch", () => {
   function admitGuest() {
     const snapshot = snapshotOf("lobby-1");
     snapshots.set("lobby-1", { ...snapshot, members: [...snapshot.members, { memberId: "guest-member", accountId: null, displayName: "Guest", role: "participant", isHost: false }] });
   }
+
+  it("evicts every guest tab without disconnecting an account with the same identity UUID", async () => {
+    admitGuest();
+    const first = await open("session=guest"), second = await open("session=guest");
+    const alice = await open("session=alice");
+    await watch(first); await watch(second); await watch(alice);
+    await channel.whenIdle();
+    events.emit("expelled", "lobby-1", "guest-member");
+    await until(() => !first.connected && !second.connected);
+    expect(alice.connected).toBe(true);
+    expect(presence.onlineMembers("lobby-1").has("guest-member")).toBe(false);
+  });
 
   it("disconnects a departed guest before sending any newer private room snapshot", async () => {
     admitGuest();
