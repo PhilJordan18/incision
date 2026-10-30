@@ -1,5 +1,17 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
+
+async function applySystemTheme(page: Page, colorScheme: "light" | "dark"): Promise<void> {
+  await page.emulateMedia({ colorScheme });
+  // The matchMedia listener runs asynchronously. Axe must inspect one settled theme,
+  // not a mixture of old foreground colours and the new background during switching.
+  await expect(page.locator("html")).toHaveAttribute("data-theme", colorScheme === "light" ? "aube" : "abysse");
+  await page.evaluate(async () => {
+    await Promise.all(document.getAnimations().filter((animation) =>
+      animation.effect?.getComputedTiming().iterations !== Infinity,
+    ).map((animation) => animation.finished.catch(() => undefined)));
+  });
+}
 
 for (const locale of ["fr-CA", "en-CA"]) {
   test(`host capacity persists and refuses invalid bounds (${locale})`, async ({ browser }) => {
@@ -15,7 +27,7 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await expect(creationCapacity).toHaveValue("30");
       await creationCapacity.fill("3");
       for (const theme of ["light", "dark"] as const) {
-        await page.emulateMedia({ colorScheme: theme });
+        await applySystemTheme(page, theme);
         for (const width of [1440, 1024, 390, 360]) {
           await page.setViewportSize({ width, height: 1000 });
           await expectNoHorizontalScroll(page);
@@ -55,7 +67,7 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await page.reload();
       await expect(panel.getByText(/ : 2$/)).toBeVisible();
       for (const theme of ["light", "dark"] as const) {
-        await page.emulateMedia({ colorScheme: theme });
+        await applySystemTheme(page, theme);
         for (const width of [1440, 1024, 390, 360]) {
           await page.setViewportSize({ width, height: 1000 });
           await expectNoHorizontalScroll(page);
