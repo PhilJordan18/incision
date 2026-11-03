@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useActionState, useId, useState } from "react";
-import { ROOM_MIN_CAPACITY, ROOM_MAX_CAPACITY } from "@incision/domain";
+import { DEFAULT_CREATED_ROOM_VISIBILITY, ROOM_MIN_CAPACITY, ROOM_MAX_CAPACITY } from "@incision/domain";
 import { ParticipateCheckbox } from "@/components/rooms/participate-checkbox";
+import { VisibilityChoices } from "@/components/rooms/visibility-choices";
+import { roomVisibilityCopy } from "@/i18n/room-visibility";
 import { SubmitButton } from "@/components/submit-button";
 import { FormAlert } from "@/components/ui/form-alert";
 import { inlineLink, primaryButton, fieldLabel, textField } from "@/components/ui/styles";
@@ -23,7 +25,7 @@ export function CreateRoomForm({ t, locale }: { readonly t: Dictionary["rooms"];
       {state.error !== undefined && (
         <div className="flex flex-col gap-2">
           <FormAlert
-            message={state.error === "ALREADY_IN_ROOM" ? format(t.alreadyInRoom, { code: state.currentCode ?? "" }) : state.error === "INVALID_CAPACITY" ? access.errors.INVALID_CAPACITY : t.changeErrors[state.error]}
+            message={state.error === "ALREADY_IN_ROOM" ? format(t.alreadyInRoom, { code: state.currentCode ?? "" }) : state.error === "INVALID_CAPACITY" ? access.errors.INVALID_CAPACITY : state.error === "INVALID_VISIBILITY" ? roomVisibilityCopy(locale).errors.INVALID_VISIBILITY : t.changeErrors[state.error]}
           />
           {state.currentCode !== undefined && (
             <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} inline-flex min-h-11 items-center self-start text-sm`}>
@@ -32,8 +34,8 @@ export function CreateRoomForm({ t, locale }: { readonly t: Dictionary["rooms"];
           )}
         </div>
       )}
+      <VisibilityChoices locale={locale} name="visibility" defaultValue={DEFAULT_CREATED_ROOM_VISIBILITY} />
       <ParticipateCheckbox label={t.participate} />
-      <p className="text-sm text-brume">{t.visibilityNote}</p>
       <div className="flex flex-col gap-2">
         <label className={fieldLabel} htmlFor={id}>{access.capacity}</label>
         <input id={id} name="capacity" type="number" required min={ROOM_MIN_CAPACITY} max={ROOM_MAX_CAPACITY} step="1"

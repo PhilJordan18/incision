@@ -5,6 +5,7 @@ import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
 import { GuestAvatar } from "@/components/rooms/guest-avatar";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
 import { RoomCapacityPanel } from "@/components/rooms/room-capacity-panel";
+import { RoomVisibilityPanel } from "@/components/rooms/room-visibility-panel";
 import { RoomModerationPanel } from "@/components/rooms/room-moderation-panel";
 import { roomModerationCopy } from "@/i18n/room-moderation";
 import { RoomInvitationsPanel } from "@/components/rooms/room-invitations-panel";
@@ -605,6 +606,8 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
       {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
       <RoomBotsPanel guest={guest} snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
       {self.isHost && <RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />}
+      {snapshot.visibility !== undefined && <RoomVisibilityPanel guest={guest} code={snapshot.code} visibility={snapshot.visibility} revision={snapshot.revision}
+        host={self.isHost} live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />}
       <RoomCapacityPanel guest={guest} code={snapshot.code} capacity={snapshot.capacity} revision={snapshot.revision} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && <RoomInvitationsPanel key={`invitations:${snapshot.code}`} code={snapshot.code} locale={locale} live={connection === "live"} />}

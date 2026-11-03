@@ -146,7 +146,6 @@ export const fr = {
     newHeadingSerif: "traversée",
     newIntro: "Tu deviens l’hôte. Les autres te rejoignent avec le code de 6 caractères.",
     participate: "Je participe à la course (sinon : spectateur)",
-    visibilityNote: "Visibilité : sur code. La salle n’apparaît dans aucune liste.",
     create: "Ouvrir la salle",
     creating: "Ouverture…",
     changeErrors: {

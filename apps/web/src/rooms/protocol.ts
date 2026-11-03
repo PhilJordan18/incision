@@ -1,4 +1,4 @@
-import { BOT_LEVELS, COMPLEXITIES, ERROR_MODES, MAX_GRAPHEME_LENGTH, MAX_SETTING_CHARACTERS, MEMBER_ROLES, ROOM_PHASES, TEXT_KINDS, TEXT_LANGUAGES, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
+import { BOT_LEVELS, COMPLEXITIES, ERROR_MODES, MAX_GRAPHEME_LENGTH, MAX_SETTING_CHARACTERS, MEMBER_ROLES, ROOM_PHASES, TEXT_KINDS, TEXT_LANGUAGES, MIN_TEXT_WORDS, MAX_TEXT_WORDS, ROOM_VISIBILITIES } from "@incision/domain";
 import { z } from "zod";
 
 /** The states of a race and the reasons it ended without results (`races`, ADR-0004, D-06). */
@@ -32,6 +32,8 @@ export const roomSnapshotSchema = z.object({
   code: z.string(),
   phase: z.enum(ROOM_PHASES),
   capacity: z.number(),
+  /** Who may enter next (SALLE-03). Absent only on servers predating the visibility choice. */
+  visibility: z.enum(ROOM_VISIBILITIES).optional(),
   revision: z.number(),
   /** Absent only on servers predating bot admission. */
   bots: z.array(z.object({ botId: z.uuid(), level: z.enum(BOT_LEVELS) })).max(30).optional(),
