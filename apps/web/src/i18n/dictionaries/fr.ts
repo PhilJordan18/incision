@@ -10,6 +10,7 @@ export const fr = {
   layout: {
     skipToContent: "Aller au contenu",
     mainNavigation: "Navigation principale",
+    play: "Jouer",
     homeLink: "Incision, accueil",
     signIn: "Se connecter",
     account: "Mon compte",

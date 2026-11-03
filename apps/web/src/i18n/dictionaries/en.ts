@@ -7,6 +7,7 @@ export const en: Dictionary = {
   layout: {
     skipToContent: "Skip to content",
     mainNavigation: "Main navigation",
+    play: "Play",
     homeLink: "Incision, home",
     signIn: "Sign in",
     account: "My account",
