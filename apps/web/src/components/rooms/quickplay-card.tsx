@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { FieldError } from "@/components/ui/field-error";
 import { inlineLink, monoLabel, primaryButton, secondaryButton } from "@/components/ui/styles";
+import { format } from "@/i18n/format";
 import type { publicRoomsCopy } from "@/i18n/public-rooms";
 import { createRoomAction, type CreateRoomState } from "@/server/rooms/actions";
 import { quickplayAction, type QuickplayState } from "@/server/rooms/quickplay-actions";
@@ -47,7 +48,7 @@ export function QuickplayCard({ t }: { readonly t: Copy }) {
             </div>}
           </> : <div role="alert"><FieldError id="quickplay-error" message={t.errors[state.error]} /></div>}
           {currentCode !== undefined && (
-            <Link href={`/rooms/${currentCode}`} className={`${inlineLink} inline-flex min-h-11 items-center self-start text-sm`}>{t.goToRoom(currentCode)}</Link>
+            <Link href={`/rooms/${currentCode}`} className={`${inlineLink} inline-flex min-h-11 items-center self-start text-sm`}>{format(t.goToRoom, { code: currentCode })}</Link>
           )}
         </div>
       )}

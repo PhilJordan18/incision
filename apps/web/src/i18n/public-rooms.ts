@@ -13,7 +13,7 @@ type Copy = {
   shown: (shown: number, total: number) => string; live: string; offline: string; unavailable: string; footnote: string;
   quickplay: {
     tag: string; title: string; body: string; submit: string; pending: string;
-    noRoom: string; createPublic: string; creating: string; createNote: string; goToRoom: (code: string) => string;
+    noRoom: string; createPublic: string; creating: string; createNote: string; /** `{code}` is replaced: the card is a client component, it takes strings only. */ goToRoom: string;
     errors: { ALREADY_IN_ANOTHER_ROOM: string; RATE_LIMITED: string; UNAVAILABLE: string; CREATE_FAILED: string };
   };
 };
@@ -39,7 +39,7 @@ const fr: Copy = {
     body: "Rejoint la salle publique la plus remplie qui a encore une place. S’il n’y en a aucune, tu pourras en créer une.",
     noRoom: "Aucune salle publique n’a de place pour l’instant.", createPublic: "Créer une salle publique", creating: "Création…",
     createNote: "Réglages par défaut : texte en français, 50 mots, complexité moyenne, 30 places. Tu pourras les changer dans la salle.",
-    goToRoom: (code) => `Retourner à ma salle ${code}`,
+    goToRoom: "Retourner à ma salle {code}",
     errors: {
       ALREADY_IN_ANOTHER_ROOM: "Tu es déjà dans une salle. Quitte-la avant d’en chercher une autre.",
       RATE_LIMITED: "Trop de demandes. Attends un peu avant de réessayer.",
@@ -69,7 +69,7 @@ const en: Copy = {
     body: "Joins the fullest public room that still has a place. If there is none, you can create one.",
     noRoom: "No public room has a free place right now.", createPublic: "Create a public room", creating: "Creating…",
     createNote: "Default settings: English text, 50 words, medium complexity, 30 places. You can change them in the room.",
-    goToRoom: (code) => `Back to my room ${code}`,
+    goToRoom: "Back to my room {code}",
     errors: {
       ALREADY_IN_ANOTHER_ROOM: "You are already in a room. Leave it before looking for another.",
       RATE_LIMITED: "Too many requests. Wait a little before trying again.",
