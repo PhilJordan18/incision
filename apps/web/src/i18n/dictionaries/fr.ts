@@ -71,6 +71,11 @@ export const fr = {
     "reset": "Effacer ma session invitée terminée",
     "account": "J’ai un compte",
     "unavailable": "L’entrée invitée n’est pas disponible pour le moment.",
+    "quickplayIntro": "Rejoins la salle publique la plus remplie qui a encore une place.",
+    "quickplaySubmit": "Trouver une salle",
+    "quickplayPending": "Recherche…",
+    "quickplayEmptyLink": "Voir les salles publiques",
+    "quickplayCodeLink": "Entrer avec un code",
     "javascript": "JavaScript et la coordination entre onglets du navigateur sont nécessaires pour entrer comme invité.",
     "errors": {
         "UNAVAILABLE": "L’entrée n’a pas pu être vérifiée. Réessaie.",
@@ -85,7 +90,8 @@ export const fr = {
         "NICKNAME_TAKEN": "Ce pseudo est déjà utilisé dans la salle. Choisis-en un autre.",
         "RATE_LIMITED": "Trop de demandes. Attends avant de réessayer.",
         "CODE_RATE_LIMITED": "Trop de codes essayés. Attends avant de réessayer.",
-        "CODE_BUSY": "Une vérification est déjà en cours. Réessaie."
+        "CODE_BUSY": "Une vérification est déjà en cours. Réessaie.",
+        "NO_ROOM": "Aucune salle publique n’a de place pour l’instant. Réessaie bientôt, ou entre avec un code."
     }
 },
   signIn: {

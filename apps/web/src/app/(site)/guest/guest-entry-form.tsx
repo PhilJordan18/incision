@@ -8,14 +8,23 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { guestStartSchema } from "@/identity/guest-contract";
 import { withGuestCookieLock } from "@/identity/guest-browser";
 import { GuestAvatar } from "@/components/rooms/guest-avatar";
-import { card, discreetButton, fieldLabel, primaryButton, textField } from "@/components/ui/styles";
+import { card, discreetButton, fieldLabel, inlineLink, primaryButton, textField } from "@/components/ui/styles";
 import { guestAdmissionAction, resetGuestCookieAction, type GuestAdmissionError } from "@/server/rooms/guest-admission-action";
 import { joinInvitationAction } from "@/server/rooms/invitation-actions";
+import { guestQuickplayAction } from "@/server/rooms/quickplay-actions";
+import Link from "next/link";
 
 const subscribe = () => () => {};
 const statusSchema = z.object({ ok: z.literal(true), status: z.enum(["absent", "guest"]) });
 
-export function GuestEntryForm({ t, initialCode, invitationToken }: { readonly t: Dictionary["guestEntry"]; readonly initialCode: string; readonly invitationToken?: string }) {
+/**
+ * Guest entry by code, by invitation, or by quickplay (JOIN-03): quickplay asks only for the
+ * nickname, always races, and shows an empty state when no public room has a place.
+ */
+export function GuestEntryForm({ t, initialCode, invitationToken, quickplay = false }: {
+  readonly t: Dictionary["guestEntry"]; readonly initialCode: string; readonly invitationToken?: string; readonly quickplay?: boolean;
+}) {
+  const byCode = invitationToken === undefined && !quickplay;
   const router = useRouter();
   const ready = useSyncExternalStore(subscribe, () => true, () => false);
   const supported = ready && navigator.locks !== undefined;
@@ -31,7 +40,7 @@ export function GuestEntryForm({ t, initialCode, invitationToken }: { readonly t
     const parsed = guestStartSchema.safeParse({ nickname: form.get("nickname") });
     if (!parsed.success) { setError("INVALID_GUEST_NICKNAME"); return; }
     const code = form.get("code");
-    if (invitationToken === undefined && !parseRoomCode(typeof code === "string" ? code : "").ok) { setError("INVALID_CODE"); return; }
+    if (byCode && !parseRoomCode(typeof code === "string" ? code : "").ok) { setError("INVALID_CODE"); return; }
     setError(undefined);
     transition(async () => {
       try {
@@ -45,6 +54,7 @@ export function GuestEntryForm({ t, initialCode, invitationToken }: { readonly t
             const started = await fetch("/api/guest/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed.data) });
             if (!started.ok) return { error: started.status === 401 ? "UNAUTHORIZED" : "UNAVAILABLE" } as const;
           }
+          if (quickplay) return guestQuickplayAction(form);
           if (invitationToken === undefined) return guestAdmissionAction(form);
           form.set("token", invitationToken);
           const joined = await joinInvitationAction(form);
@@ -66,7 +76,7 @@ export function GuestEntryForm({ t, initialCode, invitationToken }: { readonly t
   }
 
   return <form className={`${card} flex flex-col gap-6`} onSubmit={(event) => { event.preventDefault(); enter(new FormData(event.currentTarget)); }}>
-    {invitationToken === undefined && <div className="flex flex-col gap-2">
+    {byCode && <div className="flex flex-col gap-2">
       <label htmlFor="guest-code" className={fieldLabel}>{t.code}</label>
       <input id="guest-code" name="code" defaultValue={initialCode} maxLength={32} required autoComplete="off" spellCheck={false}
         className={`${textField} h-14 font-mono uppercase`} aria-invalid={error === "INVALID_CODE"} aria-describedby={error === "INVALID_CODE" ? "guest-entry-error" : undefined} />
@@ -78,14 +88,19 @@ export function GuestEntryForm({ t, initialCode, invitationToken }: { readonly t
       <p id="guest-nickname-hint" className="text-sm text-brume">{t.nicknameHint}</p>
     </div>
     <div className="flex items-center gap-3"><GuestAvatar nickname={nickname} label={t.avatar} /><span className="text-sm text-brume">{t.avatar}</span></div>
-    <fieldset className="flex flex-col gap-2"><legend className={fieldLabel}>{t.role}</legend>
+    {!quickplay && <fieldset className="flex flex-col gap-2"><legend className={fieldLabel}>{t.role}</legend>
       <label className="flex min-h-11 items-center gap-3"><input type="radio" name="role" value="participant" defaultChecked className="size-5" />{t.participant}</label>
       <label className="flex min-h-11 items-center gap-3"><input type="radio" name="role" value="spectator" className="size-5" />{t.spectator}</label>
-    </fieldset>
+    </fieldset>}
     <p className="rounded-bouton border border-houle bg-abysse p-4 text-sm leading-relaxed text-embrun">{t.notice}</p>
-    {error !== undefined && <p id="guest-entry-error" ref={alert} tabIndex={-1} role="alert" className="text-erreur">⚠ {t.errors[error]}</p>}
+    {error === "NO_ROOM" ? <div className="flex flex-col gap-1">
+      <p id="guest-entry-error" ref={alert} tabIndex={-1} role="status" className="text-ecume">{t.errors.NO_ROOM}</p>
+      <Link href="/rooms" className={`${inlineLink} inline-flex min-h-11 items-center self-start`}>{t.quickplayEmptyLink}</Link>
+      <Link href="/guest" className={`${inlineLink} inline-flex min-h-11 items-center self-start`}>{t.quickplayCodeLink}</Link>
+    </div>
+      : error !== undefined && <p id="guest-entry-error" ref={alert} tabIndex={-1} role="alert" className="text-erreur">⚠ {t.errors[error]}</p>}
     {error === "UNAUTHORIZED" && <button type="button" onClick={reset} disabled={pending || !supported} className={discreetButton}>{t.reset}</button>}
-    <button disabled={pending || !supported} className={primaryButton}>{pending ? t.pending : t.submit}</button>
+    <button disabled={pending || !supported} className={primaryButton}>{pending ? (quickplay ? t.quickplayPending : t.pending) : quickplay ? t.quickplaySubmit : t.submit}</button>
     {!supported && <p role="status">{t.javascript}</p>}
   </form>;
 }
