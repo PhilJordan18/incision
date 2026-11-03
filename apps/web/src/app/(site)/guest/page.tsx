@@ -30,7 +30,8 @@ export default async function GuestPage({ searchParams }: PageProps<"/guest">) {
       <PageHeading bold={t.guestEntry.headingBold} serif={t.guestEntry.headingSerif} />
       <p className="text-brume">{quickplay ? t.guestEntry.quickplayIntro : t.guestEntry.intro}</p>
     </div>
-    <GuestEntryForm t={t.guestEntry} initialCode={typeof params.code === "string" ? params.code.slice(0, 32) : ""} quickplay={quickplay} />
+    {/* A key per mode: the quickplay page links to code entry on the same route, whose form must start afresh. */}
+    <GuestEntryForm key={quickplay ? "quickplay" : "code"} t={t.guestEntry} initialCode={typeof params.code === "string" ? params.code.slice(0, 32) : ""} quickplay={quickplay} />
     <Link href="/sign-in" className={`${discreetButton} self-start`}>{t.guestEntry.account}</Link>
   </div>;
 }

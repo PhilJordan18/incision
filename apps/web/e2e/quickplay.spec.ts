@@ -133,6 +133,14 @@ for (const locale of ["fr-CA", "en-US"]) {
     expect(await query("select id from lobbies")).toEqual([]);
     await auditEveryLayout(page, `quickplay-guest-empty-${locale}`);
 
+    // Code entry, on the same route, starts afresh: a code field and no leftover quickplay message.
+    await page.getByRole("link", { name: /^(Entrer avec un code|Enter with a code)$/ }).click();
+    await expect(page).toHaveURL(/\/guest$/);
+    await expect(page.getByLabel(/^(Code de salle|Room code)$/)).toBeVisible();
+    await expect(empty).toHaveCount(0);
+    await page.goto("/guest?quickplay=1");
+    await page.getByLabel(/^(Pseudo pour cette salle|Nickname for this room)$/).fill("Mousse");
+
     const room = await hostedRoom(browser, "Guest target host", "public", { capacity: 3 });
     await page.getByRole("button", { name: find }).click();
     await expect(page).toHaveURL(new RegExp(`/rooms/${room.code}$`));
