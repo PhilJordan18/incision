@@ -201,7 +201,7 @@ describe("quickplay admission (JOIN-03, D-05)", () => {
     }
   });
 
-  it("moves on when a room stays locked past lock_timeout, and reports contention when every room does", async () => {
+  it("moves on when a room stays locked past lock_timeout, and reports contention after two busy rooms", async () => {
     const tight = await room("AAAAAA", "public", { capacity: 2, age: 10 });
     const roomy = await room("BBBBBB", "public", { capacity: 30, age: 20 });
     const holder = await pool.connect();
@@ -210,11 +210,14 @@ describe("quickplay admission (JOIN-03, D-05)", () => {
       await holder.query("select id from lobbies where id=$1 for update", [tight]);
       expect(await quickplayAccount(db, await account("Patient"))).toMatchObject({ ok: true, lobbyId: roomy });
       await holder.query("select id from lobbies where id=$1 for update", [roomy]);
-      // Every candidate is busy: not NO_ROOM (that would offer to create a room), but the lock error.
+      const spare = await room("CCCCCC", "public", { capacity: 30, age: 30 });
+      // Two busy rooms end the request (each cost a full lock_timeout), even with a spare room left;
+      // and never as NO_ROOM, which would offer to create a room: the lock error is reported.
       const failure = await quickplayAccount(db, await account("Unlucky")).then(() => undefined, (error: unknown) => error);
       expect(sqlStateOf(failure)).toBe("55P03");
       const guestFailure = await quickplayGuest(db, { proof: await guest(), nickname: "Mousse" }).then(() => undefined, (error: unknown) => error);
       expect(sqlStateOf(guestFailure)).toBe("55P03");
+      expect(await participants(spare)).toBe(1);
     } finally {
       await holder.query("rollback");
       holder.release();

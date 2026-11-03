@@ -44,6 +44,8 @@ export async function quickplayCandidates(db: Queryable, subject: HumanSubject, 
 
 /** PostgreSQL's lock_not_available: the room lock was held past `lock_timeout` (2 s). */
 const LOCK_TIMEOUT = "55P03";
+/** Busy rooms skipped before giving up: each costs a full lock_timeout to the person waiting. */
+const QUICKPLAY_MAX_BUSY = 2;
 
 /** Refusals that only concern one candidate: the next one is tried (D-05). */
 const NEXT_CANDIDATE = new Set(["ROOM_NOT_FOUND", "ROOM_FULL", "ROOM_NOT_ADMITTING", "NICKNAME_TAKEN"]);
@@ -108,6 +110,7 @@ async function tryCandidates<R extends { readonly ok: boolean; readonly error?: 
 ): Promise<(R & { readonly code: string }) | Exclude<R, { readonly ok: true }> | { readonly ok: false; readonly error: "NO_ROOM" }> {
   let nicknameTaken: Exclude<R, { readonly ok: true }> | undefined;
   let busy: unknown;
+  let busyRooms = 0;
   for (const candidate of candidates) {
     let result: R;
     try {
@@ -116,6 +119,8 @@ async function tryCandidates<R extends { readonly ok: boolean; readonly error?: 
       // Another admission held this room too long: contention, so the next room is tried (D-05).
       if (sqlStateOf(error) !== LOCK_TIMEOUT) throw error;
       busy ??= error;
+      busyRooms += 1;
+      if (busyRooms >= QUICKPLAY_MAX_BUSY) throw busy;
       continue;
     }
     if (result.ok) return { ...result, code: candidate.code };
