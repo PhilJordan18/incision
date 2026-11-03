@@ -75,6 +75,34 @@ describe("PublicRoomFeed (JOIN-02)", () => {
     expect(publish).not.toHaveBeenCalled();
   });
 
+  it("still broadcasts a change that a new watcher's read saw first", async () => {
+    let participants = 1;
+    const { feed, publish, advance } = harness(() => [room({ participants })]);
+    await feed.current();
+    await advance(1_500);
+    participants = 2;
+    feed.changed();
+    // Another visitor arrives before the planned broadcast and reads the new list.
+    await expect(feed.current()).resolves.toMatchObject([{ participants: 2 }]);
+    await advance(1);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish.mock.calls[0]?.[0]).toMatchObject([{ participants: 2 }]);
+  });
+
+  it("serves a list read less than the throttle ago, so visitors cannot force reads", async () => {
+    let participants = 1;
+    const { feed, load, publish, advance } = harness(() => [room({ participants })]);
+    await feed.current();
+    await advance(100);
+    participants = 2;
+    feed.changed();
+    for (let visitor = 0; visitor < 10; visitor += 1) await expect(feed.current()).resolves.toMatchObject([{ participants: 1 }]);
+    expect(load).toHaveBeenCalledTimes(1);
+    await advance(900);
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(publish.mock.calls[0]?.[0]).toMatchObject([{ participants: 2 }]);
+  });
+
   it("reads nothing while nobody watches", async () => {
     const { feed, load, advance } = harness(() => [room()], false);
     feed.changed();

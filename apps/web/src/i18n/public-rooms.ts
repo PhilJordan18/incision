@@ -10,7 +10,7 @@ type Copy = {
   phases: Record<Exclude<RoomPhase, "closed">, string>;
   join: (code: string) => string; joinShort: string; full: string; notAdmitting: string;
   empty: string; emptyFiltered: string; clearFilters: string; createRoom: string;
-  live: string; offline: string; unavailable: string; footnote: string;
+  shown: (shown: number, total: number) => string; live: string; offline: string; unavailable: string; footnote: string;
 };
 
 const fr: Copy = {
@@ -25,6 +25,7 @@ const fr: Copy = {
   join: (code) => `Rejoindre la salle ${code}`, joinShort: "Rejoindre", full: "Complète", notAdmitting: "Course en cours",
   empty: "Aucune salle publique ouverte pour l’instant.", emptyFiltered: "Aucune salle publique ne correspond à ces filtres.",
   clearFilters: "Voir toutes les salles", createRoom: "Créer une salle",
+  shown: (shown, total) => shown === 0 ? `Aucune salle affichée sur ${total}.` : `${shown} ${shown > 1 ? "salles affichées" : "salle affichée"} sur ${total}.`,
   live: "La liste se met à jour en direct.", offline: "Connexion perdue : la liste n’est plus à jour. Nouvelle tentative…",
   unavailable: "La liste des salles est indisponible pour le moment. Réessaie dans un instant.",
   footnote: "Une salle en course reste visible, mais n’accepte personne avant les résultats.",
@@ -41,6 +42,7 @@ const en: Copy = {
   join: (code) => `Join room ${code}`, joinShort: "Join", full: "Full", notAdmitting: "Race in progress",
   empty: "No public room is open right now.", emptyFiltered: "No public room matches these filters.",
   clearFilters: "Show every room", createRoom: "Create a room",
+  shown: (shown, total) => `Showing ${shown} of ${total} ${total === 1 ? "room" : "rooms"}.`,
   live: "The list updates live.", offline: "Connection lost: the list is out of date. Retrying…",
   unavailable: "The room list is unavailable right now. Try again in a moment.",
   footnote: "A room in a race stays listed but admits no one until its results.",

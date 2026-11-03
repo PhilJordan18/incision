@@ -35,7 +35,7 @@ export const PUBLIC_ROOM_LIST_LIMIT = 100;
  * settings row and read with the defaults, like the rest of the code.
  */
 export async function listPublicRooms(db: Queryable, { limit = PUBLIC_ROOM_LIST_LIMIT }: { limit?: number } = {}): Promise<PublicRoom[]> {
-  const bounded = Math.max(1, Math.min(PUBLIC_ROOM_LIST_LIMIT, Math.trunc(limit)));
+  const bounded = Number.isFinite(limit) ? Math.max(1, Math.min(PUBLIC_ROOM_LIST_LIMIT, Math.trunc(limit))) : PUBLIC_ROOM_LIST_LIMIT;
   const rows = await db
     .select({
       id: lobbies.id,

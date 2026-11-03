@@ -1,4 +1,4 @@
-import { COMPLEXITIES, ROOM_PHASES, TEXT_KINDS, TEXT_LANGUAGES, ROOM_MAX_CAPACITY, MAX_TEXT_WORDS } from "@incision/domain";
+import { COMPLEXITIES, DISPLAY_NAME_MAX_LENGTH, ROOM_PHASES, TEXT_KINDS, TEXT_LANGUAGES, ROOM_MAX_CAPACITY, MAX_TEXT_WORDS } from "@incision/domain";
 import { z } from "zod";
 
 /**
@@ -17,7 +17,8 @@ const OPEN_PHASES = ROOM_PHASES.filter((phase) => phase !== "closed") as [Exclud
 
 export const publicRoomEntrySchema = z.object({
   code: z.string().regex(/^[2-9A-HJKMNP-Z]{6}$/),
-  hostName: z.string().min(1).max(40),
+  /** Display names count code points (PostgreSQL `char_length`), not UTF-16 units. */
+  hostName: z.string().min(1).refine((name) => [...name].length <= DISPLAY_NAME_MAX_LENGTH),
   phase: z.enum(OPEN_PHASES),
   participants: z.number().int().min(0).max(ROOM_MAX_CAPACITY),
   capacity: z.number().int().min(2).max(ROOM_MAX_CAPACITY),
@@ -34,6 +35,12 @@ export type PublicRoomEntry = z.infer<typeof publicRoomEntrySchema>;
 
 export const publicRoomListSchema = z.object({ rooms: z.array(publicRoomEntrySchema).max(100) }).strict();
 export type PublicRoomList = z.infer<typeof publicRoomListSchema>;
+
+/** The answer to a watch, as the browser checks it before trusting it. */
+export const publicRoomsWatchAckSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), rooms: publicRoomListSchema.shape.rooms }).strict(),
+  z.object({ ok: z.literal(false), error: z.enum(["UNAVAILABLE", "RATE_LIMITED"]) }).strict(),
+]);
 
 export type PublicRoomsWatchAck =
   | ({ readonly ok: true } & PublicRoomList)

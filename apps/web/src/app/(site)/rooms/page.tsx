@@ -7,7 +7,7 @@ import { publicRoomsCopy } from "@/i18n/public-rooms";
 import { getRequestDictionary } from "@/i18n/server";
 import { parsePublicRoomFilters, type PublicRoomEntry } from "@/rooms/public-rooms-protocol";
 import { authDatabase } from "@/server/auth/store";
-import { publicRoomEntry } from "@/server/rooms/public-room-feed";
+import { publicRoomEntry, sharedPublicRoomFeed } from "@/server/rooms/public-room-feed";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { locale } = await getRequestDictionary();
@@ -25,7 +25,9 @@ export default async function PublicRoomsPage({ searchParams }: PageProps<"/room
   const filters = parsePublicRoomFilters(params);
   let rooms: PublicRoomEntry[] | undefined;
   try {
-    rooms = (await listPublicRooms(authDatabase())).map(publicRoomEntry);
+    // The server's feed when it runs (always, outside unit tests): pages share its throttled reads.
+    const feed = sharedPublicRoomFeed();
+    rooms = feed !== undefined ? [...await feed.current()] : (await listPublicRooms(authDatabase())).map(publicRoomEntry);
   } catch (error: unknown) {
     unstable_rethrow(error);
     console.error("[rooms] public room page failed:", describeDatabaseError(error));

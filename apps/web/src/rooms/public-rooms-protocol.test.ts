@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterPublicRooms, parsePublicRoomFilters, publicRoomEntrySchema, publicRoomFiltersQuery, type PublicRoomEntry } from "./public-rooms-protocol";
+import { filterPublicRooms, parsePublicRoomFilters, publicRoomEntrySchema, publicRoomFiltersQuery, publicRoomsWatchAckSchema, type PublicRoomEntry } from "./public-rooms-protocol";
 
 const entry: PublicRoomEntry = { code: "ABCDEF", hostName: "Julie", phase: "waiting", participants: 2, capacity: 30, textLanguage: "fr",
   complexity: "medium", textKind: "coherent", wordCount: 50, arcade: false, joinable: true };
@@ -11,6 +11,18 @@ describe("public room protocol (JOIN-02)", () => {
     expect(publicRoomEntrySchema.safeParse({ ...entry, visibility: "code" }).success).toBe(false);
     expect(publicRoomEntrySchema.safeParse({ ...entry, phase: "closed" }).success).toBe(false);
     expect(publicRoomEntrySchema.safeParse({ ...entry, code: "abcdef" }).success).toBe(false);
+  });
+
+  it("counts a host name in characters, like display names: 40 emoji pass, 41 do not", () => {
+    expect(publicRoomEntrySchema.safeParse({ ...entry, hostName: "\u{1F988}".repeat(40) }).success).toBe(true);
+    expect(publicRoomEntrySchema.safeParse({ ...entry, hostName: "\u{1F988}".repeat(41) }).success).toBe(false);
+  });
+
+  it("reads a watch answer with its list, or its refusal", () => {
+    expect(publicRoomsWatchAckSchema.safeParse({ ok: true, rooms: [entry] })).toMatchObject({ success: true, data: { ok: true, rooms: [entry] } });
+    expect(publicRoomsWatchAckSchema.safeParse({ ok: false, error: "RATE_LIMITED" }).success).toBe(true);
+    expect(publicRoomsWatchAckSchema.safeParse({ ok: true, rooms: [{ ...entry, id: "x" }] }).success).toBe(false);
+    expect(publicRoomsWatchAckSchema.safeParse({ ok: false, error: "secret" }).success).toBe(false);
   });
 
   it("reads filters strictly: unknown or repeated values mean all", () => {

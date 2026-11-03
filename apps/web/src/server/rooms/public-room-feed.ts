@@ -35,7 +35,8 @@ export class PublicRoomFeed {
   private readonly throttleMs: number;
   private readonly refreshMs: number;
   private rooms: readonly PublicRoomEntry[] | undefined;
-  private serialized = "";
+  /** The list as last sent to watchers: a read for a new watcher must not hide a change from them. */
+  private published: string | undefined;
   private loadedAt = Number.NEGATIVE_INFINITY;
   private stale = true;
   private loading: Promise<readonly PublicRoomEntry[]> | undefined;
@@ -54,10 +55,18 @@ export class PublicRoomFeed {
     this.plan();
   }
 
-  /** The list for a new watcher: the cached one while fresh, otherwise one shared read. */
+  /**
+   * The list for a new watcher or a page: the cached one while fresh, otherwise one shared read.
+   * A stale list read less than `throttleMs` ago is still served, so callers cannot read more
+   * often than the broadcasts do; the planned read then sends the change to watchers.
+   */
   async current(): Promise<readonly PublicRoomEntry[]> {
-    const fresh = !this.stale && this.rooms !== undefined && this.options.now() - this.loadedAt < this.refreshMs;
-    const list = fresh && this.rooms !== undefined ? this.rooms : await this.read();
+    const age = this.options.now() - this.loadedAt;
+    let list = this.rooms;
+    if (list === undefined || age >= this.refreshMs || (this.stale && age >= this.throttleMs)) list = await this.read();
+    else if (this.stale) this.plan();
+    // The first list given out is what the watchers hold until a broadcast changes it.
+    this.published ??= JSON.stringify(list);
     this.keepRefreshing();
     return list;
   }
@@ -92,13 +101,16 @@ export class PublicRoomFeed {
 
   private async broadcast(): Promise<void> {
     if (!this.options.watched()) return;
-    const before = this.serialized;
+    let rooms: readonly PublicRoomEntry[];
     try {
-      await this.read();
+      rooms = await this.read();
     } catch {
       return;
     }
-    if (this.serialized !== before && this.rooms !== undefined && !this.stopped) this.options.publish(this.rooms);
+    const serialized = JSON.stringify(rooms);
+    if (this.stopped || serialized === this.published) return;
+    this.published = serialized;
+    this.options.publish(rooms);
   }
 
   private read(): Promise<readonly PublicRoomEntry[]> {
@@ -108,7 +120,6 @@ export class PublicRoomFeed {
       try {
         const rooms = (await this.options.load()).map(publicRoomEntry);
         this.rooms = rooms;
-        this.serialized = JSON.stringify(rooms);
         return rooms;
       } catch (error: unknown) {
         this.stale = true;
@@ -120,4 +131,16 @@ export class PublicRoomFeed {
     })();
     return this.loading;
   }
+}
+
+type ProcessGlobal = typeof globalThis & { incisionPublicRoomFeed?: PublicRoomFeed };
+const processGlobal = globalThis as ProcessGlobal;
+
+/** The server's one feed, also read by the /rooms page (same process), so pages share its reads. */
+export function sharedPublicRoomFeed(): PublicRoomFeed | undefined {
+  return processGlobal.incisionPublicRoomFeed;
+}
+
+export function shareFeed(feed: PublicRoomFeed | undefined): void {
+  processGlobal.incisionPublicRoomFeed = feed;
 }

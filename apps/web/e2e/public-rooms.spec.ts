@@ -29,7 +29,7 @@ async function openRoom(page: Page, visibility: keyof typeof label): Promise<str
 }
 /** The chips hide their radio visually: a person clicks the label. */
 async function chip(group: Locator, name: RegExp): Promise<void> {
-  await group.locator("label").filter({ hasText: name }).click();
+  await group.locator("label").filter({ has: group.page().getByRole("radio", { name }) }).click();
   await expect(group.getByRole("radio", { name })).toBeChecked();
 }
 function rows(page: Page) { return page.getByRole("list").filter({ has: page.getByRole("term") }).getByRole("listitem"); }
@@ -86,6 +86,7 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(joiner.page.getByText(live)).toBeVisible();
     await expect(entry).toContainText("2 / 30");
 
+    await expect(watcher.getByRole("link", { name: /^(Jouer|Play)$/ })).toHaveAttribute("aria-current", "page");
     await auditEveryLayout(watcher, `explorer-${locale}`);
 
     // A race keeps the room listed, without a way in.
@@ -93,6 +94,21 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(entry).toContainText(/(Départ|Starting|En course|Racing)/);
     await expect(entry.getByRole("link")).toHaveCount(0);
     await expect(entry).toContainText(/(Course en cours|Race in progress)/);
+  });
+
+  test(`a page that connects late or reconnects gets the current list from its watch (${locale})`, async ({ browser }) => {
+    const watcher = await visitor(browser, locale);
+    // The page renders from the server, but its socket cannot connect yet.
+    await watcher.route("**/socket.io/**", (route) => route.abort());
+    await watcher.goto("/rooms");
+    await expect(watcher.getByRole("heading", { name: /^(Salles publiques|Public rooms)/ })).toBeVisible();
+    await expect(watcher.getByText(/^(La liste se met à jour en direct\.|The list updates live\.)$/)).toHaveCount(0);
+    const host = await account(browser, "Late host", locale);
+    const code = await openRoom(host.page, "public");
+    // Nobody else watches, so no broadcast carries the room: only the watch answer can.
+    await watcher.unroute("**/socket.io/**");
+    await expect(row(watcher, code)).toBeVisible({ timeout: 15_000 });
+    await expect(watcher.getByText(/^(La liste se met à jour en direct\.|The list updates live\.)$/)).toBeVisible();
   });
 
   test(`a room leaves the list when it stops being public (${locale})`, async ({ browser }) => {
@@ -128,6 +144,7 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(page).toHaveURL(/\?language=fr$/);
     await expect(row(page, frCode)).toBeVisible();
     await expect(row(page, enCode)).toHaveCount(0);
+    await expect(page.getByRole("status")).toContainText(/(1 salle affichée sur 2\.|Showing 1 of 2 rooms\.)/);
     await chip(page.getByRole("group", { name: /^(Complexité|Complexity)$/ }), /^(Difficile|Hard)$/);
     await expect(page.getByText(/^(Aucune salle publique ne correspond à ces filtres\.|No public room matches these filters\.)$/)).toBeVisible();
     await page.getByRole("link", { name: /^(Voir toutes les salles|Show every room)$/ }).click();

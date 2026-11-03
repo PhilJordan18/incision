@@ -105,6 +105,7 @@ describe("listPublicRooms (JOIN-02)", () => {
     expect(rooms).toHaveLength(1);
     expect(rooms[0]).toMatchObject({ code: "AAAAAA", textLanguage: "fr", complexity: "medium", arcade: false });
     expect(await listPublicRooms(db, { limit: 0 })).toHaveLength(1);
+    expect(await listPublicRooms(db, { limit: Number.NaN })).toHaveLength(2);
   });
 
   it("uses the partial index for the open public rooms", async () => {
@@ -115,7 +116,9 @@ describe("listPublicRooms (JOIN-02)", () => {
       const plan = await client.query<{ "QUERY PLAN": string }>(
         "explain select id from lobbies where visibility='public' and phase <> 'closed' order by created_at, id limit 100");
       expect(plan.rows.map((row) => row["QUERY PLAN"]).join("\n")).toContain("lobbies_open_public_idx");
+    } finally {
       await client.query("reset enable_seqscan");
-    } finally { client.release(); }
+      client.release();
+    }
   });
 });

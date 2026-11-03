@@ -47,7 +47,7 @@ import { RaceService, serverClock } from "./src/server/races/race-service";
 import { racesOpenOf, racesSwitchNotice } from "./src/server/races/races-switch";
 import { CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts } from "./src/server/races/race-texts";
 import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
-import { PublicRoomFeed } from "./src/server/rooms/public-room-feed";
+import { PublicRoomFeed, shareFeed } from "./src/server/rooms/public-room-feed";
 import { publicRoomWatchers, publishPublicRooms, registerPublicRoomChannel } from "./src/server/realtime/public-room-channel";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
@@ -227,6 +227,7 @@ async function main(): Promise<void> {
     schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
     logError: (message) => console.error(message),
   });
+  shareFeed(publicRooms);
   registerPublicRoomChannel(io, { allowedOrigin: env.appOrigin, feed: publicRooms });
   roomEvents().on("changed", () => publicRooms.changed());
   roomEvents().on("closed", () => publicRooms.changed());

@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { AccountLink } from "@/components/account-link";
-import { pillControl } from "@/components/ui/styles";
+import { PlayLink } from "@/components/play-link";
 import { LogoLink } from "@/components/brand/logo";
 import { LanguageSwitcher } from "@/components/preferences/language-switcher";
 import { ThemeToggle } from "@/components/preferences/theme-toggle";
@@ -21,8 +20,7 @@ export function SiteHeader({ locale, t, signedIn }: SiteHeaderProps) {
         <LanguageSwitcher locale={locale} t={t.layout} />
         <ThemeToggle t={t.layout} />
         <nav aria-label={t.layout.mainNavigation} className="flex items-center gap-2.5">
-          {/* JOUER of the design: the public rooms (JOIN-02). */}
-          <Link href="/rooms" className={`${pillControl} font-mono text-xs tracking-[0.14em] uppercase`}>{t.layout.play}</Link>
+          <PlayLink label={t.layout.play} />
           <AccountLink href={signedIn ? "/account" : "/sign-in"} label={signedIn ? t.layout.account : t.layout.signIn} />
         </nav>
       </div>

@@ -9,7 +9,7 @@ import { publicRoomsCopy } from "@/i18n/public-rooms";
 import type { Locale } from "@/i18n/locale";
 import {
   filterPublicRooms, PUBLIC_ROOMS_EVENT, PUBLIC_ROOMS_UNWATCH_EVENT, PUBLIC_ROOMS_WATCH_EVENT, publicRoomFiltersQuery,
-  publicRoomListSchema, type PublicRoomEntry, type PublicRoomFilters,
+  publicRoomListSchema, publicRoomsWatchAckSchema, type PublicRoomEntry, type PublicRoomFilters,
 } from "@/rooms/public-rooms-protocol";
 
 type Props = {
@@ -20,8 +20,8 @@ type Props = {
 };
 
 type Connection = "connecting" | "live" | "offline";
-const chip = "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-houle px-4 text-sm text-embrun transition-colors duration-200 ease-incision hover:text-ecume has-[:checked]:border-2 has-[:checked]:border-moi has-[:checked]:text-ecume has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-moi";
-const ROW = "lg:grid-cols-[minmax(6rem,1fr)_minmax(6rem,1.2fr)_minmax(5.5rem,1fr)_minmax(8rem,1.5fr)_minmax(4.5rem,0.8fr)_minmax(7rem,1.1fr)_minmax(7rem,auto)]";
+const chip = "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-houle px-4 text-sm text-embrun transition-colors duration-200 ease-incision hover:text-ecume has-[:checked]:border-2 has-[:checked]:border-moi has-[:checked]:bg-moi/10 has-[:checked]:text-ecume has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-moi";
+const ROW = "lg:grid-cols-[minmax(6rem,1fr)_minmax(6rem,1.2fr)_minmax(5.5rem,1fr)_minmax(8rem,1.5fr)_minmax(4.5rem,0.8fr)_minmax(7rem,1.1fr)_8.5rem]";
 
 /** Screen 04's public room list (JOIN-02, D-18): live, filtered by language and complexity. */
 export function PublicRoomExplorer({ locale, initialRooms, initialFilters }: Props) {
@@ -38,8 +38,10 @@ export function PublicRoomExplorer({ locale, initialRooms, initialFilters }: Pro
       if (parsed.success) setRooms(parsed.data.rooms);
     };
     socket.on("connect", () => {
+      // The answer carries the current list: after a reconnection, it replaces what was missed.
       socket.timeout(5_000).emitWithAck(PUBLIC_ROOMS_WATCH_EVENT, null).then((ack: unknown) => {
-        if (typeof ack === "object" && ack !== null && "ok" in ack && ack.ok === true) { accept(ack); setConnection("live"); }
+        const parsed = publicRoomsWatchAckSchema.safeParse(ack);
+        if (parsed.success && parsed.data.ok) { setRooms(parsed.data.rooms); setConnection("live"); }
         else setConnection("offline");
       }, () => setConnection("offline"));
     });
@@ -60,7 +62,7 @@ export function PublicRoomExplorer({ locale, initialRooms, initialFilters }: Pro
     <div className="flex flex-wrap items-end justify-between gap-4">
       <h2 id={`${id}-title`} className="font-display text-4xl font-black uppercase sm:text-[44px]">
         {t.listTitle}
-        {rooms !== undefined && <span className="ml-3 inline-block whitespace-nowrap align-middle font-mono text-sm font-medium tracking-[0.2em] text-brume">· {t.openCount(rooms.length)}</span>}
+        {rooms !== undefined && <span className="block whitespace-nowrap font-mono sm:ml-3 sm:inline-block sm:align-middle text-sm font-medium tracking-[0.2em] text-brume"><span aria-hidden="true" className="hidden sm:inline">· </span>{t.openCount(rooms.length)}</span>}
       </h2>
     </div>
 
@@ -78,6 +80,7 @@ export function PublicRoomExplorer({ locale, initialRooms, initialFilters }: Pro
 
     <p role="status" className="text-sm text-brume">
       {rooms === undefined ? t.unavailable : connection === "offline" ? t.offline : connection === "live" ? t.live : ""}
+      {rooms !== undefined && filtered && rooms.length > 0 && <> {t.shown(shown.length, rooms.length)}</>}
     </p>
 
     {rooms !== undefined && (shown.length === 0
@@ -101,6 +104,9 @@ export function PublicRoomExplorer({ locale, initialRooms, initialFilters }: Pro
   </section>;
 }
 
+/** The chosen chip's mark (design §3): a shape, not only a colour; CSS keeps it right without JavaScript. */
+const tick = <span aria-hidden="true" className="hidden peer-checked:inline">✓</span>;
+
 function FilterGroup<T extends string>({ legend, name, value, all, options, onChange }: {
   readonly legend: string; readonly name: string; readonly value: T | undefined; readonly all: string;
   readonly options: readonly { value: T; label: string }[]; readonly onChange: (next: T | undefined) => void;
@@ -108,24 +114,24 @@ function FilterGroup<T extends string>({ legend, name, value, all, options, onCh
   return <fieldset className="flex flex-col gap-2">
     <legend className={`${monoLabel} mb-2`}>{legend}</legend>
     <div className="flex flex-wrap gap-2">
-      <label className={chip}><input type="radio" name={name} value="" className="sr-only" checked={value === undefined} onChange={() => onChange(undefined)} />{all}</label>
+      <label className={chip}><input type="radio" name={name} value="" className="peer sr-only" checked={value === undefined} onChange={() => onChange(undefined)} />{tick}{all}</label>
       {options.map((option) => <label key={option.value} className={chip}>
-        <input type="radio" name={name} value={option.value} className="sr-only" checked={value === option.value} onChange={() => onChange(option.value)} />
-        {option.label}
+        <input type="radio" name={name} value={option.value} className="peer sr-only" checked={value === option.value} onChange={() => onChange(option.value)} />
+        {tick}{option.label}
       </label>)}
     </div>
   </fieldset>;
 }
 
 function RoomRow({ room, t }: { readonly room: PublicRoomEntry; readonly t: ReturnType<typeof publicRoomsCopy> }) {
-  const phaseTone = room.phase === "waiting" ? "text-juste" : room.phase === "results" ? "text-moi" : "text-or";
+  const phaseTone = room.phase === "waiting" ? "text-juste" : room.phase === "results" ? "text-embrun" : "text-or";
   const field = (label: string, value: ReactNode, extra = "") => <div className={`flex gap-2 lg:block ${extra}`}>
-    <dt className={`${monoLabel} lg:sr-only`}>{label}</dt><dd>{value}</dd>
+    <dt className={`${monoLabel} lg:sr-only`}>{label}</dt><dd className="min-w-0">{value}</dd>
   </div>;
-  return <li className={`grid gap-x-4 gap-y-2 border-t border-houle px-6 py-4 lg:items-center ${ROW}`}>
+  return <li className={`grid gap-x-4 gap-y-2 border-t border-houle px-6 py-4 lg:min-h-[84px] lg:items-center ${ROW}`}>
     <dl className="contents">
       {field(t.columns.room, <span className="font-mono font-semibold tracking-[0.12em]">{room.code}</span>)}
-      {field(t.columns.host, <span className="break-words">{room.hostName}</span>)}
+      {field(t.columns.host, <span className="[overflow-wrap:anywhere]">{room.hostName}</span>)}
       {field(t.columns.mode, room.arcade
         ? <span className="font-semibold text-arcade"><span aria-hidden="true">◆ </span>{t.arcade}</span>
         : t.training)}
@@ -135,7 +141,7 @@ function RoomRow({ room, t }: { readonly room: PublicRoomEntry; readonly t: Retu
     </dl>
     <div className="pt-1 lg:pt-0 lg:text-right">
         {room.joinable
-          ? <Link href={`/rooms/${room.code}`} aria-label={t.join(room.code)} className={`${secondaryButton} h-11`}>{t.joinShort}</Link>
+          ? <Link href={`/rooms/${room.code}`} prefetch={false} aria-label={t.join(room.code)} className={`${secondaryButton} h-11`}>{t.joinShort}</Link>
           : <span className="text-sm text-brume">{room.phase === "countdown" || room.phase === "racing" ? t.notAdmitting : t.full}</span>}
     </div>
   </li>;
