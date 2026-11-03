@@ -127,7 +127,7 @@ export function currentSession(
   return session;
 }
 
-function isAllowedRequest(request: Pick<IncomingMessage, "headers" | "url">, allowedOrigin: string): boolean {
+export function isAllowedRequest(request: Pick<IncomingMessage, "headers" | "url">, allowedOrigin: string): boolean {
   const secFetchSite = request.headers["sec-fetch-site"];
   const origin = request.headers.origin;
   return isAllowedHandshake(

@@ -23,6 +23,7 @@ import {
   recoverRoomIfAbandoned,
   renewRaceLease,
   startRace,
+  listPublicRooms,
 } from "@incision/database";
 import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
@@ -46,6 +47,8 @@ import { RaceService, serverClock } from "./src/server/races/race-service";
 import { racesOpenOf, racesSwitchNotice } from "./src/server/races/races-switch";
 import { CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts } from "./src/server/races/race-texts";
 import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
+import { PublicRoomFeed } from "./src/server/rooms/public-room-feed";
+import { publicRoomWatchers, publishPublicRooms, registerPublicRoomChannel } from "./src/server/realtime/public-room-channel";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
 async function main(): Promise<void> {
@@ -215,6 +218,19 @@ async function main(): Promise<void> {
     guestStart: (connection, proof, payload) => races.startGuest(connection, proof, payload),
   });
 
+  // Public room explorer (JOIN-02): one throttled read for all watchers, none without watchers.
+  const publicRooms = new PublicRoomFeed({
+    load: () => listPublicRooms(databaseOf(env)),
+    publish: (rooms) => publishPublicRooms(io, rooms),
+    watched: () => publicRoomWatchers(io) > 0,
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    logError: (message) => console.error(message),
+  });
+  registerPublicRoomChannel(io, { allowedOrigin: env.appOrigin, feed: publicRooms });
+  roomEvents().on("changed", () => publicRooms.changed());
+  roomEvents().on("closed", () => publicRooms.changed());
+
   // Races a previous process left behind (ADR-0004): recovered without delaying the server.
   if (env.databaseUrl !== undefined) {
     recoverRacesAtBoot({
@@ -253,6 +269,7 @@ async function main(): Promise<void> {
     guestGrace.stop();
     hostGrace.stop();
     guestRetention?.stop();
+    publicRooms.stop();
     temporaryRoomResults().clear();
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
     // Own races first (ADR-0004): no new start, then each one ends through its own shutdown
