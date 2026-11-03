@@ -68,6 +68,10 @@ export const en: Dictionary = {
     "reset": "Clear my ended guest session",
     "account": "I have an account",
     "unavailable": "Guest entry is not available right now.",
+    "quickplayIntro": "Join the fullest public room that still has a place.",
+    "quickplaySubmit": "Find a room",
+    "quickplayPending": "Searching…",
+    "quickplayEmptyLink": "See the public rooms",
     "javascript": "JavaScript and browser coordination between tabs are required to join as a guest.",
     "errors": {
         "UNAVAILABLE": "Entry could not be verified. Try again.",
@@ -82,7 +86,8 @@ export const en: Dictionary = {
         "NICKNAME_TAKEN": "This nickname is already used in the room. Choose another.",
         "RATE_LIMITED": "Too many requests. Wait before trying again.",
         "CODE_RATE_LIMITED": "Too many codes tried. Wait before trying again.",
-        "CODE_BUSY": "A check is already in progress. Try again."
+        "CODE_BUSY": "A check is already in progress. Try again.",
+        "NO_ROOM": "No public room has a free place right now. Guests cannot create rooms: try again soon, or enter with a code."
     }
 },
   signIn: {

@@ -2,6 +2,7 @@ import { describeDatabaseError, listPublicRooms } from "@incision/database";
 import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { PublicRoomExplorer } from "@/components/rooms/public-room-explorer";
+import { QuickplayCard } from "@/components/rooms/quickplay-card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { publicRoomsCopy } from "@/i18n/public-rooms";
 import { getRequestDictionary } from "@/i18n/server";
@@ -37,6 +38,10 @@ export default async function PublicRoomsPage({ searchParams }: PageProps<"/room
       <div className="flex flex-col gap-4">
         <PageHeading bold={t.headingBold} serif={t.headingSerif} />
         <p className="max-w-[560px] text-lg text-embrun">{t.intro}</p>
+      </div>
+      {/* Screen 04's card row: matchmaking first (JOIN-03), on the design's three-column grid. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <QuickplayCard t={t.quickplay} />
       </div>
       <PublicRoomExplorer locale={locale} initialRooms={rooms} initialFilters={filters} />
     </div>

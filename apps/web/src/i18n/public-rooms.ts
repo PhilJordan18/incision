@@ -11,6 +11,11 @@ type Copy = {
   join: (code: string) => string; joinShort: string; full: string; notAdmitting: string;
   empty: string; emptyFiltered: string; clearFilters: string; createRoom: string;
   shown: (shown: number, total: number) => string; live: string; offline: string; unavailable: string; footnote: string;
+  quickplay: {
+    tag: string; title: string; body: string; submit: string; pending: string;
+    noRoom: string; createPublic: string; creating: string; createNote: string; goToRoom: (code: string) => string;
+    errors: { ALREADY_IN_ANOTHER_ROOM: string; RATE_LIMITED: string; UNAVAILABLE: string; CREATE_FAILED: string };
+  };
 };
 
 const fr: Copy = {
@@ -29,6 +34,19 @@ const fr: Copy = {
   live: "La liste se met à jour en direct.", offline: "Connexion perdue : la liste n’est plus à jour. Nouvelle tentative…",
   unavailable: "La liste des salles est indisponible pour le moment. Réessaie dans un instant.",
   footnote: "Une salle en course reste visible, mais n’accepte personne avant les résultats.",
+  quickplay: {
+    tag: "Matchmaking", title: "Une course, tout de suite", submit: "Trouver une salle", pending: "Recherche…",
+    body: "Rejoint la salle publique la plus remplie qui a encore une place. S’il n’y en a aucune, tu pourras en créer une.",
+    noRoom: "Aucune salle publique n’a de place pour l’instant.", createPublic: "Créer une salle publique", creating: "Création…",
+    createNote: "Réglages par défaut : texte en français, 50 mots, complexité moyenne, 30 places. Tu pourras les changer dans la salle.",
+    goToRoom: (code) => `Retourner à ma salle ${code}`,
+    errors: {
+      ALREADY_IN_ANOTHER_ROOM: "Tu es déjà dans une salle. Quitte-la avant d’en chercher une autre.",
+      RATE_LIMITED: "Trop de demandes. Attends un peu avant de réessayer.",
+      UNAVAILABLE: "La recherche n’a pas pu se faire. Réessaie dans un instant.",
+      CREATE_FAILED: "La salle n’a pas pu être créée. Réessaie dans un instant.",
+    },
+  },
 };
 const en: Copy = {
   metaTitle: "Public rooms", headingBold: "Set", headingSerif: "sail",
@@ -46,6 +64,19 @@ const en: Copy = {
   live: "The list updates live.", offline: "Connection lost: the list is out of date. Retrying…",
   unavailable: "The room list is unavailable right now. Try again in a moment.",
   footnote: "A room in a race stays listed but admits no one until its results.",
+  quickplay: {
+    tag: "Matchmaking", title: "A race, right now", submit: "Find a room", pending: "Searching…",
+    body: "Joins the fullest public room that still has a place. If there is none, you can create one.",
+    noRoom: "No public room has a free place right now.", createPublic: "Create a public room", creating: "Creating…",
+    createNote: "Default settings: English text, 50 words, medium complexity, 30 places. You can change them in the room.",
+    goToRoom: (code) => `Back to my room ${code}`,
+    errors: {
+      ALREADY_IN_ANOTHER_ROOM: "You are already in a room. Leave it before looking for another.",
+      RATE_LIMITED: "Too many requests. Wait a little before trying again.",
+      UNAVAILABLE: "The search could not run. Try again in a moment.",
+      CREATE_FAILED: "The room could not be created. Try again in a moment.",
+    },
+  },
 };
 
 export function publicRoomsCopy(locale: Locale): Copy { return locale === "fr" ? fr : en; }

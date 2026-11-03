@@ -24,12 +24,13 @@ export default async function GuestPage({ searchParams }: PageProps<"/guest">) {
     if (member !== undefined) redirect(`/rooms/${member.code}`);
   }
   const params = await searchParams;
+  const quickplay = params.quickplay === "1";
   return <div className="mx-auto flex w-full max-w-[640px] flex-col gap-7 py-8">
     <div className="flex flex-col items-center gap-3 text-center">
       <PageHeading bold={t.guestEntry.headingBold} serif={t.guestEntry.headingSerif} />
-      <p className="text-brume">{t.guestEntry.intro}</p>
+      <p className="text-brume">{quickplay ? t.guestEntry.quickplayIntro : t.guestEntry.intro}</p>
     </div>
-    <GuestEntryForm t={t.guestEntry} initialCode={typeof params.code === "string" ? params.code.slice(0, 32) : ""} />
+    <GuestEntryForm t={t.guestEntry} initialCode={typeof params.code === "string" ? params.code.slice(0, 32) : ""} quickplay={quickplay} />
     <Link href="/sign-in" className={`${discreetButton} self-start`}>{t.guestEntry.account}</Link>
   </div>;
 }
