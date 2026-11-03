@@ -5,7 +5,7 @@ import type { EventEmitter } from "node:events";
 import { describeDatabaseError, type ActiveMembership, type RoomRecovery, type RoomSnapshot } from "@incision/database";
 import { humanSubjectKey, type HumanSubject, parseRoomCode, type RoomPhase } from "@incision/domain";
 import type { Server, Socket } from "socket.io";
-import { ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
+import { ROOM_EXPELLED_EVENT, ROOM_SNAPSHOT_EVENT, ROOM_WATCH_EVENT, type RoomWatchAck, roomWatchPayloadSchema, WATCH_LIMIT } from "../../rooms/protocol";
 import { publicSnapshot } from "../../rooms/public-snapshot";
 import type { RaceService } from "../races/race-service";
 import type { RoomEvents } from "../rooms/room-events";
@@ -136,6 +136,20 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
     }
   }
 
+  events.on("expelled", (lobbyId, memberId) => {
+    // Local, synchronous eviction: do not wait for a database-backed broadcast.
+    for (const socket of io.sockets.sockets.values()) {
+      const watched = watchedRoomOf(socket.data);
+      if (watched?.lobbyId !== lobbyId || watched.memberId !== memberId) continue;
+      socket.leave(channelOf(lobbyId));
+      presence.remove(lobbyId, memberId, socket.id);
+      // Clear before disconnect so an ended membership cannot start a grace timer.
+      socket.data.room = undefined;
+      dependencies.races?.unfollow(socket.id);
+      socket.emit(ROOM_EXPELLED_EVENT);
+      socket.disconnect(true);
+    }
+  });
   events.on("changed", scheduleBroadcast);
   events.on("changed", (lobbyId) => {
     dependencies.guestGrace?.changed(lobbyId);
@@ -295,7 +309,7 @@ export function registerRoomChannel(io: Server, dependencies: RoomChannelDepende
       }
       return { ok: false, error: snapshot === undefined ? "UNAVAILABLE" : "NOT_A_MEMBER" };
     }
-    if (subject.kind === "guest" && (!socket.connected || currentGuestSession(socket, dependencies) === undefined)) {
+    if (!socket.connected || (subject.kind === "guest" && currentGuestSession(socket, dependencies) === undefined)) {
       return { ok: false, error: "UNAUTHORIZED" };
     }
     if (socket.connected) {

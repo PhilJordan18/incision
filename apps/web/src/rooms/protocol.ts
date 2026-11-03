@@ -13,6 +13,7 @@ export const ROOM_WATCH_EVENT = "room:watch";
 /** A handshake refused because the session could not be checked now (the database did not answer): the page tries again. */
 export const HANDSHAKE_UNAVAILABLE = "UNAVAILABLE";
 export const ROOM_SNAPSHOT_EVENT = "room:snapshot";
+export const ROOM_EXPELLED_EVENT = "room:expelled";
 
 /**
  * `pageId`: drawn by the page once and kept across its socket's reconnections, so that a

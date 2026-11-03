@@ -5,6 +5,8 @@ import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
 import { GuestAvatar } from "@/components/rooms/guest-avatar";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
 import { RoomCapacityPanel } from "@/components/rooms/room-capacity-panel";
+import { RoomModerationPanel } from "@/components/rooms/room-moderation-panel";
+import { roomModerationCopy } from "@/i18n/room-moderation";
 import { RoomInvitationsPanel } from "@/components/rooms/room-invitations-panel";
 
 import Link from "next/link";
@@ -47,6 +49,7 @@ import {
   HANDSHAKE_UNAVAILABLE,
   type PublicRoomSnapshot,
   ROOM_SNAPSHOT_EVENT,
+  ROOM_EXPELLED_EVENT,
   ROOM_WATCH_EVENT,
   roomSnapshotSchema,
   roomWatchAckSchema,
@@ -58,7 +61,7 @@ import { StartRaceButton } from "./start-race-button";
 
 type Connection = "connecting" | "live" | "reconnecting";
 /** Why the waiting room is no longer shown, when it is not. */
-type Ending = "notMember" | "signedOut";
+type Ending = "notMember" | "signedOut" | "expelled";
 type CopyFeedback = "copied" | "failed" | undefined;
 
 type RoomViewProps = {
@@ -126,6 +129,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
   useEffect(() => {
     const socket = io({ reconnectionDelayMax: 5_000 });
     const refreshController = new AbortController();
+    let expelled = false;
     const guestRefresh = new GuestActivityRefresh({
       now: Date.now,
       schedule: (callback, delay) => { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); },
@@ -288,6 +292,9 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
       clearTimeout(retry);
       watch();
     });
+    socket.on(ROOM_EXPELLED_EVENT, () => {
+      expelled = true; guestRefresh.stop(); refreshController.abort(); race.forget(); setEnding("expelled");
+    });
     socket.on("disconnect", (reason) => {
       bonusChannel.disconnect();
       generation += 1;
@@ -295,6 +302,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
       clearTimeout(retry);
       // No queued keystroke survives a lost connection: after it, the snapshot decides (engine contract).
       socket.sendBuffer = [];
+      if (expelled) return;
       // The server cuts a socket whose session ended (sign-out, revocation, expiry), and
       // one that flooded it; neither is retried by the client.
       if (reason === "io server disconnect") {
@@ -463,7 +471,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
   }
 
   if (shownEnding !== undefined || self === undefined) {
-    return <RoomEnding ending={shownEnding ?? "notMember"} code={snapshot.code} hosted={hosted} t={t} />;
+    return <RoomEnding ending={shownEnding ?? "notMember"} code={snapshot.code} hosted={hosted} t={t} locale={locale} />;
   }
 
   const participants = snapshot.members.filter((member) => member.role === "participant").length;
@@ -538,7 +546,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
           onPresent={(raceId) => entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
           onAbandon={(raceId) => entrantActionRef.current(RACE_ABANDON_EVENT, raceId)}
           reconnecting={connection === "reconnecting"}
-          below={self.isHost ? leave : undefined}
+          below={self.isHost ? <>{leave}<RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} /></> : undefined}
         />
       </div>
     );
@@ -551,6 +559,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
           {connectionLine}
           {leave}
         </div>
+        {self.isHost && <RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />}
         {results !== undefined && results.raceId === snapshot.race?.raceId ? (
           results.panel
         ) : (
@@ -595,6 +604,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
 
       {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
       <RoomBotsPanel guest={guest} snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
+      {self.isHost && <RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />}
       <RoomCapacityPanel guest={guest} code={snapshot.code} capacity={snapshot.capacity} revision={snapshot.revision} host={self.isHost}
         live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
       {self.isHost && <RoomInvitationsPanel key={`invitations:${snapshot.code}`} code={snapshot.code} locale={locale} live={connection === "live"} />}
@@ -678,11 +688,13 @@ function RoomEnding({
   code,
   hosted,
   t,
+  locale,
 }: {
   readonly ending: Ending | "closed";
   readonly code: string;
   readonly hosted: boolean;
   readonly t: Dictionary["rooms"];
+  readonly locale: Locale;
 }) {
   const home = (
     <Link href="/" className={discreetButton}>
@@ -690,6 +702,13 @@ function RoomEnding({
     </Link>
   );
   switch (ending) {
+    case "expelled": {
+      const copy = roomModerationCopy(locale);
+      return <StatePanel tone="warning" label={format(t.roomTitle, { code })}
+        heading={{ bold: copy.expelled }} headingId={STATE_HEADING_ID} actions={home}>
+        <p>{copy.explanation}</p>
+      </StatePanel>;
+    }
     case "closed":
       return (
         <StatePanel
