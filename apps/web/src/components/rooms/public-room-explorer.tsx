@@ -21,7 +21,7 @@ type Props = {
 
 type Connection = "connecting" | "live" | "offline";
 const chip = "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-houle px-4 text-sm text-embrun transition-colors duration-200 ease-incision hover:text-ecume has-[:checked]:border-2 has-[:checked]:border-moi has-[:checked]:text-ecume has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-moi";
-const ROW = "md:grid-cols-[minmax(7rem,1fr)_minmax(7rem,1.2fr)_minmax(6rem,1fr)_minmax(9rem,1.5fr)_minmax(5rem,0.8fr)_minmax(8rem,1.1fr)_minmax(9rem,auto)]";
+const ROW = "lg:grid-cols-[minmax(6rem,1fr)_minmax(6rem,1.2fr)_minmax(5.5rem,1fr)_minmax(8rem,1.5fr)_minmax(4.5rem,0.8fr)_minmax(7rem,1.1fr)_minmax(7rem,auto)]";
 
 /** Screen 04's public room list (JOIN-02, D-18): live, filtered by language and complexity. */
 export function PublicRoomExplorer({ locale, initialRooms, initialFilters }: Props) {
@@ -60,7 +60,7 @@ export function PublicRoomExplorer({ locale, initialRooms, initialFilters }: Pro
     <div className="flex flex-wrap items-end justify-between gap-4">
       <h2 id={`${id}-title`} className="font-display text-4xl font-black uppercase sm:text-[44px]">
         {t.listTitle}
-        {rooms !== undefined && <span className="ml-3 align-middle font-mono text-sm font-medium tracking-[0.2em] text-brume">· {t.openCount(rooms.length)}</span>}
+        {rooms !== undefined && <span className="ml-3 inline-block whitespace-nowrap align-middle font-mono text-sm font-medium tracking-[0.2em] text-brume">· {t.openCount(rooms.length)}</span>}
       </h2>
     </div>
 
@@ -89,7 +89,7 @@ export function PublicRoomExplorer({ locale, initialRooms, initialFilters }: Pro
           </div>
         </div>
       : <div className="rounded-carte border border-houle bg-nuit">
-          <div aria-hidden="true" className={`hidden gap-x-6 px-6 py-4 md:grid ${ROW} ${monoLabel}`}>
+          <div aria-hidden="true" className={`hidden gap-x-4 px-6 py-4 lg:grid ${ROW} ${monoLabel}`}>
             <span>{t.columns.room}</span><span>{t.columns.host}</span><span>{t.columns.mode}</span><span>{t.columns.text}</span>
             <span>{t.columns.players}</span><span>{t.columns.state}</span><span />
           </div>
@@ -119,10 +119,10 @@ function FilterGroup<T extends string>({ legend, name, value, all, options, onCh
 
 function RoomRow({ room, t }: { readonly room: PublicRoomEntry; readonly t: ReturnType<typeof publicRoomsCopy> }) {
   const phaseTone = room.phase === "waiting" ? "text-juste" : room.phase === "results" ? "text-moi" : "text-or";
-  const field = (label: string, value: ReactNode, extra = "") => <div className={`flex gap-2 md:block ${extra}`}>
-    <dt className={`${monoLabel} md:sr-only`}>{label}</dt><dd>{value}</dd>
+  const field = (label: string, value: ReactNode, extra = "") => <div className={`flex gap-2 lg:block ${extra}`}>
+    <dt className={`${monoLabel} lg:sr-only`}>{label}</dt><dd>{value}</dd>
   </div>;
-  return <li className={`grid gap-x-6 gap-y-2 border-t border-houle px-6 py-4 md:items-center ${ROW}`}>
+  return <li className={`grid gap-x-4 gap-y-2 border-t border-houle px-6 py-4 lg:items-center ${ROW}`}>
     <dl className="contents">
       {field(t.columns.room, <span className="font-mono font-semibold tracking-[0.12em]">{room.code}</span>)}
       {field(t.columns.host, <span className="break-words">{room.hostName}</span>)}
@@ -133,7 +133,7 @@ function RoomRow({ room, t }: { readonly room: PublicRoomEntry; readonly t: Retu
       {field(t.columns.players, <span className="font-mono">{room.participants} / {room.capacity}</span>)}
       {field(t.columns.state, <span className={`font-mono text-xs tracking-[0.14em] uppercase ${phaseTone}`}>[.{t.phases[room.phase]}]</span>)}
     </dl>
-    <div className="pt-1 md:pt-0 md:text-right">
+    <div className="pt-1 lg:pt-0 lg:text-right">
         {room.joinable
           ? <Link href={`/rooms/${room.code}`} aria-label={t.join(room.code)} className={`${secondaryButton} h-11`}>{t.joinShort}</Link>
           : <span className="text-sm text-brume">{room.phase === "countdown" || room.phase === "racing" ? t.notAdmitting : t.full}</span>}
