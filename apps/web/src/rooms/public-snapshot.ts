@@ -1,12 +1,13 @@
 import type { RoomSnapshot } from "@incision/database";
 import type { PublicRoomSnapshot } from "./protocol";
 
-/** What members see of a room: member ids, names, roles, host and online flags, how its race stands, and its settings. */
+/** What members see of a room: its access, member ids, names, roles, host and online flags, how its race stands, and its settings. */
 export function publicSnapshot(snapshot: RoomSnapshot, online: ReadonlySet<string>): PublicRoomSnapshot {
   return {
     code: snapshot.code,
     phase: snapshot.phase,
     capacity: snapshot.capacity,
+    visibility: snapshot.visibility,
     revision: snapshot.revision,
     bots: snapshot.bots.map(({ botId, level }) => ({ botId, level })),
     members: snapshot.members.map(({ memberId, accountId, displayName, role, isHost }) => ({

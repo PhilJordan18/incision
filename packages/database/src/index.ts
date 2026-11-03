@@ -1,6 +1,7 @@
 export * from "./client";
 export * from "./rooms/bots";
 export * from "./rooms/capacity";
+export * from "./rooms/visibility";
 export * from "./corpus/defaults";
 export * from "./corpus/load";
 export * from "./errors";

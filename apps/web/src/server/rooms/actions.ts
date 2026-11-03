@@ -17,6 +17,7 @@ import {
 } from "@incision/database";
 import { MEMBER_ROLES, type MemberRole, parseRoomCode, type RoomCodeError } from "@incision/domain";
 import { parseCreationCapacity } from "./capacity-form";
+import { parseCreationVisibility } from "./visibility-form";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getRequestLocale } from "@/i18n/server";
@@ -146,18 +147,21 @@ export async function joinRoomAction(_previous: JoinFormState, formData: FormDat
 }
 
 export type CreateRoomState = {
-  readonly error?: "ALREADY_IN_ROOM" | "RATE_LIMITED" | "UNAVAILABLE" | "INVALID_CAPACITY";
+  readonly error?: "ALREADY_IN_ROOM" | "RATE_LIMITED" | "UNAVAILABLE" | "INVALID_CAPACITY" | "INVALID_VISIBILITY";
   readonly currentCode?: string;
 };
 
 /**
- * Create a room by code as its host (SALLE-01/02): only a signed-in account can. Its texts start in
- * the creator's interface language (D-19); the host may change it in the waiting room (F-03.1).
+ * Create a room as its host (SALLE-01/02): only a signed-in account can. Its texts start in the
+ * creator's interface language (D-19); the host may change it in the waiting room (F-03.1). The
+ * host picks PUBLIC, CODE or PRIVATE; a form without the field creates by code (SALLE-03, D-19).
  */
 export async function createRoomAction(_previous: CreateRoomState, formData: FormData): Promise<CreateRoomState> {
   const { accountId } = await requireAccountSession("/rooms/new");
   const capacity = parseCreationCapacity(formData);
   if (capacity === undefined) return { error: "INVALID_CAPACITY" };
+  const visibility = parseCreationVisibility(formData);
+  if (visibility === undefined) return { error: "INVALID_VISIBILITY" };
   const role = requestedRole(formData);
   if (role === undefined) {
     return { error: "UNAVAILABLE" };
@@ -171,7 +175,7 @@ export async function createRoomAction(_previous: CreateRoomState, formData: For
     created = await createRoomWithHost(db, {
       accountId,
       role,
-      visibility: "code",
+      visibility,
       capacity,
       randomIndex: (upperBound) => randomInt(upperBound),
       textLanguage: await getRequestLocale(),

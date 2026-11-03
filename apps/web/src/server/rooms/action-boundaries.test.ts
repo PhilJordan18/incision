@@ -123,6 +123,29 @@ describe("server-action identity boundaries (SEC-01)", () => {
     expect(processGlobal.incisionRoomChanges).toBeUndefined();
   });
 
+  it("creation keeps by code without the field and uses a validated visibility", async () => {
+    boundary.create.mockResolvedValue({ ok: true, room: { id: "room", code: "ABCDEF" } });
+    await expect(createRoomAction({}, form())).rejects.toThrow("redirect /rooms/ABCDEF");
+    expect(boundary.create).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ visibility: "code" }));
+    for (const visibility of ["public", "private"]) {
+      const data = form(); data.set("visibility", visibility);
+      await expect(createRoomAction({}, data)).rejects.toThrow("redirect /rooms/ABCDEF");
+      expect(boundary.create).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ visibility }));
+    }
+  });
+
+  it("invalid creation visibility consumes no room-change budget and never writes", async () => {
+    for (const value of ["PUBLIC", "secret", ""]) {
+      const data = form(); data.set("visibility", value);
+      expect(await createRoomAction({}, data)).toEqual({ error: "INVALID_VISIBILITY" });
+    }
+    const data = form(); data.append("visibility", "public"); data.append("visibility", "private");
+    expect(await createRoomAction({}, data)).toEqual({ error: "INVALID_VISIBILITY" });
+    expect(boundary.database).not.toHaveBeenCalled();
+    expect(boundary.create).not.toHaveBeenCalled();
+    expect(processGlobal.incisionRoomChanges).toBeUndefined();
+  });
+
   it("leaving uses only the authenticated account and cannot redirect off-site", async () => {
     boundary.leave.mockResolvedValue(undefined);
     const data = form();

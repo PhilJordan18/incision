@@ -140,9 +140,8 @@ export const en: Dictionary = {
     newTitle: "Create a room",
     newHeadingBold: "Prepare the",
     newHeadingSerif: "crossing",
-    newIntro: "You become the host. Others join you with the 6-character code.",
+    newIntro: "You become the host. Choose who may enter.",
     participate: "I race (otherwise: spectator)",
-    visibilityNote: "Visibility: by code. The room appears in no list.",
     create: "Open the room",
     creating: "Opening…",
     changeErrors: {
