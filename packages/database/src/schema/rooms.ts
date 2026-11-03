@@ -97,6 +97,8 @@ export const lobbies = pgTable(
     check("lobbies_code_format", sql`${table.code} ~ '^[2-9A-HJKMNP-Z]{6}$'`),
     // Bound of the setting only; admission must still count participants (CP-06).
     check("lobbies_capacity_range", sql`${table.capacity} between 2 and 30`),
+    // Explorer and quickplay (JOIN-02, JOIN-03): open public rooms, oldest first; closed rooms stay out.
+    index("lobbies_open_public_idx").on(table.createdAt, table.id).where(sql`${table.visibility} = 'public' and ${table.phase} <> 'closed'`),
     check("lobbies_revision_non_negative", sql`${table.revision} >= 0`),
     check("lobbies_closed_at_matches_phase", sql`(${table.phase} = 'closed') = (${table.closedAt} is not null)`),
     // NO ACTION (checked at the end of the statement): deleting a member that hosts fails,

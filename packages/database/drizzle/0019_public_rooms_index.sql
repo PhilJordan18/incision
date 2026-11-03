@@ -1,0 +1,1 @@
+CREATE INDEX "lobbies_open_public_idx" ON "lobbies" USING btree ("created_at","id") WHERE "lobbies"."visibility" = 'public' and "lobbies"."phase" <> 'closed';

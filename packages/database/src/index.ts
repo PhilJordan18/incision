@@ -2,6 +2,7 @@ export * from "./client";
 export * from "./rooms/bots";
 export * from "./rooms/capacity";
 export * from "./rooms/visibility";
+export * from "./rooms/public-rooms";
 export * from "./corpus/defaults";
 export * from "./corpus/load";
 export * from "./errors";
