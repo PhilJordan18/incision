@@ -134,6 +134,13 @@
       "when": 1793366809239,
       "tag": "0018_lobby_bans",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793673683743,
+      "tag": "0019_public_rooms_index",
+      "breakpoints": true
     }
   ]
 }

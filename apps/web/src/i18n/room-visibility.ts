@@ -18,7 +18,7 @@ const fr: Copy = {
   waiting: "En attente de la mise à jour de la salle…",
   membersStay: "Les personnes déjà dans la salle y restent ; la visibilité décide seulement qui peut entrer ensuite.",
   choices: {
-    public: { label: "Publique", body: "Ouverte à tous avec le code ; elle sera listée parmi les salles publiques." },
+    public: { label: "Publique", body: "Listée avec les salles publiques. On entre depuis la liste ou avec le code." },
     code: { label: "Sur code", body: "Absente des listes. On entre avec le code ou un lien d’invitation." },
     private: { label: "Privée", body: "Absente des listes. Lien d’invitation seulement : le code seul ne suffit pas." },
   },
@@ -36,7 +36,7 @@ const en: Copy = {
   waiting: "Waiting for the room update…",
   membersStay: "People already in the room stay; visibility only decides who may enter next.",
   choices: {
-    public: { label: "Public", body: "Open to anyone with the code; it will be listed with the public rooms." },
+    public: { label: "Public", body: "Listed with the public rooms. Join from the list or with the code." },
     code: { label: "By code", body: "Not listed. Join with the code or an invitation link." },
     private: { label: "Private", body: "Not listed. Invitation link only: the code alone is not enough." },
   },
