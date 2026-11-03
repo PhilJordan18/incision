@@ -93,9 +93,10 @@ export function GuestEntryForm({ t, initialCode, invitationToken, quickplay = fa
       <label className="flex min-h-11 items-center gap-3"><input type="radio" name="role" value="spectator" className="size-5" />{t.spectator}</label>
     </fieldset>}
     <p className="rounded-bouton border border-houle bg-abysse p-4 text-sm leading-relaxed text-embrun">{t.notice}</p>
-    {error === "NO_ROOM" ? <div ref={alert} tabIndex={-1} className="flex flex-col gap-2 outline-none focus-visible:ring-2 focus-visible:ring-moi">
-      <p id="guest-entry-error" role="status" className="text-ecume">{t.errors.NO_ROOM}</p>
+    {error === "NO_ROOM" ? <div className="flex flex-col gap-1">
+      <p id="guest-entry-error" ref={alert} tabIndex={-1} role="status" className="text-ecume">{t.errors.NO_ROOM}</p>
       <Link href="/rooms" className={`${inlineLink} inline-flex min-h-11 items-center self-start`}>{t.quickplayEmptyLink}</Link>
+      <Link href="/guest" className={`${inlineLink} inline-flex min-h-11 items-center self-start`}>{t.quickplayCodeLink}</Link>
     </div>
       : error !== undefined && <p id="guest-entry-error" ref={alert} tabIndex={-1} role="alert" className="text-erreur">⚠ {t.errors[error]}</p>}
     {error === "UNAUTHORIZED" && <button type="button" onClick={reset} disabled={pending || !supported} className={discreetButton}>{t.reset}</button>}

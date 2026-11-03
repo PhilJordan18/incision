@@ -72,6 +72,7 @@ export const en: Dictionary = {
     "quickplaySubmit": "Find a room",
     "quickplayPending": "Searching…",
     "quickplayEmptyLink": "See the public rooms",
+    "quickplayCodeLink": "Enter with a code",
     "javascript": "JavaScript and browser coordination between tabs are required to join as a guest.",
     "errors": {
         "UNAVAILABLE": "Entry could not be verified. Try again.",
@@ -87,7 +88,7 @@ export const en: Dictionary = {
         "RATE_LIMITED": "Too many requests. Wait before trying again.",
         "CODE_RATE_LIMITED": "Too many codes tried. Wait before trying again.",
         "CODE_BUSY": "A check is already in progress. Try again.",
-        "NO_ROOM": "No public room has a free place right now. Guests cannot create rooms: try again soon, or enter with a code."
+        "NO_ROOM": "No public room has a free place right now. Try again soon, or enter with a code."
     }
 },
   signIn: {

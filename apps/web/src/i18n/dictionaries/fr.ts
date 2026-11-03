@@ -75,6 +75,7 @@ export const fr = {
     "quickplaySubmit": "Trouver une salle",
     "quickplayPending": "Recherche…",
     "quickplayEmptyLink": "Voir les salles publiques",
+    "quickplayCodeLink": "Entrer avec un code",
     "javascript": "JavaScript et la coordination entre onglets du navigateur sont nécessaires pour entrer comme invité.",
     "errors": {
         "UNAVAILABLE": "L’entrée n’a pas pu être vérifiée. Réessaie.",
@@ -90,7 +91,7 @@ export const fr = {
         "RATE_LIMITED": "Trop de demandes. Attends avant de réessayer.",
         "CODE_RATE_LIMITED": "Trop de codes essayés. Attends avant de réessayer.",
         "CODE_BUSY": "Une vérification est déjà en cours. Réessaie.",
-        "NO_ROOM": "Aucune salle publique n’a de place pour l’instant. Un invité ne crée pas de salle : réessaie bientôt, ou entre avec un code."
+        "NO_ROOM": "Aucune salle publique n’a de place pour l’instant. Réessaie bientôt, ou entre avec un code."
     }
 },
   signIn: {

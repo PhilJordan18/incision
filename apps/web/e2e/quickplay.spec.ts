@@ -85,6 +85,7 @@ for (const locale of ["fr-CA", "en-US"]) {
     const before = await query("select id from lobbies");
     await seeker.page.getByRole("button", { name: find }).click();
     await expect(seeker.page.getByRole("status").filter({ hasText: noRoom })).toBeVisible();
+    await expect(seeker.page.getByRole("status").filter({ hasText: noRoom })).toBeFocused();
     expect(await query("select id from lobbies")).toEqual(before);
     expect(await membership(seeker.accountId)).toEqual([]);
     await auditEveryLayout(seeker.page, `quickplay-empty-${locale}`);
@@ -123,8 +124,12 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(page.getByRole("radio")).toHaveCount(0);
     await page.getByLabel(/^(Pseudo pour cette salle|Nickname for this room)$/).fill("Mousse");
     await page.getByRole("button", { name: find }).click();
-    await expect(page.getByRole("status").filter({ hasText: /(Un invité ne crée pas de salle|Guests cannot create rooms)/ })).toBeVisible();
+    const empty = page.getByRole("status").filter({ hasText: /^(Aucune salle publique n’a de place pour l’instant\. Réessaie bientôt, ou entre avec un code\.|No public room has a free place right now\. Try again soon, or enter with a code\.)$/ });
+    await expect(empty).toBeVisible();
+    await expect(empty).toBeFocused();
+    await expect(page.getByText(/(Un invité ne crée pas de salle|Guests cannot create rooms)/)).toBeVisible();
     await expect(page.getByRole("link", { name: /^(Voir les salles publiques|See the public rooms)$/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^(Entrer avec un code|Enter with a code)$/ })).toHaveAttribute("href", "/guest");
     expect(await query("select id from lobbies")).toEqual([]);
     await auditEveryLayout(page, `quickplay-guest-empty-${locale}`);
 

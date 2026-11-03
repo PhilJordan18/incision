@@ -68,7 +68,7 @@ const en: Copy = {
     tag: "Matchmaking", title: "A race, right now", submit: "Find a room", pending: "Searching…",
     body: "Joins the fullest public room that still has a place. If there is none, you can create one.",
     noRoom: "No public room has a free place right now.", createPublic: "Create a public room", creating: "Creating…",
-    createNote: "Default settings: English text, 50 words, medium complexity, 30 places. You can change them in the room.",
+    createNote: "Default settings: English text, 50 words, medium complexity, 30 spots. You can change them in the room.",
     goToRoom: "Back to my room {code}",
     errors: {
       ALREADY_IN_ANOTHER_ROOM: "You are already in a room. Leave it before looking for another.",
