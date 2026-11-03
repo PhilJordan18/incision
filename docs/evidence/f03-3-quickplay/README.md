@@ -32,7 +32,7 @@ Branch `feat/03-3-quickplay`, slice C of the night order of 2 November 2026.
   - Without a room, the account gets an empty state and a secondary "Create a public room" action, which goes through the usual creation with the D-19 defaults (30 places, 50 words, medium, interface language, no bonus, no time limit). Nothing is created until it is pressed.
   - A member of another room is told so and linked back to that room.
 - **Guest (`/guest?quickplay=1`).** A visitor without an account is sent here. The page asks for the nickname only: no code, no role. With no room, it shows the empty state, with links to the public rooms and to code entry; a guest never creates a room.
-- **Without JavaScript.** Both quickplay and the offered creation are plain forms.
+- **Without JavaScript.** The account's quickplay and the offered creation are plain forms. Guest entry, quickplay included, still needs JavaScript (see below).
 
 ## Checks
 
@@ -70,16 +70,18 @@ On `8c47aa3` (code head; this evidence commit changes only docs), with Node 24 a
 | 1, `42a5677` | Security | OK, 2 minors | A call that does not send a form is refused; the guest per-IP limit is accepted (see below) |
 | 1, `42a5677` | DBA | OK. Major: a lock timeout ended the whole quickplay | `lock_timeout` → next room, with a test that fails without the fix |
 | 1, `42a5677` | UI/UX | Changes needed. Major: the `[.MATCHMAKING]` tag at about 4.2:1 in Abysse | Halo moved off the tag; focus on the message itself, one ring; guest empty-state copy and code link; EN "30 spots" |
-| 1, `42a5677` | Functional QA | RESULT_QA | — |
 | 2, `236ca3b` | Code reviewer, targeted | Changes needed: the guest form kept the quickplay empty state when the link led to code entry on the same route | The form is keyed on the mode; E2E follows the link and checks a fresh code field |
 | 2, `7227a9c` | UI/UX, targeted | Changes needed: the halo still lowered the tag to 4.45:1 at 1024 and 360 px | Halo at `85% 100%` (`8c47aa3`); measured in a browser at 4.59:1 (Abysse) and 5.72:1 (Aube) at every width, initial and empty states. Not re-reviewed by the sub-agent after this fix |
+| 2, `8c47aa3` | Functional QA (Fable) | OK, 2 minors (kept, see below). Repository spec 9/9; non-regression specs (public list, code, invitations, moderation, guests, visibility, capacity) 46/46; own two-browser flows: order and tie on age, bots/spectators/departed, PRIVATE/racing/countdown/hostless never chosen, last-place race, live updates, bans (account and guest), nickname taken, guest without session, keyboard, 390/360 px | — |
 
-Fable is not available as a tool in this session. Functional QA and UI/UX ran as sub-agents with Playwright and Chromium.
+Functional QA ran as a sub-agent on the Fable model (as for slice A). Round 1 of functional QA, on the default model, was interrupted before it reported, so it is not counted. The other reviews ran as sub-agents on the default model, with Playwright and Chromium where a browser was needed.
 
 Accepted, not changed here:
 - **10 candidates.** If 10 rooms in a row are lost to other requests, the answer is "no room" or "nickname taken", although more rooms may exist. Nothing is created automatically, so D-05 holds.
 - **Copied rule.** The participant count and the admitting phases are written in the query, as in the public list. Factoring them would touch files outside this slice.
 - **Guest quickplay** is limited per guest session (10 a minute), not per address. The work per request is bounded, and quickplay enumerates no secret.
+- **An empty search counts.** A quickplay that finds no room still counts against the 10 room changes a minute, so a person who searches 10 times in a minute must wait before using the offered creation. Only "already in a room" gives the attempt back, as when joining by code: the limit is what bounds the searches an account can make. (Functional QA, minor.)
+- **Guest quickplay needs JavaScript**, like every guest entry: the guest cookie is protected by a lock shared between tabs (pre-existing design). The page says so and disables the button. The account card and the offered creation work without JavaScript. (Functional QA, minor.)
 - **A banned guest** can reset the cookie and come back in a new session. This predates the card, comes from the AUTH-02 design, and applies to every way of joining.
 
 **For a product decision (Philippe):**
