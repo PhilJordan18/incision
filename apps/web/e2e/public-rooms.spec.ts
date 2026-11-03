@@ -58,7 +58,9 @@ for (const locale of ["fr-CA", "en-US"]) {
     const watcher = await visitor(browser, locale);
     await watcher.goto("/rooms");
     await expect(watcher.getByText(/^(La liste se met à jour en direct\.|The list updates live\.)$/)).toBeVisible();
-    await expect(watcher.getByText(/^(Aucune salle publique ouverte pour l’instant\.|No public room is open right now\.)$/)).toBeVisible();
+    // The hook above deletes rooms in SQL, which no event announces: the feed's 15 s refresh
+    // catches it, as it does for changes made by another process.
+    await expect(watcher.getByText(/^(Aucune salle publique ouverte pour l’instant\.|No public room is open right now\.)$/)).toBeVisible({ timeout: 20_000 });
 
     const host = await account(browser, "Julie Explorer", locale);
     const hidden = await account(browser, "Hidden host", locale);

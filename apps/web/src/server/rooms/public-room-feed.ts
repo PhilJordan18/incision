@@ -37,6 +37,8 @@ export class PublicRoomFeed {
   private rooms: readonly PublicRoomEntry[] | undefined;
   /** The list as last sent to watchers: a read for a new watcher must not hide a change from them. */
   private published: string | undefined;
+  /** A watcher was given a list other than `published`: the next read is sent even if it equals it. */
+  private diverged = false;
   private loadedAt = Number.NEGATIVE_INFINITY;
   private stale = true;
   private loading: Promise<readonly PublicRoomEntry[]> | undefined;
@@ -65,8 +67,11 @@ export class PublicRoomFeed {
     let list = this.rooms;
     if (list === undefined || age >= this.refreshMs || (this.stale && age >= this.throttleMs)) list = await this.read();
     else if (this.stale) this.plan();
-    // The first list given out is what the watchers hold until a broadcast changes it.
-    this.published ??= JSON.stringify(list);
+    // The first list given out is what the watchers hold until a broadcast changes it. A later
+    // list that differs leaves watchers holding two versions: the next read goes to everyone.
+    const serialized = JSON.stringify(list);
+    if (this.published === undefined) this.published = serialized;
+    else if (serialized !== this.published) { this.diverged = true; this.plan(); }
     this.keepRefreshing();
     return list;
   }
@@ -108,8 +113,9 @@ export class PublicRoomFeed {
       return;
     }
     const serialized = JSON.stringify(rooms);
-    if (this.stopped || serialized === this.published) return;
+    if (this.stopped || (serialized === this.published && !this.diverged)) return;
     this.published = serialized;
+    this.diverged = false;
     this.options.publish(rooms);
   }
 

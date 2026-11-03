@@ -89,6 +89,29 @@ describe("PublicRoomFeed (JOIN-02)", () => {
     expect(publish.mock.calls[0]?.[0]).toMatchObject([{ participants: 2 }]);
   });
 
+  it("sends a change back to the old list when a new watcher was given another one", async () => {
+    let participants = 1;
+    const { feed, publish, advance, state } = harness(() => [room({ participants })]);
+    await feed.current();
+    // Nobody watches while the room changes: no read, no broadcast.
+    state.watched = false;
+    participants = 2;
+    feed.changed();
+    await advance(20_000);
+    // A new watcher gets the new list; then the room goes back to the first one.
+    state.watched = true;
+    await expect(feed.current()).resolves.toMatchObject([{ participants: 2 }]);
+    participants = 1;
+    feed.changed();
+    await advance(1_000);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish.mock.calls[0]?.[0]).toMatchObject([{ participants: 1 }]);
+    // Everyone holds the same list again: an unchanged read is not sent.
+    feed.changed();
+    await advance(1_000);
+    expect(publish).toHaveBeenCalledTimes(1);
+  });
+
   it("serves a list read less than the throttle ago, so visitors cannot force reads", async () => {
     let participants = 1;
     const { feed, load, publish, advance } = harness(() => [room({ participants })]);
