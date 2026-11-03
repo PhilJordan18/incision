@@ -1,5 +1,5 @@
 import { parseGuestNickname, type HumanSubject } from "@incision/domain";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { sqlStateOf, uniqueViolationOf } from "../errors";
 import { readGuestSession, type GuestSessionProof } from "../identity/guest-sessions";
@@ -15,7 +15,8 @@ export type QuickplayCandidate = { readonly id: string; readonly code: string };
 
 /**
  * Public rooms a subject could enter as a participant now (JOIN-03, D-05): open to admission
- * (waiting or results), a free place counting bots, and no ban of this subject. Fewest free
+ * (waiting or results), a host (as in the public list), a free place counting bots, and no ban
+ * of this subject. Fewest free
  * places first, then the oldest room, then the id. A plain read: every condition is checked
  * again under the room lock at admission.
  */
@@ -33,6 +34,7 @@ export async function quickplayCandidates(db: Queryable, subject: HumanSubject, 
     .where(and(
       eq(lobbies.visibility, "public"),
       inArray(lobbies.phase, ["waiting", "results"]),
+      isNotNull(lobbies.hostMemberId),
       sql`${participants} < ${lobbies.capacity}`,
       sql`not ${banned}`,
     ))
@@ -93,10 +95,10 @@ export async function quickplayGuest(db: Database, input: { readonly proof: Gues
   }, READ_COMMITTED));
 }
 
-/** Locks the room only while it is still public; READ COMMITTED rechecks it after a lock wait. */
+/** Locks the room only while it is still public and hosted; READ COMMITTED rechecks it after a lock wait. */
 async function lockPublicRoom(tx: Transaction, id: string) {
   const [lobby] = await tx.select({ id: lobbies.id, phase: lobbies.phase, capacity: lobbies.capacity })
-    .from(lobbies).where(and(eq(lobbies.id, id), eq(lobbies.visibility, "public"))).for("update");
+    .from(lobbies).where(and(eq(lobbies.id, id), eq(lobbies.visibility, "public"), isNotNull(lobbies.hostMemberId))).for("update");
   return lobby;
 }
 

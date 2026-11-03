@@ -112,6 +112,15 @@ describe("quickplay candidates (JOIN-03, D-05)", () => {
     expect(ids).toEqual([first, second].sort());
   });
 
+  it("skips a room without a host, as the public list does", async () => {
+    const hostless = await room("AAAAAA", "public", { capacity: 2, age: 10 });
+    const hosted = await room("BBBBBB", "public", { capacity: 30, age: 20 });
+    await pool.query("update lobbies set host_member_id = null where id = $1", [hostless]);
+    const seeker = await account("Seeker");
+    expect(await quickplayCandidates(db, subjectOf(seeker))).toEqual([expect.objectContaining({ id: hosted })]);
+    expect(await quickplayAccount(db, seeker)).toMatchObject({ ok: true, lobbyId: hosted });
+  });
+
   it("skips a room that banned this subject, and only for this subject", async () => {
     const tight = await room("AAAAAA", "public", { capacity: 2 });
     const roomy = await room("BBBBBB", "public", { capacity: 30 });

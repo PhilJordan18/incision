@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  account: vi.fn(), guestPlay: vi.fn(), session: vi.fn(), guest: vi.fn(), cookie: vi.fn(), allow: vi.fn(), notify: vi.fn(), enabled: vi.fn(),
+  account: vi.fn(), guestPlay: vi.fn(), session: vi.fn(), guest: vi.fn(), cookie: vi.fn(), allow: vi.fn(), forgive: vi.fn(), notify: vi.fn(), enabled: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect ${path}`); } }));
 vi.mock("@incision/database", () => ({ quickplayAccount: mocks.account, quickplayGuest: mocks.guestPlay, describeDatabaseError: () => "db" }));
@@ -9,7 +9,7 @@ vi.mock("../auth/session", () => ({ getAccountSession: mocks.session }));
 vi.mock("../auth/store", () => ({ authDatabase: () => ({}) }));
 vi.mock("../identity/guest-entry-switch", () => ({ guestEntryEnabled: mocks.enabled }));
 vi.mock("../identity/guest-request", () => ({ requestGuest: mocks.guest, refreshGuestActionCookie: mocks.cookie }));
-vi.mock("./room-change-limiter", () => ({ allowRoomChange: mocks.allow }));
+vi.mock("./room-change-limiter", () => ({ allowRoomChange: mocks.allow, forgiveRoomChange: mocks.forgive }));
 vi.mock("./room-events", () => ({ notifyRoomChanged: mocks.notify }));
 import { guestQuickplayAction, quickplayAction } from "./quickplay-actions";
 
@@ -37,8 +37,11 @@ describe("quickplayAction (JOIN-03)", () => {
   it("offers creation without creating anything, and keeps the current room", async () => {
     mocks.account.mockResolvedValue({ ok: false, error: "NO_ROOM" });
     expect(await quickplayAction()).toEqual({ error: "NO_ROOM" });
+    expect(mocks.forgive).not.toHaveBeenCalled();
     mocks.account.mockResolvedValue({ ok: false, error: "ALREADY_IN_ANOTHER_ROOM", currentCode: "BBBBBB" });
     expect(await quickplayAction()).toEqual({ error: "ALREADY_IN_ANOTHER_ROOM", currentCode: "BBBBBB" });
+    // Nothing changed for a member of another room: the attempt is given back.
+    expect(mocks.forgive).toHaveBeenCalledExactlyOnceWith("real");
     mocks.account.mockResolvedValue({ ok: false, error: "ACCOUNT_NOT_FOUND" });
     expect(await quickplayAction()).toEqual({ error: "UNAVAILABLE" });
     expect(mocks.notify).not.toHaveBeenCalled();

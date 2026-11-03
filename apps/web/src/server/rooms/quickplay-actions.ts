@@ -8,7 +8,7 @@ import { authDatabase } from "../auth/store";
 import { guestEntryEnabled } from "../identity/guest-entry-switch";
 import { refreshGuestActionCookie, requestGuest } from "../identity/guest-request";
 import type { GuestAdmissionState } from "./guest-admission-action";
-import { allowRoomChange } from "./room-change-limiter";
+import { allowRoomChange, forgiveRoomChange } from "./room-change-limiter";
 import { notifyRoomChanged } from "./room-events";
 
 export type QuickplayError = "NO_ROOM" | "ALREADY_IN_ANOTHER_ROOM" | "RATE_LIMITED" | "UNAVAILABLE";
@@ -33,7 +33,11 @@ export async function quickplayAction(): Promise<QuickplayState> {
   }
   if (!result.ok) {
     if (result.error === "NO_ROOM") return { error: "NO_ROOM" };
-    if (result.error === "ALREADY_IN_ANOTHER_ROOM") return { error: result.error, currentCode: result.currentCode };
+    if (result.error === "ALREADY_IN_ANOTHER_ROOM") {
+      // Nothing changed: the attempt is given back, as when joining by code.
+      forgiveRoomChange(session.accountId);
+      return { error: result.error, currentCode: result.currentCode };
+    }
     // ACCOUNT_NOT_FOUND: an account deleted meanwhile; its session is refused on the next request.
     return { error: "UNAVAILABLE" };
   }
