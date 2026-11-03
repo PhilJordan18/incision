@@ -12,7 +12,7 @@ type Copy = {
 
 /** SALLE-03's three visibilities, in the brief's words (D-15): the design's "Privée · code" is "Sur code". */
 const fr: Copy = {
-  title: "Visibilité de la salle", legend: "Accès", current: "Visibilité", edit: "Modifier la visibilité",
+  title: "Visibilité de la salle", legend: "Accès", current: "Visibilité\u00a0:", edit: "Modifier la visibilité",
   save: "Enregistrer la visibilité", cancel: "Annuler", reload: "Actualiser la salle",
   disconnected: "Reconnecte-toi avant de modifier la visibilité.", saved: "Visibilité enregistrée.",
   waiting: "En attente de la mise à jour de la salle…",
@@ -30,7 +30,7 @@ const fr: Copy = {
   },
 };
 const en: Copy = {
-  title: "Room visibility", legend: "Access", current: "Visibility", edit: "Edit visibility",
+  title: "Room visibility", legend: "Access", current: "Visibility:", edit: "Edit visibility",
   save: "Save visibility", cancel: "Cancel", reload: "Refresh room",
   disconnected: "Reconnect before changing visibility.", saved: "Visibility saved.",
   waiting: "Waiting for the room update…",

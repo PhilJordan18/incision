@@ -53,7 +53,7 @@ export function RoomVisibilityPanel({ code, visibility, revision, host, guest, l
   return <section className={`${card} flex flex-col gap-4`} aria-labelledby={`${id}-title`}>
     <h2 id={`${id}-title`} className={monoLabel}>{t.title}</h2>
     <div aria-live="polite">
-      <p><span className="text-brume">{t.current} : </span><strong className="font-semibold">{t.choices[visibility].label}</strong></p>
+      <p><span className="text-brume">{t.current} </span><strong className="font-semibold">{t.choices[visibility].label}</strong></p>
       <p className="text-sm text-embrun">{t.choices[visibility].body}</p>
     </div>
     {host && <button ref={edit} type="button" className={`${discreetButton} self-start`} disabled={!enabled || draft !== null}

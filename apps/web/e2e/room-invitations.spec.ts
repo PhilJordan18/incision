@@ -18,11 +18,11 @@ for (const locale of ["fr-CA", "en-US"]) test(`invitation lifecycle, privacy and
   const member = await account(browser, "Member", locale);
   const other = await account(browser, "Other", locale);
   await host.goto("/rooms/new");
+  await host.getByRole("radio", { name: /^(Privée|Private)$/ }).check();
   await host.getByRole("button", { name: /^(Ouvrir la salle|Open the room)$/ }).click();
   await expect(host.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
   const code = host.url().split("/").at(-1)!;
-  // PRIVATE creation controls belong to L1; this fixture isolates invitation admission.
-  await query("update lobbies set visibility='private' where code=$1", [code]);
+  expect(await query("select visibility from lobbies where code=$1", [code])).toEqual([{ visibility: "private" }]);
   const panel = host.getByRole("region", { name: "Invitations", exact: true });
   await expect(panel).toHaveCount(1);
   const generate = panel.getByRole("button", { name: /^(Générer une invitation|Generate an invitation)$/ });
