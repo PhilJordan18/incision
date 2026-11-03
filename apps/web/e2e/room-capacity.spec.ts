@@ -15,6 +15,8 @@ async function applySystemTheme(page: Page, colorScheme: "light" | "dark"): Prom
 
 for (const locale of ["fr-CA", "en-CA"]) {
   test(`host capacity persists and refuses invalid bounds (${locale})`, async ({ browser }) => {
+    // Sixteen axe audits and full-page captures of a room that now also shows its visibility.
+    test.slow();
     const [row] = await query<{ id: string; session_version: number }>("insert into accounts (display_name) values ('Capacity host') returning id, session_version");
     if (!row) throw new Error("No fixture account");
     const context = await browser.newContext({ locale, reducedMotion: "reduce" });
