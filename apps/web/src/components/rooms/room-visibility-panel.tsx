@@ -22,6 +22,10 @@ export function RoomVisibilityPanel({ code, visibility, revision, host, guest, l
   const focusChoice = useCallback((element: HTMLFormElement | null) => {
     element?.querySelector<HTMLInputElement>("input[type=radio]:checked")?.focus();
   }, []);
+  // A refused save disables the form under the focus: the way out (refresh) takes it.
+  const focusRefresh = useCallback((element: HTMLButtonElement | null) => {
+    if (element !== null && document.activeElement === document.body) element.focus();
+  }, []);
   const busy = useRef(false);
   const [draft, setDraft] = useState<{ visibility: RoomVisibility; revision: number } | null>(null);
   const [answer, setAnswer] = useState<VisibilityActionState>({});
@@ -37,7 +41,7 @@ export function RoomVisibilityPanel({ code, visibility, revision, host, guest, l
   }, [draft, enabled]);
   function reset() { restoreFocus.current = true; setDraft(null); setAnswer({}); }
   function save() {
-    if (!enabled || conflict || draft === null || busy.current) return;
+    if (!enabled || conflict || draft === null || draft.visibility === visibility || busy.current) return;
     const form = new FormData();
     form.set("code", code); form.set("revision", String(draft.revision)); form.set("visibility", draft.visibility);
     busy.current = true;
@@ -63,12 +67,12 @@ export function RoomVisibilityPanel({ code, visibility, revision, host, guest, l
       <VisibilityChoices locale={locale} name={`${id}-visibility`} value={draft.visibility} disabled={!enabled || conflict}
         describedBy={`${id}-stay`} onChange={(next) => setDraft({ ...draft, visibility: next })} />
       <p id={`${id}-stay`} className="text-sm text-brume">{t.membersStay}</p>
-      <div className="flex flex-wrap gap-3"><button type="submit" className={secondaryButton} disabled={!enabled || conflict}>{t.save}</button>
+      <div className="flex flex-wrap gap-3"><button type="submit" className={secondaryButton} disabled={!enabled || conflict || draft.visibility === visibility}>{t.save}</button>
         <button type="button" className={discreetButton} disabled={pending} onClick={reset}>{t.cancel}</button></div>
     </form>}
     {(conflict || answer.error !== undefined) && <p role="alert" className="text-erreur">⚠ {t.errors[answer.error ?? "STALE_REVISION"]}</p>}
     {answer.revision !== undefined && <p role="status">{awaiting ? t.waiting : t.saved}</p>}
-    {(conflict || answer.error !== undefined || awaiting) && <button type="button" className={`${discreetButton} self-start`} disabled={pending}
+    {(conflict || answer.error !== undefined || awaiting) && <button ref={focusRefresh} type="button" className={`${discreetButton} self-start`} disabled={pending}
       onClick={() => { reset(); refresh(); }}>{t.reload}</button>}
   </section>;
 }

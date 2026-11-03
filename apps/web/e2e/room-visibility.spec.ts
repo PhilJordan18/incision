@@ -45,6 +45,8 @@ const label = { private: /^(Privée|Private)$/, code: /^(Sur code|By code)$/, pu
 
 for (const locale of ["fr-CA", "en-US"]) {
   test(`host picks and changes visibility; PRIVATE refuses the code alone (${locale})`, async ({ browser }) => {
+    // Two pages, twelve axe audits and full-page captures: longer than the default budget.
+    test.slow();
     const host = await account(browser, "Visibility host", locale);
     const member = await account(browser, "Visibility member", locale);
     const outsider = await account(browser, "Visibility outsider", locale);

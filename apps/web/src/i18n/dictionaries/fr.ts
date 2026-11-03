@@ -144,7 +144,7 @@ export const fr = {
     newTitle: "Créer une salle",
     newHeadingBold: "Préparer la",
     newHeadingSerif: "traversée",
-    newIntro: "Tu deviens l’hôte. Les autres te rejoignent avec le code de 6 caractères.",
+    newIntro: "Tu deviens l’hôte. Choisis qui peut entrer.",
     participate: "Je participe à la course (sinon : spectateur)",
     create: "Ouvrir la salle",
     creating: "Ouverture…",
