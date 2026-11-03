@@ -14,6 +14,7 @@ import {
   type MemberRole,
   type RoomCode,
   type RoomPhase,
+  type RoomVisibility,
 } from "@incision/domain";
 import { and, asc, count, eq, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../client";
@@ -88,6 +89,8 @@ export type RoomSnapshot = {
   readonly code: string;
   readonly phase: RoomPhase;
   readonly capacity: number;
+  /** Who may enter next (SALLE-03); members see it, nothing outside the room does. */
+  readonly visibility: RoomVisibility;
   /** Increases with every change of membership: clients keep the newest snapshot. */
   readonly revision: number;
   /** Active members, oldest first. */
@@ -109,6 +112,7 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
       code: lobbies.code,
       phase: lobbies.phase,
       capacity: lobbies.capacity,
+      visibility: lobbies.visibility,
       revision: lobbies.revision,
       hostMemberId: lobbies.hostMemberId,
       memberId: lobbyMembers.id,
@@ -148,6 +152,7 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
     code: lobby.code,
     phase: lobby.phase,
     capacity: lobby.capacity,
+    visibility: lobby.visibility,
     revision: lobby.revision,
     members,
     bots: lobby.bots,

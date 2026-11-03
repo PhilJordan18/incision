@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptsRoomCode, capacityRefusal, isPublicRoom, ROOM_VISIBILITIES } from "./room-access";
+import { acceptsRoomCode, capacityRefusal, DEFAULT_CREATED_ROOM_VISIBILITY, isPublicRoom, isRoomVisibility, ROOM_VISIBILITIES } from "./room-access";
 
 describe("room capacity (SALLE-05, CONF-11)", () => {
   it.each([Number.NaN, Infinity, -Infinity, -1, 0, 1, 2.5, 30.1, 31])("refuses invalid capacity %s", (capacity) => {
@@ -30,5 +30,18 @@ describe("visibility policy (SALLE-03)", () => {
 
   it("exposes only public rooms for discovery", () => {
     expect(ROOM_VISIBILITIES.filter(isPublicRoom)).toEqual(["public"]);
+  });
+});
+
+describe("visibility values (CONF-11, D-19)", () => {
+  it("creates rooms by code unless the host picks another visibility", () => {
+    expect(DEFAULT_CREATED_ROOM_VISIBILITY).toBe("code");
+  });
+
+  it("recognises exactly the three visibilities", () => {
+    for (const visibility of ROOM_VISIBILITIES) expect(isRoomVisibility(visibility)).toBe(true);
+    for (const value of ["PUBLIC", "Private", "", " code", "invite", null, undefined, 1, ["code"]]) {
+      expect(isRoomVisibility(value)).toBe(false);
+    }
   });
 });

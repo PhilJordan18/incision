@@ -4,6 +4,13 @@ import { ROOM_MAX_CAPACITY } from "./room-admission";
 export const ROOM_VISIBILITIES = ["public", "code", "private"] as const;
 export type RoomVisibility = (typeof ROOM_VISIBILITIES)[number];
 
+/** D-19: a room created from the form starts "by code"; the host may pick another (CONF-11). */
+export const DEFAULT_CREATED_ROOM_VISIBILITY: RoomVisibility = "code";
+
+export function isRoomVisibility(value: unknown): value is RoomVisibility {
+  return typeof value === "string" && (ROOM_VISIBILITIES as readonly string[]).includes(value);
+}
+
 export const ROOM_MIN_CAPACITY = 2;
 
 export type CapacityRefusal = "INVALID_CAPACITY" | "CAPACITY_BELOW_OCCUPANCY";
