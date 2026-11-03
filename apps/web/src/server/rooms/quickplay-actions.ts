@@ -44,6 +44,8 @@ export async function quickplayAction(): Promise<QuickplayState> {
 /** Quickplay for a guest (JOIN-03): always as a participant, with the nickname typed for it. */
 export async function guestQuickplayAction(form: FormData): Promise<GuestAdmissionState> {
   if (!guestEntryEnabled()) return { error: "UNAVAILABLE" };
+  // A hand-made action call can send anything: refuse it instead of throwing.
+  if (!(form instanceof FormData)) return { error: "INVALID_GUEST_NICKNAME" };
   const nickname = guestStartSchema.safeParse({ nickname: form.get("nickname") });
   if (!nickname.success) return { error: "INVALID_GUEST_NICKNAME" };
   try {

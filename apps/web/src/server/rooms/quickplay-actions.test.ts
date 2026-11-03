@@ -62,6 +62,7 @@ describe("guestQuickplayAction (JOIN-03)", () => {
     mocks.enabled.mockReturnValueOnce(false);
     expect(await guestQuickplayAction(nickname())).toEqual({ error: "UNAVAILABLE" });
     expect(await guestQuickplayAction(nickname("x"))).toEqual({ error: "INVALID_GUEST_NICKNAME" });
+    expect(await guestQuickplayAction({ nickname: "Mousse" } as unknown as FormData)).toEqual({ error: "INVALID_GUEST_NICKNAME" });
     mocks.guest.mockResolvedValueOnce(undefined);
     expect(await guestQuickplayAction(nickname())).toEqual({ error: "UNAUTHORIZED" });
     mocks.allow.mockReturnValueOnce(false);
