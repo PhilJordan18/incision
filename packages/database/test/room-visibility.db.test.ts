@@ -37,6 +37,16 @@ afterEach(async () => {
 });
 afterAll(async () => { await pool?.end(); await database?.drop(); });
 
+async function waitForLockWaiter(): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const { rows } = await pool.query<{ waiting: number }>(
+      "select count(*)::int as waiting from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'");
+    if ((rows[0]?.waiting ?? 0) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("The code join never waited on the lobby lock");
+}
+
 async function account(name: string): Promise<string> {
   const result = await pool.query<{ id: string }>("insert into accounts (display_name) values ($1) returning id", [name]);
   return result.rows[0]!.id;
@@ -207,8 +217,11 @@ describe("host visibility changes under the room lock (CONF-11)", () => {
     try {
       await holder.query("begin");
       await holder.query("select id from lobbies where id=$1 for update", [lobbyId]);
-      const waiting = joinRoomByCode(db, { accountId: await account("Waiting"), code, role: "participant" });
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      const waiter = await account("Waiting");
+      const waiting = joinRoomByCode(db, { accountId: waiter, code, role: "participant" });
+      // Prove the join is blocked on the row lock before the switch commits, so the
+      // READ COMMITTED recheck is what refuses it (not a late read of the private row).
+      await waitForLockWaiter();
       await holder.query("update lobbies set visibility='private', revision=revision+1 where id=$1", [lobbyId]);
       await holder.query("commit");
       expect(await waiting).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
