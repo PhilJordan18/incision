@@ -28,7 +28,7 @@ export function QuickplayCard({ t }: { readonly t: Copy }) {
 
   return (
     <section aria-labelledby="quickplay-title"
-      className="flex flex-col gap-3.5 rounded-carte border border-ligne bg-nuit bg-[radial-gradient(ellipse_70%_80%_at_85%_0%,color-mix(in_srgb,var(--color-ligne)_16%,transparent),transparent_70%)] p-6">
+      className="flex flex-col gap-3.5 rounded-carte border border-ligne bg-nuit bg-[radial-gradient(ellipse_70%_80%_at_85%_100%,color-mix(in_srgb,var(--color-ligne)_16%,transparent),transparent_70%)] p-6">
       <span className={`${monoLabel} text-ligne`}>[.{t.tag}]</span>
       <h2 id="quickplay-title" className="text-xl font-bold text-ecume">{t.title}</h2>
       <p className="text-sm leading-relaxed text-brume">{t.body}</p>
