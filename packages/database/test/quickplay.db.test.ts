@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { parseRoomCode, ROOM_CODE_ALPHABET, type RoomCode, type RoomVisibility } from "@incision/domain";
 import pg from "pg";
+import { sqlStateOf } from "../src/errors";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../src/client";
 import { createGuestSession } from "../src/identity/guest-sessions";
@@ -190,6 +191,27 @@ describe("quickplay admission (JOIN-03, D-05)", () => {
       await pool.query("delete from lobbies");
     }
   });
+
+  it("moves on when a room stays locked past lock_timeout, and reports contention when every room does", async () => {
+    const tight = await room("AAAAAA", "public", { capacity: 2, age: 10 });
+    const roomy = await room("BBBBBB", "public", { capacity: 30, age: 20 });
+    const holder = await pool.connect();
+    try {
+      await holder.query("begin");
+      await holder.query("select id from lobbies where id=$1 for update", [tight]);
+      expect(await quickplayAccount(db, await account("Patient"))).toMatchObject({ ok: true, lobbyId: roomy });
+      await holder.query("select id from lobbies where id=$1 for update", [roomy]);
+      // Every candidate is busy: not NO_ROOM (that would offer to create a room), but the lock error.
+      const failure = await quickplayAccount(db, await account("Unlucky")).then(() => undefined, (error: unknown) => error);
+      expect(sqlStateOf(failure)).toBe("55P03");
+      const guestFailure = await quickplayGuest(db, { proof: await guest(), nickname: "Mousse" }).then(() => undefined, (error: unknown) => error);
+      expect(sqlStateOf(guestFailure)).toBe("55P03");
+    } finally {
+      await holder.query("rollback");
+      holder.release();
+    }
+    expect(await participants(tight)).toBe(1);
+  }, 30_000);
 
   it("refuses a ban added after the candidate list and tries the next room", async () => {
     const tight = await room("AAAAAA", "public", { capacity: 2, age: 10 });

@@ -1,7 +1,7 @@
 import { parseGuestNickname, type HumanSubject } from "@incision/domain";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { uniqueViolationOf } from "../errors";
+import { sqlStateOf, uniqueViolationOf } from "../errors";
 import { readGuestSession, type GuestSessionProof } from "../identity/guest-sessions";
 import { lobbies } from "../schema";
 import { boundedTransaction, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
@@ -39,6 +39,9 @@ export async function quickplayCandidates(db: Queryable, subject: HumanSubject, 
     .orderBy(sql`${lobbies.capacity} - ${participants}`, asc(lobbies.createdAt), asc(lobbies.id))
     .limit(Math.max(1, Math.min(QUICKPLAY_MAX_ATTEMPTS, Math.trunc(limit))));
 }
+
+/** PostgreSQL's lock_not_available: the room lock was held past `lock_timeout` (2 s). */
+const LOCK_TIMEOUT = "55P03";
 
 /** Refusals that only concern one candidate: the next one is tried (D-05). */
 const NEXT_CANDIDATE = new Set(["ROOM_NOT_FOUND", "ROOM_FULL", "ROOM_NOT_ADMITTING", "NICKNAME_TAKEN"]);
@@ -102,12 +105,24 @@ async function tryCandidates<R extends { readonly ok: boolean; readonly error?: 
   admit: (candidate: QuickplayCandidate) => Promise<R>,
 ): Promise<(R & { readonly code: string }) | Exclude<R, { readonly ok: true }> | { readonly ok: false; readonly error: "NO_ROOM" }> {
   let nicknameTaken: Exclude<R, { readonly ok: true }> | undefined;
+  let busy: unknown;
   for (const candidate of candidates) {
-    const result = await admit(candidate);
+    let result: R;
+    try {
+      result = await admit(candidate);
+    } catch (error: unknown) {
+      // Another admission held this room too long: contention, so the next room is tried (D-05).
+      if (sqlStateOf(error) !== LOCK_TIMEOUT) throw error;
+      busy ??= error;
+      continue;
+    }
     if (result.ok) return { ...result, code: candidate.code };
     if (result.error === undefined || !NEXT_CANDIDATE.has(result.error)) return result as Exclude<R, { readonly ok: true }>;
     if (result.error === "NICKNAME_TAKEN") nicknameTaken ??= result as Exclude<R, { readonly ok: true }>;
   }
+  // A room that stayed locked may still have a place: never answer "no room" (which offers to
+  // create one); the caller reports a temporary unavailability and the person tries again.
+  if (busy !== undefined) throw busy;
   // Every room with a place has this nickname already: say so rather than "no room".
   return nicknameTaken ?? { ok: false, error: "NO_ROOM" };
 }
