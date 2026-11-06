@@ -35,3 +35,13 @@ This does not cover human typing mistakes, reconnect storms, bots, bonuses, mult
 HTTP admission/login traffic, or rendering of the future final track. Those require distinct runs.
 
 PERF-03 remains partial and issue #72 stays open.
+
+## Qualification du 5 novembre 2026
+
+La référence actuelle est [`2026-11-05-local.json`](2026-11-05-local.json), au commit
+`0af453cd70caef6b5b6a66f88778bbdc1d99a741`, après import du corpus versionné réel.
+Le [rapport de qualification](../../../docs/evidence/qualification-2026-11-05/README.md)
+explique la correction, les mesures, les seuils officiels, la différence entre charge
+Socket.IO et rendu navigateur, ainsi que les validations humaines encore attendues.
+La référence du 20 octobre ci-dessus est historique; elle n'est pas une nouvelle
+preuve sur le dev actuel. PERF-03 reste partiel.

@@ -1,0 +1,38 @@
+Command: npm run typecheck
+Source code: 0af453cd70caef6b5b6a66f88778bbdc1d99a741
+
+> @incision/root@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> @incision/web@0.1.0 typecheck
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> @incision/database@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/domain@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/load@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/word-lists@0.1.0 typecheck
+> tsc --noEmit
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
