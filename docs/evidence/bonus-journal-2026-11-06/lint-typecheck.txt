@@ -51,4 +51,3 @@ Generating route types...
 
 > @incision/word-lists@0.1.0 typecheck
 > tsc --noEmit
-

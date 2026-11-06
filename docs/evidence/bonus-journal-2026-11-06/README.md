@@ -28,6 +28,9 @@ avec compte restent anonymisés; les résultats d'une course sans compte, journa
 restent uniquement en mémoire temporaire. Le journal n'est jamais un inventaire public
 pendant la course. Aucun changement d'effet, probabilité, classement, piste ou durée.
 
+Les journaux texte sont normalisés (retours chariot de terminal et espaces de fin
+supprimés), sans changement des messages ni des résultats.
+
 ## Commandes et preuves
 
 Les commandes ont tourné exclusivement sur PostgreSQL 17 local au conteneur cloud,
