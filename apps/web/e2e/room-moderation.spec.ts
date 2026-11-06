@@ -57,6 +57,17 @@ for (const locale of ["fr-CA", "en-CA"]) {
       if (await join.isVisible()) await join.click();
       await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toHaveCount(0);
       expect((await query("select id from lobby_members where account_id=$1 and left_at is null", [targetId]))).toHaveLength(0);
+      // A fresh valid invitation must not bypass the identity ban (SQL coverage alone
+      // cannot prove that the browser action keeps the same authenticated identity).
+      const invitations = page.getByRole("region", { name: "Invitations", exact: true });
+      await invitations.getByRole("button", { name: /^(Générer une invitation|Generate an invitation)$/ }).click();
+      const invitation = invitations.getByLabel(/^(Lien d’invitation|Invitation link)$/);
+      await expect(invitation).toHaveValue(/\/invite#[A-Za-z0-9_-]{43}$/);
+      await member.goto(await invitation.inputValue());
+      await member.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
+      await expect(member.locator('p[role="alert"]')).toBeVisible();
+      await expect(member.locator('p[role="alert"]')).toBeFocused();
+      expect((await query("select id from lobby_members where account_id=$1 and left_at is null", [targetId]))).toHaveLength(0);
       await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
     } finally { await host.close(); await target.close(); }
   });

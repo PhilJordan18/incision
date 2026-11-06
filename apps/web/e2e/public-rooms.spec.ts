@@ -113,7 +113,7 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(watcher.getByText(/^(La liste se met à jour en direct\.|The list updates live\.)$/)).toBeVisible();
   });
 
-  test(`a room leaves the list when it stops being public (${locale})`, async ({ browser }) => {
+  for (const visibility of ["private", "code"] as const) test(`a public room leaves the list when changed to ${visibility} (${locale})`, async ({ browser }) => {
     const watcher = await visitor(browser, locale);
     const host = await account(browser, "Switching host", locale);
     const code = await openRoom(host.page, "public");
@@ -121,7 +121,7 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(row(watcher, code)).toBeVisible();
     const panel = host.page.getByRole("region", { name: /^(Visibilité de la salle|Room visibility)$/ });
     await panel.getByRole("button", { name: /^(Modifier la visibilité|Edit visibility)$/ }).click();
-    await panel.getByRole("radio", { name: label.private }).check();
+    await panel.getByRole("radio", { name: label[visibility] }).check();
     await panel.getByRole("button", { name: /^(Enregistrer la visibilité|Save visibility)$/ }).click();
     await expect(row(watcher, code)).toHaveCount(0);
     await expect(watcher.getByText(code)).toHaveCount(0);
