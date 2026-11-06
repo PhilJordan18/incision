@@ -45,7 +45,7 @@ export async function seedHistory(db: Database, corpus: CheckedCorpus): Promise<
       const results: (typeof raceResults.$inferSelect)[] = simulation.end.results.map((result) => ({
         raceId: id, entrantId: result.entrantId, rank: result.rank, outcome: result.status === "timedOut" ? "timed_out" : result.status,
         elapsedMs: result.elapsed, position: result.position, length: result.length, correctInputs: result.counters.correctInserts,
-        totalInputs: result.counters.totalInserts, ...result.measures, abandonmentReason: result.abandonReason ?? null,
+        bonusJournal: null, totalInputs: result.counters.totalInserts, ...result.measures, abandonmentReason: result.abandonReason ?? null,
       }));
       const [stored] = await tx.select().from(races).where(eq(races.id, id)).for("update");
       if (stored) {

@@ -1,3 +1,4 @@
+import { checkedBonusJournal, type BonusJournal } from "./bonus-journal";
 import { checkTemporaryResults } from "./temporary-results";
 import { randomUUID } from "node:crypto";
 import type { BotLevel, RoomPhase } from "@incision/domain";
@@ -352,6 +353,8 @@ export type RaceResultRow = {
   readonly wpmSeries: ResultWpmSeries;
   /** Absent for older non-live producers. The live runtime always supplies collected data. */
   readonly keyErrors?: StoredKeyErrors;
+  /** Absent for historical/non-live producers; collected empty grants means no bonus. */
+  readonly bonusJournal?: BonusJournal;
   readonly entrantId: string;
   readonly outcome: "finished" | "timed_out" | "abandoned";
   readonly rank: number;
@@ -388,9 +391,13 @@ export async function finalizeRace(db: Database, ownership: RaceOwnership, resul
     if (ended.length === 0) {
       return (await savedBy(tx, ownership)) ? { won: true, alreadyDone: true } : { won: false };
     }
-    const entrants = await tx.select({ id: raceEntrants.id, kind: raceEntrants.kind }).from(raceEntrants).where(eq(raceEntrants.raceId, ownership.raceId));
+    const entrants = await tx.select({ id: raceEntrants.id, kind: raceEntrants.kind, ordinal: raceEntrants.ordinal }).from(raceEntrants).where(eq(raceEntrants.raceId, ownership.raceId));
     if (entrants.length !== results.length) {
       throw new Error("Every entrant needs exactly one result");
+    }
+    const ordinals = entrants.map((entrant) => entrant.ordinal);
+    for (const result of results) {
+      if (result.bonusJournal !== undefined) checkedBonusJournal(result.bonusJournal, ordinals);
     }
     if (!entrants.some((entrant) => entrant.kind === "human") && entrants.some((entrant) => entrant.kind === "guest")) {
       // Approved no-account path: keep fencing/room state in SQL, never metrics,

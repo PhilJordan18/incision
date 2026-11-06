@@ -143,6 +143,8 @@ export const raceResults = pgTable(
   {
     raceId: uuid("race_id").notNull(),
     entrantId: uuid("entrant_id").notNull(),
+    // NULL means an older producer did not collect the journal; never backfilled.
+    bonusJournal: jsonb("bonus_journal").$type<import("../races/bonus-journal").BonusJournal>(),
     outcome: raceOutcome().notNull(),
     rank: smallint().notNull(),
     // 64-bit: the engine's elapsed time and counters are exact however long a race lasts
@@ -167,6 +169,11 @@ export const raceResults = pgTable(
     }).onDelete("cascade"),
     // D-09 makes the ranking a total order.
     unique("race_results_race_rank_unique").on(table.raceId, table.rank),
+    check("race_results_bonus_journal_shape", sql`${table.bonusJournal} is null or
+      coalesce((jsonb_typeof(${table.bonusJournal}) = 'object'
+       and ${table.bonusJournal}->>'version' = '1'
+       and jsonb_typeof(${table.bonusJournal}->'grants') = 'array'
+       and jsonb_array_length(${table.bonusJournal}->'grants') <= 3), false)`),
     check("race_results_rank_positive", sql`${table.rank} >= 1`),
     check("race_results_counts_valid", sql`${table.elapsedMs} >= 0 and ${table.position} >= 0 and ${table.correctInputs} >= 0`),
     check(

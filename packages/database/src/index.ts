@@ -45,3 +45,5 @@ export { readGuestRoom } from "./rooms/guest-room";
 export { guestCommandFence } from "./identity/guest-command-fence";
 export { expelRoomMember, type ExpelRoomMemberResult } from "./rooms/moderation";
 export { createRoomInvitation, revokeRoomInvitation, listRoomInvitations, joinRoomByInvitation, canResumeInvitationMembership } from "./rooms/invitations";
+
+export * from "./races/bonus-journal";

@@ -67,6 +67,15 @@ describe("authoritative bonus runtime", () => {
     for (const forbidden of ["random", "protection", "cursors", "target\"", "typed", "grants"]) expect(announcement).not.toContain(forbidden);
     expect(store.finalizeRace).not.toHaveBeenCalled();
     expect(store.beginRacing).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(120_000);
+    const journal = runtime.resultsForDisplay()?.find((row) => row.entrantId === "actor")?.bonusJournal;
+    expect(journal?.grants).toHaveLength(3);
+    expect(journal?.grants[0]).toEqual({ kind, milestone: 25, activation: {
+      targetOrdinal: kind === "shortenSelf" ? 1 : 2, atMs: 2000,
+    } });
+    expect(journal?.grants.slice(1).every((grant) => grant.activation === undefined)).toBe(true);
+    expect(Object.isFrozen(journal?.grants)).toBe(true);
+    expect(store.finalizeRace).toHaveBeenCalledTimes(1);
   });
 
   it("rejects observers, spectators, other races and suspended owners without consumption", async () => {
@@ -126,6 +135,8 @@ describe("authoritative bonus runtime", () => {
   it("keeps disabled races disabled and does not give an inventory", async () => {
     const { runtime, actor } = await setup("shortenSelf", { enabled: false });
     expect(runtime.activateBonus(actor, command)).toMatchObject({ ok: true, result: { ok: false, reason: "BONUSES_DISABLED" }, self: { grants: [], enabled: false } });
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(runtime.resultsForDisplay()?.every((row) => row.bonusJournal?.grants.length === 0)).toBe(true);
   });
 
   it("refuses out-of-order and conflicting activations without losing the FIFO grant", async () => {
