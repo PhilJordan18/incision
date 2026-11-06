@@ -28,7 +28,11 @@ The Docker test service is not stopped by this harness.
 
 ## What is exercised
 
-1. Apply the real migrations to a fresh local database.
+1. Apply the real migrations to a fresh local database, then check and import the pinned
+   `packages/database/corpus/2026-10-25.4/` through the project's normal corpus importer.
+   Record its version, checksum and the passage actually saved in the race. No fixed-text
+   fallback is enabled; `TEXTS_UNAVAILABLE` still fails the run. This local import does
+   not imply editorial acceptance or permission to import into production.
 2. Create 50 synthetic accounts, generate local Auth.js session cookies with a fresh secret, and
    create/join the room through the real database membership functions. This **does not measure
    HTTP admission, password login or OAuth**. There are no real users or credentials.
@@ -57,6 +61,10 @@ bot profiles, bonuses, multiple rooms and admission bursts are separate scenario
 - Per-client counts and summaries prevent aggregate percentiles from hiding a missing spectator.
 - Machine, Node, SHA, dirty state and build ID identify the measured environment. Client and server
   share a computer, so results are a local baseline, not a capacity certification.
+- Official scope: `SALLE-05` permits 2–30 participants, and D-22 adds at most 20 spectators.
+  These 50 simultaneous connections are **30 racing participants**, not 50 racers. D-15
+  separately asks for readability up to 50 drawn runners as a visual safety margin.
+  `PERF-03` requires a smooth track at maximum capacity; it specifies no numeric RTT/FPS threshold.
 - No latency target has been approved. Report measured values; do not invent a pass threshold.
   The executable gate asserts functional coverage, not an undocumented latency SLA.
 - A clean final run and its summarized evidence are committed separately; raw reports contain no
