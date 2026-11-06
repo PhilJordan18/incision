@@ -60,12 +60,13 @@ it.each([
       const rows = (await pool.query(`select * from ${table}`)).rows;
       // 0013 adds this nullable column; its explicit expected value is not data loss.
       if (table === "lobby_members" && predecessor === "0012_third_human_cannonball") return rows.map((row) => ({ ...row, guest_session_id: null }));
+      // 0020 adds an explicitly uncollected journal, without changing historical metrics.
+      if (table === "race_results") return rows.map((row) => ({ ...row, bonus_journal: null }));
       // 0016 and 0017 add the text settings and bonuses with D-19's defaults: existing rooms keep running the same texts, in training.
       return table === "lobby_settings" ? rows.map((row) => ({ ...row, ...D19_TEXT_COLUMNS })) : rows;
     }));
-    const before = await readRaceForEntrant(db, race, account);
     const stats = await readAccountStatistics(db, account);
-    const resultRows = (await pool.query("select * from race_results")).rows;
+    const resultRows = (await pool.query("select * from race_results")).rows.map((row) => ({ ...row, bonus_journal: null }));
     const settings = (await pool.query("select * from lobby_settings")).rows.map((row) => ({ ...row, ...D19_TEXT_COLUMNS }));
     const photos = (await pool.query("select * from profile_photos")).rows;
     expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: journal.entries.length - entries.length });
@@ -73,7 +74,10 @@ it.each([
     expect(storedAfter).toEqual(storedBefore);
     expect((await pool.query("select * from lobby_settings")).rows).toEqual(settings);
     expect((await pool.query("select * from profile_photos")).rows).toEqual(photos);
-    expect(await readRaceForEntrant(db, race, account)).toEqual(before);
+    // The new reader requires additive migration 0020. Raw rows above prove preservation
+    // across the upgrade; this projection is the baseline for subsequent guest cleanup.
+    const before = await readRaceForEntrant(db, race, account);
+    expect(before?.entrants[0]?.result?.bonusJournal).toBeUndefined();
     expect(await readAccountStatistics(db, account)).toEqual(stats);
     expect((await pool.query("select * from race_results")).rows).toEqual(resultRows);
     expect((await pool.query("select account_id,guest_session_id from lobby_members")).rows).toEqual([{ account_id: account, guest_session_id: null }]);
