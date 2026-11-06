@@ -4,6 +4,17 @@ Quatrième version réelle du corpus du mode cohérent (CONF-03, D-21). Elle rep
 
 **Statut : en étude.** Ces fichiers sont des données préparées : aucune course ne les tire encore, et aucun import en production n'a lieu avant que j'accepte cette version (D-21). Le format, les contrôles du moteur et l'import sur des bases locales jetables sont vérifiés (voir « Contrôles »).
 
+## Mise au point documentaire — 6 novembre 2026
+
+Cette note complète le registre historique sans modifier les fichiers de données ni attribuer une nouvelle lecture à Philippe.
+
+- **Sélection déléguée réaffirmée** dans le mandat transmis par le coordinateur : vrais extraits sourcés du domaine public, adaptés aux 12–17 ans, préférence maritime/pirate; Philippe ne relit pas chaque passage. Le vocabulaire pirate rude n'est pas automatiquement exclu du mode cohérent. L'exclusion des jurons et insultes de D-21 concerne toujours les mots aléatoires. Les véritables exceptions sensibles restent à remonter.
+- **Utilisation technique** : « aucune course ne les tire encore » décrit l'état au moment de rédaction. Depuis F-02.3b, le serveur tire du corpus actif après import. La qualification cloud sur bases synthétiques a importé cette version et exécuté une course sous charge; cela ne prouve aucun import en production et ne l'autorise pas.
+- **Calibrage déjà livré** : [rapport #43](../../../../docs/evidence/f02-4-random-word-data/calibration.md). Les mots aléatoires utilisent les critères `wf311-1` (longueurs maximales 5/9/16, minima Zipf 4/3,75/3,5). Pour les passages, l'étude des mesures M1–M4 a bien eu lieu; son accord hors échantillon est insuffisant pour remplacer les étiquettes éditoriales. Les mentions historiques « seuils non calibrés » ne signifient donc plus « étude absente ». Aucune classification scientifique n'est revendiquée.
+- **Réserves maintenues** : statuts `spare`, graphies déjà signalées, cas `editorial.escalated` et appréciations de Claude B restent inchangés. La délégation générale n'est pas une acceptation nominative de chacune des exceptions. L'acceptation de la version avant import en production reste distincte et non attestée dans cette tranche.
+
+La [consolidation des preuves](../../../../docs/evidence/corpus-acceptance-2026-11-06/README.md) distingue les vérifications automatiques, la déclaration humaine et les réserves de production. Aucun passage ajouté, retiré, modernisé ou reclassé; les versions précédentes sont conservées.
+
 ## En bref
 
 | | Français | Anglais |
