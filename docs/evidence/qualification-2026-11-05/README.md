@@ -1,5 +1,7 @@
 # Qualification locale — 5 novembre 2026
 
+Note historique conservée. La [suite du 6 novembre](../qualification-2026-11-06/README.md) ajoute les témoignages reçus, les nouvelles mesures et la livraison autorisée. Les mentions « non reçu », « non mesuré » ou « aucun push » ci-dessous décrivent l’état à cette première étape.
+
 Le correctif de préparation du test de charge et la réconciliation documentaire sont
 prêts à livrer. La course sous charge réussit sans contourner `TEXTS_UNAVAILABLE`.
 La recette humaine finale, la qualification de la production et la fermeture des

@@ -24,6 +24,21 @@ Cinquante connexions ne sont donc pas cinquante coureurs. D-15 distingue une mar
 visuelle jusqu'à 50 coureurs. PERF-03 n'impose aucun seuil numérique de RTT ou de FPS;
 le seuil Lighthouse ≥90 de PERF-01 ne s'applique pas aux acquittements Socket.IO.
 
+### Témoignage humain transmis par le coordinateur — 5 novembre
+
+Source : témoignage de Philippe sur `dev c588a272`, transmis dans le mandat de qualification. **Ce ne sont pas des tests exécutés par l'agent.** Les exigences parentes restent partielles quand ce témoignage ne couvre pas tout leur périmètre.
+
+| Périmètre | Validation humaine reçue | Limite |
+|---|---|---|
+| Visibilité et invitations | Salle privée refusée par code et cachée dans l'explorateur; invitation d'Alice comme participante; salle publique visible; invité admis dans une salle CODE. | Pas d'attestation de public → CODE, filtres ou réentrée après bannissement. |
+| Quickplay | Alice + bot (2/3) choisie plutôt que Bruno (1/3); invité admis comme troisième participant. | Quickplay vide non attesté humainement. |
+| Réglages et bonus | Réglages visibles chez l'invité sans actualisation, appliqués à la course; bonus fonctionnel. | Visibilité du bonus jugée peu claire : retour UX conservé, aucune nouvelle règle décidée. |
+| Résultats privés | Courbes, historique et erreurs : Alice 37, Bruno 17; invité anonymisé `#2`. Course `793a43fd-c982-4845-a3f2-f0f54e9cd9e6`. | Agrégats détaillés, exclusions bots et records par mode non attestés humainement. |
+| Réseau et modération | Courte reconnexion; expulsion annulée puis confirmée; deux onglets Alice actualisés sans rechargement. | Réentrée après ban non attestée. Fermeture EPTAPZ compatible avec la succession après 30 s sans socket puis l'absence de successeur; cause réseau exacte non journalisée, aucun TTL arbitraire déduit. |
+| Validations antérieures rappelées | Photos persistantes, frappe libre/obligatoire, durées 30/600 s et inactivité. | Pas de nouvelle preuve de course illimitée active au-delà de dix minutes. |
+
+La [suite de qualification](evidence/qualification-2026-11-06/README.md) associe les tests complémentaires à ces limites. Aucun résultat automatisé n'est converti en approbation humaine.
+
 ## Technique
 
 ### Complément de recette du 28 octobre 2026

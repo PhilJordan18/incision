@@ -137,7 +137,7 @@ elles restent à confirmer avec le coordinateur. Aucun accès à la recette n’
 
 ## 4. Ajouter les modules de l'application
 
-`packages/domain` (règles pures) et `packages/database` (schéma Drizzle, migrations, création de salle) existent déjà; `packages/contracts` sera créé avec les premiers événements temps réel partagés. Ajouter les dépendances avec `npm install --workspace=<path>` et garder des **versions stables verrouillées par `package-lock.json`**.
+`packages/domain` (règles pures) et `packages/database` (schéma Drizzle, migrations, création de salle) existent déjà; les contrats temps réel partagés vivent dans `apps/web/src/rooms` et `apps/web/src/races` (pas de paquet `packages/contracts`). Ajouter les dépendances avec `npm install --workspace=<path>` et garder des **versions stables verrouillées par `package-lock.json`**.
 
 Pour changer le schéma : modifier `packages/database/src/schema`, lancer `npm run db:generate -w @incision/database`, relire et commiter le SQL généré, puis lancer les tests de base de données. La CI échoue si le schéma et les migrations ne concordent pas. Ne jamais utiliser `drizzle-kit push`, et ne jamais modifier une migration déjà appliquée à une base de données distante. [Le schéma livré](architecture/data-model.md#delivered-schema) liste ce qui existe aujourd'hui.
 
