@@ -23,7 +23,7 @@ npm ci
 npm run dev -w @incision/web
 ```
 
-Ouvrir `http://localhost:3000` pour vérifier l'écran initial. `npm run dev -w @incision/web` démarre le serveur personnalisé, qui sert Next.js et Socket.IO sur le même port et lit le `.env` à la racine. `http://localhost:3000/api/health` indique l'état de la base de données. Les courses ne démarrent qu'avec `RACES_ENABLED=true` dans `.env` : un `.env` copié avant cette variable ne l'a pas (la copie de la section 3 n'écrase jamais), il faut alors y ajouter la ligne `RACES_ENABLED=true`. Sans elle, le bouton de départ répond que les courses sont fermées. Depuis F-02.3b, une course tire aussi son texte du corpus de la base locale : importer une version de `packages/database/corpus/` (`npm run db:import:corpus -w @incision/database -- --version <version>`, la plus récente) ; sans elle, tout départ est refusé (`NO_COMPATIBLE_PASSAGE`). La connexion exige la base de données (section 3) et les variables d'authentification de `.env` (section 3 bis).
+Ouvrir `http://localhost:3000` pour vérifier l'écran initial. `npm run dev -w @incision/web` démarre le serveur personnalisé, qui sert Next.js et Socket.IO sur le même port et lit le `.env` à la racine. `http://localhost:3000/api/health` indique l'état de la base de données. Les courses ne démarrent qu'avec `RACES_ENABLED=true` dans `.env` : un `.env` copié avant cette variable ne l'a pas (la copie de la section 3 n'écrase jamais), il faut alors y ajouter la ligne `RACES_ENABLED=true`. Sans elle, le bouton de départ répond que les courses sont fermées. Depuis F-02.3b, une course tire aussi son texte du corpus de la base locale : importer une version de `packages/database/corpus/` (`npm run db:import:corpus -w @incision/database -- --version <version>`, la plus récente) ; sans corpus actif, le départ est refusé (`TEXTS_UNAVAILABLE`). Un corpus actif qui ne contient aucun passage compatible avec les réglages entraîne plutôt `NO_COMPATIBLE_PASSAGE`. La connexion exige la base de données (section 3) et les variables d'authentification de `.env` (section 3 bis).
 
 **Contrainte TypeScript stricte.** Le code du produit utilise `.ts`/`.tsx`; la configuration PostCSS est en JSON. `tsconfig.json` désactive `allowJs`. Les fichiers JavaScript des dépendances dans `node_modules` ne sont pas du code écrit pour ce projet.
 
@@ -125,9 +125,19 @@ exécutés et les validations humaines restantes. Aucun accès à la recette ou 
 ressource distante n'est autorisé par cette procédure ; voir aussi
 [Activation invitée](DEPLOYMENT.md#activation-invitée-31).
 
+### Qualification de charge isolée
+
+Après le build, `LOAD_CONFIRM=local-only npm run load -w @incision/load` crée sa propre
+base jetable sur `127.0.0.1:5433`, applique les migrations et importe le corpus versionné
+`2026-10-25.4` avec les contrôles du projet. Importer le corpus dans la base de développement
+ne prépare donc pas cette base de test. Le scénario connecte 30 coureurs et 20 spectateurs,
+puis vérifie la course entière et ses résultats persistés. Voir [le protocole](../tools/load/README.md).
+Cet import local ne vaut pas acceptation éditoriale du corpus ni validation humaine :
+elles restent à confirmer avec le coordinateur. Aucun accès à la recette n’est nécessaire.
+
 ## 4. Ajouter les modules de l'application
 
-`packages/domain` (règles pures) et `packages/database` (schéma Drizzle, migrations, création de salle) existent déjà; `packages/contracts` sera créé avec les premiers événements temps réel partagés. Ajouter les dépendances avec `npm install --workspace=<path>` et garder des **versions stables verrouillées par `package-lock.json`**.
+`packages/domain` (règles pures) et `packages/database` (schéma Drizzle, migrations, création de salle) existent déjà; les contrats temps réel partagés vivent dans `apps/web/src/rooms` et `apps/web/src/races` (pas de paquet `packages/contracts`). Ajouter les dépendances avec `npm install --workspace=<path>` et garder des **versions stables verrouillées par `package-lock.json`**.
 
 Pour changer le schéma : modifier `packages/database/src/schema`, lancer `npm run db:generate -w @incision/database`, relire et commiter le SQL généré, puis lancer les tests de base de données. La CI échoue si le schéma et les migrations ne concordent pas. Ne jamais utiliser `drizzle-kit push`, et ne jamais modifier une migration déjà appliquée à une base de données distante. [Le schéma livré](architecture/data-model.md#delivered-schema) liste ce qui existe aujourd'hui.
 

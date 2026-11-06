@@ -1,6 +1,7 @@
 # Local race load harness — F-08.1 / #72
 
-This is **transport and persistence evidence**, not a claim of visual smoothness or Azure capacity.
+This records transport and persistence, with optional simultaneous browser observation.
+It does not certify Azure capacity or physical-device smoothness.
 It launches this checkout's production build with 30 typing clients and 20 spectators in one room.
 No changes to the application, rate limits, authentication checks or race rules.
 
@@ -28,7 +29,11 @@ The Docker test service is not stopped by this harness.
 
 ## What is exercised
 
-1. Apply the real migrations to a fresh local database.
+1. Apply the real migrations to a fresh local database, then check and import the pinned
+   `packages/database/corpus/2026-10-25.4/` through the project's normal corpus importer.
+   Record its version, checksum and the passage actually saved in the race. No fixed-text
+   fallback is enabled; `TEXTS_UNAVAILABLE` still fails the run. This local import does
+   not imply editorial acceptance or permission to import into production.
 2. Create 50 synthetic accounts, generate local Auth.js session cookies with a fresh secret, and
    create/join the room through the real database membership functions. This **does not measure
    HTTP admission, password login or OAuth**. There are no real users or credentials.
@@ -57,15 +62,39 @@ bot profiles, bonuses, multiple rooms and admission bursts are separate scenario
 - Per-client counts and summaries prevent aggregate percentiles from hiding a missing spectator.
 - Machine, Node, SHA, dirty state and build ID identify the measured environment. Client and server
   share a computer, so results are a local baseline, not a capacity certification.
+- Official scope: `SALLE-05` permits 2–30 participants, and D-22 adds at most 20 spectators.
+  These 50 simultaneous connections are **30 racing participants**, not 50 racers. D-15
+  separately asks for readability up to 50 drawn runners as a visual safety margin.
+  `PERF-03` requires a smooth track at maximum capacity; it specifies no numeric RTT/FPS threshold.
 - No latency target has been approved. Report measured values; do not invent a pass threshold.
   The executable gate asserts functional coverage, not an undocumented latency SLA.
 - A clean final run and its summarized evidence are committed separately; raw reports contain no
   cookies, secret, DB URL, account IDs or room code.
 
+## Simultaneous browser observation
+
+Install the workspace's Chromium (`npx playwright install chromium`), then run:
+
+```sh
+LOAD_CONFIRM=local-only LOAD_BROWSER=1 npm run load -w @incision/load
+```
+
+A real Chromium headless tab observes the same room using an existing spectator's synthetic
+session: **51 socket connections, 50 members, 30 racers and 20 spectators**. The extra tab
+is not an extra spectator member. No route/Socket.IO mocks are used. The probe samples
+`requestAnimationFrame` intervals while runners are present, marker movement, runner counts,
+long tasks (browser Long Tasks API, ≥50 ms), JavaScript errors and the persisted results table.
+Its gate checks functional observation, never an invented FPS target. The initial frame is
+excluded from interval calculation because its timestamp may precede probe setup.
+
+The report describes one headless FR/Abysse viewport (1440 × 1000), not input-to-paint latency,
+a subjective visual judgement or a physical screen refresh guarantee. It runs on the same
+machine as the load clients and server; sampling itself has overhead. Other locales, themes,
+small widths and keyboard behavior are covered separately by existing browser tests.
+
 ## Remaining PERF-03 evidence
 
-Open the final track in a real browser under equivalent load and record smoothness, responsiveness
-and long frames on the target viewport/device. The final signature track, and later server/UI
+Repeat the observation on target physical devices and obtain human acceptance. The final signature track, and later server/UI
 changes, require a rerun. Production load requires Philippe's separate explicit authorization.
 The issue remains open and PERF-03 partial until those checks are complete.
 

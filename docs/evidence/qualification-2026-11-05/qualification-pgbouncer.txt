@@ -1,0 +1,20 @@
+Command: npm run test:db -w @incision/database -- test/pgbouncer.db.test.ts (local URLs configured)
+Source code: 0af453cd70caef6b5b6a66f88778bbdc1d99a741
+
+> @incision/database@0.1.0 test:db
+> vitest run --config vitest.db.config.mts test/pgbouncer.db.test.ts
+
+
+ RUN  v5.0.3 /workspace/incision-validation/packages/database
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  03:46:37
+   Duration  23.84s (tests 94%, import 3%, transform 2%)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

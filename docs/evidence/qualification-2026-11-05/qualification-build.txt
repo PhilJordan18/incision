@@ -1,0 +1,64 @@
+Command: npm run build
+Source code: 0af453cd70caef6b5b6a66f88778bbdc1d99a741
+
+> @incision/root@0.1.0 build
+> npm run build --workspaces --if-present
+
+
+> @incision/web@0.1.0 build
+> next build
+
+▲ Next.js 16.4.3 (Turbopack)
+✓ Running next.config.ts took 45ms
+- Experiments (use with caution):
+  · serverActions
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.3s
+  Running TypeScript ...
+  Finished TypeScript in 3.4s ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/18) ...
+  Generating static pages using 4 workers (4/18)
+  Generating static pages using 4 workers (8/18)
+  Generating static pages using 4 workers (13/18)
+✓ Generating static pages using 4 workers (18/18) in 431ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /account
+├ ƒ /api/account/photo
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/guest/rooms/[lobbyId]/races/[raceId]
+├ ƒ /api/guest/session
+├ ƒ /api/guest/session/refresh
+├ ƒ /api/guest/session/renew
+├ ƒ /api/health
+├ ƒ /api/health/live
+├ ƒ /auth/error
+├ ƒ /guest
+├ ƒ /history
+├ ○ /icon.svg
+├ ƒ /invite
+├ ƒ /races/[id]
+├ ƒ /rooms
+├ ƒ /rooms/[code]
+├ ƒ /rooms/new
+└ ƒ /sign-in
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

@@ -21,7 +21,7 @@ export function LanguageSwitcher({ locale, t }: LanguageSwitcherProps) {
               name="locale"
               value={option}
               lang={option}
-              aria-label={t.languageNames[option]}
+              aria-label={`${option.toUpperCase()} — ${t.languageNames[option]}`}
               aria-pressed={option === locale}
               className="h-11 min-w-11 rounded-full px-2 uppercase text-brume underline-offset-4 hover:text-ecume aria-pressed:text-ecume aria-pressed:underline aria-pressed:decoration-2"
             >

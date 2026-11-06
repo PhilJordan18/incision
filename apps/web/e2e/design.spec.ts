@@ -44,7 +44,12 @@ test.describe("language (I18N-02)", () => {
   test("switches from the header, keeps the choice and translates metadata", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "fr");
-    await page.getByRole("button", { name: "English" }).click();
+    // The visible abbreviation must occur in the accessible name (WCAG 2.5.3).
+    const english = page.getByRole("button", { name: "EN — English", exact: true });
+    await expect(page.getByRole("button", { name: "FR — Français", exact: true })).toBeVisible();
+    await english.focus();
+    await expect(english).toBeFocused();
+    await english.press("Enter");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Overtake.");
     await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");

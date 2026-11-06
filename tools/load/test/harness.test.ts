@@ -7,6 +7,8 @@ describe("local load guard", () => {
     expect(() => config({})).toThrow();
     expect(config({ LOAD_CONFIRM: "local-only" })).toMatchObject({ runners: 30, spectators: 20, port: 3420 });
     expect(() => config({ LOAD_CONFIRM: "local-only", LOAD_URL: "http://example.org" })).toThrow();
+    expect(config({ LOAD_CONFIRM: "local-only", LOAD_BROWSER: "1" }).browser).toBe(true);
+    expect(() => config({ LOAD_CONFIRM: "local-only", LOAD_BROWSER: "yes" })).toThrow();
   });
   it.each([
     "postgresql://x@localhost:5433/postgres",

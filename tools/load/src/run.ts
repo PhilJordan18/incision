@@ -7,12 +7,15 @@ import pg from "pg";
 import { encode } from "next-auth/jwt";
 import { createDatabase, createRoomWithHost, joinRoomByCode } from "@incision/database";
 import { runMigrations } from "@incision/database/migrations";
+import { importCorpus } from "../../../packages/database/src/corpus/import";
 import { roomWatchAckSchema } from "../../../apps/web/src/rooms/protocol";
 import { raceStartAckSchema } from "../../../apps/web/src/races/protocol";
 import { Client, waitFor } from "./client";
 import { config, databaseName } from "./config";
 import { assertCoverage, summary } from "./metrics";
 import { app, root, start, stop } from "./local-server";
+import { LOAD_CORPUS_VERSION, readLoadCorpus } from "./corpus";
+import { openBrowser, type BrowserReport } from "./browser";
 
 async function main() {
   const settings = config(process.env);
@@ -32,6 +35,7 @@ async function main() {
   let created = false;
   let connected = false;
   let server: Awaited<ReturnType<typeof start>> | undefined;
+  let browser: Awaited<ReturnType<typeof openBrowser>> | undefined;
   const clients: Client[] = [];
   const started = performance.now();
   const metadata = {
@@ -41,14 +45,18 @@ async function main() {
     node: process.version,
     machine: { platform: process.platform, arch: process.arch, cpus: os.cpus().length, cpu: os.cpus()[0]?.model, memoryGiB: os.totalmem() / 2 ** 30, loadBefore: os.loadavg() },
     runners: settings.runners, spectators: settings.spectators,
+    expectedSocketConnections: settings.browser ? 51 : 50,
     fixtureSetup: "Synthetic accounts and signed local sessions; real DB membership functions, not HTTP sign-in/admission load",
-    scenario: "One full fixed public-domain FR race, mandatory correction, correct inserts, one per 125–153 ms plus ACK delay",
+    scenario: "One full FR race drawn from the versioned corpus with default settings, mandatory correction, correct inserts, one per 125–153 ms plus ACK delay",
+    corpusVersion: LOAD_CORPUS_VERSION,
     visualSmoothness: "NOT_CHECKED",
     productionCapacity: "NOT_CHECKED",
   };
   let report: object = { ...metadata, passed: false };
   let failed = true;
   let stage = "database setup";
+  let startRefusal: string | undefined;
+  let browserReport: BrowserReport | undefined;
   const cleanupErrors: string[] = [];
   try {
     await admin.connect();
@@ -57,8 +65,12 @@ async function main() {
     await admin.query(`create database "${name}"`);
     created = true;
     await runMigrations({ connectionString: url.toString(), lockWaitMs: 5_000, lockTimeoutMs: 5_000, statementTimeoutMs: 15_000 });
-    stage = "account and membership fixtures";
+    stage = "corpus import";
     const db = createDatabase(pool);
+    const corpus = await readLoadCorpus();
+    const imported = await importCorpus(db, corpus);
+    if (!imported.ok || !imported.report.active) throw new Error("Load corpus import refused or inactive");
+    stage = "account and membership fixtures";
     const accounts: { id: string; cookie: string }[] = [];
     for (let i = 0; i < settings.runners + settings.spectators; i++) {
       controller.signal.throwIfAborted();
@@ -88,9 +100,17 @@ async function main() {
       if (!ack.ok) throw new Error(`Room watch ${i} refused`);
     }
     console.log("Connected: 30 runners and 20 spectators. Starting the real race.");
+    if (settings.browser) {
+      stage = "browser spectator";
+      browser = await openBrowser({ origin: server.origin, cookie: accounts.at(-1)!.cookie, code: room.room.code });
+    }
     stage = "race start";
     const startAck = raceStartAckSchema.parse(await clients[0]!.ask("race:start", {}));
-    if (!startAck.ok) throw new Error(`Race start refused: ${startAck.error}`);
+    if (!startAck.ok) {
+      startRefusal = startAck.error;
+      throw new Error("Race start refused");
+    }
+    const sampling = await browser?.sample();
     stage = "typing and acknowledgements";
     const typing = clients.slice(0, settings.runners).map((client, index) => client.type(index));
     try { await Promise.all(typing); }
@@ -101,6 +121,10 @@ async function main() {
     }
     stage = "committed results";
     const raceId = clients[0]!.reveal!.reveal.raceId;
+    const provenance = await pool.query<{ version: string; passage: string }>(
+      "select config_snapshot->>'corpusVersion' as version, config_snapshot->>'text' as passage from races where id = $1", [raceId],
+    );
+    if (provenance.rows[0]?.version !== corpus.version) throw new Error("Race did not use the imported corpus");
     await waitFor(() => clients.every((client) => client.terminal && client.resultsPublished), controller.signal);
     // Publication of results is a committed room snapshot, not just the in-memory ended event.
     const snapshots = await Promise.all(clients.map(async (client) => {
@@ -121,8 +145,12 @@ async function main() {
     const disconnects = clients.reduce((total, client) => total + client.disconnects, 0);
     const coverage = { runners: settings.runners, spectators: settings.spectators, finished, stored, observing, acknowledged, expected, errors, disconnects };
     assertCoverage(coverage);
+    browserReport = await sampling?.finish();
+    if (browserReport && !browserReport.passed) throw new Error("Browser observation failed");
     report = {
       ...metadata, passed: true, coverage,
+      visualSmoothness: browserReport ? "MEASURED_LOCALLY" : "NOT_CHECKED", browser: browserReport,
+      corpus: { ...imported.report, checksum: corpus.checksum, passage: provenance.rows[0].passage },
       buildId: (await readFile(path.join(app, ".next/BUILD_ID"), "utf8")).trim(),
       durationMs: performance.now() - started, loadAfter: os.loadavg(),
       batchAckRttMs: summary(clients.flatMap((client) => client.batchLatency.values)),
@@ -138,12 +166,13 @@ async function main() {
   } catch (error) {
     // Never serialize raw driver/server errors: they may contain a connection string or cookie.
     report = { ...metadata, passed: false, failure: error instanceof Error ? error.name : "UnknownError",
-      stage,
+      stage, startRefusal, browser: browserReport,
       coverage: clients.map((client, index) => ({ index, acknowledged: client.acknowledged, progressCount: client.progressCount, terminal: client.terminal, errors: client.errors, disconnects: client.disconnects })),
     };
     console.error("Load run failed; see the sanitized report (no raw secrets logged).");
   } finally {
     controller.abort();
+    if (browser) await browser.close().catch(() => cleanupErrors.push("browser close"));
     clients.forEach((client) => client.close());
     if (server) await stop(server.child).catch(() => cleanupErrors.push("server stop"));
     await pool.end().catch(() => cleanupErrors.push("pool close"));

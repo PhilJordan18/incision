@@ -1,0 +1,101 @@
+{
+  "syntheticOnly": true,
+  "equal": true,
+  "tables": [
+    {
+      "table": "drizzle.__drizzle_migrations",
+      "count": 20,
+      "sha256": "91a366eae34f477259d4f7cdd364cce8d4159af865ae74d9c2a6fcf1f63858ff"
+    },
+    {
+      "table": "public.accounts",
+      "count": 4,
+      "sha256": "835719c7c0138535b703c6f784b055c4d9695bf11cf09ab22055cdaf8e1fb81d"
+    },
+    {
+      "table": "public.guest_sessions",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.lobbies",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.lobby_bans",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.lobby_bots",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.lobby_invitations",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.lobby_members",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.lobby_settings",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.oauth_identities",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.profile_photos",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.race_corpus_entries",
+      "count": 122,
+      "sha256": "6886abec7c3523a558003451b05b8a6e62443077b1f2055fcbc069917e16951e"
+    },
+    {
+      "table": "public.race_corpus_versions",
+      "count": 1,
+      "sha256": "2c0d5c84b75c1705074271300d3196242606a90b0e9a0ef2cc9371275c94c6d3"
+    },
+    {
+      "table": "public.race_entrants",
+      "count": 12,
+      "sha256": "378e105cb3137d3cb85e88518714d29e0ca5248172cebfabdb61dd6df283a5f6"
+    },
+    {
+      "table": "public.race_key_errors",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.race_passages",
+      "count": 122,
+      "sha256": "dcce1d5ed1104c82e5c7e3ecbfdd126f92c298f209b48a88359ec70c26632259"
+    },
+    {
+      "table": "public.race_results",
+      "count": 12,
+      "sha256": "f7b6ad0502187fe9e8d7870868d0f28736b2839c19090356264de37b7826f8a1"
+    },
+    {
+      "table": "public.race_wpm_series",
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "table": "public.races",
+      "count": 6,
+      "sha256": "312c36612012bc305bd1432f364d9af7c794677b3bb010b697cd455bfdf3856c"
+    }
+  ]
+}

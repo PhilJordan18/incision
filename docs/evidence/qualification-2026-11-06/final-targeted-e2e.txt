@@ -1,0 +1,145 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/public-rooms.spec.ts e2e/room-moderation.spec.ts e2e/quickplay.spec.ts e2e/host-succession.spec.ts e2e/host-network-succession.spec.ts
+
+[WebServer] (node:13607) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e ready, demo accounts: created, created
+[WebServer] (node:13621) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 79ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3200
+
+Running 34 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:13639) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/host-network-succession.spec.ts:5:5 › account host reconnects within grace then succeeds to a guest spectator after its last tab leaves (30.7s)
+  ✓   2 [chromium] › e2e/host-succession.spec.ts:39:7 › host departure during countdown preserves the race, records only their abandon and grants next-round control (9.7s)
+  ✓   3 [chromium] › e2e/host-succession.spec.ts:39:7 › host departure during racing preserves the race, records only their abandon and grants next-round control (9.3s)
+  ✓   4 [chromium] › e2e/host-succession.spec.ts:69:5 › last connected human leaving during a race closes and interrupts without official results (5.3s)
+  ✓   5 [chromium] › e2e/host-succession.spec.ts:92:5 › host departure on results preserves the saved race and transfers next-round controls live (15.2s)
+  ✓   6 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: fr-CA abysse (5.4s)
+  ✓   7 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: fr-CA aube (4.8s)
+  ✓   8 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: en-US abysse (5.0s)
+  ✓   9 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: en-US aube (5.2s)
+  ✓  10 [chromium] › e2e/public-rooms.spec.ts:56:7 › lists public rooms live, never code or private ones, and follows changes (fr-CA) (10.0s)
+  ✓  11 [chromium] › e2e/public-rooms.spec.ts:101:7 › a page that connects late or reconnects gets the current list from its watch (fr-CA) (1.4s)
+  ✓  12 [chromium] › e2e/public-rooms.spec.ts:116:62 › a public room leaves the list when changed to private (fr-CA) (2.2s)
+  ✓  13 [chromium] › e2e/public-rooms.spec.ts:116:62 › a public room leaves the list when changed to code (fr-CA) (2.2s)
+  ✓  14 [chromium] › e2e/public-rooms.spec.ts:130:7 › filters by language and complexity, with the keyboard and without JavaScript (fr-CA) (2.9s)
+  ✓  15 [chromium] › e2e/public-rooms.spec.ts:56:7 › lists public rooms live, never code or private ones, and follows changes (en-US) (22.2s)
+  ✓  16 [chromium] › e2e/public-rooms.spec.ts:101:7 › a page that connects late or reconnects gets the current list from its watch (en-US) (1.5s)
+  ✓  17 [chromium] › e2e/public-rooms.spec.ts:116:62 › a public room leaves the list when changed to private (en-US) (2.2s)
+  ✓  18 [chromium] › e2e/public-rooms.spec.ts:116:62 › a public room leaves the list when changed to code (en-US) (2.2s)
+  ✓  19 [chromium] › e2e/public-rooms.spec.ts:130:7 › filters by language and complexity, with the keyboard and without JavaScript (en-US) (2.8s)
+  ✓  20 [chromium] › e2e/public-rooms.spec.ts:165:5 › the explorer socket carries only public rooms, never ids, members or other rooms (1.5s)
+  ✓  21 [chromium] › e2e/quickplay.spec.ts:56:7 › an account joins the fullest admissible PUBLIC room as a participant (fr-CA) (10.5s)
+  ✓  22 [chromium] › e2e/quickplay.spec.ts:79:7 › without a room, an account is offered a PUBLIC room with the defaults, created only on request (fr-CA) (8.9s)
+  ✓  23 [chromium] › e2e/quickplay.spec.ts:102:7 › a member of a room is sent back to it, not moved (fr-CA) (2.3s)
+  ✓  24 [chromium] › e2e/quickplay.spec.ts:117:7 › a guest quickplays with a nickname only, and sees the empty state without a room (fr-CA) (7.3s)
+  ✓  25 [chromium] › e2e/quickplay.spec.ts:56:7 › an account joins the fullest admissible PUBLIC room as a participant (en-US) (10.3s)
+  ✓  26 [chromium] › e2e/quickplay.spec.ts:79:7 › without a room, an account is offered a PUBLIC room with the defaults, created only on request (en-US) (9.2s)
+  ✓  27 [chromium] › e2e/quickplay.spec.ts:102:7 › a member of a room is sent back to it, not moved (en-US) (2.5s)
+  ✓  28 [chromium] › e2e/quickplay.spec.ts:117:7 › a guest quickplays with a nickname only, and sees the empty state without a room (en-US) (7.9s)
+  ✓  29 [chromium] › e2e/quickplay.spec.ts:152:5 › quickplay and the offered creation work without JavaScript (858ms)
+  ✘  30 [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (fr-CA) (10.0s)
+(node:16655) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  31 [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (en-CA) (11.3s)
+(node:16847) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  32 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in waiting preserves its cookie deadline and prevents reentry (2.9s)
+  ✓  33 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in racing preserves its cookie deadline and prevents reentry (6.4s)
+  ✓  34 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in results preserves its cookie deadline and prevents reentry (10.1s)
+
+
+  1) [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (fr-CA) 
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator: getByRole('alert')
+    Expected: focused
+    Error: strict mode violation: getByRole('alert') resolved to 2 elements:
+        1) <p role="alert" tabindex="-1" class="text-erreur">⚠ Action impossible. Actualise la page et réessai…</p> aka getByText('⚠ Action impossible.')
+        2) <div role="alert" aria-live="assertive" id="__next-route-announcer__"></div> aka locator('[id="__next-route-announcer__"]')
+
+    Call log:
+      - Expect "toBeFocused" getByRole('alert') with timeout 5000ms
+      - waiting for getByRole('alert')
+        - locator resolved to <div role="alert" aria-live="assertive" id="__next-route-announcer__"></div>
+        - unexpected value "inactive"
+
+
+      67 |       await member.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
+      68 |       await expect(member.getByRole("alert")).toBeVisible();
+    > 69 |       await expect(member.getByRole("alert")).toBeFocused();
+         |                                               ^
+      70 |       expect((await query("select id from lobby_members where account_id=$1 and left_at is null", [targetId]))).toHaveLength(0);
+      71 |       await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+      72 |     } finally { await host.close(); await target.close(); }
+        at /workspace/incision-validation/apps/web/e2e/room-moderation.spec.ts:69:47
+
+    Error Context: test-results/room-moderation-host-expel-8515a-n-and-persistent-ban-fr-CA--chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/room-moderation-host-expel-8515a-n-and-persistent-ban-fr-CA--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/room-moderation-host-expel-8515a-n-and-persistent-ban-fr-CA--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (en-CA) 
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator: getByRole('alert')
+    Expected: focused
+    Error: strict mode violation: getByRole('alert') resolved to 2 elements:
+        1) <p role="alert" tabindex="-1" class="text-erreur">⚠ Action unavailable. Refresh the page and try ag…</p> aka getByText('⚠ Action unavailable. Refresh')
+        2) <div role="alert" aria-live="assertive" id="__next-route-announcer__"></div> aka locator('[id="__next-route-announcer__"]')
+
+    Call log:
+      - Expect "toBeFocused" getByRole('alert') with timeout 5000ms
+      - waiting for getByRole('alert')
+
+
+      67 |       await member.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
+      68 |       await expect(member.getByRole("alert")).toBeVisible();
+    > 69 |       await expect(member.getByRole("alert")).toBeFocused();
+         |                                               ^
+      70 |       expect((await query("select id from lobby_members where account_id=$1 and left_at is null", [targetId]))).toHaveLength(0);
+      71 |       await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+      72 |     } finally { await host.close(); await target.close(); }
+        at /workspace/incision-validation/apps/web/e2e/room-moderation.spec.ts:69:47
+
+    Error Context: test-results/room-moderation-host-expel-37079-n-and-persistent-ban-en-CA--chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/room-moderation-host-expel-37079-n-and-persistent-ban-en-CA--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/room-moderation-host-expel-37079-n-and-persistent-ban-en-CA--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (fr-CA) 
+    [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (en-CA) 
+  32 passed (4.3m)
+npm error Lifecycle script `test:e2e` failed with error:
+npm error code 1
+npm error path /workspace/incision-validation/apps/web
+npm error workspace @incision/web@0.1.0
+npm error location /workspace/incision-validation/apps/web
+npm error command failed
+npm error command sh -c playwright test e2e/public-rooms.spec.ts e2e/room-moderation.spec.ts e2e/quickplay.spec.ts e2e/host-succession.spec.ts e2e/host-network-succession.spec.ts
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
