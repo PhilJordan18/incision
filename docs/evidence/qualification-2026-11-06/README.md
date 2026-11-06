@@ -113,3 +113,11 @@ Build de production et archive finale réalisés sur le code f8cd6d7 : [journal 
 Aucun finding bloquant non corrigé dans le changement autorisé. Les réserves de qualification globale et les confirmations humaines ci-dessus restent ouvertes. Livrable prêt à pousser vers `dev` selon l’autorisation transmise; état CI distant à lire dans la PR, jamais déduit des contrôles locaux.
 
 Contrôle de fuite du corpus également réussi : [journal](final-corpus-leak.txt), 687 fichiers build et 1 211 fichiers embarqués comparés à 260 empreintes. L'appel initial de tsx était bloqué par l'IPC du sandbox réseau; relance dans le profil réseau autorisé, sans modifier le contrôle. Le nombre de lignes d'archive annoncé par ce script inclut sa ligne finale vide; l'inspection ZIP compte 18 965 entrées réelles.
+
+## Livraison autorisée
+
+PR **[#197 vers dev](https://github.com/PhilJordan18/incision/pull/197)**, ouverte le 6 novembre après push normal. Code qualifié : **f8cd6d7d4d3272f26620daf5b957db85f45c4661**; dossier de preuves : **c9ff21dd6a4ba6a2928c354f2e39d4c48d9ee821**. Le présent ajout ne modifie que cette référence de livraison. Le SHA exact livré est consultable dans la tête de PR et fourni dans le compte rendu final.
+
+**CI à l'ouverture : en attente**, aucun succès présumé. [Contrôles de la PR](https://github.com/PhilJordan18/incision/pull/197/checks) et [historique de CI de la branche](https://github.com/PhilJordan18/incision/actions/workflows/ci.yml?query=branch%3Atest%2Fqualification-finale) : vérifier que le run correspond au SHA livré et qu'il est terminé avant toute décision de merge. Le compte rendu final précise l'état effectivement observé après suivi.
+
+Fait : qualification cloud, correction du scénario/corpus et du libellé accessible, tests supplémentaires, restauration synthétique, matrice et dossier de démonstration, push et PR. Restant : fin de CI si encore en cours, revue/confirmations humaines listées plus haut, puis décision de merge par Philippe et éventuelle autorisation de production séparée. Aucune carte fermée, aucun merge ni déploiement réalisé.
