@@ -1,0 +1,12 @@
+
+> @incision/database@0.1.0 db:check-corpus-leak
+> tsx scripts/check-corpus-leak.ts --archive /workspace/scratch/incision-final-release.zip
+
+[corpus-leak] 687 build files checked against 260 fingerprints
+[corpus-leak] 18966 archive entries listed, 1211 shipped files checked
+[corpus-leak] no corpus in the build, nor in the archive
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

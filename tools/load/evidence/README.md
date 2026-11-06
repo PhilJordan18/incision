@@ -45,3 +45,11 @@ explique la correction, les mesures, les seuils officiels, la différence entre 
 Socket.IO et rendu navigateur, ainsi que les validations humaines encore attendues.
 La référence du 20 octobre ci-dessus est historique; elle n'est pas une nouvelle
 preuve sur le dev actuel. PERF-03 reste partiel.
+
+## Simultaneous browser observation — November 6, 2026
+
+Current cloud evidence: [`2026-11-06-browser.json`](2026-11-06-browser.json), clean
+`f8cd6d7d4d3272f26620daf5b957db85f45c4661`, production build and versioned corpus.
+30 racers + 20 spectators, 51 sockets including a real headless tab of an existing
+spectator. See the [handover dossier](../../../docs/evidence/qualification-2026-11-06/README.md)
+for measurements, browser limits, human testimony and remaining approvals.
