@@ -1,3 +1,4 @@
+import { freezeBonusJournal } from "./race-bonus-journal";
 import { describeDatabaseError, keyErrorsFromEngine, type Interruption, type RaceOwnership, type RaceResultRow, type Transition } from "@incision/database";
 import {
   asEntrantId,
@@ -58,6 +59,7 @@ export type RaceConnection = ({ readonly accountId: string; readonly memberId?: 
 };
 
 export type RaceEntrant = {
+  readonly ordinal?: number;
   readonly entrantId: string;
   readonly accountId: string | null;
   /** Live membership only; guest results never persist this link. */
@@ -912,7 +914,11 @@ export class RaceRuntime implements OwnedRace {
 
   #freeze(end: RaceEnd): void {
     try {
-      this.#results = Object.freeze(end.results.map((result) => Object.freeze(toResultRow(result, this.#wpm.freeze(result)))));
+      this.#results = Object.freeze(end.results.map((result) => Object.freeze({ ...toResultRow(result, this.#wpm.freeze(result)),
+        bonusJournal: freezeBonusJournal(this.#bonus, result.entrantId, this.#options.entrants.map((entrant, index) => ({
+          entrantId: entrant.entrantId, ordinal: entrant.ordinal ?? index + 1,
+        }))),
+      })));
     } catch (error: unknown) {
       this.#engineFailed(error);
       return;

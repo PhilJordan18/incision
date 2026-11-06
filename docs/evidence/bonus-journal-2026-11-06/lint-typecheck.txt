@@ -1,0 +1,53 @@
+
+> @incision/root@0.1.0 check:no-js
+> git ls-files ':(icase)*.js' ':(icase)*.jsx' ':(icase)*.mjs' ':(icase)*.cjs' | grep . && echo 'TECH-02: JavaScript files are not allowed in the repository' >&2 && exit 1 || exit 0
+
+
+> @incision/root@0.1.0 lint
+> npm run lint --workspaces --if-present
+
+
+> @incision/web@0.1.0 lint
+> eslint
+
+
+> @incision/database@0.1.0 lint
+> eslint .
+
+
+> @incision/domain@0.1.0 lint
+> eslint .
+
+
+> @incision/load@0.1.0 lint
+> eslint .
+
+
+> @incision/word-lists@0.1.0 lint
+> eslint .
+
+
+> @incision/root@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> @incision/web@0.1.0 typecheck
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> @incision/database@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/domain@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/load@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/word-lists@0.1.0 typecheck
+> tsc --noEmit

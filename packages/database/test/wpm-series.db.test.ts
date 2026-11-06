@@ -69,6 +69,36 @@ async function counts(raceId: string) {
 }
 
 describe("atomic, authorized WPM series persistence", () => {
+  it("persists the final bonus journal atomically, retries once and preserves authorized history", async () => {
+    const { ownership, results, accounts } = await fixture();
+    const journal = { version: 1 as const, grants: [
+      { kind: "fogLeader" as const, milestone: 25 as const, activation: { targetOrdinal: 2, atMs: 1234 } },
+      { kind: "shortenSelf" as const, milestone: 50 as const },
+    ] };
+    const collected = results.map((row, index) => ({ ...row, bonusJournal: index === 0 ? journal : { version: 1 as const, grants: [] } }));
+    const invalid = collected.map((row) => ({ ...row, bonusJournal: { version: 1 as const, grants: [
+      { ...journal.grants[0]!, activation: { targetOrdinal: 99, atMs: 1 } },
+    ] } }));
+    await expect(finalizeRace(db, ownership, invalid)).rejects.toThrow("Invalid bonus journal");
+    expect(await counts(ownership.raceId)).toEqual({ state: "countdown", results: 0, series: 0 });
+    expect(await finalizeRace(db, ownership, collected)).toEqual({ won: true, alreadyDone: false });
+    // Even a malformed replay cannot replace the committed facts.
+    expect(await finalizeRace(db, ownership, invalid)).toEqual({ won: true, alreadyDone: true });
+    const history = await readRaceForEntrant(db, ownership.raceId, accounts[0]!);
+    expect(history?.entrants.map((row) => row.result?.bonusJournal)).toEqual(collected.map((row) => row.bonusJournal));
+    expect((await readRoomRaceForMember(db, { ...ownership, accountId: accounts[0]! }))?.entrants).toEqual(history?.entrants);
+    expect(await readRaceForEntrant(db, ownership.raceId, accounts[2]!)).toBeUndefined();
+    expect(await readRoomRaceForMember(db, { ...ownership, accountId: accounts[3]! })).toBeUndefined();
+    expect(JSON.stringify(history)).not.toContain(results[1]!.entrantId);
+  });
+
+  it("leaves old uncollected journals absent rather than fabricating zero bonuses", async () => {
+    const { ownership, results, accounts } = await fixture();
+    await finalizeRace(db, ownership, results);
+    expect((await readRaceForEntrant(db, ownership.raceId, accounts[0]!))?.entrants.every((row) => row.result?.bonusJournal === undefined)).toBe(true);
+    expect((await pool.query("select bonus_journal from race_results")).rows.every((row) => row.bonus_journal === null)).toBe(true);
+  });
+
   it("persists private aggregates, exposes only self, and never leaks to spectators", async () => {
     const { ownership, results, accounts } = await fixture();
     await finalizeRace(db, ownership, results);

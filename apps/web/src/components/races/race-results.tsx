@@ -1,3 +1,4 @@
+import { ResultsBonusJournal } from "./results-bonus-journal";
 import type { RaceResultView } from "@incision/database";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -140,6 +141,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
       </div>
       <p className="text-sm text-brume">{t.results.rounding}</p>
       <p className="text-sm text-brume">{details.errorsHelp}</p>
+      <ResultsBonusJournal race={race} locale={locale} t={t} />
     </section>
   );
 }

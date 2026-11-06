@@ -1,0 +1,29 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test bonus-journal.spec.ts
+
+[WebServer] (node:40298) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e ready, demo accounts: created, created
+[WebServer] (node:40322) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 50ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3200
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+
+Running 3 tests using 1 worker
+
+(node:40363) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/bonus-journal.spec.ts:37:40 › bonus journal: fr, two themes, keyboard and small widths (8.9s)
+  ✓  2 [chromium] › e2e/bonus-journal.spec.ts:37:40 › bonus journal: en, two themes, keyboard and small widths (7.6s)
+  ✓  3 [chromium] › e2e/bonus-journal.spec.ts:61:5 › journal is server-rendered without JavaScript and refuses unrelated history readers (1.9s)
+
+  3 passed (24.7s)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

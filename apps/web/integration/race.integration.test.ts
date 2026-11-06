@@ -202,7 +202,7 @@ describe("an integrated race (F-04.0)", () => {
     const guest = await account("int-guest-arcade", "Invitée arcade");
     const code = parseRoomCode(await room(host, [guest]));
     if (!code.ok) throw new Error("bad code");
-    const arcade = { textLanguage: "fr", wordCount: 50, timeLimitMs: null, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, bonusesEnabled: true } as const;
+    const arcade = { textLanguage: "fr", wordCount: 50, timeLimitMs: 30_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, bonusesEnabled: true } as const;
     expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: arcade })).toMatchObject({ ok: true, revision: 1 });
     const [lobby] = await query<{ revision: number }>("select revision from lobbies where code = $1", [code.code]);
     expect(await changeRoomBots(db(), { accountId: host.id, code: code.code, revision: lobby?.revision ?? 0, change: { kind: "add", level: "noob" } })).toMatchObject({ ok: true });
@@ -249,6 +249,20 @@ describe("an integrated race (F-04.0)", () => {
       expect(excluded.has(entry), word).toBe(false);
     });
     expect(JSON.stringify(announced)).not.toMatch(/"random"|"seed"|"cursors"|"words"/);
+    // The receipt is stable; the private snapshot revision advances as other players act.
+    expect(await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })).toMatchObject({ ok: true, result: ack.result });
+    await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "results", 40_000);
+    const journals = await query<{ ordinal: number; bonus_journal: { version: number; grants: { kind: string; milestone: number; activation?: { targetOrdinal: number; atMs: number } }[] } }>(
+      "select e.ordinal, r.bonus_journal from race_results r join race_entrants e on e.id=r.entrant_id where r.race_id=$1 order by e.ordinal", [raceId]);
+    expect(journals).toHaveLength(3);
+    expect(journals.every((row) => row.bonus_journal.version === 1)).toBe(true);
+    const playerJournal = journals[1]!.bonus_journal;
+    expect(playerJournal.grants.filter((grant) => grant.milestone === 25)).toHaveLength(1);
+    expect(playerJournal.grants[0]).toMatchObject({ kind: "extendLeader", milestone: 25, activation: { targetOrdinal: 1 } });
+    expect(playerJournal.grants.some((grant) => grant.activation === undefined)).toBe(true);
+    expect(journals[2]!.bonus_journal.grants.some((grant) => grant.activation !== undefined)).toBe(true);
+    expect(JSON.stringify(journals)).not.toMatch(/"seed"|"cookie"|"accountId"|"entrantId"/);
+
   }, 90_000);
 
   it("notices a runner whose connection goes silent within about 15 s, keeps its place 30 s, then ranks it as abandoned (D-06)", async () => {
