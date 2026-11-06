@@ -48,7 +48,7 @@ Apply the additive migration before starting the new code. Older code can keep w
 results with NULL journals during overlap. New code requires the new column; it must
 not be started against the old schema. Roll back application code while retaining the
 column and collected facts; do not drop it or rewrite published migrations. PostgreSQL
-ALTER TABLE briefly takes a table lock; actual production lock duration is unmeasured.
+ALTER TABLE takes a table lock; actual production lock duration is unmeasured.
 Only disposable cloud PostgreSQL databases were used here. No deployment is authorized.
 
 An interrupted race has no fabricated final journal. Uncollected old races remain

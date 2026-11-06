@@ -1,0 +1,29 @@
+{
+  "base": "3f7a740a095b82cdfac7630d255bad6a4ad24e01",
+  "reviewed_implementation_and_tests": "30b07213d7bcad512020784495927034693580c1",
+  "production_runtime_unchanged_since": "fa6ec60e08e1659b6bfff86524e6ad0ebac421ce",
+  "unit_passed": 2654,
+  "database_passed": 433,
+  "database_skipped": 9,
+  "skip_scope": "PgBouncer URLs not configured",
+  "integration_passed": 11,
+  "browser_full_passed": 214,
+  "browser_full_skipped": 0,
+  "browser_guest_delta_passed": 1,
+  "remote_ci": "not run; no push or PR authorized for this tranche",
+  "review_mode": "one agent, sequential roles; not independent review",
+  "prior_sql_migrations_unchanged": 20,
+  "official_requirement_ids_preserved": 90,
+  "historical_generated_png_restored": 44,
+  "proofs_sha256": {
+    "browser-full.txt": "525d7edf44016bcfe1101b13a75edd6ba137c2e5f08db0135ec50525074e7707",
+    "browser-targeted.txt": "1341960eb41e9e1c4c8740a0653fb439c8b84df94bc468eaa7bed0bd9893faa4",
+    "build.txt": "1057e4a6144823f00647628245700c4b4de747562ce60ee3c43cd5c80f531f8d",
+    "commits.txt": "0e44c9cb45ed993f3f74dad80b2d84696adad3b05ea466e59af72b73d45f3789",
+    "guest-browser.txt": "ababc4a4761b8804454a64382aa7e97b57aeeb69b44df639d538cb56fb0eabd5",
+    "integration.txt": "853e3ad6031095734f03470ad94c8a757df0c5cc5b576de5ca5852b1174c62e0",
+    "lint-typecheck.txt": "186d8ba7ef4d68d768d4aa030fc68fc85ad5ea4e5e9115b5fff839aad548e5aa",
+    "sql.txt": "6a35575f464baaf5ed50f4d0ac3431c8915f8626f2e7cda627ea9cb4a3d5c0be",
+    "unit.txt": "f7fda4dad019af2e2bed39faca6027685d69f9c8efc479afc9477abbb16be1ae"
+  }
+}
