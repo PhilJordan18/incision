@@ -42,6 +42,16 @@ test("guest-only race displays temporary results without durable metrics or hist
       expect(body.race.personalRecord).toBeUndefined(); expect(body.race.personalKeyErrors).toBeUndefined();
       expect(JSON.stringify(body)).not.toContain("visitor"); expect(JSON.stringify(body)).not.toContain(guest.id);
     }
+    const page = await context.newPage();
+    await page.goto("/rooms/RSTUVW");
+    const journal = page.getByRole("region", { name: "Bonus journal" });
+    await expect(journal.locator("summary")).toHaveCount(2);
+    await journal.locator("summary").first().click();
+    await expect(journal.getByText("No bonuses received.").first()).toBeVisible();
+    await page.reload();
+    await expect(journal.locator("summary")).toHaveCount(2);
+    await journal.locator("summary").first().click();
+    await expect(journal.getByText("No bonuses received.").first()).toBeVisible();
     for (const table of ["race_results", "race_wpm_series", "race_key_errors"]) {
       expect((await query<{ n: number }>(`select count(*)::int as n from ${table} where race_id=$1`, [race.current_race_id]))[0]?.n).toBe(0);
     }
