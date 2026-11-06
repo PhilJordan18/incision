@@ -5,6 +5,7 @@ const ownership: RaceOwnership = { lobbyId: "room", raceId: "race", ownerId: "ow
 const entrants: StartedEntrant[] = [{ entrantId: "entrant", memberId: "member", accountId: null, ordinal: 1, displayName: "Private nickname", kind: "human" }];
 const results: RaceResultRow[] = [{ entrantId: "entrant", outcome: "finished", rank: 1, elapsedMs: 1000, position: 1, length: 1,
   correctInputs: 1, totalInputs: 1, netWpm: 12, rawWpm: 12, accuracy: 100, wpmSeries: { unavailable: "not_collected" },
+  bonusJournal: { version: 1, grants: [{ kind: "shortenSelf", milestone: 25, activation: { targetOrdinal: 1, atMs: 100 } }] },
   keyErrors: { version: 1, keys: [{ grapheme: "PRIVATE", count: 1 }] } }];
 const view: RaceResultView = { raceId: "race", roundNo: 1, state: "finished", interruptionReason: null,
   countdownAt: new Date(0), startedAt: new Date(0), endedAt: new Date(1000),
@@ -15,6 +16,7 @@ describe("temporary room results", () => {
   it("projects measures and current guest self without a nickname, account history or private key errors", () => {
     const cache = setup(); const shown = cache.apply("room", view, "member");
     expect(shown.entrants[0]).toMatchObject({ isSelf: true, result: { rank: 1, errors: 0 } });
+    expect(shown.entrants[0]?.result?.bonusJournal).toEqual(results[0]?.bonusJournal);
     expect(shown.personalRecord).toBeUndefined(); expect(shown.personalKeyErrors).toBeUndefined();
     expect(JSON.stringify(shown)).not.toContain("Private nickname"); expect(JSON.stringify(shown)).not.toContain("PRIVATE");
     expect(cache.apply("other", view, "member")).toBe(view);
