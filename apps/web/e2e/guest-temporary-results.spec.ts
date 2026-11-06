@@ -36,6 +36,9 @@ test("guest-only race displays temporary results without durable metrics or hist
       expect(body.race.entrants).toHaveLength(2);
       expect(body.race.entrants.filter((e: { isSelf: boolean }) => e.isSelf)).toHaveLength(1);
       expect(body.race.entrants.every((e: { result?: unknown }) => e.result !== undefined)).toBe(true);
+      expect(body.race.entrants.every((e: { result: { bonusJournal?: { version: number; grants: unknown[] } } }) =>
+        e.result.bonusJournal?.version === 1 && e.result.bonusJournal.grants.length === 0)).toBe(true);
+      expect(await (await guest.ctx.request.get(url)).json()).toEqual(body);
       expect(body.race.personalRecord).toBeUndefined(); expect(body.race.personalKeyErrors).toBeUndefined();
       expect(JSON.stringify(body)).not.toContain("visitor"); expect(JSON.stringify(body)).not.toContain(guest.id);
     }

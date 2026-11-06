@@ -249,7 +249,8 @@ describe("an integrated race (F-04.0)", () => {
       expect(excluded.has(entry), word).toBe(false);
     });
     expect(JSON.stringify(announced)).not.toMatch(/"random"|"seed"|"cursors"|"words"/);
-    expect(await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })).toMatchObject(ack);
+    // The receipt is stable; the private snapshot revision advances as other players act.
+    expect(await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })).toMatchObject({ ok: true, result: ack.result });
     await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "results", 40_000);
     const journals = await query<{ ordinal: number; bonus_journal: { version: number; grants: { kind: string; milestone: number; activation?: { targetOrdinal: number; atMs: number } }[] } }>(
       "select e.ordinal, r.bonus_journal from race_results r join race_entrants e on e.id=r.entrant_id where r.race_id=$1 order by e.ordinal", [raceId]);
