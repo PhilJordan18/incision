@@ -52,6 +52,9 @@ Captures automatisées sur données synthétiques, issues de la qualification du
 
 [Autres captures FR/EN, clair/sombre et largeurs](docs/evidence/bonus-journal-2026-11-06/README.md).
 
+La [qualification intégrée](docs/evidence/integrated-2026-11-08/README.md) et la
+[recette humaine ciblée restante](docs/RECETTE-FINALE.md) précisent les preuves et limites de remise.
+
 ## Comptes de démonstration
 
 Comptes locaux fictifs pour les démonstrations et les tests de bout en bout, sans aucun privilège. Ces mots de passe sont **volontairement publics** et ne servent nulle part ailleurs; ce ne sont pas des secrets techniques (ceux-ci se trouvent seulement dans Azure, GitHub et les fichiers `.env` locaux).
