@@ -13,7 +13,7 @@ L'[énoncé final](Web-V-Travail-de-session.pdf) et les choix de ma [matrice](EX
 | Configuration | Réglages D-19 sauvegardés en salle et figés au départ : langue, type, longueur, complexité, correction, durée et Arcade. Aucune limite de durée par défaut; limite optionnelle de 30 à 600 secondes. |
 | Corpus | Corpus versionné lu en base; absence refusée par `TEXTS_UNAVAILABLE`, incompatibilité par `NO_COMPATIBLE_PASSAGE`. Les textes courts de fixtures sont réservés aux tests locaux. |
 | Bots et bonus | Bots intégrés au runtime et aux salles; Arcade activable par l'hôte, désactivé par défaut. |
-| Résultats | Historique, statistiques, records par catégorie, séries MPM et erreurs par touche privées. Le journal durable des bonus reste une limite de RES-02/HIST-02. |
+| Résultats | Historique, statistiques, records par catégorie, séries MPM et erreurs par touche privées. Journal des bonus reçus et activés, atomique avec les résultats; anciennes courses sans collecte explicitement signalées. |
 | Interface | Piste animée, liste accessible, FR/EN, thèmes Aube/Abysse et présentation responsive. Les preuves automatisées et humaines restent distinguées dans la matrice. |
 
 Sources : [service de course](../apps/web/src/server/races/race-service.ts), [réglages](../apps/web/src/server/rooms/room-settings.ts), [schéma](../packages/database/src/schema/index.ts). Le [rapport de qualification](evidence/qualification-2026-11-06/README.md) actualise les preuves locales; il ne certifie pas la production.
@@ -77,7 +77,7 @@ Le schéma livré comprend aussi `guest_sessions`, `lobby_settings`, `lobby_bots
 
 L'activité invitée acceptée est regroupée en mémoire puis persistée à intervalles de 60 secondes, avec expiration 24 heures après l'activité acceptée. Une panne peut perdre un checkpoint : après redémarrage, l'échéance SQL fait autorité. Voir les limites et la procédure d'activation dans [SETUP.md](SETUP.md).
 
-Les transactions et lecteurs sont dans [lifecycle.ts](../packages/database/src/races/lifecycle.ts) et [results.ts](../packages/database/src/races/results.ts). Le journal persistant des événements de bonus n'est pas livré.
+Les transactions et lecteurs sont dans [lifecycle.ts](../packages/database/src/races/lifecycle.ts) et [results.ts](../packages/database/src/races/results.ts). Le [journal final des bonus](adr/0008-final-bonus-journals.md) est projeté exclusivement depuis les attributions et reçus serveur, puis écrit dans `race_results.bonus_journal` avec les résultats. Les cibles utilisent les ordinaux de cette course; aucune identité d’invité n’y est conservée. Les courses sans compte gardent leur journal uniquement dans les résultats temporaires en mémoire.
 
 ## 4. États : salle, moteur et persistance
 
@@ -174,7 +174,7 @@ La lecture de `/races/[id]` est réservée à un compte concurrent; la vue de r�
 
 L'[ADR-0005](adr/0005-deterministic-bots.md) décrit le moteur livré : cinq profils, état pseudo-aléatoire versionné, horloge injectée, une intention par échéance, puis application par le même réducteur que pour les humains. Un retard serveur ralentit le bot; il ne crée pas une rafale de rattrapage ni un résultat rétroactif.
 
-Le [coordinateur bonus](../packages/domain/src/bonuses/coordinator.ts) fait évoluer la course et les attributions/effets dans un même état. Le runtime publie ensuite les changements privés et annonces. Le navigateur gère Entrée et les effets visuels; le serveur reste l'autorité sur la cible et sa version. Le réglage Arcade et les bots sont raccordés au service. Leur intégration est couverte par les tests du runtime, SQL et E2E; l'acceptation éditoriale des contenus et la recette humaine restent distinctes. La persistance détaillée du journal des bonus reste à compléter, sans inventer de preuve à partir des seules fixtures.
+Le [coordinateur bonus](../packages/domain/src/bonuses/coordinator.ts) fait évoluer la course et les attributions/effets dans un même état. Le runtime publie ensuite les changements privés et annonces. Le navigateur gère Entrée et les effets visuels; le serveur reste l'autorité sur la cible et sa version. Le réglage Arcade et les bots sont raccordés au service. Leur intégration est couverte par les tests du runtime, SQL et E2E; l'acceptation éditoriale des contenus et la recette humaine restent distinctes. Le journal final est désormais enregistré avec les résultats (ADR-0008), à partir des seuls faits serveur; les tests d’intégration suivent aussi une course Arcade jusqu’à cette écriture. Les tentatives refusées et expirations d’effets ne sont pas un journal de rejeu.
 
 ## 8. Vérification et évolution
 

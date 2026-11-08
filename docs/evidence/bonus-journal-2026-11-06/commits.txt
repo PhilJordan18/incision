@@ -1,0 +1,6 @@
+30b07213d7bcad512020784495927034693580c1 test(results): verify guest journal rendering after reload
+2e0d41d4d50bd814739876d08d9d978209811c51 docs(results): record journal persistence and remaining human checks
+c20d12d649e69cbdc1cd2bfd209beb06b9145f44 test(results): cover stable retries and ephemeral guest journals
+640d6fb53d0b038bd651a2c31ce2cfb506236ce7 test(results): verify legacy migrations and anonymous bonus retention
+fa6ec60e08e1659b6bfff86524e6ad0ebac421ce feat(results): show accessible localized participant bonus journals
+f180f3cc2ca5e3217e0d82a4b5f119cabaa6753e feat(results): persist final server bonus journals atomically

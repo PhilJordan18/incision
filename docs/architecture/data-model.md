@@ -71,6 +71,18 @@ Accounts, GitHub/Discord identities, guest sessions if delivered, rooms, minimal
 
 An initial seed allows a reproducible demo with non-real local accounts. The corpus, then the demo history, are added with the game tables; TECH-04 stays partial as long as the complete seed requested does not exist. Do not create the game tables only to fill the diagram.
 
+## Final bonus journal (migration 0020)
+
+[ADR-0008](../adr/0008-final-bonus-journals.md) implements the bonus history portion
+with nullable `race_results.bonus_journal`, not the conceptual `race_bonus_events`
+table above. Version 1 contains up to three received grants (kind, milestone), each
+with an optional confirmed activation (target race-local ordinal, milliseconds since
+common start including pauses). The result transaction writes it once; replay does not
+overwrite it. NULL means uncollected legacy data; an empty collected array means no bonus.
+No default/backfill, seed, private inventory during racing, nickname or guest identity.
+Guest-only journals stay in the existing temporary room cache, with no SQL result row.
+The complete nested contract is validated on write/read; SQL bounds the outer shape.
+
 ## Delivered schema
 
 ### F-01.1A: guest identity foundation (migration 0013, local integration)

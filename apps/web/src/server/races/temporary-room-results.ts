@@ -21,6 +21,7 @@ export class TemporaryRoomResults {
           rank: row.rank, elapsedMs: row.elapsedMs, position: row.position, length: row.length,
           netWpm: row.netWpm, rawWpm: row.rawWpm, accuracy: row.accuracy,
           errors: row.totalInputs - row.correctInputs,
+          ...(row.bonusJournal === undefined ? {} : { bonusJournal: structuredClone(row.bonusJournal) }),
           ...("unavailable" in row.wpmSeries ? {} : { wpmSeries: structuredClone(row.wpmSeries) }),
         } } : {}),
       });

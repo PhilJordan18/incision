@@ -1,3 +1,4 @@
+import { checkedBonusJournal, type BonusJournal } from "./bonus-journal";
 import { and, asc, eq, gt, isNull, type SQL, sql } from "drizzle-orm";
 import { compareResultRecord, resultRecordCategory, type RecordCategory, type ResultRecord } from "@incision/domain";
 import { z } from "zod";
@@ -30,6 +31,7 @@ export type EntrantResult = {
   readonly errors: number;
   /** Absent only for historical rows without collected observations; never fabricated. */
   readonly wpmSeries?: StoredWpmSeries;
+  readonly bonusJournal?: BonusJournal;
 };
 
 export type EntrantResultView = {
@@ -156,6 +158,7 @@ async function readRaceView(db: Queryable, accountId: string | null, condition: 
       series: raceWpmSeries.series,
       keyErrorsEntrantId: raceKeyErrors.entrantId,
       keyErrors: raceKeyErrors.aggregate,
+      bonusJournal: raceResults.bonusJournal,
       correctInputs: raceResults.correctInputs,
       totalInputs: raceResults.totalInputs,
       // Null when the entrant has no result row (left join).
@@ -198,7 +201,7 @@ async function readRaceView(db: Queryable, accountId: string | null, condition: 
     ...metadata,
     ...(personalRecord === undefined ? {} : { personalRecord }),
     ...(personalKeyErrors === undefined ? {} : { personalKeyErrors }),
-    entrants: rows.map(({ ordinal, displayName, kind, botLevel, accountId: entrantAccount, seriesEntrantId, series, correctInputs, totalInputs, result }) => ({
+    entrants: rows.map(({ ordinal, displayName, kind, botLevel, accountId: entrantAccount, seriesEntrantId, series, correctInputs, totalInputs, bonusJournal, result }) => ({
       ordinal,
       displayName,
       kind: kind === "guest" ? "human" : kind,
@@ -207,6 +210,7 @@ async function readRaceView(db: Queryable, accountId: string | null, condition: 
       isSelf: accountId !== null && entrantAccount === accountId,
       ...(finished && result !== null ? { result: {
         ...result,
+        ...(bonusJournal === null ? {} : { bonusJournal: checkedBonusJournal(bonusJournal, rows.map((row) => row.ordinal)) }),
         ...(seriesEntrantId !== null ? { wpmSeries: checkedStoredWpmSeries(series, {
           ...result, correctInputs: correctInputs ?? Number.NaN, totalInputs: totalInputs ?? Number.NaN,
         }) } : {}),

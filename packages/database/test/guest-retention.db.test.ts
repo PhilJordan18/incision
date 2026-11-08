@@ -55,6 +55,7 @@ async function started(accountParticipates = true) {
     if (!series.ok) throw new Error(series.refusal);
     return { entrantId: entrant.entrantId, rank: index + 1, outcome: "finished", elapsedMs,
       position: 4, length: 4, correctInputs: 4, totalInputs: 5, ...computeMeasures(counters, asDuration(elapsedMs)),
+      bonusJournal: { version: 1, grants: [{ kind: "shortenSelf", milestone: 25, activation: { targetOrdinal: entrant.ordinal, atMs: 100 } }] },
       wpmSeries: series.value, keyErrors: { version: 1, keys: [{ grapheme: index ? "PRIVATE" : "a", count: 1 }] } };
   });
   return { ...f, race: result.race, entrants: result.entrants, results };
@@ -69,6 +70,7 @@ describe("guest and closed-room retention", () => {
     const f = await started(); await finalizeRace(db, f.race, f.results);
     await pool.query("insert into profile_photos(account_id,webp) values($1,decode('524946460000000057454250','hex'))", [f.accountId]);
     const before = await readRaceForEntrant(db, f.race.raceId, f.accountId);
+    expect(before?.entrants.map((row) => row.result?.bonusJournal)).toEqual(f.results.map((row) => row.bonusJournal));
     const accounts = (await pool.query("select * from accounts")).rows;
     const photos = (await pool.query("select * from profile_photos")).rows;
     const metrics = (await pool.query("select * from race_results order by entrant_id")).rows;

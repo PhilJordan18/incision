@@ -1,0 +1,27 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test guest-temporary-results.spec.ts --output=/workspace/scratch/bonus-delta-test-results
+
+[WebServer] (node:52249) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_bonus_delta ready, demo accounts: created, created
+[WebServer] (node:52263) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 49ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3201
+
+Running 1 test using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:52317) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/guest-temporary-results.spec.ts:4:5 › guest-only race displays temporary results without durable metrics or historical access (5.2s)
+
+  1 passed (11.9s)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
