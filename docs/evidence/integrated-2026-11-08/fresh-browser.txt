@@ -1,0 +1,1 @@
+PASS: fresh README dev server, database up, local demo-history login, 6 races, private history link, legacy journal unavailable after reload (no false zero).

@@ -1,0 +1,24 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/bonus-journal.spec.ts --output=/workspace/scratch/integrated-2026-11-08/locale-probe
+
+[WebServer] (node:12922) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_locale_probe_20261108 ready, demo accounts: created, created
+[WebServer] (node:12976) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 72ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3503
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+
+Running 3 tests using 1 worker
+
+(node:12995) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/bonus-journal.spec.ts:37:40 › bonus journal: fr, two themes, keyboard and small widths (6.8s)
+  ✓  2 [chromium] › e2e/bonus-journal.spec.ts:37:40 › bonus journal: en, two themes, keyboard and small widths (6.0s)
+  ✓  3 [chromium] › e2e/bonus-journal.spec.ts:69:5 › journal is server-rendered without JavaScript and refuses unrelated history readers (1.2s)
+
+  3 passed (19.6s)

@@ -1,0 +1,34 @@
+[migrate] 21 migration(s) applied
+
+> @incision/database@0.1.0 db:seed:demo
+> tsx scripts/seed-demo.ts
+
+[seed] demo-alice: created
+[seed] demo-bruno: created
+
+> @incision/database@0.1.0 db:import:corpus
+> tsx scripts/import-corpus.ts --version 2026-10-25.4
+
+[corpus] 2026-10-25.4: imported, active
+[corpus] retained fr 55, en 56; spare fr 6, en 5
+[corpus] serve the default settings: fr 20, en 19
+[corpus] passages new 122, kept 0; retired from the previous version 0
+
+> @incision/database@0.1.0 db:migrate
+> tsx scripts/migrate.ts
+
+[migrate] 0 migration(s) applied
+
+> @incision/database@0.1.0 db:seed:demo
+> tsx scripts/seed-demo.ts
+
+[seed] demo-alice: unchanged
+[seed] demo-bruno: unchanged
+
+> @incision/database@0.1.0 db:import:corpus
+> tsx scripts/import-corpus.ts --version 2026-10-25.4
+
+[corpus] 2026-10-25.4: unchanged, active
+[corpus] retained fr 55, en 56; spare fr 6, en 5
+[corpus] serve the default settings: fr 20, en 19
+[corpus] passages new 0, kept 122; retired from the previous version 0

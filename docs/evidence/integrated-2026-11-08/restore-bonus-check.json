@@ -1,0 +1,26 @@
+{
+  "result": "PASS",
+  "tables": 19,
+  "rows": {
+    "drizzle.__drizzle_migrations": 21,
+    "public.accounts": 4,
+    "public.guest_sessions": 0,
+    "public.lobbies": 1,
+    "public.lobby_bans": 0,
+    "public.lobby_bots": 1,
+    "public.lobby_invitations": 0,
+    "public.lobby_members": 1,
+    "public.lobby_settings": 1,
+    "public.oauth_identities": 0,
+    "public.profile_photos": 0,
+    "public.race_corpus_entries": 122,
+    "public.race_corpus_versions": 1,
+    "public.race_entrants": 14,
+    "public.race_key_errors": 2,
+    "public.race_passages": 122,
+    "public.race_results": 14,
+    "public.race_wpm_series": 2,
+    "public.races": 7
+  },
+  "rowDigestsMatch": true
+}
