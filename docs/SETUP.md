@@ -4,7 +4,7 @@ Ce guide part d'une copie du dépôt `incision/`. L'application Next.js existe d
 
 ## Outils
 
-Utiliser Node.js 24, npm 11, Git et Docker. Démarrer Docker Desktop pour la base de données locale. GitHub héberge le dépôt et exécute la CI à chaque push. La production tourne sur Azure App Service avec Neon PostgreSQL ([ADR-0002](adr/0002-hosting.md), [guide de déploiement](DEPLOYMENT.md)); le budget reste à **0 $ de dépense personnelle**. Un éditeur qui prend en charge TypeScript est recommandé.
+Utiliser Node.js 24, npm 11, Git et Docker. Démarrer le moteur Docker de cette machine (Docker Desktop sur poste local, daemon Docker dans un environnement cloud isolé). GitHub héberge le dépôt et exécute la CI à chaque push. La production tourne sur Azure App Service avec Neon PostgreSQL ([ADR-0002](adr/0002-hosting.md), [guide de déploiement](DEPLOYMENT.md)); le budget reste à **0 $ de dépense personnelle**. Un éditeur qui prend en charge TypeScript est recommandé.
 
 ## 1. Aller à la racine du dépôt
 
@@ -20,6 +20,8 @@ Sur une autre machine, cloner d'abord le dépôt GitHub et entrer dans son dossi
 
 ```sh
 npm ci
+# Préparer ensuite la base et les variables (sections 3 et 3 bis),
+# puis lancer :
 npm run dev -w @incision/web
 ```
 
@@ -34,6 +36,7 @@ cp -n .env.example .env
 docker compose up -d db
 docker compose ps
 npm run db:migrate -w @incision/database
+npm run db:import:corpus -w @incision/database -- --version 2026-10-25.4
 ```
 
 `db:migrate` applique les migrations versionnées à la base de données de `DATABASE_URL_UNPOOLED` (la base locale par défaut). Les tests de base de données utilisent un serveur distinct et jetable qui garde ses données en mémoire :
@@ -64,6 +67,24 @@ Les tests d'intégration de la course lancent eux aussi le build de production, 
 ```sh
 npm run test:integration -w @incision/web
 ```
+
+### Historique de démonstration facultatif
+
+Sur la base locale migrée **de cette copie seulement**, fournir explicitement son
+URL (le script ne lit pas `.env`) :
+
+```sh
+DEMO_HISTORY_DATABASE_URL=postgresql://incision:incision_local_only@localhost:5432/incision \
+  node --import tsx packages/database/scripts/seed-history.ts --version 2026-10-25.4
+```
+
+Adapter l’URL si le port ou le mot de passe local diffère. Le script importe le
+corpus de manière idempotente et crée six courses synthétiques pour
+`demo-history-alice` / `brume-history-alice-4817` et
+`demo-history-bruno` / `brume-history-bruno-2096` (identifiants volontairement publics).
+Il ne remplace pas des données existantes en conflit. Ces courses ne collectent
+pas de journal Arcade : elles servent aussi à vérifier l’état « journal indisponible »,
+jamais un faux « aucun bonus ». Voir les [limites du seed](evidence/f07-7-demo-history/README.md).
 
 ## 3 ter. Activer explicitement le parcours invité (#31)
 

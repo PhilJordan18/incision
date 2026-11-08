@@ -4,7 +4,7 @@ Plateforme de course de frappe pour les élèves de 12 à 17 ans.
 
 **Production :** https://incision-cmd7bxg2cacvdeby.canadacentral-01.azurewebsites.net
 
-Le dépôt contient le serveur personnalisé Next.js + Socket.IO, sa CI et son pipeline de déploiement sur Azure, le schéma PostgreSQL avec migrations versionnées, l'authentification (GitHub, Discord, comptes locaux), ma direction artistique appliquée en français et en anglais avec thèmes clair et sombre, et les salles rejointes par code avec présence en direct. La course elle-même est la prochaine étape.
+Le dépôt contient le serveur personnalisé Next.js + Socket.IO, sa CI et son pipeline de déploiement sur Azure, le schéma PostgreSQL avec migrations versionnées, l'authentification (GitHub, Discord, comptes locaux), ma direction artistique appliquée en français et en anglais avec thèmes clair et sombre, et les salles rejointes par code avec présence en direct. Le code de `dev` comprend les courses autoritaires, les bots, le mode Arcade, les résultats et leur journal des bonus, ainsi que l’historique privé. La présence du code ne certifie pas son activation en production; les réserves humaines et distantes restent dans la matrice.
 
 ## Pour commencer
 
@@ -13,6 +13,44 @@ Le dépôt contient le serveur personnalisé Next.js + Socket.IO, sa CI et son p
 3. Utiliser [le modèle de données](docs/architecture/data-model.md), [les machines à états](docs/architecture/state-machines.md) et [l'ADR temps réel](docs/adr/0001-realtime.md) comme contrats de conception pour le développement.
 4. Suivre le [guide de contribution](CONTRIBUTING.md) pour le code, les vérifications et les commits.
 5. Déployer et exploiter la production avec [le guide de déploiement](docs/DEPLOYMENT.md).
+
+## Technologies et vérifications locales
+
+Node.js 24, npm 11, Next.js 16.4.3, React 19.3, TypeScript strict, Tailwind CSS 4,
+Socket.IO, PostgreSQL 17 et Drizzle. Les versions exactes sont verrouillées dans
+`package-lock.json`.
+
+Depuis une copie neuve, suivre [SETUP.md](docs/SETUP.md) : dépendances, `.env`
+privé, PostgreSQL, migrations, comptes puis corpus `2026-10-25.4`, avant le serveur.
+[`.env.example`](.env.example) décrit les variables; les clés locales sont générées
+pour cette copie, jamais reprises d’un autre environnement. Le seed d’historique
+synthétique est une étape facultative distincte.
+
+```sh
+npm run check:no-js
+npm run lint
+npm run typecheck
+npm test
+npm run build
+# Serveur db-test isolé démarré selon SETUP.md :
+TEST_DATABASE_URL=postgresql://incision_test:incision_test_only@localhost:5433/postgres npm run test:db -w @incision/database
+npm run test:integration -w @incision/web
+npm run test:e2e -w @incision/web
+```
+
+Les tests SQL créent leurs bases temporaires; les suites intégration et E2E
+recréent leurs propres bases `incision_e2e*`. Ne jamais les viser sur une base à
+conserver. Les tests PgBouncer exigent une configuration distincte : un skip
+n’est pas une validation du pooler.
+
+## Captures du produit
+
+Captures automatisées sur données synthétiques, issues de la qualification du
+6 novembre; elles ne sont pas une nouvelle recette humaine ni des captures de production.
+
+![Journal des bonus en français, thème clair](docs/evidence/bonus-journal-2026-11-06/journal-fr-aube-390.png)
+
+[Autres captures FR/EN, clair/sombre et largeurs](docs/evidence/bonus-journal-2026-11-06/README.md).
 
 ## Comptes de démonstration
 
@@ -34,15 +72,14 @@ Ils existent partout où le seed a été exécuté : en local après `npm run db
 
 La direction artistique reste créative, mais doit respecter les exigences DES : nom/logo créés par l'étudiant, responsive, lisibilité et accessibilité. Une décision technique n'est ni une exigence supplémentaire de l'enseignant ni une fonctionnalité déjà livrée.
 
-## Structure du dépôt et modules prévus
+## Structure du dépôt
 
 ```text
 incision/
-├── apps/web/                 Next.js, React et Socket.IO (créé); la course reste à développer
+├── apps/web/                 Next.js, React et Socket.IO; salles, course, résultats et historique
 ├── apps/design/              Ma source de vérité visuelle : jetons, écrans, wireframes, logos
-├── packages/domain/          Règles pures : code de salle, identifiants, noms d'affichage (d'autres à venir)
-├── packages/contracts/       Événements et validation partagés (à créer)
-├── packages/database/        Schéma Drizzle, migrations, création de salle, migrateur
+├── packages/domain/          Règles pures : textes, course, bots, bonus et mesures
+├── packages/database/        Schéma Drizzle, migrations, transactions, corpus et résultats
 ├── docs/                     Conception et décisions
 ├── compose.yaml              PostgreSQL local seulement
 ├── package.json              Workspaces npm
