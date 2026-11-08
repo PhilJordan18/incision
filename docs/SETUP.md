@@ -52,7 +52,8 @@ Ils n'acceptent qu'un serveur `localhost` et y créent puis suppriment des bases
 
 1. Dans `.env`, donner à `AUTH_SECRET` la sortie de `openssl rand -base64 32` (ne jamais réutiliser une valeur de production) et garder `AUTH_URL=http://localhost:3000`.
 2. Créer les comptes de démonstration : `npm run db:seed:demo -w @incision/database`, puis se connecter à `http://localhost:3000/sign-in` avec un [compte de démonstration](../README.md#comptes-de-démonstration).
-3. Pour GitHub et Discord, remplir `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET` avec l'application OAuth GitHub de **développement** et `AUTH_DISCORD_ID`/`AUTH_DISCORD_SECRET` avec l'application Discord, dont les URL de callback sont listées dans [DEPLOYMENT.md](DEPLOYMENT.md#authentification). Sans elles, les identifiants locaux fonctionnent quand même.
+3. Pour utiliser les invitations dans cette copie isolée, générer aussi une clé dédiée pour `INVITATION_IP_SECRET`, distincte des clés de compte et d’invité. Sans elle, émission et admission par invitation sont désactivées; voir [la procédure](architecture/room-invitations.md).
+4. Pour GitHub et Discord, remplir `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET` avec l'application OAuth GitHub de **développement** et `AUTH_DISCORD_ID`/`AUTH_DISCORD_SECRET` avec l'application Discord, dont les URL de callback sont listées dans [DEPLOYMENT.md](DEPLOYMENT.md#authentification). Sans elles, les identifiants locaux fonctionnent quand même.
 
 Les tests de bout en bout ne font aucun build eux-mêmes : lancer d'abord `npm run build`, démarrer `db-test`, puis
 
@@ -62,7 +63,7 @@ npm run test:e2e -w @incision/web
 
 Playwright démarre le build de production par le serveur personnalisé sur le port 3200, avec une base jetable `incision_e2e` sur `db-test` qu'il supprime, migre et alimente avec le seed à chaque exécution (`E2E_DATABASE_URL` la remplace, localhost seulement). La première exécution peut exiger `npx playwright install chromium`. Les tests OAuth sont simulés : ils s'arrêtent à l'URL d'autorisation du fournisseur et ne se connectent jamais à GitHub ni à Discord.
 
-Les tests d'intégration de la course lancent eux aussi le build de production, en deux processus sur les ports 3301 et 3302, avec une base jetable `incision_e2e_integration` sur `db-test` (`INTEGRATION_DATABASE_URL` et `INTEGRATION_PORTS` les remplacent, localhost seulement). Ils pilotent les comptes par Socket.IO, sans navigateur, et durent environ une minute :
+Les tests d'intégration de la course lancent eux aussi le build de production, en deux processus sur les ports 3301 et 3302, avec une base jetable `incision_e2e_integration` sur `db-test` (`INTEGRATION_DATABASE_URL` et `INTEGRATION_PORTS` les remplacent, localhost seulement). Ils pilotent les comptes par Socket.IO, sans navigateur, et durent environ deux à trois minutes sur la machine de qualification :
 
 ```sh
 npm run test:integration -w @incision/web

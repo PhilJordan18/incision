@@ -24,6 +24,16 @@ Il n'y a pas d'environnement de préproduction (staging) : les changements sont 
 
 Le pipeline n'est vert que si la production exécute le commit attendu, joint Neon et accepte les connexions WebSocket.
 
+### Vérifier l’archive sans déployer
+
+Sur Linux, après le build : `scripts/package-release.sh <SHA-exact> <sortie.zip>`.
+Le script exige aussi `rsync` et `zip`; le contrôle
+`npm run db:check-corpus-leak -w @incision/database -- --archive <sortie.zip>`
+exige `unzip`. Il installe les dépendances de production dans un dossier temporaire.
+L’assemblage et le contrôle locaux ne publient rien. Utiliser une sortie neuve,
+ne pas remplacer un artefact ou une sauvegarde à conserver, et séparer les sorties
+`next dev` de la copie destinée à l’archive de production.
+
 ## Configuration initiale
 
 **Azure App Service** (portail → *incision*) :
