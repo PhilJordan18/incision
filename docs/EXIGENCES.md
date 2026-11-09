@@ -17,6 +17,10 @@ acceptation d’exception sensible, activation ou validation de production n’e
 Les preuves de charge/Lighthouse ci-dessous restent celles du 6 novembre, non réexécutées
 dans cette tranche. Aucun statut officiel n’est promu par cette consolidation.
 
+Le [correctif de test du 9 novembre](evidence/integrated-2026-11-08/ci-fix-2026-11-09.md)
+documente l’échec CI Arcade et la reprise du client de test après changement de
+version du texte. Il ne modifie aucune règle produit ni validation humaine.
+
 ## Qualification locale du 5 novembre 2026
 
 La qualification part du `dev` **c588a272**; le correctif du scénario de charge est
