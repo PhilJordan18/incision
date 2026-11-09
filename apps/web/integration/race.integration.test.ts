@@ -103,11 +103,27 @@ async function room(host: { id: string }, guests: { id: string }[]): Promise<str
 /** Types `graphemes` from `seq` on, two per batch, below ten batches and 25 inserts a second. */
 async function typeAll(page: Tab, raceId: string, graphemes: readonly string[], seq = 1): Promise<number> {
   let next = seq;
-  for (let index = 0; index < graphemes.length; index += 2) {
+  let textVersion = 0;
+  let resyncs = 0;
+  for (let index = 0; index < graphemes.length;) {
     const events = graphemes.slice(index, index + 2).map((grapheme) => ({ type: "insert", grapheme }));
-    const ack = (await page.ask("race:batch", { raceId, seq: next, textVersion: 0, events })) as RaceBatchAck;
-    expect(ack, `batch ${next}`).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    const ack = (await page.ask("race:batch", { raceId, seq: next, textVersion, events })) as RaceBatchAck;
+    if (ack.ok && ack.result.outcome === "resync") {
+      // A bot can extend the leader while this client is typing. Only accept that
+      // resync, never hide an ordering error, refusal or a changed text prefix.
+      expect(ack.result.reason).toBe("TEXT_VERSION_CHANGED");
+      const snapshot = ack.result.snapshot;
+      expect(snapshot.ackSeq).toBe(next - 1);
+      expect(snapshot.textVersion).toBeGreaterThan(textVersion);
+      expect(snapshot.target.slice(snapshot.typed.length, snapshot.typed.length + graphemes.length - index)).toEqual(graphemes.slice(index));
+      expect(++resyncs, "one human activation plus at most three bot grants").toBeLessThanOrEqual(4);
+      textVersion = snapshot.textVersion;
+      await sleep(120);
+      continue;
+    }
+    expect(ack, `batch ${next}: ${JSON.stringify(ack)}`).toMatchObject({ ok: true, result: { outcome: "applied", ackSeq: next, textVersion } });
     next += 1;
+    index += events.length;
     await sleep(120);
   }
   return next;
@@ -223,14 +239,18 @@ describe("an integrated race (F-04.0)", () => {
     // The fixed seed is the test build's, never stored with the race.
     expect(JSON.stringify(stored?.config)).not.toContain(BONUS_SEED_EXTEND.join(","));
     await startsAt(reveal);
-    // The host leads past 75 %; the guest (last, at 0) receives a grant at 25 %, the bot once it is far behind.
+    // The guest (last, at 0) receives grants at 25/50 %; the bot becomes eligible once far behind.
     const typed = Math.ceil(reveal.reveal.text.length * 0.8);
-    await typeAll(h, raceId, reveal.reveal.text.slice(0, typed));
+    const halfway = Math.ceil(reveal.reveal.text.length * 0.5);
+    const nextSeq = await typeAll(h, raceId, reveal.reveal.text.slice(0, halfway));
     const self = (await g.next("race:bonus:self", (payload: { grants: readonly unknown[] }) => payload.grants.length > 0, 10_000)) as { grants: { milestone: number; kind: string }[] };
     expect(self.grants[0]).toEqual({ milestone: 25, kind: "extendLeader" });
     // The guest's Enter: the server applies the extension to the leader, the host, with three words of the reviewed list.
     const ack = (await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })) as { ok: boolean; result?: { ok: boolean; receipt?: { grant: { kind: string }; targetId: string } } };
     expect(ack).toMatchObject({ ok: true, result: { ok: true, receipt: { grant: { kind: "extendLeader" }, targetId: hostId } } });
+    // Force an extension before the next old-version batch, independent of the bot's delay.
+    await h.next("race:self", (payload: RaceSelfPayload) => payload.snapshot.textVersion >= 1, 5_000);
+    await typeAll(h, raceId, reveal.reveal.text.slice(halfway, typed), nextSeq);
     // The bot uses its own grant within its delay (D-16), through the same transition, announced to every follower.
     const announced = (await h.next("race:bonus:announcement", (payload: { announcement: { type: string; receipt?: { grant: { entrantId: string } } } }) =>
       payload.announcement.type === "activated" && payload.announcement.receipt?.grant.entrantId === botId, 15_000)) as { announcement: { receipt: { grant: { kind: string }; targetId: string } } };
