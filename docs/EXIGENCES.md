@@ -21,6 +21,13 @@ Le [correctif de test du 9 novembre](evidence/integrated-2026-11-08/ci-fix-2026-
 documente l’échec CI Arcade et la reprise du client de test après changement de
 version du texte. Il ne modifie aucune règle produit ni validation humaine.
 
+Le [diagnostic de contraste du 10 novembre](evidence/contrast-2026-11-10/README.md)
+complète cette preuve : le run `push` de la même tête était rouge malgré le run
+`pull_request` vert. Le contraste transitoire en mode animations réduites est
+corrigé dans la feuille de style applicative; les couleurs du design, les seuils
+AA et les contrôles axe sont conservés. Les deux événements CI doivent être
+contrôlés séparément. Aucun statut humain ou officiel n’est promu.
+
 ## Qualification locale du 5 novembre 2026
 
 La qualification part du `dev` **c588a272**; le correctif du scénario de charge est
