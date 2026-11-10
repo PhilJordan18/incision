@@ -1,0 +1,90 @@
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/theme-contrast.spec.ts --output=/workspace/scratch/contrast-20261110/red-regression
+
+[WebServer] (node:4385) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_contrast_regression_20261110 ready, demo accounts: created, created
+[WebServer] (node:4418) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 119ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3601
+
+Running 2 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:4437) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (fr-CA) (1.5s)
+(node:4527) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (en-US) (1.2s)
+
+
+  1) [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (fr-CA)
+
+    Error: fr-CA, 1440, system, aube: [{"theme":"aube","ratio":1.5410899513185539},{"theme":"aube","ratio":1.6614770401881336},{"theme":"aube","ratio":4.392229676252955},{"theme":"aube","ratio":5.542571589154613},{"theme":"aube","ratio":6.388861943618967},{"theme":"aube","ratio":6.878928216536757},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921}]
+
+    expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 4.5
+    Received:    1.5410899513185539
+
+      48 |             const readings = await samples;
+      49 |             expect(readings.some(reading => reading.theme === theme)).toBe(true);
+    > 50 |             expect(Math.min(...readings.map(reading => reading.ratio)), `${locale}, ${width}, ${control}, ${theme}: ${JSON.stringify(readings)}`).toBeGreaterThanOrEqual(4.5);
+         |                                                                                                                                                   ^
+      51 |           }
+      52 |         }
+      53 |       }
+        at /workspace/incision-final-integrated/apps/web/e2e/theme-contrast.spec.ts:50:147
+
+    Error Context: ../../../scratch/contrast-20261110/red-regression/theme-contrast-reduced-mot-9563a-ondary-text-readable-fr-CA--chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../scratch/contrast-20261110/red-regression/theme-contrast-reduced-mot-9563a-ondary-text-readable-fr-CA--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../scratch/contrast-20261110/red-regression/theme-contrast-reduced-mot-9563a-ondary-text-readable-fr-CA--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (en-US)
+
+    Error: en-US, 1440, system, aube: [{"theme":"aube","ratio":1.556260805503652},{"theme":"aube","ratio":1.6614770401881336},{"theme":"aube","ratio":3.033537877019395},{"theme":"aube","ratio":4.392229676252955},{"theme":"aube","ratio":5.542571589154613},{"theme":"aube","ratio":6.388861943618967},{"theme":"aube","ratio":6.878928216536757},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921},{"theme":"aube","ratio":6.997210730507921}]
+
+    expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 4.5
+    Received:    1.556260805503652
+
+      48 |             const readings = await samples;
+      49 |             expect(readings.some(reading => reading.theme === theme)).toBe(true);
+    > 50 |             expect(Math.min(...readings.map(reading => reading.ratio)), `${locale}, ${width}, ${control}, ${theme}: ${JSON.stringify(readings)}`).toBeGreaterThanOrEqual(4.5);
+         |                                                                                                                                                   ^
+      51 |           }
+      52 |         }
+      53 |       }
+        at /workspace/incision-final-integrated/apps/web/e2e/theme-contrast.spec.ts:50:147
+
+    Error Context: ../../../scratch/contrast-20261110/red-regression/theme-contrast-reduced-mot-665ce-ondary-text-readable-en-US--chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../scratch/contrast-20261110/red-regression/theme-contrast-reduced-mot-665ce-ondary-text-readable-en-US--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../scratch/contrast-20261110/red-regression/theme-contrast-reduced-mot-665ce-ondary-text-readable-en-US--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (fr-CA)
+    [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (en-US)
+npm error Lifecycle script `test:e2e` failed with error:
+npm error code 1
+npm error path /workspace/incision-final-integrated/apps/web
+npm error workspace @incision/web@0.1.0
+npm error location /workspace/incision-final-integrated/apps/web
+npm error command failed
+npm error command sh -c playwright test e2e/theme-contrast.spec.ts --output=/workspace/scratch/contrast-20261110/red-regression

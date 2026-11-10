@@ -1,0 +1,26 @@
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/quickplay.spec.ts e2e/room-invitations.spec.ts e2e/theme-contrast.spec.ts --grep a guest quickplays|invitation lifecycle|reduced-motion theme --output=/workspace/scratch/contrast-20261110/green-target
+
+[WebServer] (node:7374) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_contrast_target_20261110 ready, demo accounts: created, created
+[WebServer] (node:7407) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 58ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3601
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+
+Running 6 tests using 1 worker
+
+(node:7425) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/quickplay.spec.ts:117:7 › a guest quickplays with a nickname only, and sees the empty state without a room (fr-CA) (9.5s)
+  ✓  2 [chromium] › e2e/quickplay.spec.ts:117:7 › a guest quickplays with a nickname only, and sees the empty state without a room (en-US) (7.5s)
+  ✓  3 [chromium] › e2e/room-invitations.spec.ts:16:46 › invitation lifecycle, privacy and responsive controls (fr-CA) (12.3s)
+  ✓  4 [chromium] › e2e/room-invitations.spec.ts:16:46 › invitation lifecycle, privacy and responsive controls (en-US) (12.4s)
+  ✓  5 [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (fr-CA) (8.6s)
+  ✓  6 [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (en-US) (8.4s)
+
+  6 passed (1.1m)
