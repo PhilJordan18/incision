@@ -1,0 +1,19 @@
+import pg from '/workspace/incision-final-integrated/node_modules/pg/lib/index.js';
+import assert from 'node:assert/strict';
+async function snapshot(database) {
+ const client=new pg.Client({connectionString:`postgresql://incision:incision_local_only@localhost:55432/${database}`});
+ await client.connect();
+ try {
+ const rows=(await client.query("select schemaname,tablename from pg_tables where schemaname in ('public','drizzle') order by 1,2")).rows;
+ const result={};
+ for(const {schemaname,tablename} of rows){
+ const quote=s=>'"'+s.replaceAll('"','""')+'"';
+ const q=await client.query(`select count(*)::integer n, md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' order by row_to_json(t)::text),'')) digest from ${quote(schemaname)}.${quote(tablename)} t`);
+ result[`${schemaname}.${tablename}`]=q.rows[0];
+ }
+ return result;
+ } finally {await client.end();}
+}
+const source=await snapshot('incision'), restored=await snapshot('incision_restore_20261108');
+assert.deepEqual(restored,source);
+console.log(JSON.stringify({result:'PASS',tables:Object.keys(source).length,rows:Object.fromEntries(Object.entries(source).map(([k,v])=>[k,v.n])),rowDigestsMatch:true},null,2));

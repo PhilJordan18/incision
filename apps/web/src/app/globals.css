@@ -34,6 +34,18 @@
   .icon-slow-spin {
     animation: none;
   }
+
+  /* The design's global 150 ms duration otherwise creates implicit `all`
+     transitions, even on plain text. Opposite theme colours cross at unreadable
+     contrast. Keep the reduced-motion fade, but switch colours atomically. */
+  *, *::before, *::after {
+    transition-property: opacity !important;
+  }
+
+  /* Preserve explicit opt-outs, including the room's live connection label. */
+  .transition-none {
+    transition-property: none !important;
+  }
 }
 
 /* Skip-link target: focused to move the reading position, not a control to highlight. */

@@ -1,0 +1,24 @@
+import { chromium, expect } from '/workspace/incision-final-integrated/node_modules/@playwright/test/index.mjs';
+const browser = await chromium.launch({headless:true});
+try {
+ const page = await browser.newPage({locale:'fr-CA'});
+ const health = await page.request.get('http://localhost:3400/api/health');
+ const status = await health.json();
+ if(status.database !== 'up') throw Error('Fresh database not up');
+ await page.goto('http://localhost:3400/sign-in');
+ await page.locator('input[autocomplete="username"]').fill('demo-history-alice');
+ await page.getByLabel('Mot de passe',{exact:true}).fill('brume-history-alice-4817');
+ await page.getByRole('button',{name:'Se connecter',exact:true}).click();
+ await expect(page).toHaveURL(/\/account$/,{timeout:30000});
+ await page.getByRole('link',{name:'Historique des courses',exact:true}).click();
+ await expect(page.getByRole('table').getByRole('row')).toHaveCount(7);
+ await page.getByRole('link',{name:'Voir les résultats',exact:true}).first().click();
+ const journal=page.getByRole('region',{name:'Journal des bonus'});
+ await journal.locator('summary').first().click();
+ await expect(journal.getByText(/Journal indisponible/).first()).toBeVisible();
+ await expect(journal.getByText('Aucun bonus reçu.',{exact:true})).toHaveCount(0);
+ await page.reload();
+ await expect(journal.getByText(/Journal indisponible/).first()).toBeAttached();
+ await page.screenshot({path:'/workspace/scratch/integrated-2026-11-08/fresh-history.png',fullPage:true});
+ console.log('PASS: fresh README dev server, database up, local demo-history login, 6 races, private history link, legacy journal unavailable after reload (no false zero).');
+} finally { await browser.close(); }

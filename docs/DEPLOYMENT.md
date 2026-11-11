@@ -24,6 +24,16 @@ Il n'y a pas d'environnement de préproduction (staging) : les changements sont 
 
 Le pipeline n'est vert que si la production exécute le commit attendu, joint Neon et accepte les connexions WebSocket.
 
+### Vérifier l’archive sans déployer
+
+Sur Linux, après le build : `scripts/package-release.sh <SHA-exact> <sortie.zip>`.
+Le script exige aussi `rsync` et `zip`; le contrôle
+`npm run db:check-corpus-leak -w @incision/database -- --archive <sortie.zip>`
+exige `unzip`. Il installe les dépendances de production dans un dossier temporaire.
+L’assemblage et le contrôle locaux ne publient rien. Utiliser une sortie neuve,
+ne pas remplacer un artefact ou une sauvegarde à conserver, et séparer les sorties
+`next dev` de la copie destinée à l’archive de production.
+
 ## Configuration initiale
 
 **Azure App Service** (portail → *incision*) :
@@ -314,7 +324,7 @@ Une nouvelle mesure ou une nouvelle vérification fait donc une nouvelle version
 - **En local :** `npm run db:import:corpus -w @incision/database -- --version <version>` (avec `--folder <dossier>` pour un autre dossier que `corpus/`) importe dans la base de `DATABASE_URL_UNPOOLED` du `.env` et refuse toute base distante. Cette garde évite une erreur ; ce n'est pas une frontière de sécurité (un tunnel vers localhost passerait). Le script affiche le résultat : importée ou inchangée, active ou non, passages retenus et en réserve par langue, passages qui servent les réglages par défaut, nouveaux, conservés et retirés. La fixture du contrat ne s'importe que dans des bases de test jetables.
 - **Contrôle de fuite :** après `npm run build`, `npm run db:check-corpus-leak -w @incision/database` vérifie qu'aucun passage n'apparaît dans le build (tout `.next` sauf son cache) ni dans `public/`. Un passage sans morceau ASCII assez long pour être cherché fait échouer le contrôle. Avec `--archive <zip>`, il vérifie aussi que l'archive de version ne contient ni le corpus ni les fichiers de test, ni aucun passage dans son `.next`, son `public/` et les sources qu'elle embarque (`packages/*/src`, `apps/web/src`). Aucune exception depuis F-02.3b : le serveur tire chaque texte de la base, et aucune source ne contient de passage. Contrôle local, hors CI pour l'instant.
 - **Pas encore automatisé, cadré à part :** l'import en production (un workflow manuel sur approbation, qui recevrait les fichiers séparément de l'archive) et tout changement des fichiers de CI partagés. Aucun import distant sans mon autorisation explicite, version par version.
-- **Ordre en production :** migrate (`0004`), puis import de la version acceptée, puis démarrage ou redémarrage de l'application (elle lit la version active au démarrage), puis ouverture des courses. **Tant que l'import en production n'existe pas, une promotion qui contient F-02.3b laisse tout départ refusé en production** (`NO_COMPATIBLE_PASSAGE`), même avec `RACES_ENABLED=true`. Une nouvelle version suit le même ordre : import, puis redémarrage.
+- **Ordre en production :** migrate (`0004`), puis import de la version acceptée, puis démarrage ou redémarrage de l'application (elle lit la version active au démarrage), puis ouverture des courses. **Tant que l'import en production n'existe pas, une promotion qui contient F-02.3b laisse tout départ refusé en production** (`TEXTS_UNAVAILABLE`), même avec `RACES_ENABLED=true`. Une nouvelle version suit le même ordre : import, puis redémarrage.
 - **Recalcul des mesures plus tard :** la liste de mots revue (#42) ne suffit pas. Il faudra les mêmes entrées que B : les fréquences wordfreq françaises et anglaises en version 3.1.1 (`wordfreq-3.1.1-large`), le seuil Zipf des mots courants (4), le nombre de mots mesurés (`MEASURED_WORDS`, 200, consigné dans `measuredWith`) et la version de normalisation, versionnés et disponibles pour l'import, plus une tolérance convenue avec B.
 
 ## Première promotion (CP-02 à CP-06 ensemble)

@@ -40,6 +40,7 @@ for (const locale of ["fr", "en"]) test(`bonus journal: ${locale}, two themes, k
     await owner.context.addCookies([{ name: "theme", value: theme, url: test.info().project.use.baseURL! }]);
     await owner.page.goto(`/races/${owner.id}`);
     const journal = owner.page.getByRole("region", { name: locale === "fr" ? "Journal des bonus" : "Bonus journal" });
+    await expect(journal.locator("summary").nth(1)).toContainText(locale === "fr" ? "Capitaine — intermédiaire" : "Captain — intermediate");
     const first = journal.locator("summary").first();
     await first.focus(); await expect(first).toBeFocused(); await owner.page.keyboard.press("Enter");
     await expect(journal.getByText(locale === "fr" ? "Utilisé → #3 · à 1,234 s" : "Used → #3 · at 1.234 s")).toBeVisible();
@@ -55,6 +56,13 @@ for (const locale of ["fr", "en"]) test(`bonus journal: ${locale}, two themes, k
     }
     const before = await journal.textContent();
     await owner.page.reload(); expect(await journal.textContent()).toBe(before);
+    // Exercise the real private history link, not only a direct results URL.
+    await owner.page.goto("/history");
+    const historyLink = owner.page.locator(`a[href="/races/${owner.id}"]`);
+    await expect(historyLink).toHaveCount(1);
+    await historyLink.click();
+    await expect(owner.page).toHaveURL(new RegExp(`/races/${owner.id}$`));
+    await expect(journal).toHaveText(before!);
   }
 });
 

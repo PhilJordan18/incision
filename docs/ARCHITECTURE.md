@@ -1,6 +1,6 @@
 # Architecture — Incision
 
-État du code fusionné dans `dev` au **5 novembre 2026**, référence **`c588a272`**. Cette version répond au point 4 de la [section 8 de l'énoncé final](Web-V-Travail-de-session.pdf) : modèle de données, machine à états, messages temps réel et ADR temps réel/bots. Elle remplace la description initiale du checkpoint. Je décris le code livré dans le dépôt, sans en déduire qu'il est déployé ou validé en production.
+État du code fusionné dans `dev` au **8 novembre 2026**, référence **`39fe1249`**. Cette version répond au point 4 de la [section 8 de l'énoncé final](Web-V-Travail-de-session.pdf) : modèle de données, machine à états, messages temps réel et ADR temps réel/bots. Elle remplace la description initiale du checkpoint. Je décris le code livré dans le dépôt, sans en déduire qu'il est déployé ou validé en production.
 
 ## 1. Périmètre et décisions
 
@@ -180,6 +180,6 @@ Le [coordinateur bonus](../packages/domain/src/bonuses/coordinator.ts) fait évo
 
 La CI existante vérifie TypeScript, lint, règles pures, schéma/migrations, PostgreSQL, build, archive de livraison, processus serveur et parcours navigateur. La présence de ces contrôles ne suffit pas à déclarer une fonctionnalité non raccordée terminée. Les [tests du runtime](../apps/web/src/server/races/race-runtime.test.ts), les [tests SQL des courses](../packages/database/test/races.db.test.ts) et l'[intégration multiprocessus](../apps/web/integration/race.integration.test.ts) sont les preuves associées aux frontières décrites ici.
 
-Les preuves de la révision architecturale du 25 octobre restent conservées dans leur [note historique](evidence/f10-2-architecture/README.md). Cette actualisation corrige les écarts entre cette description et le code du 5 novembre, sans changer les règles produit ni réattribuer les preuves historiques.
+Les preuves de la révision architecturale du 25 octobre restent conservées dans leur [note historique](evidence/f10-2-architecture/README.md). Cette actualisation corrige les écarts entre cette description et le code intégré au 8 novembre, sans changer les règles produit ni réattribuer les preuves historiques.
 
 Le nom, le logo et les fichiers de [direction artistique](../apps/design/README.md) restent inchangés. Toute évolution multi-instance exige un partage explicite des états métier, pas seulement un adaptateur Socket.IO.

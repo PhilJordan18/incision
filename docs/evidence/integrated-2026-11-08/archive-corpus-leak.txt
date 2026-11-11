@@ -1,0 +1,7 @@
+
+> @incision/database@0.1.0 db:check-corpus-leak
+> tsx scripts/check-corpus-leak.ts --archive /workspace/scratch/integrated-2026-11-08/release-check.zip
+
+[corpus-leak] 685 build files checked against 260 fingerprints
+[corpus-leak] 18971 archive entries listed, 1214 shipped files checked
+[corpus-leak] no corpus in the build, nor in the archive

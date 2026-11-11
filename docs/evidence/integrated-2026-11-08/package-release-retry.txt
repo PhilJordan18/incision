@@ -1,0 +1,3 @@
+
+added 84 packages in 11s
+Release archive: /workspace/scratch/integrated-2026-11-08/release-check.zip (127M)
