@@ -178,9 +178,9 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
   Finished TypeScript in 19.7s ...
   Collecting page data using 4 workers ...
   Generating static pages using 4 workers (0/18) ...
-  Generating static pages using 4 workers (4/18) 
-  Generating static pages using 4 workers (8/18) 
-  Generating static pages using 4 workers (13/18) 
+  Generating static pages using 4 workers (4/18)
+  Generating static pages using 4 workers (8/18)
+  Generating static pages using 4 workers (13/18)
 ✓ Generating static pages using 4 workers (18/18) in 303ms
   Finalizing page optimization ...
 
@@ -210,4 +210,3 @@ Route (app)
 
 ○  (Static)   prerendered as static content
 ƒ  (Dynamic)  server-rendered on demand
-

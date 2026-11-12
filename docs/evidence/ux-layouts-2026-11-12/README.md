@@ -26,3 +26,5 @@ These roles were applied by the same Codex session, not independent reviewers, o
 ## Limits and coordination
 
 No production, Mac, real recipe or OAuth access. New layout choices still require the short UX human delta; November 11 acceptance covers the previous personal heatmap, not these controls. Matrix reconciliation is owned solely by `test/10-ux-qualification`, avoiding shared matrix edits. The known inherited invitation-error focus defect discovered during another lot's full suite is corrected there; this heatmap PR does not modify invitations. No issue is closed; future continuous thermal heatmap/exercises remain excluded.
+
+Transcripts are copied with terminal trailing whitespace/CR removed; assertions and results are unchanged. Raw artifacts remain in cloud scratch.

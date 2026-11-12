@@ -24,7 +24,7 @@ Running 5 tests using 1 worker
   ✘  5 [chromium] › e2e/race-charts.spec.ts:100:40 › explicit FR US and Canadian references preserve every expected-character count (en) (1.6m)
 
 
-  1) [chromium] › e2e/race-charts.spec.ts:100:40 › explicit FR US and Canadian references preserve every expected-character count (en) 
+  1) [chromium] › e2e/race-charts.spec.ts:100:40 › explicit FR US and Canadian references preserve every expected-character count (en)
 
     Test timeout of 90000ms exceeded.
 
@@ -39,7 +39,7 @@ Running 5 tests using 1 worker
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
   1 failed
-    [chromium] › e2e/race-charts.spec.ts:100:40 › explicit FR US and Canadian references preserve every expected-character count (en) 
+    [chromium] › e2e/race-charts.spec.ts:100:40 › explicit FR US and Canadian references preserve every expected-character count (en)
   4 passed (3.0m)
 npm error Lifecycle script `test:e2e` failed with error:
 npm error code 1
