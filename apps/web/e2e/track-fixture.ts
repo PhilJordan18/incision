@@ -28,9 +28,9 @@ export async function trackFixture(room: PublicRoomSnapshot, count = 30, options
   let bonusRevision = 1;
   const bonusSelf = () => ({ raceId, revision: bonusRevision, ackSeq: 0, enabled: true,
     grants: [{ milestone: 25, kind: "shortenSelf" }, { milestone: 50, kind: "extendLeader" }, { milestone: 75, kind: "fogLeader" }], fog: null });
-  // `drop()` cuts every connection and refuses new ones until `restore()`: a lost connection (D-06).
+  // `drop()` cuts every connection and the network refuses new ones until `restore()`: a lost
+  // connection (D-06), retried by the client, never a refused session.
   let refusing = false;
-  io.use((_socket, next) => next(refusing ? new Error("offline") : undefined));
   io.on("connection", socket => {
     socket.on("room:watch", (_payload, ack) => {
       const selfEntrantId = socket.handshake.query.spectator === "1" ? null : entrants[15]!.entrantId;
@@ -51,6 +51,7 @@ export async function trackFixture(room: PublicRoomSnapshot, count = 30, options
     refreshBonuses() { if (options.bonuses) { bonusRevision++; io.emit("race:bonus:self", bonusSelf()); } },
     async route(context: BrowserContext, spectator = false) {
       await context.route("**/socket.io/**", async route => {
+        if (refusing) { await route.abort("internetdisconnected"); return; }
         const target = new URL(route.request().url()); target.hostname = "127.0.0.1"; target.port = String(address.port); target.searchParams.set("spectator", spectator ? "1" : "0");
         const response = await route.fetch({ url: target.toString(), headers: { ...await route.request().allHeaders(), cookie: "" } });
         await route.fulfill({ response });

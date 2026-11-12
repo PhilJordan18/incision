@@ -590,7 +590,7 @@ function TypingPad({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Backspace") {
         // An input method edits its own composition (a dead key, a candidate): not the race's text.
-        if (event.isComposing || composing || event.keyCode === 229) return;
+        if (event.isComposing || composing) return;
         event.preventDefault();
         race.type({ type: "deleteBackward" });
       } else if (event.key === "Enter") {

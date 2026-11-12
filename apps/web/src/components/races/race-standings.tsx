@@ -36,7 +36,7 @@ export const RaceStandings = memo(function RaceStandings({ entrants, progress, s
         {text.standingsHeading}
         <span className="ml-2 font-mono text-sm font-normal text-brume">({formatNumber(runners.length, locale)})</span>
       </h2>
-      <p className="text-sm text-brume lg:sr-only">{text.standingsNote}</p>
+      <p className="text-sm text-brume">{text.standingsNote}</p>
       {runners.length === 0 ? (
         <p className="text-sm text-embrun">{text.standingsEmpty}</p>
       ) : (

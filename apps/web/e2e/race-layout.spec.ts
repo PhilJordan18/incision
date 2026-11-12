@@ -143,6 +143,12 @@ test("a lost connection shows its notice under « Ta frappe » without moving it
   await page.screenshot({ animations: "disabled", path: test.info().outputPath("reconnecting-fr-aube-1440.png") });
   fixture!.restore();
   await expect(notice).toHaveCount(0, { timeout: 30_000 });
+  // Back, not ended: the room is live again and « Ta frappe » takes the keys.
+  await expect(page.getByText("[.En direct]")).toBeVisible();
+  await expect(field).toBeEnabled();
+  await field.focus();
+  await page.keyboard.type("La");
+  await expect(page.locator("[data-race-sheet] .course-juste")).toHaveCount(2);
 });
 
 // 200 % zoom on the desktop sizes: CSS pixels halve. Under 768 px D-20 applies (the keyboard
