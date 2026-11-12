@@ -1,0 +1,32 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/result-navigation-presence.spec.ts e2e/host-network-succession.spec.ts e2e/host-succession.spec.ts --output=/workspace/scratch/ux-20261112/qualification/target-built
+
+[WebServer] (node:26342) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_qualification_target_20261112 ready, demo accounts: created, created
+[WebServer] (node:26655) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 1553ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3604
+
+Running 11 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:27019) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/host-network-succession.spec.ts:5:5 › account host reconnects within grace then succeeds to a guest spectator after its last tab leaves (33.1s)
+  ✓   2 [chromium] › e2e/host-succession.spec.ts:39:7 › host departure during countdown preserves the race, records only their abandon and grants next-round control (14.8s)
+  ✓   3 [chromium] › e2e/host-succession.spec.ts:39:7 › host departure during racing preserves the race, records only their abandon and grants next-round control (12.6s)
+  ✓   4 [chromium] › e2e/host-succession.spec.ts:69:5 › last connected human leaving during a race closes and interrupts without official results (9.8s)
+  ✓   5 [chromium] › e2e/host-succession.spec.ts:92:5 › host departure on results preserves the saved race and transfers next-round controls live (24.7s)
+  ✓   6 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: fr-CA abysse (11.7s)
+  ✓   7 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: fr-CA aube (10.8s)
+  ✓   8 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: en-US abysse (8.8s)
+  ✓   9 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: en-US aube (11.1s)
+  ✓  10 [chromium] › e2e/result-navigation-presence.spec.ts:14:44 › reading a finished race follows host grace, successor=false (40.5s)
+  ✓  11 [chromium] › e2e/result-navigation-presence.spec.ts:14:44 › reading a finished race follows host grace, successor=true (42.2s)
+
+  11 passed (4.1m)
