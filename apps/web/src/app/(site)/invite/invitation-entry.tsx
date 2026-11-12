@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useState, useSyncExternalStore, useTransition } from "react";
+import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/locale";
@@ -20,8 +20,7 @@ export function InvitationEntry({ locale, guestCopy, account, guestsEnabled }: {
   const router = useRouter();
   const [error, setError] = useState("");
   const [pending, transition] = useTransition();
-  // Focus the committed alert, not a frame that can precede its transition commit.
-  const focusAlert = useCallback((element: HTMLParagraphElement | null) => { element?.focus(); }, []);
+  const alert = useRef<HTMLParagraphElement>(null);
   return <div className="mx-auto flex w-full max-w-[640px] flex-col gap-7 py-8">
     <PageHeading bold={t.join} />
     <p className="text-brume">{t.intro}</p>
@@ -35,13 +34,14 @@ export function InvitationEntry({ locale, guestCopy, account, guestsEnabled }: {
           if ("code" in result) { router.push(`/rooms/${result.code}`); return; }
           setError(result.error === "INVITATION_UNAVAILABLE" ? t.invalid : result.error === "RATE_LIMITED" ? t.limited : t.unavailable);
         } catch { setError(t.unavailable); }
+        requestAnimationFrame(() => alert.current?.focus());
       });
     }}>
       <fieldset><legend className={fieldLabel}>{guestCopy.role}</legend>
         <label className="flex min-h-11 items-center gap-3"><input type="radio" name="role" value="participant" defaultChecked className="size-5" />{guestCopy.participant}</label>
         <label className="flex min-h-11 items-center gap-3"><input type="radio" name="role" value="spectator" className="size-5" />{guestCopy.spectator}</label>
       </fieldset>
-      {error && <p ref={focusAlert} tabIndex={-1} role="alert" className="text-erreur">⚠ {error}</p>}
+      {error && <p ref={alert} tabIndex={-1} role="alert" className="text-erreur">⚠ {error}</p>}
       <button className={primaryButton} disabled={pending}>{pending ? t.pending : t.account}</button>
     </form> : <>
       {guestsEnabled && <GuestEntryForm t={guestCopy} initialCode="" invitationToken={token} />}

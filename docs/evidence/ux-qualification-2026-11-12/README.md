@@ -34,9 +34,3 @@ Aucune PR ouverte au départ ni nouvelle branche distante identifiable de Claude
 Lecture GraphQL du board tentée le 12 novembre : `Forbidden`. Les colonnes Projects ne peuvent donc pas être déclarées mises à jour. Mises à jour des issues et liens de livraison à consigner après création des PR; toutes les cartes restent ouvertes. Parent #82 reste partiel : ce mandat ne livre pas une préférence persistante ni toute sa portée initiale.
 
 La recette humaine restante est limitée aux nouvelles interfaces dans [RECETTE-FINALE](../../RECETTE-FINALE.md). Refonte globale, nouvelle piste/animations, sons, curseur-boussole facultatif et heatmap thermique continue sont reportés. Le curseur nécessiterait une coordination de styles partagés; tous les curseurs natifs restent conservés.
-
-## Défaut de focus découvert par la non-régression
-
-La suite bots a révélé un refus d’invitation dont l’alerte visible ne recevait pas le focus (`room-moderation.spec.ts:69`, EN). Le composant planifiait un unique `requestAnimationFrame` depuis une transition, sans garantir que le paragraphe existe à cet instant. Une frame retardée ou passée avant le commit pouvait donc perdre ce focus.
-
-Un nouveau test FR/EN suspend l’horloge navigateur après chargement : la réponse serveur et le rendu de l’alerte continuent, mais le focus ne doit pas attendre une frame. Les deux cas échouent sur le build antérieur à la correction, avec une alerte visible et inactive. Le correctif minimal remplace le callback de frame par une ref stable qui focalise le paragraphe lorsqu’il est attaché au DOM. Aucun changement visuel, de refus, d’invitation, de serveur ni de données. Ce fichier n’est pas un composant de course réservé à Claude. Le suivi est rattaché à la qualification accessibilité; les résultats après correction sont consignés séparément.
