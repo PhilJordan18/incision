@@ -34,3 +34,9 @@ Aucune PR ouverte au départ ni nouvelle branche distante identifiable de Claude
 Lecture GraphQL du board tentée le 12 novembre : `Forbidden`. Les colonnes Projects ne peuvent donc pas être déclarées mises à jour. Mises à jour des issues et liens de livraison à consigner après création des PR; toutes les cartes restent ouvertes. Parent #82 reste partiel : ce mandat ne livre pas une préférence persistante ni toute sa portée initiale.
 
 La recette humaine restante est limitée aux nouvelles interfaces dans [RECETTE-FINALE](../../RECETTE-FINALE.md). Refonte globale, nouvelle piste/animations, sons, curseur-boussole facultatif et heatmap thermique continue sont reportés. Le curseur nécessiterait une coordination de styles partagés; tous les curseurs natifs restent conservés.
+
+## Défaut de focus découvert et affectation du correctif
+
+La suite complète du lot bots a révélé une alerte de refus d’invitation visible mais inactive (`room-moderation.spec.ts:69`, EN). Le focus dépendait d’un `requestAnimationFrame` programmé avant le commit React. Deux tests FR/EN avec horloge navigateur suspendue échouent sur le code antérieur : alerte visible, focus absent. Un essai du correctif a ensuite confirmé le focus, mais révélé deux défauts du nouveau test (horloge pouvant viser le passé; exigence de focus-visible après un clic souris). Ces défauts de fixture sont consignés, pas attribués au produit.
+
+Le correctif et la régression clavier/souris sont finalement livrés **dans la branche bots**, où la non-régression avait échoué, afin de ne pas rendre cette PR dépendante de la qualification. Le commit d’essai de cette branche est annulé par un revert explicite, sans réécriture d’historique. Le diff final de qualification ne modifie pas l’invitation ni ses règles. La ref stable focalise l’alerte à son attachement au DOM; aucun seuil ni contrôle d’accessibilité n’est retiré.
