@@ -44,8 +44,23 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(other.page.getByRole("region", { name: /^(Mes salles|My rooms)$/ }).getByRole("link")).toHaveCount(0);
     await expect(other.page.getByText(code, { exact: false })).toHaveCount(0);
     await profile.goto("/account"); await history.getByRole("link").click(); await expect(profile).toHaveURL(/\/history$/);
+    // A click does not acknowledge the asynchronous close action. Keep its request pending
+    // to prove that the account correctly lists the room until the server confirms closure.
+    let releaseClose!: () => void;
+    let closeRequested!: () => void;
+    const closeHeld = new Promise<void>(resolve => { releaseClose = resolve; });
+    const requestSeen = new Promise<void>(resolve => { closeRequested = resolve; });
+    await owner.page.route(roomURL, async route => {
+      if (route.request().method() === "POST") { closeRequested(); await closeHeld; }
+      await route.continue();
+    });
     await owner.page.getByRole("button", { name: /^(Fermer la salle|Close the room)$/, exact: true }).click();
-    await owner.page.getByRole("button", { name: /^(Oui, fermer la salle|Yes, close the room)$/ }).click();
+    try {
+      await owner.page.getByRole("button", { name: /^(Oui, fermer la salle|Yes, close the room)$/ }).click();
+      await requestSeen;
+      await profile.goto("/account"); await expect(rooms.getByRole("link")).toHaveAttribute("href", `/rooms/${code}`);
+    } finally { releaseClose(); }
+    await expect(owner.page.getByRole("heading", { level: 1 })).toHaveText(/Salle\s*fermée|Room\s*closed/i);
     await profile.goto("/account"); await expect(rooms.getByRole("link")).toHaveCount(0);
   });
   test(`home explains existing play and guests have no personal navigation (${locale})`, async ({ browser }) => {
