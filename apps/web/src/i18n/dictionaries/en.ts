@@ -253,7 +253,7 @@ export const en: Dictionary = {
     bonuses: {
       heading: "Bonuses", inventory: "Your bonuses · activation order", next: "next", milestone: "{milestone}% milestone",
       kinds: { shortenSelf: "Shortcut", extendLeader: "Extension", fogLeader: "Fog" },
-      hint: "Enter in the typing field activates your next bonus. It never types a character.",
+      hint: "Enter in the text activates your next bonus. It never types a character.",
       empty: "No bonus in reserve.", sending: "Activating…", sync: "Synchronising bonuses… Wait before trying again.",
       observing: "Take the input in this tab to activate a bonus.", over: "Bonuses are only available while you are racing.",
       fog: "Fog: upcoming words are temporarily hidden. The current word stays readable.",

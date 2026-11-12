@@ -106,7 +106,7 @@ test("observer control transfer and reload restore the private inventory without
   await expect(second.getByText(/Reprends la frappe dans cet onglet/)).toBeVisible();
   await second.getByRole("button", { name: "Taper dans cet onglet" }).click();
   await expect(secondField).toBeEnabled();
-  await expect(second.getByText(/Entrée dans le champ de frappe active/)).toBeVisible();
+  await expect(second.getByText(/Entrée dans le texte active/)).toBeVisible();
   await secondField.press("Enter"); await expect(second.locator(".course-texte")).toHaveText("aa bb cc dd ee ff gg");
   await expect(actor.page.getByLabel("Ta frappe")).toBeDisabled();
   await second.reload(); await expect(secondField).toBeEnabled();

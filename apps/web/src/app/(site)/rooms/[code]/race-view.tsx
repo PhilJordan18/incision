@@ -177,7 +177,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
           )}
 
           {/* Under the text and its legend, in the flow: never over the text, nothing above it moves (design rule 7). */}
-          {inactive && <StillThere t={t} locale={locale} onPresent={() => onPresent(reveal.raceId)} />}
+          {inactive && <StillThere t={t} locale={locale} canReturn={!narrow && state.control === "controlling"} onPresent={() => onPresent(reveal.raceId)} />}
 
           {/* D-06: a lost connection keeps the place 30 s, from the server's detection. */}
           {selfRacing && reconnecting && (
@@ -263,7 +263,13 @@ function RaceLayout({ top, main, after, below, standings, track, bonuses }: {
  * text without answering. Opening it is not activity: only a keystroke or the button tell the
  * server, never the tab being open.
  */
-function StillThere({ t, locale, onPresent }: { readonly t: Dictionary["races"]; readonly locale: Locale; readonly onPresent: () => Promise<boolean> }) {
+function StillThere({ t, locale, canReturn, onPresent }: {
+  readonly t: Dictionary["races"];
+  readonly locale: Locale;
+  /** This tab types in the text: Escape takes the player back to it. */
+  readonly canReturn: boolean;
+  readonly onPresent: () => Promise<boolean>;
+}) {
   const [step, setStep] = useState<"idle" | "sending" | "failed">("idle");
   const heading = useRef<HTMLHeadingElement>(null);
   const text = raceScreenMessages[locale];
@@ -313,7 +319,7 @@ function StillThere({ t, locale, onPresent }: { readonly t: Dictionary["races"];
       <button type="button" onClick={() => void answer()} aria-disabled={step === "sending"} className={`${secondaryButton} self-start aria-disabled:cursor-progress`}>
         {t.present}
       </button>
-      <p className="text-sm text-brume">{text.presenceBack}</p>
+      {canReturn && <p className="text-sm text-brume">{text.presenceBack}</p>}
       <p role="alert" className="min-h-5 text-sm text-erreur">
         {step === "failed" && (
           <>
