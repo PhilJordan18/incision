@@ -1,4 +1,5 @@
-import type { EntrantResultView, RaceResultView, StoredKeyErrors } from "@incision/database";
+import { KeyHeatmap } from "@/components/results/key-heatmap";
+import type { EntrantResultView, RaceResultView } from "@incision/database";
 import { card, monoLabel } from "@/components/ui/styles";
 import { raceCharts } from "@/i18n/race-charts";
 import type { Locale } from "@/i18n/locale";
@@ -9,8 +10,6 @@ import { BotIdentityLabel } from "./bot-identity-label";
 type Copy = (typeof raceCharts)[Locale];
 const title = "font-display text-3xl font-extrabold uppercase";
 const cell = "px-4 py-3 font-mono text-right whitespace-nowrap";
-const keyboardRows = ["azertyuiop^$", "qsdfghjklmù*", "<wxcvbn,;:!é"] as const;
-const keyboardKeys = new Set([...keyboardRows.join(""), " "]);
 
 /** Server-rendered from the authenticated result projection; no public per-player heatmap. */
 export function RaceCharts({ race, locale }: { readonly race: RaceResultView; readonly locale: Locale }) {
@@ -53,7 +52,7 @@ export function RaceCharts({ race, locale }: { readonly race: RaceResultView; re
         </div>
       </details>
     </section>
-    {race.entrants.some((entrant) => entrant.isSelf) && <KeyHeatmap aggregate={race.personalKeyErrors} locale={locale} t={t} />}
+    {race.entrants.some((entrant) => entrant.isSelf) && <KeyHeatmap aggregate={race.personalKeyErrors} locale={locale} />}
   </div>;
 }
 
@@ -94,50 +93,4 @@ function SpeedPlot({ entrants, locale, t }: { readonly entrants: readonly Entran
     })}
     </svg>
   </div>;
-}
-
-function KeyHeatmap({ aggregate, locale, t }: { readonly aggregate: StoredKeyErrors | undefined; readonly locale: Locale; readonly t: Copy }) {
-  const counts = new Map(aggregate?.keys.map(({ grapheme, count }) => [grapheme, count]));
-  const maximum = [...counts.values()].reduce((largest, count) => Math.max(largest, count), 1);
-  const total = [...counts.values()].reduce((sum, count) => sum + count, 0);
-  const keyLabel = (key: string) => key === " " ? t.space : key;
-  const keyCell = (key: string) => {
-    const count = counts.get(key) ?? 0;
-    const tone = count === 0 ? "border-houle bg-sillage" : count >= maximum / 2 ? "border-erreur bg-erreur-fond" : "border-or bg-sillage";
-    return <span key={key} tabIndex={0} aria-label={`${keyLabel(key)} — ${formatNumber(count, locale)} ${t.count.toLowerCase()}`}
-      className={`flex min-h-14 min-w-11 flex-col items-center justify-center rounded-puce border px-2 font-mono text-ecume ${tone}`}>
-      <span className="break-all">{keyLabel(key)}</span><span className="text-xs">{formatNumber(count, locale)}</span>
-    </span>;
-  };
-  return <section aria-labelledby="race-keys-heading" className={`${card} min-w-0 space-y-4`}>
-    <h2 id="race-keys-heading" className={title}>{t.heatmap}</h2>
-    <p className="text-sm text-embrun">{t.private}</p>
-    {aggregate === undefined ? <p>{t.missing}</p> : <>
-      <p className="font-semibold">{t.total} : {formatNumber(total, locale)}</p>
-      {total === 0 && <p>{t.zero}</p>}
-      <h3 className="font-semibold">{t.keyboard}</h3>
-      <p className="text-sm text-embrun">{t.keyboardHelp}</p>
-      <p className="text-sm text-brume">{t.low} — {t.high}</p>
-      <div role="region" aria-label={t.keyboard} tabIndex={0} className="overflow-x-auto p-1">
-        <div className="min-w-[620px] space-y-2">
-          {keyboardRows.map((row) => <div key={row} className="grid grid-cols-12 gap-1">{[...row].map(keyCell)}</div>)}
-          <div className="mx-auto w-1/2">{keyCell(" ")}</div>
-        </div>
-      </div>
-      {aggregate.keys.some(({ grapheme }) => !keyboardKeys.has(grapheme)) && <div>
-        <h3 className="mb-2 font-semibold">{t.others}</h3>
-        <div className="flex flex-wrap gap-2">{aggregate.keys.filter(({ grapheme }) => !keyboardKeys.has(grapheme)).map(({ grapheme }) => keyCell(grapheme))}</div>
-      </div>}
-      <details>
-        <summary className="min-h-11 cursor-pointer py-3 text-embrun underline underline-offset-4">{t.heatValues}</summary>
-        <table className="w-full table-fixed border-collapse">
-          <caption className="sr-only">{t.heatValues}</caption>
-          <thead><tr><th scope="col" className={`${monoLabel} p-3 text-left`}>{t.character}</th><th scope="col" className={`${monoLabel} p-3 text-right`}>{t.count}</th></tr></thead>
-          <tbody>{aggregate.keys.map(({ grapheme, count }) => <tr key={grapheme} className="border-t border-sillage">
-            <th scope="row" className="break-all p-3 text-left font-mono">{keyLabel(grapheme)}</th><td className="p-3 text-right font-mono">{formatNumber(count, locale)}</td>
-          </tr>)}</tbody>
-        </table>
-      </details>
-    </>}
-  </section>;
 }
