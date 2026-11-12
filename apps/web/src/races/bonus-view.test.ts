@@ -24,7 +24,8 @@ it("renders the effective target and progress denominator inside a fixed-height,
     onTakeControl: () => {}, onPresent: async () => true, onAbandon: async () => true }));
   const html = render();
   expect(html).toMatch(/Progress<\/dt><dd[^>]*>42%<\/dd>/); // floored 3 / 7, not reveal's 3 / 3.
-  expect(html).toContain('role="region" aria-label="Text to type" tabindex="0"');
-  expect(html).toContain("flex h-60 flex-col"); expect(html).toContain("overflow-y-auto");
+  // The scrolling region holds the typing field, its keyboard stop (no second stop on the region).
+  expect(html).toMatch(/role="region" aria-label="Text to type" lang="en"[^>]*overflow-y-auto[^>]*>.*<input id="race-typing"[^>]*><\/p>/);
+  expect(html).toContain("flex h-64 flex-col");
   expect(html).toContain("course-juste");
 });
