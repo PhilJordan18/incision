@@ -60,6 +60,12 @@ export function focusTyping(fallback?: HTMLElement | null): void {
   }
 }
 
+/** The line under the text that says what happens: the status, or the hint while it is empty. */
+function typingLine(): HTMLElement | null {
+  const status = document.getElementById(TYPING_STATUS_ID);
+  return status?.textContent === "" ? document.getElementById(TYPING_HINT_ID) ?? status : status;
+}
+
 /**
  * The race in a room (screens 07 and 08, first path): the 3-2-1 countdown on the server's
  * clock, then the text, typed straight into, and everyone's progress: the standings, the track
@@ -215,7 +221,9 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
  * The race's page (Philippe's approved layout): the labels, then the text over the full width,
  * then the standings on the left, the track in the middle and the bonuses on the right, then
  * the player's actions and `below`. Under 1280 px the track runs horizontally over the full width, the standings and the
- * bonuses share the row under it; on a phone the bonuses come before the long standings. One
+ * bonuses share the row under it; on a phone the bonuses come before the long standings. Without
+ * bonuses (not Arcade), the standings sit beside a wider track, with no empty column; a spectator's
+ * row gains the bonuses column with the first announcement, under the text (nothing above moves). One
  * component in every state, so that `below` keeps its place (and an open question its state)
  * when the race reaches the tab.
  */
@@ -289,7 +297,7 @@ function StillThere({ t, locale, canReturn, onPresent }: {
     setStep(taken ? "idle" : "failed");
     if (taken) {
       // The field when it takes keys, otherwise the line that says why (an observing tab).
-      focusTyping(document.getElementById(TYPING_STATUS_ID));
+      focusTyping(typingLine());
     }
   };
   return (
@@ -361,7 +369,7 @@ function AbandonControl({ t, onAbandon }: { readonly t: Dictionary["races"]; rea
     }
     setStep("sending");
     if (await onAbandon()) {
-      document.getElementById(TYPING_STATUS_ID)?.focus();
+      typingLine()?.focus();
     } else {
       setStep("failed");
     }
@@ -651,7 +659,7 @@ function TypingZone({
           {expected !== undefined && <span aria-hidden="true">⚠ </span>}
           {message}
         </p>
-        <p id={TYPING_HINT_ID} className={inactive && message === undefined ? "text-or" : "text-brume"}>
+        <p id={TYPING_HINT_ID} tabIndex={-1} className={`outline-none ${inactive && message === undefined ? "text-or" : "text-brume"}`}>
           {inactive && message === undefined && <span aria-hidden="true">⚠ </span>}
           {hint}
         </p>
@@ -726,7 +734,7 @@ const RaceText = memo(function RaceText({
   const hiddenFrom = fog ? fogStartsAt(target, typed) : target.length;
   const textArea = useRef<HTMLParagraphElement>(null);
   // The field follows the cursor, invisibly: where the input method's window opens. Again when the
-  // sheet changes size (a resize, a breakpoint, a late font), which moves the cursor.
+  // sheet changes size (a resize, a breakpoint) or the web font arrives, which move the cursor.
   const placeField = useCallback(() => {
     const area = textArea.current;
     const cursor = area?.querySelector<HTMLElement>(".course-curseur");
@@ -736,13 +744,15 @@ const RaceText = memo(function RaceText({
     area.style.setProperty("--caret-top", `${placed.top - box.top + area.scrollTop}px`);
     area.style.setProperty("--caret-left", `${placed.left - box.left + area.scrollLeft}px`);
   }, []);
+  const hasField = field !== undefined;
   useEffect(() => {
     const area = textArea.current;
-    if (!area || field === undefined || typeof ResizeObserver === "undefined") return;
+    if (!area || !hasField || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(placeField);
     observer.observe(area);
+    void document.fonts?.ready.then(placeField);
     return () => observer.disconnect();
-  }, [field, placeField]);
+  }, [hasField, placeField]);
   useEffect(() => {
     // Long/extended targets scroll inside a fixed sheet, never moving the page.
     const area = textArea.current;
