@@ -8,7 +8,8 @@ import type { Locale } from "@/i18n/locale";
 import { formatNumber } from "@/i18n/value-format";
 import { formatProgress, formatWpm } from "@/races/format";
 import type { RaceClientState } from "@/races/race-client";
-import { standingsOrder } from "./track-layout";
+import { RouteSwatch } from "./race-track";
+import { routeStyles, standingsOrder } from "./track-layout";
 import styles from "./race-panels.module.css";
 
 /**
@@ -27,9 +28,11 @@ export const RaceStandings = memo(function RaceStandings({ entrants, progress, s
   const track = raceTrackMessages[locale];
   const names = new Map(entrants.map((entrant) => [entrant.entrantId, entrant.displayName]));
   const runners = standingsOrder(progress?.entrants ?? []);
+  // The legend of the chart: each name beside its route's colour and dash.
+  const routes = routeStyles(progress?.entrants ?? [], selfId);
   return (
-    <section aria-labelledby="standings-heading" className={`${styles.panel} flex min-w-0 flex-col gap-3 self-start`}>
-      <h2 id="standings-heading" className="font-display text-2xl font-extrabold uppercase">
+    <section aria-labelledby="standings-heading" className={`${styles.log} flex min-w-0 flex-col gap-2 self-start lg:h-full lg:self-stretch`}>
+      <h2 id="standings-heading" className={`${styles.logHeading} font-display text-2xl font-extrabold uppercase`}>
         {text.standingsHeading}
         <span className="ml-2 font-mono text-sm font-normal text-brume">({formatNumber(runners.length, locale)})</span>
       </h2>
@@ -39,7 +42,7 @@ export const RaceStandings = memo(function RaceStandings({ entrants, progress, s
       ) : (
         // Scrolls inside the panel for a large crew; reachable with the keyboard (WCAG 2.1.1).
         <ol tabIndex={0} aria-label={text.standingsHeading}
-          className="flex max-h-[28rem] flex-col gap-3 overflow-auto rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moi">
+          className="flex max-h-[28rem] flex-col gap-3 overflow-auto rounded-lg lg:max-h-none lg:min-h-0 lg:grow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moi">
           {runners.map((runner, index) => {
             const self = runner.entrantId === selfId;
             const name = names.get(runner.entrantId) ?? "";
@@ -51,6 +54,7 @@ export const RaceStandings = memo(function RaceStandings({ entrants, progress, s
                 </span>
                 <span className="flex min-w-0 grow flex-col gap-1">
                   <span className="block break-words font-semibold">
+                    <RouteSwatch route={routes.get(runner.entrantId)!} />
                     {name}
                     {self ? ` (${t.you})` : ""}
                     {runner.kind === "bot" ? ` · □ ${track.bot}` : ""}

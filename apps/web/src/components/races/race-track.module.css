@@ -1,20 +1,93 @@
+/*
+ * The track as a sea chart (Philippe's request, #51): a faint graticule, a chequered finish line
+ * with its flag, and each runner's route from the start to their real progress. Tokens only, no
+ * image (design rule 10); nothing blinks or moves on its own, the markers follow the broadcast.
+ */
+.section {
+  width: 100%;
+  min-width: 0;
+  align-self: start;
+}
 .track {
   position: relative;
   height: 560px;
   overflow: hidden;
   border-radius: 12px;
   border: 1px solid var(--color-houle);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--color-ligne) 20%, transparent), transparent 22%), var(--color-mer);
+  background: var(--color-mer);
 }
+/* The chart's graticule: thin meridians and parallels, under everything. */
+.chart {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--color-houle) 55%, transparent) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--color-houle) 55%, transparent) 0 1px, transparent 1px 48px);
+  pointer-events: none;
+}
+/* The finish: a chequered band in `ligne`, the design's finish colour, across the chart. */
 .finish {
   position: absolute;
-  top: 7%;
+  top: 12%;
   left: 0;
   width: 100%;
-  border-top: 5px solid var(--color-ligne);
-  transform: rotate(-1deg);
+  height: 6px;
+  background: repeating-linear-gradient(90deg, var(--color-ligne) 0 8px, var(--color-nuit) 8px 16px);
+  border-block: 1px solid var(--color-ligne);
 }
-.finishText { position: absolute; top: 12px; left: 16px; color: var(--color-ligne); }
+.finishText {
+  position: absolute;
+  top: calc(12% - 18px);
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-ligne);
+  font-weight: 600;
+}
+/* A pennant, drawn in CSS. */
+.flag {
+  width: 10px;
+  height: 12px;
+  border-left: 2px solid var(--color-ligne);
+  background: linear-gradient(135deg, var(--color-ligne) 50%, transparent 50%) left top / 100% 60% no-repeat;
+}
+
+/* Runner colours, fixed per runner for the round (track-layout's `routeStyle`). */
+.moi { --route: var(--color-moi); }
+.juste { --route: var(--color-juste); }
+.arcade { --route: var(--color-arcade); }
+.embrun { --route: var(--color-embrun); }
+.brume { --route: var(--color-brume); }
+
+.routes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  pointer-events: none;
+}
+.horizontalRoutes { display: none; }
+.route {
+  stroke: var(--route);
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+.namedRoute { stroke-width: 2.5px; opacity: 1; }
+.selfRoute { stroke-width: 3.5px; opacity: 1; }
+.dashed { stroke-dasharray: 7 4; }
+.dotted { stroke-dasharray: 1 4; }
+.connector {
+  stroke: var(--color-brume);
+  stroke-width: 1px;
+  opacity: 0.45;
+  vector-effect: non-scaling-stroke;
+}
+
 .point {
   position: absolute;
   z-index: 1;
@@ -22,23 +95,21 @@
   top: var(--point-y);
   transform: translate(-50%, -50%);
   transition: top var(--duration-court) var(--ease-incision), left var(--duration-court) var(--ease-incision);
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--color-brume);
-  opacity: 0.4;
+  background: var(--route);
+  box-shadow: 0 0 0 1px var(--color-mer);
 }
-.named { z-index: 2; width: 22px; height: 22px; opacity: 1; background: var(--color-embrun); }
-.self { z-index: 3; background: var(--color-moi); }
-.leader { background: var(--color-or); }
-.nearAhead { background: var(--color-juste); }
-.nearBehind { background: var(--color-arcade); }
+.named { z-index: 2; width: 22px; height: 22px; }
+.self { z-index: 3; }
 .self::before, .self::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid var(--color-moi); }
 .self::before { inset: -9px; opacity: 0.6; border-width: 2px; }
 .self::after { inset: -18px; opacity: 0.25; }
+/* The front runner's ring in `or` (rule 5: gold is the first's), beside its stable colour. */
+.leader { outline: 3px solid var(--color-or); outline-offset: 2px; }
 .bot, .bot::before, .bot::after { border-radius: 6px; }
-.initials { display: grid; place-items: center; height: 100%; font-size: 10px; font-weight: 700; color: var(--color-nuit); }
-.self .initials, .leader .initials, .nearAhead .initials, .nearBehind .initials { color: var(--color-abysse); }
+.initials { display: grid; place-items: center; height: 100%; font-size: 10px; font-weight: 700; color: var(--color-abysse); }
 .label {
   position: absolute;
   left: 64%;
@@ -46,36 +117,61 @@
   width: 34%;
   transform: translateY(-50%);
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.3;
   color: var(--color-ecume);
 }
-.labelName { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.labelName { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.labelName:first-child { font-weight: 600; }
 .selfLabel { font-weight: 700; }
-.connectors { position: absolute; inset: 0; width: 100%; height: 100%; stroke: var(--color-brume); stroke-width: 0.25; opacity: 0.45; }
-.more { position: absolute; bottom: 12px; left: 16px; color: var(--color-embrun); }
+.more { position: absolute; bottom: 8px; left: 16px; color: var(--color-embrun); }
 .horizontalMore { display: none; }
-@media (min-width: 640px) and (max-width: 1279px) {
-  .verticalMore { display: none; }
+
+/* A route's sample beside a name: same colour and dash. */
+.swatch {
+  display: inline-block;
+  width: 20px;
+  height: 6px;
+  margin-right: 6px;
+  vertical-align: middle;
+  overflow: visible;
+}
+.swatch line {
+  stroke: var(--route);
+  stroke-width: 3px;
+  stroke-linecap: round;
+}
+
+/* In the race's row (≥ 1024 px), the chart fills the row's height instead of its own. */
+@media (min-width: 1024px) {
+  .section { display: flex; height: 100%; flex-direction: column; }
+  .track { flex: 1 1 auto; height: auto; min-height: 12rem; }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .verticalMore, .verticalRoutes { display: none; }
   .horizontalMore { display: inline; }
-  .track { height: 180px; background: linear-gradient(270deg, color-mix(in srgb, var(--color-ligne) 20%, transparent), transparent 22%), var(--color-mer); }
+  .horizontalRoutes { display: block; }
+  .track { height: 180px; }
   .point { left: var(--horizontal-x); top: var(--horizontal-y); }
   .named:not(.self):not(.leader) { width: 10px; height: 10px; }
   .named:not(.self):not(.leader) .initials { display: none; }
-  .self { top: 40%; }
-  .leader { top: 22%; }
-  .finish { top: 0; left: 96%; height: 100%; width: 0; border-top: 0; border-left: 5px solid var(--color-ligne); transform: none; }
-  .finishText { left: auto; right: 6%; top: 8px; }
-  .connectors, .label { display: none; }
-  .selfLabel, .leaderLabel { display: block; left: var(--horizontal-label-x); width: 24%; top: 80%; }
-  .leaderLabel { top: 63%; }
+  .finish { top: 0; left: 95%; height: 100%; width: 6px; border-block: 0; border-inline: 1px solid var(--color-ligne);
+    background: repeating-linear-gradient(180deg, var(--color-ligne) 0 8px, var(--color-nuit) 8px 16px); }
+  .finishText { left: auto; right: 7%; top: 8px; }
+  .label { display: none; }
+  .selfLabel, .leaderLabel { display: block; left: var(--horizontal-label-x); width: 24%; top: 86%; }
+  .leaderLabel { top: 70%; }
   .more { bottom: 4px; font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .point, .label { transition: none !important; }
 }
 @media (forced-colors: active) {
-  .point { background: CanvasText; opacity: 1; forced-color-adjust: none; }
+  .point { background: CanvasText; forced-color-adjust: none; box-shadow: none; }
   .initials { color: Canvas !important; }
   .self::before, .self::after { border-color: Highlight; opacity: 1; }
-  .finish { border-color: CanvasText; }
+  .leader { outline-color: Highlight; }
+  .route, .swatch line { stroke: CanvasText; }
+  .selfRoute { stroke: Highlight; }
+  .finish { background: CanvasText; border-color: CanvasText; }
+  .flag { border-color: CanvasText; background: CanvasText; }
 }

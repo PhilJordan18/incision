@@ -257,7 +257,7 @@ export const fr = {
     bonuses: {
       heading: "Bonus", inventory: "Tes bonus · ordre d’utilisation", next: "prochain", milestone: "jalon {milestone} %",
       kinds: { shortenSelf: "Raccourci", extendLeader: "Rallonge", fogLeader: "Brouillard" },
-      hint: "Entrée dans le texte active le prochain bonus. Aucun caractère n’est saisi.",
+      hint: "Entrée dans le champ de frappe active le prochain bonus. Aucun caractère n’est saisi.",
       empty: "Aucun bonus en réserve.", sending: "Activation en cours…", sync: "Synchronisation des bonus… Patiente avant de réessayer.",
       observing: "Reprends la frappe dans cet onglet pour activer un bonus.", over: "Les bonus ne sont utilisables que pendant ta course.",
       fog: "Brouillard : les mots à venir sont masqués temporairement. Le mot en cours reste lisible.",
