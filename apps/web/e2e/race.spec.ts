@@ -415,6 +415,9 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByRole("dialog", { name: "Tu es toujours là ?" })).toBeVisible();
     await expect(hostQuestion).toBeFocused();
     await expect(guest.getByLabel("Ta frappe")).toBeFocused();
+    // The question under the text too, where the typist looks (the dialog may be below the fold).
+    await expect(guest.locator("#race-typing-hint")).toContainText("Tu es toujours là ?");
+    await expect(guest.locator("#race-typing-hint")).toBeInViewport();
     await host.keyboard.press("a");
     await host.keyboard.press("Space");
     await host.keyboard.press("Enter");

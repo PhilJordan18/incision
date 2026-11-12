@@ -102,6 +102,8 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
   // Racing until the server says otherwise (the snapshot, or the broadcast before it arrives).
   const selfRacing = state.selfEntrantId !== null && (state.typing?.status ?? selfProgress?.status ?? "racing") === "racing";
   const inactive = selfRacing && selfProgress?.inactive === true;
+  // A third panel only in a race with bonuses (Arcade); otherwise the track takes its room.
+  const withBonuses = bonusState.self?.enabled === true || bonusState.announcements.length > 0;
   return (
     <RaceLayout
       top={
@@ -170,6 +172,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
               overlay={countdown}
               language={state.language ?? locale}
               locale={locale}
+              inactive={inactive}
             />
           )}
 
@@ -203,7 +206,7 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
       below={below}
       standings={<RaceStandings entrants={state.entrants} progress={state.progress} selfId={state.selfEntrantId} t={t} locale={locale} />}
       track={<RaceTrack entrants={state.entrants} progress={state.progress} selfId={state.selfEntrantId} t={t} locale={locale} />}
-      bonuses={<RaceBonuses state={bonusState} race={state} t={t.bonuses} />}
+      bonuses={withBonuses ? <RaceBonuses state={bonusState} race={state} t={t.bonuses} /> : undefined}
     />
   );
 }
@@ -231,11 +234,19 @@ function RaceLayout({ top, main, after, below, standings, track, bonuses }: {
       {top}
       <div className="flex min-w-0 flex-col gap-5">{main}</div>
       {track && (
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
-          <div className="order-3 min-w-0 sm:order-2 xl:order-1">{standings}</div>
-          <div className="order-1 min-w-0 sm:col-span-2 xl:order-2 xl:col-span-1">{track}</div>
-          <div className="order-2 min-w-0 sm:order-3 xl:order-3">{bonuses}</div>
-        </div>
+        bonuses !== undefined ? (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
+            <div className="order-3 min-w-0 sm:order-2 xl:order-1">{standings}</div>
+            <div className="order-1 min-w-0 sm:col-span-2 xl:order-2 xl:col-span-1">{track}</div>
+            <div className="order-2 min-w-0 sm:order-3 xl:order-3">{bonuses}</div>
+          </div>
+        ) : (
+          // No bonuses (not Arcade): no empty column; the standings beside a wider track.
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <div className="order-2 min-w-0 xl:order-1">{standings}</div>
+            <div className="order-1 min-w-0 xl:order-2">{track}</div>
+          </div>
+        )
       )}
       {after}
       {below && <div className="flex min-w-0 flex-col gap-5">{below}</div>}
@@ -454,6 +465,7 @@ function TypingZone({
   overlay,
   language,
   locale,
+  inactive = false,
 }: {
   readonly race: RaceClient;
   readonly bonuses: BonusClient;
@@ -465,6 +477,8 @@ function TypingZone({
   readonly overlay: ReactNode;
   readonly language: Locale;
   readonly locale: Locale;
+  /** D-17's question is open: said under the text too, where the eyes are (the dialog may be below the fold). */
+  readonly inactive?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
@@ -595,7 +609,7 @@ function TypingZone({
     [enabled, invalid],
   );
   // How to type, beside the live line rather than in it: tabbing away and back is not news.
-  const hint = message !== undefined ? undefined : focused ? screen.typingHint : enabled ? screen.focusHint : t.typingHint;
+  const hint = message !== undefined ? undefined : inactive ? screen.presenceHint : focused ? screen.typingHint : enabled ? screen.focusHint : t.typingHint;
   return (
     <div className="flex flex-col gap-3">
       <RaceSheet
@@ -631,7 +645,8 @@ function TypingZone({
           {expected !== undefined && <span aria-hidden="true">⚠ </span>}
           {message}
         </p>
-        <p id={TYPING_HINT_ID} className="text-brume">
+        <p id={TYPING_HINT_ID} className={inactive && message === undefined ? "text-or" : "text-brume"}>
+          {inactive && message === undefined && <span aria-hidden="true">⚠ </span>}
           {hint}
         </p>
       </div>

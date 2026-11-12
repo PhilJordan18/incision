@@ -16,7 +16,7 @@
   position: absolute;
   z-index: -1;
   inset: 5px;
-  border-radius: 8px;
+  border-radius: var(--radius-bouton, 8px);
   border: 1px dashed var(--color-sillage);
   pointer-events: none;
 }
@@ -69,8 +69,50 @@
   pointer-events: none;
 }
 
+/* A runner's progress in the standings: tokens, not the browser's own green (rule 5). */
+.bar {
+  appearance: none;
+  height: 0.5rem;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-puce, 6px);
+  overflow: hidden;
+  background: var(--color-sillage);
+  color: var(--color-brume);
+}
+.bar::-webkit-progress-bar {
+  background: var(--color-sillage);
+}
+.bar::-webkit-progress-value {
+  background: var(--color-brume);
+}
+.bar::-moz-progress-bar {
+  background: var(--color-brume);
+}
+.self {
+  color: var(--color-moi);
+}
+.self::-webkit-progress-value {
+  background: var(--color-moi);
+}
+.self::-moz-progress-bar {
+  background: var(--color-moi);
+}
+
 @media (forced-colors: active) {
   .sheet:has(input:focus-visible) {
     outline: 3px solid Highlight;
+  }
+  /* Shadows and gradients are dropped here: the cursor is a system-coloured outline, solid
+     while typing, dashed away from the text. */
+  .sheet :global(.course-curseur) {
+    outline: 2px solid Highlight;
+    outline-offset: -1px;
+  }
+  .sheet:not(:has(input:focus)) :global(.course-curseur) {
+    outline: 2px dashed CanvasText;
+  }
+  .bar {
+    border: 1px solid CanvasText;
   }
 }

@@ -14,6 +14,8 @@ export type RaceScreenMessages = {
   readonly rank: string;
   /** The presence dialog's label, over its question. */
   readonly presenceLabel: string;
+  /** Under the text while the presence dialog is open: the question where the eyes are. */
+  readonly presenceHint: string;
   /** How to get back to the text without answering. */
   readonly presenceBack: string;
 };
@@ -27,6 +29,7 @@ export const raceScreenMessages = {
     standingsEmpty: "En attente de la progression…",
     rank: "Rang",
     presenceLabel: "Rappel d’activité",
+    presenceHint: "Tu es toujours là ? Tape une touche dans le texte, ou réponds « Je suis là » plus bas.",
     presenceBack: "Échap ramène au texte sans répondre.",
   },
   en: {
@@ -37,6 +40,7 @@ export const raceScreenMessages = {
     standingsEmpty: "Waiting for progress…",
     rank: "Rank",
     presenceLabel: "Activity reminder",
+    presenceHint: "Are you still there? Type a key in the text, or answer “I’m here” below.",
     presenceBack: "Escape takes you back to the text without answering.",
   },
 } satisfies Record<Locale, RaceScreenMessages>;

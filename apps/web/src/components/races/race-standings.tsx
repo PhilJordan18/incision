@@ -58,7 +58,7 @@ export const RaceStandings = memo(function RaceStandings({ entrants, progress, s
                   <span className="block font-mono text-sm text-brume">
                     {formatProgress(runner.position, runner.length, locale)} · {formatWpm(runner.netWpm, locale)} {t.wpm}
                   </span>
-                  <progress aria-label={name} value={runner.position} max={runner.length} className={`h-2 w-full ${self ? "accent-moi" : "accent-brume"}`} />
+                  <progress aria-label={name} value={runner.position} max={runner.length} className={`${styles.bar} ${self ? styles.self : ""}`} />
                   <span className="text-sm text-brume">
                     {t.status[runner.status]}
                     {runner.inactive ? ` · ◌ ${t.inactive}` : ""}
