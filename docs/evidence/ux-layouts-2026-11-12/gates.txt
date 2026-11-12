@@ -1,0 +1,213 @@
+
+> @incision/root@0.1.0 check:no-js
+> git ls-files ':(icase)*.js' ':(icase)*.jsx' ':(icase)*.mjs' ':(icase)*.cjs' | grep . && echo 'TECH-02: JavaScript files are not allowed in the repository' >&2 && exit 1 || exit 0
+
+
+> @incision/root@0.1.0 lint
+> npm run lint --workspaces --if-present
+
+
+> @incision/web@0.1.0 lint
+> eslint
+
+
+> @incision/database@0.1.0 lint
+> eslint .
+
+
+> @incision/domain@0.1.0 lint
+> eslint .
+
+
+> @incision/load@0.1.0 lint
+> eslint .
+
+
+> @incision/word-lists@0.1.0 lint
+> eslint .
+
+
+> @incision/root@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> @incision/web@0.1.0 typecheck
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> @incision/database@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/domain@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/load@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/word-lists@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @incision/root@0.1.0 test
+> npm run test --workspaces --if-present
+
+
+> @incision/web@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-ux-layouts/apps/web
+
+(node:13752) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  108 passed (108)
+      Tests  1111 passed (1111)
+   Start at  03:37:50
+   Duration  60.60s (import 47%, tests 44%, transform 9%, worker 1%)
+
+     Import  387 modules were evaluated 2173 times · 69.44s total, 47% of tracked time
+             ~15.90s faster with isolate: false — shared modules are evaluated once per worker instead of once per file
+             learn more: https://vitest.dev/guide/improving-performance#test-isolation
+
+
+> @incision/database@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-ux-layouts/packages/database
+
+(node:14920) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14997) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  14 passed (14)
+      Tests  157 passed (157)
+   Start at  03:38:52
+   Duration  5.59s (import 42%, tests 37%, transform 19%, worker 2%)
+
+     Import  104 modules were evaluated 331 times · 5.16s total, 42% of tracked time
+             ~567ms faster with isolate: false — shared modules are evaluated once per worker instead of once per file
+             learn more: https://vitest.dev/guide/improving-performance#test-isolation
+
+
+> @incision/domain@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-ux-layouts/packages/domain
+
+
+ Test Files  46 passed (46)
+      Tests  1259 passed (1259)
+   Start at  03:38:58
+   Duration  17.14s (tests 76%, import 12%, transform 10%, worker 2%)
+
+    Isolate  46 workers spawned · ~291ms startup each (spawn + environment, per file)
+             at least ~4.17s faster with isolate: false — reuses workers across files instead of one per file
+
+
+> @incision/load@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-ux-layouts/tools/load
+
+
+ Test Files  3 passed (3)
+      Tests  21 passed (21)
+   Start at  03:39:15
+   Duration  2.43s (tests 36%, import 35%, transform 28%, worker 1%)
+
+
+> @incision/word-lists@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-ux-layouts/tools/word-lists
+
+
+ Test Files  8 passed (8)
+      Tests  111 passed (111)
+   Start at  03:39:18
+   Duration  10.60s (tests 82%, transform 13%, import 5%)
+
+
+> @incision/root@0.1.0 build
+> npm run build --workspaces --if-present
+
+
+> @incision/web@0.1.0 build
+> next build
+
+▲ Next.js 16.4.3 (Turbopack)
+✓ Running next.config.ts took 44ms
+- Experiments (use with caution):
+  · serverActions
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 18.8s
+  Running TypeScript ...
+  Finished TypeScript in 19.7s ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/18) ...
+  Generating static pages using 4 workers (4/18) 
+  Generating static pages using 4 workers (8/18) 
+  Generating static pages using 4 workers (13/18) 
+✓ Generating static pages using 4 workers (18/18) in 303ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /account
+├ ƒ /api/account/photo
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/guest/rooms/[lobbyId]/races/[raceId]
+├ ƒ /api/guest/session
+├ ƒ /api/guest/session/refresh
+├ ƒ /api/guest/session/renew
+├ ƒ /api/health
+├ ƒ /api/health/live
+├ ƒ /auth/error
+├ ƒ /guest
+├ ƒ /history
+├ ○ /icon.svg
+├ ƒ /invite
+├ ƒ /races/[id]
+├ ƒ /rooms
+├ ƒ /rooms/[code]
+├ ƒ /rooms/new
+└ ƒ /sign-in
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
