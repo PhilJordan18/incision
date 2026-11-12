@@ -1,0 +1,29 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/account-journey.spec.ts e2e/invitation-focus.spec.ts --output=/workspace/scratch/ux-20261112/navigation/close-ack
+
+[WebServer] (node:72215) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_close_ack_20261112 ready, demo accounts: created, created
+[WebServer] (node:72259) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 273ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3602
+
+Running 8 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:72297) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/account-journey.spec.ts:26:7 › account separates the active private room from past races (fr-CA) (14.5s)
+  ✓  2 [chromium] › e2e/account-journey.spec.ts:66:7 › home explains existing play and guests have no personal navigation (fr-CA) (8.9s)
+  ✓  3 [chromium] › e2e/account-journey.spec.ts:26:7 › account separates the active private room from past races (en-US) (11.2s)
+  ✓  4 [chromium] › e2e/account-journey.spec.ts:66:7 › home explains existing play and guests have no personal navigation (en-US) (8.6s)
+  ✓  5 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA, keyboard) (1.1s)
+  ✓  6 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA, mouse) (755ms)
+  ✓  7 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (en-US, keyboard) (874ms)
+  ✓  8 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (en-US, mouse) (1.2s)
+
+  8 passed (56.0s)

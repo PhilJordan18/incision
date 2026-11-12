@@ -1,6 +1,6 @@
 # F-07.4 — room/history navigation and home orientation
 
-Application/test source: `e84a7e3a9efad4299f4aa021913452d5ce1d0884`, based independently on dev `e663a2ea93d918163d88e0d82f4f94bdc6441863`. Related #67, HIST-01/02, JOIN-01, PERF-01. Subsequent evidence commits do not change application code; final CI conclusions must name the delivery head.
+Application source: `e84a7e3a9efad4299f4aa021913452d5ce1d0884`; final test source: `a650a03ba2d1be66a8f2ab18ab22df5c6b34b9f6`, based independently on dev `e663a2ea93d918163d88e0d82f4f94bdc6441863`. Related #67, HIST-01/02, JOIN-01, PERF-01. Subsequent evidence commits do not change application code; final CI conclusions must name the delivery head.
 
 ## Behaviour
 
@@ -19,6 +19,16 @@ No shared header, global CSS, live race component, main translation dictionary, 
 - Invitation refusal focus: the same existing defect was independently reproduced in FR here and EN in the bot lot. Reuse of the exact `845f788` two-file correction avoids branch stacking: callback ref focuses the committed alert, four FR/EN mouse/keyboard tests verify it with browser frames paused. No permission/refusal change. See the bot evidence for the deterministic pre-fix failures and intermediate test-fixture corrections.
 - Final root gates on `e84a7e3`: no-JS, lint, types, **2,654 unit tests**, production build passed. Final targeted command `npm run test:e2e -w @incision/web -- e2e/account-journey.spec.ts e2e/design.spec.ts e2e/invitation-focus.spec.ts e2e/room-moderation.spec.ts`: **24 passed, 1 failed, 2.0 min**, no skips/retries. All account/home/design/focus cases passed; the existing guest-results moderation setup failed before reaching results (host 100%, guest 0%, guest input disabled with “The race changed: the page is updating.”).
 - Diagnostic rerun of only `room-moderation.spec.ts --grep 'guest expulsion in results'` on the same build, with a temporary listener logging only failed acknowledgement error enums: **1 passed, 20.3 s**, no refusal recorded. The listener was removed; the original test is unchanged. This is not a fix or proof of stability. The original trace has no decoded socket acknowledgements, so the precise cause remains unknown. Read-only inspection shows that the message covers several server refusal/resynchronisation paths; it does not establish one specific error. No typing engine, Claude-owned component, timeout, threshold or business rule was changed to hide this failure. Preserve this reservation for complete CI and future investigation if reproduced.
+
+## CI follow-up: acknowledged closure before a fresh account read
+
+On delivery head `98919f4e77d6bb8aec56b7f0149f6363f739dc28`, pull_request run [43155608185](https://github.com/PhilJordan18/incision/actions/runs/43155608185) finished **223 E2E passed / 1 failed (14.6 min)**. The new FR account case loaded `/account` immediately after clicking the close confirmation, without waiting for the asynchronous close action. It still found one room link. Lint/types/units/schema/SQL/build/packaging/integration passed. The failure excerpt is retained; this run is never relabelled green.
+
+The database implementation closes the room and marks its memberships left in one transaction; the account page performs an authenticated membership read when loaded. A click is not a commit acknowledgement, and that account page is not a live room subscription. Test commit `a650a03ba2d1be66a8f2ab18ab22df5c6b34b9f6` now holds the actual close POST, asserts the account still has the room while the request is pending, releases it, waits for the owner's **Room closed** heading, and only then loads the account and asserts no room link. This deterministically checks both sides of the timing boundary in FR and EN, without fixed sleeps, retries, longer timeouts or product changes.
+
+Validation after the test-only correction: root `npm run lint` and `npm run typecheck` passed. `npm run test:e2e -w @incision/web -- e2e/account-journey.spec.ts e2e/invitation-focus.spec.ts` on the unchanged production build, isolated database `incision_e2e_ux_close_ack_20261112`, port3602: **8 passed (56.0 s)**, no skips/retries, including both themes and 390/1024/1440 axe checks. Complete E2E runs are required again on the new pushed head; no local complete rerun is claimed.
+
+Remote trace access limit: the connector successfully exposed artifact13916149286 (ZIP SHA256 `2c0c2140f5601573face48862ab2d9279bb60c233a2ab0dfea6a5eb688aa1a62`), but CLI artifact listing and downloading its signed file URL into the cloud both returned403. Its trace was **not read**. The diagnosis above uses the CI error, source inspection and controlled local reproduction, not an invented trace timeline. The older guest-input reservation remains distinct.
 
 ## Lighthouse
 
