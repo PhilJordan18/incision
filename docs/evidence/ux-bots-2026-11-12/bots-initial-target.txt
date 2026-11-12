@@ -1,0 +1,26 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/room-bots.spec.ts --output=/workspace/scratch/ux-20261112/bots/target
+
+[WebServer] (node:4783) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_bots_target_20261112 ready, demo accounts: created, created
+[WebServer] (node:4827) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 61ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3601
+
+Running 5 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:4854) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/room-bots.spec.ts:22:5 › host adds, changes and removes a bot; another member sees persisted updates but no controls (3.3s)
+  ✓  2 [chromium] › e2e/room-bots.spec.ts:45:5 › bots consume places and an explicit reload recovers after a full-room refusal (1.4s)
+  ✓  3 [chromium] › e2e/room-bots.spec.ts:61:5 › bot controls are accessible in both languages and themes at reference widths (21.2s)
+  ✓  4 [chromium] › e2e/room-bots.spec.ts:103:46 › new bot choices, saved roster and unsaved edits stay distinct (fr-CA) (1.7s)
+  ✓  5 [chromium] › e2e/room-bots.spec.ts:103:46 › new bot choices, saved roster and unsaved edits stay distinct (en-US) (1.6s)
+
+  5 passed (36.5s)

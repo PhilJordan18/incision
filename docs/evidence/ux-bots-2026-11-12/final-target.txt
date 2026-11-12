@@ -1,0 +1,38 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/room-bots.spec.ts e2e/invitation-focus.spec.ts e2e/room-invitations.spec.ts e2e/room-moderation.spec.ts --output=/workspace/scratch/ux-20261112/bots/final-target
+
+[WebServer] (node:48900) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_bots_final_20261112 ready, demo accounts: created, created
+[WebServer] (node:48933) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 173ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3601
+
+Running 17 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:48988) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA, keyboard) (2.3s)
+  ✓   2 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA, mouse) (899ms)
+  ✓   3 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (en-US, keyboard) (960ms)
+  ✓   4 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (en-US, mouse) (1.1s)
+  ✓   5 [chromium] › e2e/room-bots.spec.ts:22:5 › host adds, changes and removes a bot; another member sees persisted updates but no controls (4.7s)
+  ✓   6 [chromium] › e2e/room-bots.spec.ts:45:5 › bots consume places and an explicit reload recovers after a full-room refusal (2.8s)
+  ✓   7 [chromium] › e2e/room-bots.spec.ts:61:5 › bot controls are accessible in both languages and themes at reference widths (22.2s)
+  ✓   8 [chromium] › e2e/room-bots.spec.ts:103:46 › new bot choices, saved roster and unsaved edits stay distinct (fr-CA) (2.7s)
+  ✓   9 [chromium] › e2e/room-bots.spec.ts:103:46 › new bot choices, saved roster and unsaved edits stay distinct (en-US) (2.7s)
+  ✓  10 [chromium] › e2e/room-invitations.spec.ts:16:46 › invitation lifecycle, privacy and responsive controls (fr-CA) (15.4s)
+  ✓  11 [chromium] › e2e/room-invitations.spec.ts:16:46 › invitation lifecycle, privacy and responsive controls (en-US) (16.9s)
+  ✓  12 [chromium] › e2e/room-invitations.spec.ts:85:5 › a fresh guest can use an invitation without sharing its token with the session endpoint (3.8s)
+  ✓  13 [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (fr-CA) (15.8s)
+  ✓  14 [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (en-CA) (13.3s)
+  ✓  15 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in waiting preserves its cookie deadline and prevents reentry (3.8s)
+  ✓  16 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in racing preserves its cookie deadline and prevents reentry (10.4s)
+  ✓  17 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in results preserves its cookie deadline and prevents reentry (14.6s)
+
+  17 passed (2.4m)
