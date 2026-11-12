@@ -1,3 +1,4 @@
+import { AccountJourney } from "./account-journey";
 import { readAccountProfile, readAccountStatistics, readProfilePhotoRevision } from "@incision/database";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -37,6 +38,7 @@ export default async function AccountPage({ searchParams }: { readonly searchPar
   return (
     <>
       <PageHeading bold={t.account.headingBold} serif={t.account.headingSerif} />
+      <AccountJourney accountId={accountId} locale={locale} />
       <section className={`${card} flex max-w-xl flex-col gap-5`}>
         {photoRevision ? <Image src={`/api/account/photo?v=${photoRevision}`} width={180} height={180}
           alt={photoLabels.alt} unoptimized className="h-[180px] w-[180px] rounded-full object-cover" />
