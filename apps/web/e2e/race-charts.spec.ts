@@ -97,7 +97,7 @@ for (const locale of ["fr", "en"]) test(`charts, accessible tables and keyboard 
   }
 });
 
-for (const locale of ["fr", "en"]) test(`explicit FR US and Canadian references preserve every expected-character count (${locale})`, async ({ browser }) => {
+for (const locale of ["fr", "en"]) for (const layout of ["fr-azerty", "us-qwerty", "ca-french", "ca-multilingual"]) test(`character reference ${layout} preserves every expected-character count (${locale})`, async ({ browser }) => {
   test.slow();
   const keys = [{ grapheme: " ", count: 1 }, { grapheme: "e", count: 2 }, { grapheme: "É", count: 3 }, { grapheme: "è", count: 4 }, { grapheme: "é", count: 5 }, { grapheme: "Ж", count: 6 }];
   // Synthetic stored aggregates and matching official counters test projection, not physical keystrokes.
@@ -112,7 +112,6 @@ for (const locale of ["fr", "en"]) test(`explicit FR US and Canadian references 
   for (const theme of ["light", "dark"] as const) {
     await owner.page.emulateMedia({ colorScheme: theme });
     await expect(owner.page.locator("html")).toHaveAttribute("data-theme", theme === "light" ? "aube" : "abysse");
-    for (const layout of ["fr-azerty", "us-qwerty", "ca-french", "ca-multilingual"]) {
       await chooser.selectOption(layout);
       await expect(heatmap).toContainText(locale === "fr" ? "Total des erreurs : 21" : "Total errors : 21");
       expect(await heatmap.getByRole("table").textContent()).toBe(initialTable);
@@ -126,7 +125,6 @@ for (const locale of ["fr", "en"]) test(`explicit FR US and Canadian references 
         await expectNoHorizontalScroll(owner.page); await expectNoAccessibilityViolation(owner.page);
         await heatmap.screenshot({ path: test.info().outputPath(`${locale}-${theme}-${layout}-${width}.png`) });
       }
-    }
   }
   await chooser.focus(); await expect(chooser).toBeFocused();
   expect(await chooser.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe("none");
