@@ -11,7 +11,10 @@ import type { RaceClientState } from "@/races/race-client";
 import { trackLayout } from "./track-layout";
 import styles from "./race-track.module.css";
 
-/** Only public broadcast fields enter the track. No extrapolation, scoring or private photos. */
+/**
+ * Only public broadcast fields enter the track. No extrapolation, scoring or private photos. The
+ * track is decorative for assistive technology: the standings panel beside it lists every runner.
+ */
 export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t, locale }: {
   readonly entrants: RaceClientState["entrants"];
   readonly progress: RaceClientState["progress"];
@@ -58,18 +61,5 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
         <span className={styles.horizontalMore}>{points.length === 0 ? text.empty : horizontalOthers > 0 ? `+ ${formatNumber(horizontalOthers, locale)} ${text.others}` : ""}</span>
       </span>
     </div>
-    <details open={points.length <= 6} className="mt-3 rounded-xl border border-houle bg-nuit p-3">
-      <summary className="min-h-11 cursor-pointer content-center rounded-lg font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-moi">
-        {text.all} ({formatNumber(points.length, locale)})
-      </summary>
-      <ul tabIndex={0} className="mt-3 flex max-h-96 flex-col gap-3 overflow-auto rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moi" aria-label={t.trackHeading}>
-        {points.map(({ runner, self }) => <li key={runner.entrantId} className={`border-b border-sillage pb-3 ${self ? "border-l-4 border-l-moi pl-3" : ""}`}>
-          <span className="block break-words font-semibold">{names.get(runner.entrantId)}{self ? ` (${t.you})` : ""}{runner.kind === "bot" ? ` · □ ${text.bot}` : ""}</span>
-          <span className="block font-mono text-sm text-brume">{formatProgress(runner.position, runner.length, locale)} · {formatWpm(runner.netWpm, locale)} {t.wpm}</span>
-          <progress aria-label={names.get(runner.entrantId)} value={runner.position} max={runner.length} className={`h-2 w-full ${self ? "accent-moi" : "accent-brume"}`} />
-          <span className="text-sm text-brume">{t.status[runner.status]}{runner.inactive ? ` · ◌ ${t.inactive}` : ""}</span>
-        </li>)}
-      </ul>
-    </details>
   </section>;
 });

@@ -298,7 +298,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(host.locator(".course-texte .course-bloque")).toHaveCount(0);
     await expect(host.getByRole("button", { name: "Give up the race" })).toHaveCount(0);
     // The others see it on the list, from the server.
-    await expect(guest.getByRole("region", { name: "Équipage en course" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("abandon");
+    await expect(guest.getByRole("region", { name: "Classement" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("abandon");
 
     await typeText(field, text.slice(4));
     await guest.setViewportSize({ width: 360, height: 800 });
@@ -349,7 +349,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(clock).toHaveText(/^\d+:\d{2}$/);
     const shown = (await clock.textContent()) ?? "";
     await expect(clock).not.toHaveText(shown);
-    await expect(host.getByRole("region", { name: "Crew racing" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("racing");
+    await expect(host.getByRole("region", { name: "Standings" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("racing");
 
     // Escape keeps the room and gives the focus back to typing, where the host goes on.
     await host.keyboard.press("Escape");
@@ -389,24 +389,52 @@ test.describe("the first complete race (F-04.0)", () => {
     await host.getByRole("button", { name: "Start the race" }).click();
     const text = await raceText(guest);
     await expect(guest.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
+    // The guest keeps the focus in the text; the host's focus leaves it (reading elsewhere).
+    await expect(guest.getByLabel("Ta frappe")).toBeFocused();
+    await expect(host.getByLabel("Your typing")).toBeFocused();
+    await host.getByLabel("Your typing").blur();
+    await expect(host.locator("#race-typing-status")).toHaveText("Click in the text or press Tab to type.");
     // Nobody types for a minute.
     const hostQuestion = host.getByRole("heading", { name: "Are you still there?" });
     const guestQuestion = guest.getByRole("heading", { name: "Tu es toujours là ?" });
     await expect(hostQuestion).toBeVisible({ timeout: 70_000 });
     await expect(guestQuestion).toBeVisible({ timeout: 5_000 });
-    const guestOnHost = host.getByRole("region", { name: "Crew racing" }).getByRole("listitem").filter({ hasText: "Matelot" });
-    const hostOnGuest = guest.getByRole("region", { name: "Équipage en course" }).getByRole("listitem").filter({ hasText: "Capitaine" });
+    const guestOnHost = host.getByRole("region", { name: "Standings" }).getByRole("listitem").filter({ hasText: "Matelot" });
+    const hostOnGuest = guest.getByRole("region", { name: "Classement" }).getByRole("listitem").filter({ hasText: "Capitaine" });
     await expect(guestOnHost).toContainText("inactive");
     await expect(hostOnGuest).toContainText("inactif");
     await expectNoAccessibilityViolation(host);
     await expectNoAccessibilityViolation(guest);
 
-    // The button for one, a keystroke for the other; the button gives the focus back to typing.
-    await host.getByRole("button", { name: "I’m here" }).click();
+    // A labelled, non-modal dialog. Away from the text, the focus goes to its question, never to
+    // its button; typing there answers nothing. The text keeps the focus of who was typing.
+    const hostDialog = host.getByRole("dialog", { name: "Are you still there?" });
+    await expect(hostDialog).toBeVisible();
+    await expect(guest.getByRole("dialog", { name: "Tu es toujours là ?" })).toBeVisible();
+    await expect(hostQuestion).toBeFocused();
+    await expect(guest.getByLabel("Ta frappe")).toBeFocused();
+    await host.keyboard.press("a");
+    await host.keyboard.press("Space");
+    await host.keyboard.press("Enter");
+    await expect(hostDialog).toBeVisible();
+    await expect(guestOnHost).toContainText("inactive");
+    await expect(host.getByRole("region", { name: "Standings" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("inactive");
+    // Escape goes back to the text without answering.
+    await host.keyboard.press("Escape");
+    await expect(host.getByLabel("Your typing")).toBeFocused();
+    await expect(hostDialog).toBeVisible();
+    await host.screenshot({ path: test.info().outputPath("presence-dialog-en-abysse.png"), fullPage: false });
+    await guest.screenshot({ path: test.info().outputPath("presence-dialog-fr-aube.png"), fullPage: false });
+
+    // The explicit button for one (reached with Tab from the text), a keystroke for the other;
+    // the button gives the focus back to typing.
+    await host.keyboard.press("Tab");
+    await expect(host.getByRole("button", { name: "I’m here" })).toBeFocused();
+    await host.keyboard.press("Enter");
     await expect(hostQuestion).toHaveCount(0);
     await expect(host.getByLabel("Your typing")).toBeFocused();
     // A presence, never an abandon: the host still races.
-    await expect(host.getByRole("region", { name: "Crew racing" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("racing");
+    await expect(host.getByRole("region", { name: "Standings" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("racing");
     await expect(hostOnGuest).not.toContainText("inactif");
     await typeText(guest.getByLabel("Ta frappe"), text.slice(0, 1));
     await expect(guestQuestion).toHaveCount(0);
@@ -454,7 +482,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(crewOf(newcomer)).toHaveCount(3);
     await host.getByRole("button", { name: "Lancer la course" }).click();
     await expect(newcomer.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
-    const runners = host.getByRole("region", { name: "Équipage en course" }).getByRole("listitem");
+    const runners = host.getByRole("region", { name: "Classement" }).getByRole("listitem");
     await expect(runners).toHaveCount(3);
     await expect(runners.filter({ hasText: "Mousse" })).toHaveCount(0);
     await expect(runners.filter({ hasText: "Vigie" })).toHaveCount(1);

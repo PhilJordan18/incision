@@ -1,14 +1,17 @@
 "use client";
 
 import { containsLineBreak, toGraphemes } from "@incision/domain";
-import { memo, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { memo, type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { RaceStandings } from "@/components/races/race-standings";
 import { RaceTrack } from "@/components/races/race-track";
+import panels from "@/components/races/race-panels.module.css";
 import { RaceBonuses } from "@/components/rooms/race-bonuses";
 import { card, destructiveLink, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { focusIsInQuestion, WarningQuestion } from "@/components/ui/warning-question";
 import { useNarrowScreen } from "@/components/use-narrow-screen";
 import { TypingLegend } from "@/components/races/typing-legend";
 import { physicalKeyboardMessages } from "@/i18n/dictionaries/physical-keyboard";
+import { raceScreenMessages } from "@/i18n/dictionaries/race-screen";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import { formatNumber } from "@/i18n/value-format";
@@ -58,8 +61,9 @@ export function focusTyping(fallback?: HTMLElement | null): void {
 
 /**
  * The race in a room (screens 07 and 08, first path): the 3-2-1 countdown on the server's
- * clock, then the text, the typing field and everyone's progress. What is typed shows at once
- * (the engine's prediction); progress, measures and results come from the server.
+ * clock, then the text, typed straight into, and everyone's progress: the standings, the track
+ * and the bonuses side by side under it. What is typed shows at once (the engine's
+ * prediction); progress, measures and results come from the server.
  */
 export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, onTakeControl, onPresent, onAbandon, reconnecting, below }: RaceViewProps) {
   const state = useSyncExternalStore(race.subscribe, race.getState, race.getState);
@@ -149,7 +153,9 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
           ) : state.selfEntrantId === null ? (
             <>
               <p className="text-embrun">{t.spectating}</p>
-              <RaceText target={reveal.text} typing={undefined} label={t.textLabel} language={state.language ?? locale} overlay={countdown} />
+              <RaceSheet label={t.textLabel} overlay={countdown}>
+                <RaceText target={reveal.text} typing={undefined} label={t.textLabel} language={state.language ?? locale} faded={countdown !== undefined} />
+              </RaceSheet>
             </>
           ) : (
             <TypingZone
@@ -166,8 +172,8 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
             />
           )}
 
-          {/* Below the field: nothing above the text moves when these come and go (design rule 7). */}
-          {inactive && <StillThere t={t} onPresent={() => onPresent(reveal.raceId)} />}
+          {/* Under the text and its legend, in the flow: never over the text, nothing above it moves (design rule 7). */}
+          {inactive && <StillThere t={t} locale={locale} onPresent={() => onPresent(reveal.raceId)} />}
 
           {/* D-06: a lost connection keeps the place 30 s, from the server's detection. */}
           {selfRacing && reconnecting && (
@@ -177,51 +183,84 @@ export function RaceView({ race, bonuses, t, locale, roomLabel, expectedRaceId, 
             </p>
           )}
 
-          {selfRacing && phase !== "ended" && phase !== "interrupted" && (
-            <AbandonControl key={reveal.raceId} t={t} onAbandon={() => onAbandon(reveal.raceId)} />
-          )}
-
+        </>
+      }
+      after={
+        <>
           {state.confirming && (
             <p role="status" className={`${card} border-or text-embrun`}>
               <span aria-hidden="true">… </span>
               {t.confirming}
             </p>
           )}
+          {/* Under the panels: its question opens there, far from the text (design rule 7). */}
+          {selfRacing && phase !== "ended" && phase !== "interrupted" && (
+            <AbandonControl key={reveal.raceId} t={t} onAbandon={() => onAbandon(reveal.raceId)} />
+          )}
         </>
       }
       below={below}
-      track={<div className="flex min-w-0 flex-col gap-4 self-start"><RaceTrack entrants={state.entrants} progress={state.progress} selfId={state.selfEntrantId} t={t} locale={locale} /><RaceBonuses state={bonusState} race={state} t={t.bonuses} /></div>}
+      standings={<RaceStandings entrants={state.entrants} progress={state.progress} selfId={state.selfEntrantId} t={t} locale={locale} />}
+      track={<RaceTrack entrants={state.entrants} progress={state.progress} selfId={state.selfEntrantId} t={t} locale={locale} />}
+      bonuses={<RaceBonuses state={bonusState} race={state} t={t.bonuses} />}
     />
   );
 }
 
 /**
- * The race's page: the labels, then the field's column (what the player reads and types, then
- * `below`) beside the crew's track. One component in every state, so that `below` keeps its place
- * (and an open question its state) when the race reaches the tab.
+ * The race's page (Philippe's approved layout): the labels, then the text over the full width,
+ * then the standings on the left, the track in the middle and the bonuses on the right, then
+ * the player's actions and `below`. Under 1280 px the track runs horizontally over the full width, the standings and the
+ * bonuses share the row under it; on a phone the bonuses come before the long standings. One
+ * component in every state, so that `below` keeps its place (and an open question its state)
+ * when the race reaches the tab.
  */
-function RaceLayout({ top, main, below, track }: { readonly top?: ReactNode; readonly main: ReactNode; readonly below?: ReactNode; readonly track?: ReactNode }) {
+function RaceLayout({ top, main, after, below, standings, track, bonuses }: {
+  readonly top?: ReactNode;
+  readonly main: ReactNode;
+  /** The player's own actions, under the panels (giving up). */
+  readonly after?: ReactNode;
+  readonly below?: ReactNode;
+  readonly standings?: ReactNode;
+  readonly track?: ReactNode;
+  readonly bonuses?: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-6">
       {top}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
-        <div className="order-1 flex min-w-0 flex-col gap-5 sm:order-2 xl:order-1">
-          {main}
-          {below}
+      <div className="flex min-w-0 flex-col gap-5">{main}</div>
+      {track && (
+        <div data-race-panels="" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
+          <div className="order-3 min-w-0 sm:order-2 xl:order-1">{standings}</div>
+          <div className="order-1 min-w-0 sm:col-span-2 xl:order-2 xl:col-span-1">{track}</div>
+          <div className="order-2 min-w-0 sm:order-3 xl:order-3">{bonuses}</div>
         </div>
-        {track && <div className="order-2 min-w-0 sm:order-1 xl:order-2">{track}</div>}
-      </div>
+      )}
+      {after}
+      {below && <div className="flex min-w-0 flex-col gap-5">{below}</div>}
     </div>
   );
 }
 
 /**
- * D-17: after 60 s without activity, the question and its answer. Announced once, without taking
- * the focus from the typing field: a keystroke answers as well as the button, which gives the
- * focus back to the field.
+ * D-17: after 60 s without activity, the question and its answer, as a dialog under the text
+ * (never over it, whatever the screen's height). Non-modal on purpose: a keystroke in the text answers as well as the
+ * button (the server's rule), so the text keeps the focus if the player was typing there. Otherwise
+ * the focus goes to the dialog's heading, never to the button: a key meant for the text never
+ * answers by accident, and only an explicit press of « Je suis là » does. Escape goes back to the
+ * text without answering. Opening it is not activity: only a keystroke or the button tell the
+ * server, never the tab being open.
  */
-function StillThere({ t, onPresent }: { readonly t: Dictionary["races"]; readonly onPresent: () => Promise<boolean> }) {
+function StillThere({ t, locale, onPresent }: { readonly t: Dictionary["races"]; readonly locale: Locale; readonly onPresent: () => Promise<boolean> }) {
   const [step, setStep] = useState<"idle" | "sending" | "failed">("idle");
+  const heading = useRef<HTMLHeadingElement>(null);
+  const text = raceScreenMessages[locale];
+  useEffect(() => {
+    const focused = document.activeElement;
+    if (focused?.id !== TYPING_INPUT_ID && !focusIsInQuestion()) {
+      heading.current?.focus();
+    }
+  }, []);
   const answer = async () => {
     // One answer at a time: it shares its window with the abandon.
     if (step === "sending") {
@@ -236,16 +275,34 @@ function StillThere({ t, onPresent }: { readonly t: Dictionary["races"]; readonl
     }
   };
   return (
-    <section aria-labelledby="still-there-heading" className={`${card} flex flex-col gap-3 border-or`}>
+    <dialog
+      open
+      aria-labelledby="still-there-heading"
+      aria-describedby="still-there-body"
+      data-presence-dialog=""
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          focusTyping(heading.current);
+        }
+      }}
+      className={`${card} static m-0 flex w-full max-w-xl flex-col gap-3 border-2 border-or text-ecume`}
+    >
+      {/* Announced once when it opens, wherever the focus is. */}
       <div role="alert" className="flex flex-col gap-1">
-        <h2 id="still-there-heading" className="font-display text-2xl font-extrabold uppercase">
+        <p className={`${monoLabel} text-or`}>
+          <span aria-hidden="true">⚠ </span>
+          {text.presenceLabel}
+        </p>
+        <h2 id="still-there-heading" ref={heading} tabIndex={-1} className="font-display text-2xl font-extrabold uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-moi">
           {t.stillThere}
         </h2>
-        <p className="text-embrun">{t.stillThereBody}</p>
+        <p id="still-there-body" className="text-embrun">{t.stillThereBody}</p>
       </div>
       <button type="button" onClick={() => void answer()} aria-disabled={step === "sending"} className={`${secondaryButton} self-start aria-disabled:cursor-progress`}>
         {t.present}
       </button>
+      <p className="text-sm text-brume">{text.presenceBack}</p>
       <p role="alert" className="min-h-5 text-sm text-erreur">
         {step === "failed" && (
           <>
@@ -254,7 +311,7 @@ function StillThere({ t, onPresent }: { readonly t: Dictionary["races"]; readonl
           </>
         )}
       </p>
-    </section>
+    </dialog>
   );
 }
 
@@ -410,6 +467,8 @@ function TypingZone({
   readonly locale: Locale;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
+  const screen = raceScreenMessages[locale];
   const { typing, block, reveal } = state;
   const enabled = canType && block === undefined && (typing === undefined || typing.status === "racing");
   const ended = typing === undefined || typing.status === "racing" ? undefined : typing.status;
@@ -513,37 +572,91 @@ function TypingZone({
                   ? t.blockedSpace
                   : format(t.blocked, { expected })
                 : t.typingHint;
+  const invalid = expected !== undefined;
+  // One element while nothing it shows changes, so that the memoised text skips the clock's renders.
+  const field = useMemo(
+    () => (
+      <input
+        ref={input}
+        id={TYPING_INPUT_ID}
+        type="text"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        disabled={!enabled}
+        aria-invalid={invalid}
+        aria-describedby={TYPING_STATUS_ID}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className={panels.field}
+      />
+    ),
+    [enabled, invalid],
+  );
+  const hint = message === t.typingHint ? (focused ? screen.typingHint : enabled ? screen.focusHint : t.typingHint) : message;
   return (
-    <div className="flex flex-col gap-4">
-      <RaceText target={typing?.target ?? reveal?.text ?? []} typing={typing} fog={fog && ended === undefined} showFault={canType && ended === undefined} label={t.textLabel} language={language} overlay={overlay} />
-      <div className="flex flex-col gap-2">
-        <label htmlFor={TYPING_INPUT_ID} className={monoLabel}>
+    <div className="flex flex-col gap-3">
+      <RaceSheet
+        label={t.textLabel}
+        overlay={overlay}
+        // A press anywhere on the sheet types: the field takes the focus, the text is not selected.
+        onPointerDown={(event) => {
+          const field = input.current;
+          if (field === null || field.disabled || event.target === field) {
+            return;
+          }
+          event.preventDefault();
+          field.focus();
+        }}
+      >
+        <RaceText
+          target={typing?.target ?? reveal?.text ?? []}
+          typing={typing}
+          fog={fog && ended === undefined}
+          showFault={canType && ended === undefined}
+          label={t.textLabel}
+          language={language}
+          faded={overlay !== undefined}
+          field={field}
+        />
+        <label htmlFor={TYPING_INPUT_ID} className="sr-only">
           {t.typingLabel}
         </label>
-        <input
-          ref={input}
-          id={TYPING_INPUT_ID}
-          type="text"
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          disabled={!enabled}
-          aria-invalid={expected !== undefined}
-          aria-describedby={TYPING_STATUS_ID}
-          className="h-16 w-full rounded-bouton border border-voile bg-abysse px-4 font-mono text-xl text-ecume focus-visible:border-moi aria-invalid:border-2 aria-invalid:border-erreur disabled:bg-sillage"
-        />
-        <p id={TYPING_STATUS_ID} role="status" tabIndex={-1} className={`min-h-6 text-sm outline-none ${expected !== undefined ? "text-erreur" : "text-brume"}`}>
-          {expected !== undefined && <span aria-hidden="true">⚠ </span>}
-          {message}
-        </p>
-        {block === "observing" && reveal !== undefined && (
-          <button type="button" onClick={() => onTakeControl(reveal.raceId)} className={`${secondaryButton} self-start`}>
-            {t.takeControl}
-          </button>
-        )}
-      </div>
+      </RaceSheet>
+      <p id={TYPING_STATUS_ID} role="status" tabIndex={-1} className={`min-h-6 text-sm outline-none ${expected !== undefined ? "text-erreur" : "text-brume"}`}>
+        {expected !== undefined && <span aria-hidden="true">⚠ </span>}
+        {hint}
+      </p>
+      {block === "observing" && reveal !== undefined && (
+        <button type="button" onClick={() => onTakeControl(reveal.raceId)} className={`${secondaryButton} self-start`}>
+          {t.takeControl}
+        </button>
+      )}
       <TypingLegend mode={reveal?.errorMode} locale={locale} />
+    </div>
+  );
+}
+
+/**
+ * The text's sheet (design `.course-*`, framed as a chart): its label, the text and, for a
+ * runner, the real typing field inside it. The sheet keeps one height in every state, before and
+ * after the countdown, so nothing near the text moves (design rule 7).
+ */
+function RaceSheet({ label, overlay, onPointerDown, children }: {
+  readonly label: string;
+  /** The countdown, over the faded text. */
+  readonly overlay?: ReactNode;
+  readonly onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div data-race-sheet="" onPointerDown={onPointerDown} className={`${panels.sheet} flex h-64 flex-col`}>
+      <p aria-hidden="true" className={`${monoLabel} mb-2`}>
+        {label}
+      </p>
+      {children}
+      {overlay}
     </div>
   );
 }
@@ -553,7 +666,8 @@ function TypingZone({
  * a tinted background with a wavy underline, a blocked one boxed, the cursor as a bar. Never
  * colour alone (design rule 8). No animation near the text (rule 7). Memoised so that the
  * clock's ten renders a second skip it; a new typing state (a key, an answer, a broadcast)
- * renders it again.
+ * renders it again. It scrolls inside the sheet and places the sheet's field at the cursor, so
+ * an input method shows its candidates where the player types.
  */
 const RaceText = memo(function RaceText({
   target,
@@ -562,7 +676,8 @@ const RaceText = memo(function RaceText({
   fog = false,
   label,
   language,
-  overlay,
+  faded = false,
+  field,
 }: {
   readonly target: readonly string[];
   readonly typing: RaceClientState["typing"];
@@ -571,14 +686,16 @@ const RaceText = memo(function RaceText({
   readonly fog?: boolean;
   readonly label: string;
   readonly language: Locale;
-  /** The countdown, over the faded text; the card keeps one height before and after. */
-  readonly overlay?: ReactNode;
+  /** Under the countdown. */
+  readonly faded?: boolean;
+  /** A runner's typing field, inside the text so that the scrolling region holds its focus stop. */
+  readonly field?: ReactNode;
 }) {
   const typed = typing?.typed.length ?? 0;
   const hiddenFrom = fog ? fogStartsAt(target, typed) : target.length;
   const textArea = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
-    // Long/extended targets scroll inside a fixed card, never moving the typing field.
+    // Long/extended targets scroll inside a fixed sheet, never moving the page.
     const area = textArea.current;
     const cursor = area?.querySelector<HTMLElement>(".course-curseur");
     if (!area || !cursor) return;
@@ -586,26 +703,36 @@ const RaceText = memo(function RaceText({
     const caret = cursor.getBoundingClientRect();
     if (caret.bottom > frame.bottom) area.scrollTop += caret.bottom - frame.bottom;
     else if (caret.top < frame.top) area.scrollTop -= frame.top - caret.top;
+    // The field follows the cursor, invisibly: where the input method's window opens.
+    const box = area.getBoundingClientRect();
+    const placed = cursor.getBoundingClientRect();
+    area.style.setProperty("--caret-top", `${placed.top - box.top + area.scrollTop}px`);
+    area.style.setProperty("--caret-left", `${placed.left - box.left + area.scrollLeft}px`);
   }, [typed, target]);
   return (
-    <div className={`${card} relative flex h-60 flex-col p-5`}>
-      <p className={`${monoLabel} mb-2`}>{label}</p>
-      <p ref={textArea} role="region" aria-label={label} tabIndex={0} lang={language} className={`course-texte min-h-0 overflow-y-auto break-words ${overlay === undefined ? "" : "opacity-40"}`}>
-        {target.map((grapheme, index) => {
-          const mark = typing?.marks[index];
-          const blocked = showFault && typing?.pendingError === true && index === typed;
-          const className =
-            index < typed ? (mark === "wrong" ? "course-erreur" : "course-juste") : blocked ? "course-bloque course-curseur" : index === typed && typing !== undefined ? "course-curseur" : "";
-          return (
-            // Graphemes never move: the same text, re-rendered in place.
-            <span key={index} aria-hidden={index >= hiddenFrom ? true : undefined} className={`${className} ${index >= hiddenFrom ? "invisible" : ""}`}>
-              {grapheme}
-            </span>
-          );
-        })}
-      </p>
-      {overlay}
-    </div>
+    // Focusable for scrolling only without a field (spectators); with one, the field is the stop.
+    <p
+      ref={textArea}
+      role="region"
+      aria-label={label}
+      tabIndex={field === undefined ? 0 : undefined}
+      lang={language}
+      className={`course-texte relative min-h-0 grow overflow-y-auto break-words rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moi ${faded ? "opacity-40" : ""}`}
+    >
+      {target.map((grapheme, index) => {
+        const mark = typing?.marks[index];
+        const blocked = showFault && typing?.pendingError === true && index === typed;
+        const className =
+          index < typed ? (mark === "wrong" ? "course-erreur" : "course-juste") : blocked ? "course-bloque course-curseur" : index === typed && typing !== undefined ? "course-curseur" : "";
+        return (
+          // Graphemes never move: the same text, re-rendered in place.
+          <span key={index} aria-hidden={index >= hiddenFrom ? true : undefined} className={`${className} ${index >= hiddenFrom ? "invisible" : ""}`}>
+            {grapheme}
+          </span>
+        );
+      })}
+      {field}
+    </p>
   );
 });
 

@@ -89,11 +89,13 @@ for (const locale of ["fr-CA", "en-US"] as const) {
           await Promise.all(document.getAnimations().filter(animation =>
             animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)));
         });
-        const before = await field.boundingBox();
+        // The field follows the cursor invisibly; the visible sheet and its text never move.
+        const sheet = runner.locator("[data-race-sheet]");
+        const before = await sheet.boundingBox();
         await field.pressSequentially(text[index]!, { delay: 80 });
         // A separate browser receives server-authoritative progress: rejected edits never preceded this key.
         await expect(progress).toHaveAttribute("value", String(index + 1));
-        expect(await field.boundingBox()).toEqual(before);
+        expect(await sheet.boundingBox()).toEqual(before);
         await expect(guide).toBeVisible();
         await expectNoAccessibilityViolation(runner);
         await expectNoHorizontalScroll(runner);

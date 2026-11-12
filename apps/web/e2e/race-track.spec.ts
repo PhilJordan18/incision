@@ -56,16 +56,15 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     expect(await field.evaluate(el => el.getBoundingClientRect().top)).toBe(topBefore);
     await expect(field).toBeFocused();
 
-    const summary = page.locator("summary").filter({ hasText: locale === "fr-CA" ? "Voir tous les coureurs" : "View all runners" });
-    await summary.focus(); await page.keyboard.press("Enter");
-    // Use the enclosing details to avoid coupling this contract to the existing heading wording.
-    const items = summary.locator("..").locator("li");
+    // Every runner as text in the standings panel beside the decorative track.
+    const standings = page.getByRole("region", { name: locale === "fr-CA" ? "Classement" : "Standings" });
+    const items = standings.getByRole("listitem");
     await expect(items).toHaveCount(count);
     await expect(items.filter({ hasText: "Bot" })).toHaveCount(Math.ceil(count / 4));
-    await page.keyboard.press("Tab");
-    await expect(summary.locator("..").locator("ul")).toBeFocused();
+    const list = standings.getByRole("list");
+    await list.focus();
+    await expect(list).toBeFocused();
     await expectNoAccessibilityViolation(page);
-    await summary.press("Enter");
     for (const width of [1440, 1024, 390, 360]) {
       await page.setViewportSize({ width, height: 1000 });
       await expectNoHorizontalScroll(page);
