@@ -589,6 +589,8 @@ function TypingPad({
     const onCompositionStart = () => { composing = true; };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Backspace") {
+        // An input method edits its own composition (a dead key, a candidate): not the race's text.
+        if (event.isComposing || composing || event.keyCode === 229) return;
         event.preventDefault();
         race.type({ type: "deleteBackward" });
       } else if (event.key === "Enter") {
@@ -648,7 +650,13 @@ function TypingPad({
   // How to type, beside the live line rather than in it: tabbing away and back is not news.
   const hint = message !== undefined ? undefined : inactive ? screen.presenceHint : focused ? screen.typingHint : enabled ? screen.focusHint : t.typingHint;
   return (
-    <div data-typing-pad="" className={`${panels.pad} flex flex-col gap-2`}>
+    // A press anywhere on the pad but its controls goes back to « Ta frappe » (#51), like the text.
+    <div data-typing-pad="" className={`${panels.pad} flex flex-col gap-2`} onPointerDown={(event) => {
+      const field = input.current;
+      if (field === null || field.disabled || event.button !== 0 || (event.target as Element).closest("input, button, a")) return;
+      event.preventDefault();
+      field.focus();
+    }}>
       <div className="grid items-center gap-x-5 gap-y-2 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <div className="flex items-center gap-4">
           <label htmlFor={TYPING_INPUT_ID} className={`${monoLabel} shrink-0 text-ecume`}>
