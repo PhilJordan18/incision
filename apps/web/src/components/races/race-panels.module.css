@@ -1,0 +1,73 @@
+/*
+ * The race's panels as charts on a sea map (Philippe's sketch): a card with a second, graduated
+ * frame drawn inside it, like the edge of a nautical chart. Tokens only, no image, nothing that
+ * moves (design rules 7 and 10); the frame is behind the content and never touches the text.
+ */
+.panel {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--radius-carte, 12px);
+  border: 1px solid var(--color-houle);
+  background: var(--color-nuit);
+  padding: 20px;
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 5px;
+  border-radius: 8px;
+  border: 1px dashed var(--color-sillage);
+  pointer-events: none;
+}
+
+/* The text to type: the chart's widest sheet, whose frame shows where the keys go. */
+.sheet {
+  composes: panel;
+  padding: 20px 24px;
+  cursor: text;
+}
+/* Typing here: the design's focus (`moi` border and 3 px halo), on the whole sheet. */
+.sheet:has(input:focus-visible) {
+  border-color: var(--color-moi);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-moi) 20%, transparent);
+}
+.sheet:has(input:focus-visible)::before {
+  border-color: color-mix(in srgb, var(--color-moi) 35%, transparent);
+}
+/* A fault to correct: a thicker error border as well as the boxed character (rule 8). */
+.sheet:has(input[aria-invalid="true"]) {
+  border: 2px solid var(--color-erreur);
+}
+/* Away from the text, the cursor shows where typing resumes, dashed: no focus, no keys. */
+.sheet:not(:has(input:focus)) :global(.course-curseur) {
+  box-shadow: none;
+  background-image: linear-gradient(var(--color-brume) 50%, transparent 50%);
+  background-size: 2px 6px;
+  background-repeat: repeat-y;
+}
+
+/* The real field: keys, input methods and assistive technology use it; the sheet shows it. */
+.field {
+  position: absolute;
+  z-index: 1;
+  top: var(--caret-top, 0);
+  left: var(--caret-left, 0);
+  width: 2px;
+  height: 1.5em;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  opacity: 0;
+  font: inherit;
+  pointer-events: none;
+}
+
+@media (forced-colors: active) {
+  .sheet:has(input:focus-visible) {
+    outline: 3px solid Highlight;
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { trackLayout } from "./track-layout";
+import { standingsOrder, trackLayout } from "./track-layout";
 
 const runners = (count: number) => Array.from({ length: count }, (_, i) => ({ entrantId: `runner-${String(i).padStart(2, "0")}`, kind: i % 4 === 0 ? "bot" as const : "human" as const,
   status: "racing" as const, position: i * 2, length: 100, netWpm: 40 + i, inactive: false }));
@@ -48,5 +48,19 @@ describe("track presentation layout", () => {
     expect(points[1]!.tone).toBe("self");
     expect(trackLayout([], null)).toEqual([]);
     expect(trackLayout(runners(30), null).filter(p => p.labelled)).toHaveLength(3);
+  });
+  it("orders the standings by progress, finishers first on a tie, those who gave up last, stably", () => {
+    const base = { kind: "human" as const, length: 10, netWpm: 40, inactive: false };
+    const input = [
+      { ...base, entrantId: "d", status: "abandoned" as const, position: 9 },
+      { ...base, entrantId: "c", status: "racing" as const, position: 10 },
+      { ...base, entrantId: "b", status: "finished" as const, position: 10 },
+      { ...base, entrantId: "a", status: "racing" as const, position: 4 },
+      { ...base, entrantId: "e", status: "racing" as const, position: 4 },
+      { ...base, entrantId: "f", status: "timedOut" as const, position: 0, length: 0 },
+    ];
+    const snapshot = JSON.stringify(input);
+    expect(standingsOrder(input).map(r => r.entrantId)).toEqual(["b", "c", "a", "e", "f", "d"]);
+    expect(JSON.stringify(input)).toBe(snapshot);
   });
 });

@@ -46,3 +46,18 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
   const labelPositions = new Map(labels.map((point, i) => [point.runner.entrantId, positions[i]!]));
   return raw.map((point) => ({ ...point, x: point.labelled ? 12 + 42 * namedIds.indexOf(point.runner.entrantId) / Math.max(1, namedIds.length - 1) : point.x, labelY: labelPositions.get(point.runner.entrantId) ?? point.y }));
 }
+
+/**
+ * The standings panel's order: furthest first, finishers before those still racing at the same
+ * progress, those who gave up last; ties keep a stable id order. Presentation only: the engine's
+ * official ranking (COURSE-10) comes with the results.
+ */
+export function standingsOrder(entrants: readonly Runner[]): readonly Runner[] {
+  const ratio = (runner: Runner) => runner.length > 0 ? Math.max(0, Math.min(1, runner.position / runner.length)) : 0;
+  const group = (runner: Runner) => runner.status === "finished" ? 0 : 1;
+  return [...entrants].sort((a, b) => {
+    const abandoned = Number(a.status === "abandoned") - Number(b.status === "abandoned");
+    if (abandoned !== 0) return abandoned;
+    return ratio(b) - ratio(a) || group(a) - group(b) || (a.entrantId < b.entrantId ? -1 : a.entrantId > b.entrantId ? 1 : 0);
+  });
+}
