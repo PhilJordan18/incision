@@ -391,11 +391,11 @@ test.describe("the first complete race (F-04.0)", () => {
     await host.getByRole("button", { name: "Start the race" }).click();
     const text = await raceText(guest);
     await expect(guest.getByLabel("Ta frappe")).toBeEnabled({ timeout: 6_000 });
-    // The guest keeps the focus in the text; the host's focus leaves it (reading elsewhere).
+    // The guest keeps the focus in « Ta frappe »; the host's focus leaves it (reading elsewhere).
     await expect(guest.getByLabel("Ta frappe")).toBeFocused();
     await expect(host.getByLabel("Your typing")).toBeFocused();
     await host.getByLabel("Your typing").blur();
-    await expect(host.locator("#race-typing-hint")).toHaveText("Click in the text or press Tab to type.");
+    await expect(host.locator("#race-typing-hint")).toHaveText("To resume, click in “Your typing” or on the text, or press Escape from the text or a panel.");
     // Nobody types for a minute.
     const hostQuestion = host.getByRole("heading", { name: "Are you still there?" });
     const guestQuestion = guest.getByRole("heading", { name: "Tu es toujours là ?" });
@@ -415,7 +415,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByRole("dialog", { name: "Tu es toujours là ?" })).toBeVisible();
     await expect(hostQuestion).toBeFocused();
     await expect(guest.getByLabel("Ta frappe")).toBeFocused();
-    // The question under the text too, where the typist looks (the dialog may be below the fold).
+    // The question beside « Ta frappe » too, where the typist looks.
     await expect(guest.locator("#race-typing-hint")).toContainText("Tu es toujours là ?");
     await expect(guest.locator("#race-typing-hint")).toBeInViewport();
     await host.keyboard.press("a");
@@ -424,14 +424,14 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(hostDialog).toBeVisible();
     await expect(guestOnHost).toContainText("inactive");
     await expect(host.getByRole("region", { name: "Standings" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("inactive");
-    // Escape goes back to the text without answering.
+    // Escape goes back to « Ta frappe » without answering.
     await host.keyboard.press("Escape");
     await expect(host.getByLabel("Your typing")).toBeFocused();
     await expect(hostDialog).toBeVisible();
     await host.screenshot({ path: test.info().outputPath("presence-dialog-en-abysse.png"), fullPage: false });
     await guest.screenshot({ path: test.info().outputPath("presence-dialog-fr-aube.png"), fullPage: false });
 
-    // The explicit button for one (reached with Tab from the text), a keystroke for the other;
+    // The explicit button for one (reached with Tab from « Ta frappe »), a keystroke for the other;
     // the button gives the focus back to typing.
     await host.keyboard.press("Tab");
     await expect(host.getByRole("button", { name: "I’m here" })).toBeFocused();

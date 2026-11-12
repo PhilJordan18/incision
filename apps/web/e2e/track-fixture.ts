@@ -8,7 +8,7 @@ import { raceProgressPayloadSchema, raceRevealPayloadSchema } from "../src/races
 /** Browser rendering fixture only: validated 4Hz wire data, NOT a runtime/load/SQL proof.
  * Production pages/assets remain real; only Socket.IO is routed to this local test server.
  */
-export async function trackFixture(room: PublicRoomSnapshot, count = 30) {
+export async function trackFixture(room: PublicRoomSnapshot, count = 30, options: { readonly bonuses?: boolean } = {}) {
   const http = createServer();
   const io = new Server(http, { transports: ["polling"], cors: { origin: true, credentials: true } });
   await new Promise<void>(resolve => http.listen(0, "127.0.0.1", resolve));
@@ -33,6 +33,9 @@ export async function trackFixture(room: PublicRoomSnapshot, count = 30) {
       socket.emit("race:progress", progress());
       if (selfEntrantId) socket.emit("race:self", { snapshot: { raceId, entrantId: selfEntrantId, textVersion: 0, target: text, typed: [], pendingError: false,
         ackSeq: 0, status: "racing", counters: { correctInserts: 0, totalInserts: 0 } }, measures: { netWpm: 45, accuracy: 0 }, control: "controlling" });
+      // An Arcade inventory for the layout only: the real grant/activation rules are bonus-fixture's.
+      if (selfEntrantId && options.bonuses) socket.emit("race:bonus:self", { raceId, revision: 1, ackSeq: 0, enabled: true,
+        grants: [{ milestone: 25, kind: "shortenSelf" }, { milestone: 50, kind: "extendLeader" }, { milestone: 75, kind: "fogLeader" }], fog: null });
       ack({ ok: true, selfMemberId: room.members[0]!.memberId, snapshot: { ...room, revision: 1000, phase: "racing", capacity: 30,
         race: { raceId, state: "racing", interruptionReason: null } } });
     });
