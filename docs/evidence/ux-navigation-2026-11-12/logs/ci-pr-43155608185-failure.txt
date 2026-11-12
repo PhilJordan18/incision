@@ -1,0 +1,47 @@
+2026-11-12T04:55:02.5091300Z   1) [chromium] › e2e/account-journey.spec.ts:26:7 › account separates the active private room from past races (fr-CA)
+2026-11-12T04:55:02.5091908Z
+2026-11-12T04:55:02.5094024Z     Error: expect(locator).toHaveCount(expected) failed
+2026-11-12T04:55:02.5094492Z
+2026-11-12T04:55:02.5094806Z     Locator:  getByRole('region', { name: /^(Mes salles|My rooms)$/ }).getByRole('link')
+2026-11-12T04:55:02.5095188Z     Expected: 0
+2026-11-12T04:55:02.5095386Z     Received: 1
+2026-11-12T04:55:02.5095580Z     Timeout:  5000ms
+2026-11-12T04:55:02.5095719Z
+2026-11-12T04:55:02.5095801Z     Call log:
+2026-11-12T04:55:02.5096272Z       - Expect "toHaveCount" getByRole('region', { name: /^(Mes salles|My rooms)$/ }).getByRole('link') with timeout 5000ms
+2026-11-12T04:55:02.5096912Z       - waiting for getByRole('region', { name: /^(Mes salles|My rooms)$/ }).getByRole('link')
+2026-11-12T04:55:02.5097410Z         14 × locator resolved to 1 element
+2026-11-12T04:55:02.5097671Z            - unexpected value "1"
+2026-11-12T04:55:02.5097818Z
+2026-11-12T04:55:02.5097844Z
+2026-11-12T04:55:02.5098177Z       47 |     await owner.page.getByRole("button", { name: /^(Fermer la salle|Close the room)$/, exact: true }).click();
+2026-11-12T04:55:02.5098800Z       48 |     await owner.page.getByRole("button", { name: /^(Oui, fermer la salle|Yes, close the room)$/ }).click();
+2026-11-12T04:55:02.5099372Z     > 49 |     await profile.goto("/account"); await expect(rooms.getByRole("link")).toHaveCount(0);
+2026-11-12T04:55:02.5099818Z          |                                                                           ^
+2026-11-12T04:55:02.5100268Z       50 |   });
+2026-11-12T04:55:02.5100705Z       51 |   test(`home explains existing play and guests have no personal navigation (${locale})`, async ({ browser }) => {
+2026-11-12T04:55:02.5101141Z       52 |     test.slow();
+2026-11-12T04:55:02.5101509Z         at /home/runner/work/incision/incision/apps/web/e2e/account-journey.spec.ts:49:75
+2026-11-12T04:55:02.5101788Z
+2026-11-12T04:55:02.5102661Z     Error Context: test-results/account-journey-account-se-028a1-room-from-past-races-fr-CA--chromium/error-context.md
+2026-11-12T04:55:02.5103271Z
+2026-11-12T04:55:02.5103705Z     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+2026-11-12T04:55:02.5104350Z     test-results/account-journey-account-se-028a1-room-from-past-races-fr-CA--chromium/trace.zip
+2026-11-12T04:55:02.5104800Z     Usage:
+2026-11-12T04:55:02.5104899Z
+2026-11-12T04:55:02.5105348Z         npx playwright show-trace test-results/account-journey-account-se-028a1-room-from-past-races-fr-CA--chromium/trace.zip
+2026-11-12T04:55:02.5105796Z
+2026-11-12T04:55:02.5106140Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+2026-11-12T04:55:02.5106389Z
+2026-11-12T04:55:02.5106475Z   1 failed
+2026-11-12T04:55:02.5107030Z     [chromium] › e2e/account-journey.spec.ts:26:7 › account separates the active private room from past races (fr-CA)
+2026-11-12T04:55:02.5107511Z   223 passed (14.6m)
+2026-11-12T04:55:02.8212226Z npm error Lifecycle script `test:e2e` failed with error:
+2026-11-12T04:55:02.8212667Z npm error code 1
+2026-11-12T04:55:02.8213026Z npm error path /home/runner/work/incision/incision/apps/web
+2026-11-12T04:55:02.8213423Z npm error workspace @incision/web@0.1.0
+2026-11-12T04:55:02.8226301Z npm error location /home/runner/work/incision/incision/apps/web
+2026-11-12T04:55:02.8226711Z npm error command failed
+2026-11-12T04:55:02.8227035Z npm error command sh -c playwright test
+2026-11-12T04:55:02.8297789Z ##[error]Process completed with exit code 1.
+2026-11-12T04:55:02.8351203Z ##[group]Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
