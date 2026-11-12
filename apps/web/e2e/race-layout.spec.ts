@@ -84,14 +84,87 @@ for (const [width, height] of [[1440, 900], [1280, 720], [1024, 768]] as const) 
       await expectNoHorizontalScroll(page);
 
       // Typing while the track, routes and standings refresh: the pad keeps the focus, every key lands.
+      // The same element throughout: a remount would refocus a new field and could drop a key.
       const typed = "La mer reste calme. La mer";
-      const timer = setInterval(() => fixture?.advance(), 120);
+      const handle = await field.elementHandle();
+      let tick = 0;
+      const timer = setInterval(() => { fixture?.advance(); if (++tick % 3 === 0) fixture?.refreshBonuses(); }, 120);
       try {
         for (const key of typed) { await page.keyboard.type(key); await page.waitForTimeout(15); }
       } finally { clearInterval(timer); }
+      expect(tick).toBeGreaterThan(3);
+      expect(await handle!.evaluate(element => element.isConnected && document.activeElement === element)).toBe(true);
       await expect(field).toBeFocused();
       await expect(sheet.locator(".course-juste")).toHaveCount(typed.length);
       if (width === 1440 && locale === "fr-CA") await expectNoAccessibilityViolation(page);
+      // Escape from the bonus log, a panel of the row, gives the keys back to the pad.
+      await bonuses.getByRole("group").focus();
+      await page.keyboard.press("Escape");
+      await expect(field).toBeFocused();
     });
   }
+  // Any race but Arcade: standings beside a wider track, no empty bonus column; same order.
+  test(`without bonuses at ${width}×${height}: text, standings and track, then « Ta frappe »`, async ({ browser }) => {
+    test.setTimeout(60_000);
+    const { page } = await openRace(browser, { locale: "fr-CA", theme: "abysse", width, height, bonuses: false });
+    const field = page.getByRole("textbox", { name: "Ta frappe", exact: true });
+    await expect(field).toBeFocused();
+    await expect(page.getByRole("region", { name: "Bonus", exact: true })).toHaveCount(0);
+    const sheet = page.locator("[data-race-sheet]");
+    const track = page.getByTestId("race-track");
+    const standings = page.getByRole("region", { name: "Classement" });
+    const [sheetBox, trackBox, standingsBox, fieldBox] = await Promise.all([sheet, track, standings, field].map(l => l.boundingBox()));
+    expect(trackBox!.y).toBeGreaterThan(sheetBox!.y + sheetBox!.height);
+    expect(fieldBox!.y).toBeGreaterThan(trackBox!.y + trackBox!.height);
+    expect(standingsBox!.x + standingsBox!.width).toBeLessThanOrEqual(trackBox!.x + 1);
+    expect(trackBox!.width).toBeGreaterThan(standingsBox!.width);
+    await expectOnScreen(page, sheet, "text");
+    await expectOnScreen(page, track, "track");
+    await expectOnScreen(page, field, "Ta frappe");
+    await expectNoHorizontalScroll(page);
+    await page.screenshot({ animations: "disabled", path: test.info().outputPath(`layout-no-bonus-${width}x${height}.png`) });
+  });
+}
+
+// D-06: a lost connection says the place is kept 30 s, under the pad: the text, the row and the
+// field do not move, and the notice goes once the connection is back.
+test("a lost connection shows its notice under « Ta frappe » without moving it", async ({ browser }) => {
+  test.setTimeout(60_000);
+  const { page } = await openRace(browser, { locale: "fr-CA", theme: "aube", width: 1440, height: 900 });
+  const field = page.getByRole("textbox", { name: "Ta frappe", exact: true });
+  await expect(field).toBeFocused();
+  const before = await Promise.all([page.locator("[data-race-sheet]"), page.getByTestId("race-track"), field].map(l => l.boundingBox()));
+  fixture!.drop();
+  const notice = page.getByText("Ta place est gardée 30 secondes : passé ce délai, ta course compte comme un abandon.");
+  await expect(notice).toBeVisible({ timeout: 15_000 });
+  const [noticeBox, fieldBox] = await Promise.all([notice.boundingBox(), field.boundingBox()]);
+  expect(noticeBox!.y).toBeGreaterThan(fieldBox!.y + fieldBox!.height);
+  expect(await Promise.all([page.locator("[data-race-sheet]"), page.getByTestId("race-track"), field].map(l => l.boundingBox()))).toEqual(before);
+  await page.screenshot({ animations: "disabled", path: test.info().outputPath("reconnecting-fr-aube-1440.png") });
+  fixture!.restore();
+  await expect(notice).toHaveCount(0, { timeout: 30_000 });
+});
+
+// 200 % zoom on the desktop sizes: CSS pixels halve. Under 768 px D-20 applies (the keyboard
+// message and the track, no field); at 768 px the pad stays reachable by scrolling, nothing hidden.
+for (const [width, height, typing] of [[720, 450, false], [512, 384, false], [768, 432, true]] as const) {
+  test(`200 % zoom: ${width}×${height} CSS px keeps the race usable (D-20)`, async ({ browser }) => {
+    test.setTimeout(60_000);
+    const { page } = await openRace(browser, { locale: "fr-CA", theme: "abysse", width, height });
+    await expectNoHorizontalScroll(page);
+    await expect(page.getByTestId("race-track")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Abandonner/ })).toBeAttached();
+    const field = page.getByRole("textbox", { name: "Ta frappe", exact: true });
+    if (typing) {
+      await expect(field).toBeFocused();
+      await expect(page.locator("input:not([type=hidden]):not([disabled])")).toHaveCount(1);
+      await page.keyboard.type("La mer");
+      await expect(page.locator("[data-race-sheet] .course-juste")).toHaveCount(6);
+      await expectOnScreen(page, field, "Ta frappe");
+    } else {
+      await expect(page.getByRole("heading", { name: "Un clavier physique pour courir" })).toBeVisible();
+      await expect(field).toHaveCount(0);
+    }
+    await page.screenshot({ fullPage: true, animations: "disabled", path: test.info().outputPath(`zoom-${width}x${height}.png`) });
+  });
 }

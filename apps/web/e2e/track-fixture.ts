@@ -25,6 +25,12 @@ export async function trackFixture(room: PublicRoomSnapshot, count = 30, options
       entrants: entrants.map((e, i) => ({ entrantId: e.entrantId, kind: i % 4 === 0 ? "bot" : "human", status: i === 29 ? "abandoned" : "racing",
         position: Math.min(95, (i === 15 ? 20 : (i * 13) % 80) + step * 2), length: 100, netWpm: 30 + i, inactive: i === 28 })) } });
   }
+  let bonusRevision = 1;
+  const bonusSelf = () => ({ raceId, revision: bonusRevision, ackSeq: 0, enabled: true,
+    grants: [{ milestone: 25, kind: "shortenSelf" }, { milestone: 50, kind: "extendLeader" }, { milestone: 75, kind: "fogLeader" }], fog: null });
+  // `drop()` cuts every connection and refuses new ones until `restore()`: a lost connection (D-06).
+  let refusing = false;
+  io.use((_socket, next) => next(refusing ? new Error("offline") : undefined));
   io.on("connection", socket => {
     socket.on("room:watch", (_payload, ack) => {
       const selfEntrantId = socket.handshake.query.spectator === "1" ? null : entrants[15]!.entrantId;
@@ -34,14 +40,15 @@ export async function trackFixture(room: PublicRoomSnapshot, count = 30, options
       if (selfEntrantId) socket.emit("race:self", { snapshot: { raceId, entrantId: selfEntrantId, textVersion: 0, target: text, typed: [], pendingError: false,
         ackSeq: 0, status: "racing", counters: { correctInserts: 0, totalInserts: 0 } }, measures: { netWpm: 45, accuracy: 0 }, control: "controlling" });
       // An Arcade inventory for the layout only: the real grant/activation rules are bonus-fixture's.
-      if (selfEntrantId && options.bonuses) socket.emit("race:bonus:self", { raceId, revision: 1, ackSeq: 0, enabled: true,
-        grants: [{ milestone: 25, kind: "shortenSelf" }, { milestone: 50, kind: "extendLeader" }, { milestone: 75, kind: "fogLeader" }], fog: null });
+      if (selfEntrantId && options.bonuses) socket.emit("race:bonus:self", bonusSelf());
       ack({ ok: true, selfMemberId: room.members[0]!.memberId, snapshot: { ...room, revision: 1000, phase: "racing", capacity: 30,
         race: { raceId, state: "racing", interruptionReason: null } } });
     });
   });
   return {
     advance() { step++; revision++; io.emit("race:progress", progress()); },
+    /** A fresh copy of the private inventory, as the server sends after a grant or an activation. */
+    refreshBonuses() { if (options.bonuses) { bonusRevision++; io.emit("race:bonus:self", bonusSelf()); } },
     async route(context: BrowserContext, spectator = false) {
       await context.route("**/socket.io/**", async route => {
         const target = new URL(route.request().url()); target.hostname = "127.0.0.1"; target.port = String(address.port); target.searchParams.set("spectator", spectator ? "1" : "0");
@@ -49,6 +56,9 @@ export async function trackFixture(room: PublicRoomSnapshot, count = 30, options
         await route.fulfill({ response });
       });
     },
+    // A transport cut, not a server "disconnect" (which the page reads as a session that ended).
+    drop() { refusing = true; for (const socket of io.sockets.sockets.values()) socket.conn.close(); },
+    restore() { refusing = false; },
     async close() { await io.close(); },
   };
 }

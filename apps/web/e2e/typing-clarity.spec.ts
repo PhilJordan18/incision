@@ -150,6 +150,29 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       await standingsList.focus();
       await runner.keyboard.press("Escape");
       await expect(field).toBeFocused();
+      // A press on the pad (its hint), or on the field itself, also gives the keys back.
+      await field.blur();
+      await hint.click();
+      await expect(field).toBeFocused();
+      await field.blur();
+      await field.click();
+      await expect(field).toBeFocused();
+      // Backspace inside an input method's composition (a dead key) edits the composition, not the race.
+      await field.evaluate(element => {
+        element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+        element.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", isComposing: true, bubbles: true, cancelable: true }));
+        element.dispatchEvent(new CompositionEvent("compositionend", { data: "", bubbles: true }));
+      });
+      await expect(runner.locator(".course-texte .course-juste")).toHaveCount(4);
+      await expect(progress).toHaveAttribute("value", "4");
+      if (errorMode === "free") {
+        // Free correction: a wrong character is marked and typing goes on past it.
+        await field.press(text[4] === "x" ? "y" : "x");
+        await expect(runner.locator(".course-texte .course-erreur")).toHaveCount(1);
+        await field.pressSequentially(text[5]!, { delay: 80 });
+        await expect(runner.locator(".course-texte .course-juste")).toHaveCount(5);
+        await expect(progress).toHaveAttribute("value", "6");
+      }
       for (const width of [1440, 1024, 390, 360]) {
         await runner.setViewportSize({ width, height: 1000 });
         if (width < 768) {
