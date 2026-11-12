@@ -99,3 +99,30 @@ test("bot controls are accessible in both languages and themes at reference widt
     await expect(panel(page).getByRole("button", { name: /^(Ajouter un bot|Add a bot)$/ })).toBeFocused();
   }
 });
+
+for (const locale of ["fr-CA", "en-US"]) test(`new bot choices, saved roster and unsaved edits stay distinct (${locale})`, async ({ browser }) => {
+  const { page } = await account(browser, locale); await open(page);
+  const bots = panel(page);
+  const add = bots.getByRole("button", { name: /^(Ajouter un bot|Add a bot)$/ });
+  const nextLevel = bots.getByRole("combobox", { name: /^(Niveau du bot|Bot level)$/ });
+  await expect(bots.getByRole("heading", { name: /^(Ajouter un bot|Add a bot)$/ })).toBeVisible();
+  await expect(bots.getByRole("heading", { name: /^(Bots dans la salle|Bots in the room)$/ })).toBeVisible();
+  await nextLevel.selectOption("expert"); await add.click();
+  await expect(bots.getByRole("status").filter({ hasText: /^(Bot ajouté à la salle.|Bot added to the room.)$/ })).toBeVisible();
+  const first = bots.getByRole("listitem").nth(0);
+  await first.getByRole("combobox").selectOption("noob");
+  await expect(first.getByText(/^(Niveau enregistré :|Saved level:)/)).toContainText(/expert/);
+  await expect(first.getByRole("status")).toContainText(/(Modification non enregistrée|Unsaved change)/);
+  await nextLevel.selectOption("impossible");
+  await expect(first.getByRole("combobox")).toHaveValue("noob");
+  await first.getByRole("button", { name: /^(Changer le niveau|Change level)$/ }).click();
+  await expect(bots.getByRole("status").filter({ hasText: /^(Niveau du bot enregistré.|Bot level saved.)$/ })).toBeVisible();
+  await expect(first.getByText(/^(Niveau enregistré :|Saved level:)/)).toContainText(/novice/);
+  await expect(nextLevel).toHaveValue("impossible");
+  await add.click(); await expect(bots.getByRole("listitem")).toHaveCount(2);
+  await expect(first.getByRole("combobox")).toHaveValue("noob");
+  await expect(bots.getByRole("listitem").nth(1).getByRole("combobox")).toHaveValue("impossible");
+  await page.reload(); await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+  await expect(first.getByText(/^(Niveau enregistré :|Saved level:)/)).toContainText(/novice/);
+  await expect(bots.getByRole("listitem").nth(1).getByText(/^(Niveau enregistré :|Saved level:)/)).toContainText(/impossible/);
+});
