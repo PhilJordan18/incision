@@ -108,7 +108,7 @@
 /* A runner's progress in the standings: tokens, not the browser's own green (rule 5). */
 .bar {
   appearance: none;
-  height: 0.5rem;
+  height: 0.25rem;
   width: 100%;
   border: 0;
   border-radius: var(--radius-puce, 6px);

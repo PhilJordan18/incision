@@ -27,7 +27,7 @@ it("renders the effective target and progress denominator inside a fixed-height,
   // The text shows the progress in a fixed-height region that scrolls (a keyboard stop of its
   // own); « Ta frappe » is the only field, under the panels' row, never inside the text.
   expect(html).toMatch(/role="region" aria-label="Text to type" tabindex="0" lang="en"[^>]*overflow-y-auto[^>]*>(?:(?!<input).)*<\/p>/);
-  expect(html).toContain("flex flex-col h-60 lg:h-[clamp(");
+  expect(html).toMatch(/data-race-sheet="[^"]*"[^>]*class="[^"]*\bh-60\b/);
   expect(html).toContain("course-juste");
   expect(html.match(/<input /g)).toHaveLength(1);
   expect(html.indexOf('<label for="race-typing"')).toBeGreaterThan(html.indexOf("data-race-row"));

@@ -39,7 +39,12 @@ export function routeStyle(stableIndex: number, self: boolean): RouteStyle {
   return { colour, dash };
 }
 
-/** Every runner's route style, by id: what the track draws and the standings show beside a name. */
+/**
+ * Every runner's route style, by id: what the track draws and the standings show beside a name.
+ * Stable for the round on this screen: the index follows the sorted ids of the round's other
+ * runners (a race's entrants are fixed once it starts), so a refresh, a reorder or a reload keeps
+ * it. Your own route is always `moi`, so two players may see the same runner in another colour.
+ */
 export function routeStyles(entrants: readonly Pick<Runner, "entrantId">[], selfId: string | null): ReadonlyMap<string, RouteStyle> {
   const others = entrants.map((runner) => runner.entrantId).filter((id) => id !== selfId).sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
   const styles = new Map(others.map((id, index) => [id, routeStyle(index, false)]));
@@ -76,10 +81,10 @@ function routePath(ratio: number, point: (t: number) => readonly [number, number
   return coords.length === 1 ? `${coords[0]} ${coords[0]}` : coords.join(" ");
 }
 
-/** The names' column (in % of the chart's height): five two-line names fit apart on a 12 rem chart. */
-export const LABEL_TOP = 22;
-export const LABEL_BOTTOM = 88;
-export const LABEL_GAP = 16.5;
+/** The names' column (in % of the chart's height): five two-line names (31 px) fit apart on a 12 rem chart, under the finish band (12 %). */
+export const LABEL_TOP = 25;
+export const LABEL_BOTTOM = 90;
+export const LABEL_GAP = 16.25;
 
 /** Presentation only: progress proximity is NOT the engine's official finish ranking. */
 export function trackLayout(entrants: readonly Runner[], selfId: string | null): readonly TrackPoint[] {

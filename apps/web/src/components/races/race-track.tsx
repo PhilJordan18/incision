@@ -1,6 +1,5 @@
 "use client";
 
-import { toGraphemes } from "@incision/domain";
 import { memo, type CSSProperties } from "react";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { raceTrackMessages } from "@/i18n/dictionaries/race-track";
@@ -8,7 +7,7 @@ import type { Locale } from "@/i18n/locale";
 import { formatNumber } from "@/i18n/value-format";
 import { formatProgress, formatWpm } from "@/races/format";
 import type { RaceClientState } from "@/races/race-client";
-import { type RouteStyle, type TrackPoint, trackLayout } from "./track-layout";
+import { type RouteStyle, standingsOrder, type TrackPoint, trackLayout } from "./track-layout";
 import styles from "./race-track.module.css";
 
 /**
@@ -25,6 +24,9 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
   const text = raceTrackMessages[locale];
   const names = new Map(entrants.map((entrant) => [entrant.entrantId, entrant.displayName]));
   const points = trackLayout(progress?.entrants ?? [], selfId);
+  // A named marker carries its standings rank, also written before its label's name: crews often
+  // share initials (« Matelot 7 », « Matelot 13 »), so marker and name match without colour (rule 8).
+  const ranks = new Map(standingsOrder(progress?.entrants ?? []).map((runner, index) => [runner.entrantId, formatNumber(index + 1, locale)]));
   const others = points.filter((point) => !point.labelled).length;
   const horizontalOthers = points.filter((point) => !point.self && point.tone !== "leader").length;
   return <section aria-labelledby="track-heading" className={styles.section}>
@@ -48,7 +50,7 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
       {points.map((point) => {
         const { runner } = point;
         const name = names.get(runner.entrantId) ?? "";
-        const initials = toGraphemes(name.trim()).slice(0, 2).join("").toLocaleUpperCase(locale);
+        const rank = ranks.get(runner.entrantId) ?? "";
         const position = { "--point-x": `${point.x}%`, "--point-y": `${point.y}%`, "--label-y": `${point.labelY}%`,
           "--horizontal-x": `${point.horizontalX}%`, "--horizontal-y": `${point.horizontalY}%`,
           "--horizontal-label-x": `${Math.max(2, Math.min(72, point.horizontalX - 5))}%` } as CSSProperties;
@@ -56,10 +58,10 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
           <span data-runner={runner.entrantId} data-self={point.self || undefined} data-kind={runner.kind} data-position={runner.position}
             data-route-colour={point.route.colour} style={position}
             className={`${styles.point} ${point.labelled ? styles.named : ""} ${styles[point.route.colour]} ${point.self ? styles.self : ""} ${point.tone === "leader" ? styles.leader : ""} ${runner.kind === "bot" ? styles.bot : ""}`}>
-            {point.labelled && <span className={styles.initials}>{initials}</span>}
+            {point.labelled && <span className={styles.initials}>{rank}</span>}
           </span>
           {point.labelled && <span data-track-label style={position} className={`${styles.label} ${point.self ? styles.selfLabel : ""} ${point.tone === "leader" ? styles.leaderLabel : ""}`}>
-            <span className={styles.labelName}><RouteSwatch route={point.route} />{runner.kind === "bot" ? "□ " : ""}{name}{point.self ? ` (${t.you})` : ""}</span>
+            <span className={styles.labelName}><RouteSwatch route={point.route} /><span className={styles.rank}>{rank}</span>{runner.kind === "bot" ? "□ " : ""}{name}{point.self ? ` (${t.you})` : ""}</span>
             {/* Two lines at most; the standings say the rest in full. */}
             <span className={styles.labelName}>
               {formatProgress(runner.position, runner.length, locale)} · {formatWpm(runner.netWpm, locale)} {t.wpm}

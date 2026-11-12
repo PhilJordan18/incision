@@ -54,4 +54,7 @@ it.each(["fr", "en"] as const)("says the first bonus is ready with Enter only wh
   for (const kind of ["fogLeader", "extendLeader"] as const) expect(ready).toContain(text.bonusEffects[kind]);
   expect(render({ ...empty, synchronized: false, self: { ...self, grants } })).toContain(text.bonusWaiting);
   expect(render({ ...empty, synchronized: true, self: { ...self, grants } }, { ...racing, control: "observing" })).toContain(t.observing);
+  // A suspended tab keeps the control but cannot type or activate: not "ready".
+  const suspended = render({ ...empty, synchronized: true, self: { ...self, grants } }, { ...racing, block: "suspended" });
+  expect(suspended).toContain(text.bonusWaiting); expect(suspended).not.toContain(text.bonusReady); expect(suspended).toContain(t.sync);
 });

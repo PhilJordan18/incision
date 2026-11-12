@@ -36,37 +36,37 @@ export const RaceStandings = memo(function RaceStandings({ entrants, progress, s
         {text.standingsHeading}
         <span className="ml-2 font-mono text-sm font-normal text-brume">({formatNumber(runners.length, locale)})</span>
       </h2>
-      <p className="text-sm text-brume">{text.standingsNote}</p>
+      <p className="text-sm text-brume lg:sr-only">{text.standingsNote}</p>
       {runners.length === 0 ? (
         <p className="text-sm text-embrun">{text.standingsEmpty}</p>
       ) : (
         // Scrolls inside the panel for a large crew; reachable with the keyboard (WCAG 2.1.1).
+        // Two compact lines per runner, so a short row still shows several; your own line sticks
+        // to the edge of the list while it is scrolled out of view (30 or 50 runners).
         <ol tabIndex={0} aria-label={text.standingsHeading}
-          className="flex max-h-[28rem] flex-col gap-3 overflow-auto rounded-lg lg:max-h-none lg:min-h-0 lg:grow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moi">
+          className="flex max-h-[28rem] flex-col overflow-auto rounded-lg lg:max-h-none lg:min-h-0 lg:grow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moi">
           {runners.map((runner, index) => {
             const self = runner.entrantId === selfId;
             const name = names.get(runner.entrantId) ?? "";
             return (
-              <li key={runner.entrantId} data-standing={runner.entrantId} className={`flex gap-3 border-b border-sillage pb-3 ${self ? "border-l-4 border-l-moi pl-3" : ""}`}>
-                <span className="w-8 shrink-0 font-display text-2xl leading-none font-extrabold text-embrun">
+              <li key={runner.entrantId} data-standing={runner.entrantId}
+                className={`flex gap-3 border-b border-sillage py-2 ${self ? "sticky top-0 bottom-0 z-10 border-l-4 border-l-moi bg-nuit pl-3" : ""}`}>
+                <span className="w-7 shrink-0 font-display text-xl leading-none font-extrabold text-embrun">
                   <span className="sr-only">{text.rank} </span>
                   {formatNumber(index + 1, locale)}
                 </span>
                 <span className="flex min-w-0 grow flex-col gap-1">
-                  <span className="block break-words font-semibold">
+                  <span className="block break-words font-semibold leading-tight">
                     <RouteSwatch route={routes.get(runner.entrantId)!} />
                     {name}
                     {self ? ` (${t.you})` : ""}
                     {runner.kind === "bot" ? ` · □ ${track.bot}` : ""}
                   </span>
-                  <span className="block font-mono text-sm text-brume">
-                    {formatProgress(runner.position, runner.length, locale)} · {formatWpm(runner.netWpm, locale)} {t.wpm}
-                  </span>
-                  <progress aria-label={name} value={runner.position} max={runner.length} className={`${styles.bar} ${self ? styles.self : ""}`} />
-                  <span className="text-sm text-brume">
-                    {t.status[runner.status]}
+                  <span className="block font-mono text-xs text-brume">
+                    {formatProgress(runner.position, runner.length, locale)} · {formatWpm(runner.netWpm, locale)} {t.wpm} · {t.status[runner.status]}
                     {runner.inactive ? ` · ◌ ${t.inactive}` : ""}
                   </span>
+                  <progress aria-label={name} value={runner.position} max={runner.length} className={`${styles.bar} ${self ? styles.self : ""}`} />
                 </span>
               </li>
             );

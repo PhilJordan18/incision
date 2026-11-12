@@ -122,8 +122,10 @@
 }
 .labelName { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .labelName:first-child { font-weight: 600; }
+.rank { margin-right: 4px; font-family: var(--font-mono); font-weight: 700; }
+.rank::after { content: "."; }
 .selfLabel { font-weight: 700; }
-.more { position: absolute; bottom: 8px; left: 16px; color: var(--color-embrun); }
+.more { position: absolute; top: calc(12% - 18px); right: 12px; color: var(--color-embrun); }
 .horizontalMore { display: none; }
 
 /* A route's sample beside a name: same colour and dash. */
@@ -160,7 +162,7 @@
   .label { display: none; }
   .selfLabel, .leaderLabel { display: block; left: var(--horizontal-label-x); width: 24%; top: 86%; }
   .leaderLabel { top: 70%; }
-  .more { bottom: 4px; font-size: 10px; }
+  .more { top: auto; right: auto; bottom: 4px; left: 16px; font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .point, .label { transition: none !important; }

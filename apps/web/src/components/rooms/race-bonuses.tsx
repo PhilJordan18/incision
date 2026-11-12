@@ -21,13 +21,22 @@ export function RaceBonuses({ state, race, t, locale }: {
   if (state.self?.enabled !== true && state.announcements.length === 0) return null;
   const names = new Map(race.entrants.map(entrant => [entrant.entrantId, entrant.displayName]));
   const active = race.progress?.phase === "racing" && race.typing?.status === "racing" && !race.confirming;
-  const usable = active && race.control === "controlling" && state.synchronized && !state.sending;
-  const hint = !active ? t.over : race.control !== "controlling" ? t.observing : !state.synchronized
-    ? t.sync : state.sending ? t.sending : t.hint;
+  // The same conditions as Enter's in « Ta frappe » (D-16): a blocked tab (suspended, reloading) cannot activate.
+  const controlling = race.control === "controlling" && race.block === undefined;
+  const usable = active && controlling && state.synchronized && !state.sending;
+  const hint = !active ? t.over : race.control !== "controlling" || race.block === "observing" ? t.observing
+    : !state.synchronized || !controlling ? t.sync : state.sending ? t.sending : t.hint;
   const text = raceScreenMessages[locale];
   return (
     <section aria-labelledby="race-bonuses-heading" className={`${panels.log} flex min-w-0 flex-col gap-2 border-arcade lg:h-full`}>
       <h2 id="race-bonuses-heading" className={`${panels.logHeading} font-display text-2xl font-extrabold uppercase text-arcade`}>{t.heading}</h2>
+      {/* The reminder and the outcome stay under the heading, always in view; the log below scrolls. */}
+      {state.self?.enabled === true && <>
+        <p role="status" className="text-sm text-embrun">{state.self.grants.length === 0 ? t.empty : hint}</p>
+        <p role="status" className="text-sm text-embrun">
+          {state.error !== undefined ? <><span aria-hidden="true">⚠ </span>{bonusErrorText(state.error, t)}</> : state.fogVisible ? t.fog : ""}
+        </p>
+      </>}
       {/* In the race's row the log scrolls in its panel: a keyboard stop of its own (WCAG 2.1.1). */}
       <div tabIndex={0} role="group" aria-label={text.bonusLog}
         className="flex min-h-0 grow flex-col gap-2 overflow-y-auto rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moi">
@@ -48,10 +57,6 @@ export function RaceBonuses({ state, race, t, locale }: {
             </span>
           </li>)}
         </ol>
-        <p role="status" className="text-sm text-embrun">{state.self.grants.length === 0 ? t.empty : hint}</p>
-        <p role="status" className="min-h-10 text-sm text-embrun">
-          {state.error !== undefined ? <><span aria-hidden="true">⚠ </span>{bonusErrorText(state.error, t)}</> : state.fogVisible ? t.fog : ""}
-        </p>
       </>}
       {/* At most six, never a scrolling box: a region that scrolls must be reachable with the keyboard (WCAG 2.1.1). */}
       <ol aria-label={t.events} aria-live="polite" aria-relevant="additions" className="flex flex-col gap-2 text-sm text-embrun">

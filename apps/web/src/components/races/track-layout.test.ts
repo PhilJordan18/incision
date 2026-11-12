@@ -82,6 +82,13 @@ describe("track presentation layout", () => {
     }
   });
 
+  it("brings a finished runner's route to the finish line", () => {
+    const [done] = trackLayout([{ ...runners(1)[0]!, entrantId: "done", status: "finished" as const, position: 100, length: 100 }], null);
+    const end = done!.path.split(" ").at(-1)!.split(",").map(Number);
+    expect(end[1]).toBeCloseTo(13, 1);
+    expect(done!.horizontalPath.split(" ").at(-1)!.split(",").map(Number)[0]).toBeCloseTo(93, 1);
+  });
+
   it("keeps routes and colours for a refresh, a reload and a reordered broadcast; resets with a new round", () => {
     const input = runners(50);
     const first = trackLayout(input, "runner-15");
