@@ -1,0 +1,89 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/account-journey.spec.ts e2e/design.spec.ts e2e/invitation-focus.spec.ts e2e/room-moderation.spec.ts --output=/workspace/scratch/ux-20261112/navigation/final-target
+
+[WebServer] (node:61484) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_navigation_final_20261112 ready, demo accounts: created, created
+[WebServer] (node:61499) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 110ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3602
+
+Running 25 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:61538) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/account-journey.spec.ts:26:7 › account separates the active private room from past races (fr-CA) (12.7s)
+  ✓   2 [chromium] › e2e/account-journey.spec.ts:51:7 › home explains existing play and guests have no personal navigation (fr-CA) (6.5s)
+  ✓   3 [chromium] › e2e/account-journey.spec.ts:26:7 › account separates the active private room from past races (en-US) (8.0s)
+  ✓   4 [chromium] › e2e/account-journey.spec.ts:51:7 › home explains existing play and guests have no personal navigation (en-US) (6.2s)
+  ✓   5 [chromium] › e2e/design.spec.ts:13:7 › theme (DES-05) › follows the system before any choice, from the inline script alone (703ms)
+  ✓   6 [chromium] › e2e/design.spec.ts:29:7 › theme (DES-05) › keeps an explicit choice, rendered by the server on the next pages (965ms)
+  ✓   7 [chromium] › e2e/design.spec.ts:44:7 › language (I18N-02) › switches from the header, keeps the choice and translates metadata (1.0s)
+  ✓   8 [chromium] › e2e/design.spec.ts:64:7 › home (screen 01, JOIN-01) › checks the room code with the domain rule and explains the error (805ms)
+  ✓   9 [chromium] › e2e/design.spec.ts:81:7 › home (screen 01, JOIN-01) › keeps the words of its title apart and entry actions on the first desktop screen (396ms)
+  ✓  10 [chromium] › e2e/design.spec.ts:93:7 › home (screen 01, JOIN-01) › shows my logo, the favicon and a single red action (400ms)
+  ✓  11 [chromium] › e2e/design.spec.ts:104:7 › unknown URL (apps/web/AGENTS.md) › answers 404 with the not-found page rendered by the server, readable without JavaScript (408ms)
+  ✓  12 [chromium] › e2e/design.spec.ts:125:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the public pages in abysse (3.3s)
+  ✓  13 [chromium] › e2e/design.spec.ts:125:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the public pages in aube (3.3s)
+  ✓  14 [chromium] › e2e/design.spec.ts:135:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the account page in abysse (2.0s)
+  ✓  15 [chromium] › e2e/design.spec.ts:135:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the account page in aube (2.1s)
+  ✓  16 [chromium] › e2e/design.spec.ts:143:7 › layout and accessibility (DES-06, A11Y) › fits 360 px without horizontal scrolling (1.7s)
+  ✓  17 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA, keyboard) (622ms)
+  ✓  18 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA, mouse) (505ms)
+  ✓  19 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (en-US, keyboard) (601ms)
+  ✓  20 [chromium] › e2e/invitation-focus.spec.ts:4:94 › invitation refusal focuses its committed alert without waiting for a frame (en-US, mouse) (659ms)
+  ✓  21 [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (fr-CA) (12.3s)
+  ✓  22 [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (en-CA) (11.6s)
+  ✓  23 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in waiting preserves its cookie deadline and prevents reentry (4.5s)
+  ✓  24 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in racing preserves its cookie deadline and prevents reentry (7.6s)
+  ✘  25 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in results preserves its cookie deadline and prevents reentry (25.2s)
+
+
+  1) [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in results preserves its cookie deadline and prevents reentry
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('#results-heading')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('#results-heading') with timeout 15000ms
+      - waiting for locator('#results-heading')
+
+
+      107 |         await Promise.all([member.getByLabel("Your typing", { exact: true }).pressSequentially(text, { delay: 70 }),
+      108 |           page.getByLabel("Your typing", { exact: true }).pressSequentially(text, { delay: 70 })]);
+    > 109 |         await expect(page.locator("#results-heading")).toBeVisible({ timeout: 15_000 });
+          |                                                        ^
+      110 |       }
+      111 |       const before = await query("select expires_at,last_seen_at from guest_sessions where id=$1", [guestId]);
+      112 |       const resultsBefore = await query("select rr.* from race_results rr join races r on r.id=rr.race_id join lobbies l on l.id=r.lobby_id where l.code=$1 order by rr.entrant_id", [code]);
+        at /workspace/incision-ux-navigation/apps/web/e2e/room-moderation.spec.ts:109:56
+
+    Error Context: ../../../scratch/ux-20261112/navigation/final-target/room-moderation-guest-expu-45bdc-adline-and-prevents-reentry-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../scratch/ux-20261112/navigation/final-target/room-moderation-guest-expu-45bdc-adline-and-prevents-reentry-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../scratch/ux-20261112/navigation/final-target/room-moderation-guest-expu-45bdc-adline-and-prevents-reentry-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in results preserves its cookie deadline and prevents reentry
+  24 passed (2.0m)
+npm error Lifecycle script `test:e2e` failed with error:
+npm error code 1
+npm error path /workspace/incision-ux-navigation/apps/web
+npm error workspace @incision/web@0.1.0
+npm error location /workspace/incision-ux-navigation/apps/web
+npm error command failed
+npm error command sh -c playwright test e2e/account-journey.spec.ts e2e/design.spec.ts e2e/invitation-focus.spec.ts e2e/room-moderation.spec.ts --output=/workspace/scratch/ux-20261112/navigation/final-target

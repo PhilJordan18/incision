@@ -1,0 +1,22 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/code-limit.spec.ts --grep 30 accounts joining --output=/workspace/scratch/ux-20261112/navigation/admission-isolated
+
+[WebServer] (node:57018) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_navigation_admission_isolated_20261112 ready, demo accounts: created, created
+[WebServer] (node:57032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 181ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3602
+
+Running 1 test using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:57071) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/code-limit.spec.ts:195:7 › room-code attempts per address (SALLE-10) › 30 accounts joining one room from the same network are all admitted and spend nothing (25.8s)
+
+  1 passed (32.6s)

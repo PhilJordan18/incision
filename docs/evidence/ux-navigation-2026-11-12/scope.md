@@ -9,3 +9,5 @@ Files: account/page and new account journey component; home/page and new guide; 
 Reviews: code, QA, UI, security (private membership read) and DBA (existing query reuse). Tests: root checks/build, focused/private navigation and complete E2E, FR/EN/themes/keyboard/390/1024/1440, axe and home Lighthouse. No new database schema or dependencies.
 
 The added educational guide intentionally extends the home page below the fold. The former entire-page-no-scroll assertion is replaced by above-the-fold entry controls at the same desktop viewport; horizontal-overflow and accessibility thresholds remain unchanged.
+
+Qualification addendum: the full suite reproduced the existing invitation-refusal focus defect also found in the bot branch. Reuse the exact two-file callback-ref fix and four deterministic mouse/keyboard tests; no invitation rule change or branch dependency. Report the shared identical patch explicitly. Claude's now-published #203 has no intersecting changed path.
