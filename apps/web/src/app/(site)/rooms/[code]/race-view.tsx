@@ -657,27 +657,26 @@ function TypingPad({
       event.preventDefault();
       field.focus();
     }}>
-      <div className="grid items-center gap-x-5 gap-y-2 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <div className="flex items-center gap-4">
-          <label htmlFor={TYPING_INPUT_ID} className={`${monoLabel} shrink-0 text-ecume`}>
-            {t.typingLabel}
-          </label>
-          <input
-            ref={input}
-            id={TYPING_INPUT_ID}
-            type="text"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            disabled={!enabled}
-            aria-invalid={expected !== undefined}
-            aria-describedby={`${TYPING_STATUS_ID} ${TYPING_HINT_ID}`}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            className={panels.field}
-          />
-        </div>
+      {/* The label above, the field as wide as the text above it (#51), the help under it. */}
+      <div className="flex flex-col gap-2">
+        <label htmlFor={TYPING_INPUT_ID} className={`${monoLabel} text-ecume`}>
+          {t.typingLabel}
+        </label>
+        <input
+          ref={input}
+          id={TYPING_INPUT_ID}
+          type="text"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          disabled={!enabled}
+          aria-invalid={expected !== undefined}
+          aria-describedby={`${TYPING_STATUS_ID} ${TYPING_HINT_ID}`}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className={panels.field}
+        />
         <div className="min-h-10 text-sm">
           <p id={TYPING_STATUS_ID} role="status" tabIndex={-1} className={`outline-none ${expected !== undefined ? "text-erreur" : "text-brume"}`}>
             {expected !== undefined && <span aria-hidden="true">⚠ </span>}

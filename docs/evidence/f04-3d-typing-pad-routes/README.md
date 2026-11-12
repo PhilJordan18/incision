@@ -17,9 +17,10 @@ image, no sound, no new animation; the native caret is kept.
 - Base: F-04.3C at `9f72197` (PR #203 before this round).
 - Commits: `7fef79e` (routes), `b838b48` (layout), `c256bf5` (tests: first verified
   SHA), the review fixes `e68887e`, `6b8ef13`, `c326e91`, the D-15 record `feb4d43`
-  (full suite), then the re-review fixes `b8fe99c` and `7d5e2ff`.
-- **Tested SHA: `7d5e2ff`.** This README, the matrix rows and the screenshots come
-  in a later documentation-only commit.
+  (full suite), then the re-review fixes `b8fe99c` and `7d5e2ff`, and Philippe's
+  width correction (see below).
+- **Tested SHAs: `7d5e2ff`, then the width correction.** This README, the matrix rows
+  and the screenshots come in documentation-only commits.
 
 All tests ran on a local PostgreSQL 16 with synthetic data only (`incision_e2e`,
 `incision_test`). No production, Azure, Neon, recipe or Docker resource was used.
@@ -28,7 +29,7 @@ All tests ran on a local PostgreSQL 16 with synthetic data only (`incision_e2e`,
 
 | Area | F-04.3C (before) | F-04.3D (after) |
 |---|---|---|
-| Typing | An invisible input inside the text | One real, labelled, compact field « Ta frappe » / “Your typing” (48 px, `moi` caret and focus ring) under the panels' row. The text above only shows the progress. A press on the text or on the pad, or Escape from the text or a panel, gives the keys back to the field. Enter keeps its bonus behaviour (D-16); paste and drop stay refused |
+| Typing | An invisible input inside the text | One real, labelled, compact field « Ta frappe » / “Your typing” (48 px, `moi` caret and focus ring) under the panels' row, as wide as the text above it: the label over the field, the help under it (Philippe's sketch-approved correction of November 12). The text above only shows the progress. A press on the text or on the pad, or Escape from the text or a panel, gives the keys back to the field. Enter keeps its bonus behaviour (D-16); paste and drop stay refused |
 | Order (≥ 1024 px) | Text, row, then secondary actions; « Quitter la salle » above the race for a non-host | Compact indicators; the text across the full width; one row: standings left, track centre, bonuses right (standings beside a wider track without bonuses); « Ta frappe »; then the secondary actions, leaving the room included, for everyone |
 | Heights | Text 16 rem; row unbounded | The text and the row share the viewport height (`clamp`), so text, track and field are on screen together at 1440 × 900, 1280 × 720 and 1024 × 768 |
 | Side panels | Dashed inner frame | A ship's logbook: ruled `houle` lines, four corner marks, a double rule under the heading |
@@ -85,6 +86,8 @@ Runtime: Node 24, Chromium (Playwright), production build.
   note. The affected specs (race-layout, race-track, typing-clarity, bonus-ui, race,
   host-succession, bot-races, mobile-keyboard, guest-race-commands): **54 passed** on
   `b8fe99c`, and **54 passed** again on `7d5e2ff`.
+- Width correction (the pad's markup only): web unit tests (1,115), lint, typecheck
+  and the production build passed; the same 54 specs: **54 passed**.
 
 ## Reviews
 
@@ -97,7 +100,8 @@ Runtime: Node 24, Chromium (Playwright), production build.
 
 ## Screenshots
 
-`before/` is `9f72197` (F-04.3C); `after/` is `7d5e2ff`. Same fixture: 30 runners
+`before/` is `9f72197` (F-04.3C); `after/` is `7d5e2ff`, with the layout, no-bonus,
+zoom and reconnecting captures retaken after the width correction. Same fixture: 30 runners
 (a quarter of them bots), an Arcade inventory, the player at 20 %.
 
 - `before|after/layout-{fr-CA-aube,en-US-abysse}-{1440x900,1280x720,1024x768}.png`.
@@ -120,5 +124,7 @@ Runtime: Node 24, Chromium (Playwright), production build.
 - Two players can see the same runner in different colours (yours is always `moi`).
 - At 1280 × 720 the standings row shows about two runners plus your own (sticky)
   line; the rest scrolls in the panel. The sheet's last visible line can be cut
-  through its glyphs (the text scrolls).
+  through its glyphs (the text scrolls). With the help now under the full-width
+  field, at 1280 × 720 the help line starts at the bottom edge of the screen (the field
+  itself is wholly visible); it scrolls into view.
 - No merge, deployment or production claim; human acceptance pending.
