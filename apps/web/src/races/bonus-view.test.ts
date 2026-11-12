@@ -24,11 +24,15 @@ it("renders the effective target and progress denominator inside a fixed-height,
     onTakeControl: () => {}, onPresent: async () => true, onAbandon: async () => true }));
   const html = render();
   expect(html).toMatch(/Progress<\/dt><dd[^>]*>42%<\/dd>/); // floored 3 / 7, not reveal's 3 / 3.
-  // The scrolling region holds the typing field, its keyboard stop (no second stop on the region).
-  expect(html).toMatch(/role="region" aria-label="Text to type" lang="en"[^>]*overflow-y-auto[^>]*>.*<input id="race-typing"[^>]*><\/p>/);
-  expect(html).toContain("flex h-64 flex-col");
+  // The text shows the progress in a fixed-height region that scrolls (a keyboard stop of its
+  // own); « Ta frappe » is the only field, under the panels' row, never inside the text.
+  expect(html).toMatch(/role="region" aria-label="Text to type" tabindex="0" lang="en"[^>]*overflow-y-auto[^>]*>(?:(?!<input).)*<\/p>/);
+  expect(html).toContain("flex flex-col h-60 lg:h-[clamp(");
   expect(html).toContain("course-juste");
-  // Out of the race (time up), the field takes no keys: the region is a stop again, to scroll.
+  expect(html.match(/<input /g)).toHaveLength(1);
+  expect(html.indexOf('<label for="race-typing"')).toBeGreaterThan(html.indexOf("data-race-row"));
+  expect(html.indexOf('id="race-typing"')).toBeLessThan(html.indexOf("Give up the race"));
+  // Out of the race (time up), the field takes no keys.
   race.self({ snapshot: { raceId, entrantId: "self", textVersion: 1, target: [..."new sea"], typed: [..."new"],
     pendingError: false, ackSeq: 2, status: "timedOut", counters: { correctInserts: 3, totalInserts: 3 } }, measures: { netWpm: 18, accuracy: 100 }, control: "controlling" });
   const ended = render();

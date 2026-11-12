@@ -21,52 +21,88 @@
   pointer-events: none;
 }
 
-/* The text to type: the chart's widest sheet, whose frame shows where the keys go. */
+/*
+ * The side panels as a ship's logbook (#51): faint ruled lines and four corner marks, in
+ * `houle` and `brume`. Behind the content, never under the text to type.
+ */
+.log {
+  composes: panel;
+  background-image: repeating-linear-gradient(180deg, transparent 0 27px, color-mix(in srgb, var(--color-houle) 45%, transparent) 27px 28px);
+  background-position: 0 14px;
+}
+.log::after {
+  --mark: color-mix(in srgb, var(--color-brume) 70%, transparent);
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 9px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--mark), var(--mark)) top left / 14px 2px no-repeat,
+    linear-gradient(var(--mark), var(--mark)) top left / 2px 14px no-repeat,
+    linear-gradient(var(--mark), var(--mark)) top right / 14px 2px no-repeat,
+    linear-gradient(var(--mark), var(--mark)) top right / 2px 14px no-repeat,
+    linear-gradient(var(--mark), var(--mark)) bottom left / 14px 2px no-repeat,
+    linear-gradient(var(--mark), var(--mark)) bottom left / 2px 14px no-repeat,
+    linear-gradient(var(--mark), var(--mark)) bottom right / 14px 2px no-repeat,
+    linear-gradient(var(--mark), var(--mark)) bottom right / 2px 14px no-repeat;
+}
+/* A logbook's heading: a double rule under it. */
+.logHeading {
+  padding-bottom: 6px;
+  border-bottom: 3px double var(--color-houle);
+}
+
+/* The text to type: the chart's widest sheet. It shows the progress; « Ta frappe » takes the keys. */
 .sheet {
   composes: panel;
-  padding: 20px 24px;
+  padding: 16px 24px;
 }
-/* A runner's sheet takes the keys: the pointer says so. Never a spectator's. */
-.sheet:has(input:enabled) {
+/* A runner's sheet answers a click by focusing the pad: the pointer says so. Never a spectator's. */
+:global([data-race-view]):has(:global(#race-typing):enabled) .sheet {
   cursor: text;
 }
-/* Typing here: the design's focus (`moi` border and 3 px halo), on the whole sheet. */
-.sheet:has(input:focus-visible) {
+/* While the pad has the keys, the sheet's border says where they land, in `moi`. */
+:global([data-race-view]):has(:global(#race-typing):focus) .sheet {
   border-color: var(--color-moi);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-moi) 20%, transparent);
-}
-.sheet:has(input:focus-visible)::before {
-  border-color: color-mix(in srgb, var(--color-moi) 35%, transparent);
 }
 /* A fault to correct: a thicker error border as well as the boxed character (rule 8). */
-.sheet:has(input[aria-invalid="true"]) {
+:global([data-race-view]):has(:global(#race-typing)[aria-invalid="true"]) .sheet {
   border: 2px solid var(--color-erreur);
 }
-/* Away from the text, the cursor shows where typing resumes, dashed: no focus, no keys. */
-.sheet:not(:has(input:focus)) :global(.course-curseur) {
+/* Away from the pad, the cursor shows where typing resumes, dashed: no focus, no keys. */
+:global([data-race-view]):not(:has(:global(#race-typing):focus)) .sheet :global(.course-curseur) {
   box-shadow: none;
   background-image: linear-gradient(var(--color-brume) 50%, transparent 50%);
   background-size: 2px 6px;
   background-repeat: repeat-y;
 }
 
-/* The real field: keys, input methods and assistive technology use it; the sheet shows it. */
+/* « Ta frappe »: a real, visible field under the panels. Its native caret stays. */
+.pad {
+  composes: panel;
+  padding: 12px 20px;
+}
 .field {
-  position: absolute;
-  z-index: 1;
-  top: var(--caret-top, 0);
-  left: var(--caret-left, 0);
-  width: 2px;
-  height: 1.5em;
-  padding: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: transparent;
-  caret-color: transparent;
-  opacity: 0;
-  font: inherit;
-  pointer-events: none;
+  height: 3rem;
+  width: 100%;
+  border-radius: var(--radius-bouton, 8px);
+  border: 1px solid var(--color-voile);
+  background: var(--color-abysse);
+  padding: 0 16px;
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  color: var(--color-ecume);
+  caret-color: var(--color-moi);
+}
+.field:focus-visible {
+  border-color: var(--color-moi);
+}
+.field[aria-invalid="true"] {
+  border: 2px solid var(--color-erreur);
+}
+.field:disabled {
+  background: var(--color-sillage);
 }
 
 /* A runner's progress in the standings: tokens, not the browser's own green (rule 5). */
@@ -100,17 +136,17 @@
 }
 
 @media (forced-colors: active) {
-  .sheet:has(input:focus-visible) {
-    outline: 3px solid Highlight;
-  }
   /* Shadows and gradients are dropped here: the cursor is a system-coloured outline, solid
-     while typing, dashed away from the text. */
+     while typing, dashed away from the pad. */
   .sheet :global(.course-curseur) {
     outline: 2px solid Highlight;
     outline-offset: -1px;
   }
-  .sheet:not(:has(input:focus)) :global(.course-curseur) {
+  :global([data-race-view]):not(:has(:global(#race-typing):focus)) .sheet :global(.course-curseur) {
     outline: 2px dashed CanvasText;
+  }
+  .log::after {
+    display: none;
   }
   .bar {
     border: 1px solid CanvasText;
