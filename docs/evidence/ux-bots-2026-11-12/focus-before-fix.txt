@@ -1,0 +1,105 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/invitation-focus.spec.ts --output=/workspace/scratch/ux-20261112/qualification/focus-red
+
+[WebServer] (node:35078) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_focus_red_20261112 ready, demo accounts: created, created
+[WebServer] (node:35143) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 322ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3604
+
+Running 2 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:35286) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › e2e/invitation-focus.spec.ts:4:46 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA) (6.7s)
+(node:35546) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 [chromium] › e2e/invitation-focus.spec.ts:4:46 › invitation refusal focuses its committed alert without waiting for a frame (en-US) (6.4s)
+
+
+  1) [chromium] › e2e/invitation-focus.spec.ts:4:46 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA)
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator:  locator('p[role="alert"]')
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeFocused" locator('p[role="alert"]') with timeout 5000ms
+      - waiting for locator('p[role="alert"]')
+        14 × locator resolved to <p role="alert" tabindex="-1" class="text-erreur">⚠ Invitation indisponible. Demande un nouveau lie…</p>
+           - unexpected value "inactive"
+
+
+      17 |     await submit.click();
+      18 |     const alert = page.locator('p[role="alert"]');
+    > 19 |     await expect(alert).toBeVisible(); await expect(alert).toBeFocused();
+         |                                                            ^
+      20 |     expect(await alert.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe("none");
+      21 |   } finally { await context.close(); }
+      22 | });
+        at /workspace/incision-ux-qualification/apps/web/e2e/invitation-focus.spec.ts:19:60
+
+    Error Context: ../../../scratch/ux-20261112/qualification/focus-red/invitation-focus-invitatio-97f77--waiting-for-a-frame-fr-CA--chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../scratch/ux-20261112/qualification/focus-red/invitation-focus-invitatio-97f77--waiting-for-a-frame-fr-CA--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../scratch/ux-20261112/qualification/focus-red/invitation-focus-invitatio-97f77--waiting-for-a-frame-fr-CA--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e/invitation-focus.spec.ts:4:46 › invitation refusal focuses its committed alert without waiting for a frame (en-US)
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator:  locator('p[role="alert"]')
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeFocused" locator('p[role="alert"]') with timeout 5000ms
+      - waiting for locator('p[role="alert"]')
+        14 × locator resolved to <p role="alert" tabindex="-1" class="text-erreur">⚠ Invitation unavailable. Ask the host for a new …</p>
+           - unexpected value "inactive"
+
+
+      17 |     await submit.click();
+      18 |     const alert = page.locator('p[role="alert"]');
+    > 19 |     await expect(alert).toBeVisible(); await expect(alert).toBeFocused();
+         |                                                            ^
+      20 |     expect(await alert.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe("none");
+      21 |   } finally { await context.close(); }
+      22 | });
+        at /workspace/incision-ux-qualification/apps/web/e2e/invitation-focus.spec.ts:19:60
+
+    Error Context: ../../../scratch/ux-20261112/qualification/focus-red/invitation-focus-invitatio-9cc8f--waiting-for-a-frame-en-US--chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../scratch/ux-20261112/qualification/focus-red/invitation-focus-invitatio-9cc8f--waiting-for-a-frame-en-US--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../scratch/ux-20261112/qualification/focus-red/invitation-focus-invitatio-9cc8f--waiting-for-a-frame-en-US--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [chromium] › e2e/invitation-focus.spec.ts:4:46 › invitation refusal focuses its committed alert without waiting for a frame (fr-CA)
+    [chromium] › e2e/invitation-focus.spec.ts:4:46 › invitation refusal focuses its committed alert without waiting for a frame (en-US)
+npm error Lifecycle script `test:e2e` failed with error:
+npm error code 1
+npm error path /workspace/incision-ux-qualification/apps/web
+npm error workspace @incision/web@0.1.0
+npm error location /workspace/incision-ux-qualification/apps/web
+npm error command failed
+npm error command sh -c playwright test e2e/invitation-focus.spec.ts --output=/workspace/scratch/ux-20261112/qualification/focus-red
