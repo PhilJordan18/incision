@@ -54,6 +54,9 @@ for (const locale of ["fr-CA", "en-US"]) {
     const page = await context.newPage(); await page.goto("/");
     await expect(page.getByRole("region", { name: /^(Les repères de ta traversée|Chart your course)$/ }).getByRole("listitem")).toHaveCount(4);
     await audit(page, "home");
+    const origin = test.info().project.use.baseURL ?? "";
+    expect((await context.request.post(`${origin}/api/guest/session`, { headers: { Origin: origin }, data: { nickname: "Journey visitor" } })).status()).toBe(200);
+    expect((await context.cookies()).some(cookie => cookie.name === "incision.guest")).toBe(true);
     await page.goto("/account"); await expect(page).toHaveURL(/\/sign-in/);
     await expect(page.getByRole("link", { name: /^(Mes salles|My rooms|Mes courses|My races)$/ })).toHaveCount(0);
   });
