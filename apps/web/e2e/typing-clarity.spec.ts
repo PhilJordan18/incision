@@ -113,6 +113,25 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
       await field.press("Enter");
       await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
+      // Integrated typing: away from the text, the line says how to come back; a press anywhere
+      // on the text or Tab gives the keys back, and nothing typed elsewhere reaches the race.
+      const status = runner.locator("#race-typing-status");
+      await field.blur();
+      await expect(status).toHaveText(french ? "Clique dans le texte ou appuie sur Tab pour taper." : "Click in the text or press Tab to type.");
+      await runner.keyboard.type(text[3]!);
+      await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
+      await runner.locator(".course-texte").click({ position: { x: 40, y: 40 } });
+      await expect(field).toBeFocused();
+      await expect(status).toHaveText(french ? "Tape directement dans le texte. Coller est désactivé, et Entrée ne tape rien." : "Type straight into the text. Pasting is off, and Enter types nothing.");
+      expect(await runner.evaluate(() => window.getSelection()?.toString() ?? "")).toBe("");
+      await runner.keyboard.type(text[3]!, { delay: 80 });
+      await expect(progress).toHaveAttribute("value", "4");
+      await runner.keyboard.press("Shift+Tab");
+      await expect(field).not.toBeFocused();
+      await runner.keyboard.press("Tab");
+      await expect(field).toBeFocused();
+      // The sheet shows the focus (design: `moi` border and halo).
+      expect(await runner.locator("[data-race-sheet]").evaluate(element => getComputedStyle(element).boxShadow)).not.toBe("none");
       for (const width of [1440, 1024, 390, 360]) {
         await runner.setViewportSize({ width, height: 1000 });
         if (width < 768) {
