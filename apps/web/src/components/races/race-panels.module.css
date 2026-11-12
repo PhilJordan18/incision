@@ -25,6 +25,9 @@
 .sheet {
   composes: panel;
   padding: 20px 24px;
+}
+/* A runner's sheet takes the keys: the pointer says so. Never a spectator's. */
+.sheet:has(input:enabled) {
   cursor: text;
 }
 /* Typing here: the design's focus (`moi` border and 3 px halo), on the whole sheet. */

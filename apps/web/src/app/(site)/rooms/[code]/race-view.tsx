@@ -1,7 +1,7 @@
 "use client";
 
 import { containsLineBreak, toGraphemes } from "@incision/domain";
-import { memo, type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { memo, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { RaceStandings } from "@/components/races/race-standings";
 import { RaceTrack } from "@/components/races/race-track";
 import panels from "@/components/races/race-panels.module.css";
@@ -48,6 +48,7 @@ type RaceViewProps = {
 
 const TYPING_INPUT_ID = "race-typing";
 const TYPING_STATUS_ID = "race-typing-status";
+const TYPING_HINT_ID = "race-typing-hint";
 
 /** Back to typing when the field takes keys, otherwise to `fallback` (WCAG 2.4.3). */
 export function focusTyping(fallback?: HTMLElement | null): void {
@@ -230,7 +231,7 @@ function RaceLayout({ top, main, after, below, standings, track, bonuses }: {
       {top}
       <div className="flex min-w-0 flex-col gap-5">{main}</div>
       {track && (
-        <div data-race-panels="" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
           <div className="order-3 min-w-0 sm:order-2 xl:order-1">{standings}</div>
           <div className="order-1 min-w-0 sm:col-span-2 xl:order-2 xl:col-span-1">{track}</div>
           <div className="order-2 min-w-0 sm:order-3 xl:order-3">{bonuses}</div>
@@ -279,7 +280,6 @@ function StillThere({ t, locale, onPresent }: { readonly t: Dictionary["races"];
       open
       aria-labelledby="still-there-heading"
       aria-describedby="still-there-body"
-      data-presence-dialog=""
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -571,7 +571,7 @@ function TypingZone({
                 ? expected === " "
                   ? t.blockedSpace
                   : format(t.blocked, { expected })
-                : t.typingHint;
+                : undefined;
   const invalid = expected !== undefined;
   // One element while nothing it shows changes, so that the memoised text skips the clock's renders.
   const field = useMemo(
@@ -586,7 +586,7 @@ function TypingZone({
         spellCheck={false}
         disabled={!enabled}
         aria-invalid={invalid}
-        aria-describedby={TYPING_STATUS_ID}
+        aria-describedby={`${TYPING_STATUS_ID} ${TYPING_HINT_ID}`}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         className={panels.field}
@@ -594,7 +594,8 @@ function TypingZone({
     ),
     [enabled, invalid],
   );
-  const hint = message === t.typingHint ? (focused ? screen.typingHint : enabled ? screen.focusHint : t.typingHint) : message;
+  // How to type, beside the live line rather than in it: tabbing away and back is not news.
+  const hint = message !== undefined ? undefined : focused ? screen.typingHint : enabled ? screen.focusHint : t.typingHint;
   return (
     <div className="flex flex-col gap-3">
       <RaceSheet
@@ -603,7 +604,7 @@ function TypingZone({
         // A press anywhere on the sheet types: the field takes the focus, the text is not selected.
         onPointerDown={(event) => {
           const field = input.current;
-          if (field === null || field.disabled || event.target === field) {
+          if (field === null || field.disabled || event.button !== 0 || event.target === field) {
             return;
           }
           event.preventDefault();
@@ -619,15 +620,21 @@ function TypingZone({
           language={language}
           faded={overlay !== undefined}
           field={field}
+          scrollStop={!enabled}
         />
         <label htmlFor={TYPING_INPUT_ID} className="sr-only">
           {t.typingLabel}
         </label>
       </RaceSheet>
-      <p id={TYPING_STATUS_ID} role="status" tabIndex={-1} className={`min-h-6 text-sm outline-none ${expected !== undefined ? "text-erreur" : "text-brume"}`}>
-        {expected !== undefined && <span aria-hidden="true">⚠ </span>}
-        {hint}
-      </p>
+      <div className="min-h-6 text-sm">
+        <p id={TYPING_STATUS_ID} role="status" tabIndex={-1} className={`outline-none ${expected !== undefined ? "text-erreur" : "text-brume"}`}>
+          {expected !== undefined && <span aria-hidden="true">⚠ </span>}
+          {message}
+        </p>
+        <p id={TYPING_HINT_ID} className="text-brume">
+          {hint}
+        </p>
+      </div>
       {block === "observing" && reveal !== undefined && (
         <button type="button" onClick={() => onTakeControl(reveal.raceId)} className={`${secondaryButton} self-start`}>
           {t.takeControl}
@@ -678,6 +685,7 @@ const RaceText = memo(function RaceText({
   language,
   faded = false,
   field,
+  scrollStop = field === undefined,
 }: {
   readonly target: readonly string[];
   readonly typing: RaceClientState["typing"];
@@ -690,10 +698,30 @@ const RaceText = memo(function RaceText({
   readonly faded?: boolean;
   /** A runner's typing field, inside the text so that the scrolling region holds its focus stop. */
   readonly field?: ReactNode;
+  /** A focus stop of its own to scroll a long text: whenever no field takes the keys in it. */
+  readonly scrollStop?: boolean;
 }) {
   const typed = typing?.typed.length ?? 0;
   const hiddenFrom = fog ? fogStartsAt(target, typed) : target.length;
   const textArea = useRef<HTMLParagraphElement>(null);
+  // The field follows the cursor, invisibly: where the input method's window opens. Again when the
+  // sheet changes size (a resize, a breakpoint, a late font), which moves the cursor.
+  const placeField = useCallback(() => {
+    const area = textArea.current;
+    const cursor = area?.querySelector<HTMLElement>(".course-curseur");
+    if (!area || !cursor) return;
+    const box = area.getBoundingClientRect();
+    const placed = cursor.getBoundingClientRect();
+    area.style.setProperty("--caret-top", `${placed.top - box.top + area.scrollTop}px`);
+    area.style.setProperty("--caret-left", `${placed.left - box.left + area.scrollLeft}px`);
+  }, []);
+  useEffect(() => {
+    const area = textArea.current;
+    if (!area || field === undefined || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(placeField);
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, [field, placeField]);
   useEffect(() => {
     // Long/extended targets scroll inside a fixed sheet, never moving the page.
     const area = textArea.current;
@@ -703,19 +731,15 @@ const RaceText = memo(function RaceText({
     const caret = cursor.getBoundingClientRect();
     if (caret.bottom > frame.bottom) area.scrollTop += caret.bottom - frame.bottom;
     else if (caret.top < frame.top) area.scrollTop -= frame.top - caret.top;
-    // The field follows the cursor, invisibly: where the input method's window opens.
-    const box = area.getBoundingClientRect();
-    const placed = cursor.getBoundingClientRect();
-    area.style.setProperty("--caret-top", `${placed.top - box.top + area.scrollTop}px`);
-    area.style.setProperty("--caret-left", `${placed.left - box.left + area.scrollLeft}px`);
-  }, [typed, target]);
+    placeField();
+  }, [typed, target, placeField]);
   return (
-    // Focusable for scrolling only without a field (spectators); with one, the field is the stop.
+    // Focusable for scrolling unless a field takes the keys in it; then the field is the stop.
     <p
       ref={textArea}
       role="region"
       aria-label={label}
-      tabIndex={field === undefined ? 0 : undefined}
+      tabIndex={scrollStop ? 0 : undefined}
       lang={language}
       className={`course-texte relative min-h-0 grow overflow-y-auto break-words rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moi ${faded ? "opacity-40" : ""}`}
     >

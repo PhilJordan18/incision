@@ -28,4 +28,10 @@ it("renders the effective target and progress denominator inside a fixed-height,
   expect(html).toMatch(/role="region" aria-label="Text to type" lang="en"[^>]*overflow-y-auto[^>]*>.*<input id="race-typing"[^>]*><\/p>/);
   expect(html).toContain("flex h-64 flex-col");
   expect(html).toContain("course-juste");
+  // Out of the race (time up), the field takes no keys: the region is a stop again, to scroll.
+  race.self({ snapshot: { raceId, entrantId: "self", textVersion: 1, target: [..."new sea"], typed: [..."new"],
+    pendingError: false, ackSeq: 2, status: "timedOut", counters: { correctInserts: 3, totalInserts: 3 } }, measures: { netWpm: 18, accuracy: 100 }, control: "controlling" });
+  const ended = render();
+  expect(ended).toMatch(/<input id="race-typing"[^>]*disabled/);
+  expect(ended).toMatch(/role="region" aria-label="Text to type" tabindex="0"/);
 });

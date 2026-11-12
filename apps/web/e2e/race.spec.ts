@@ -296,6 +296,8 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(hostField).toBeDisabled();
     await expect(hostField).toHaveAttribute("aria-invalid", "false");
     await expect(host.locator(".course-texte .course-bloque")).toHaveCount(0);
+    // Out of the race, the text keeps a keyboard stop of its own to scroll a long target.
+    await expect(host.locator(".course-texte")).toHaveAttribute("tabindex", "0");
     await expect(host.getByRole("button", { name: "Give up the race" })).toHaveCount(0);
     // The others see it on the list, from the server.
     await expect(guest.getByRole("region", { name: "Classement" }).getByRole("listitem").filter({ hasText: "Capitaine" })).toContainText("abandon");
@@ -393,7 +395,7 @@ test.describe("the first complete race (F-04.0)", () => {
     await expect(guest.getByLabel("Ta frappe")).toBeFocused();
     await expect(host.getByLabel("Your typing")).toBeFocused();
     await host.getByLabel("Your typing").blur();
-    await expect(host.locator("#race-typing-status")).toHaveText("Click in the text or press Tab to type.");
+    await expect(host.locator("#race-typing-hint")).toHaveText("Click in the text or press Tab to type.");
     // Nobody types for a minute.
     const hostQuestion = host.getByRole("heading", { name: "Are you still there?" });
     const guestQuestion = guest.getByRole("heading", { name: "Tu es toujours là ?" });

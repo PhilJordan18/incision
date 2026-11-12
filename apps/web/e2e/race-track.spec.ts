@@ -33,7 +33,9 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     await expect(track.locator('[data-self="true"]')).toHaveCount(1);
     const field = page.getByLabel(locale === "fr-CA" ? "Ta frappe" : "Your typing", { exact: true });
     await expect(field).toBeEnabled(); await field.focus();
-    const topBefore = await field.evaluate(el => el.getBoundingClientRect().top);
+    // The text's sheet holds still while the track moves (the field itself follows the cursor).
+    const sheet = page.locator("[data-race-sheet]");
+    const topBefore = await sheet.evaluate(el => el.getBoundingClientRect().top);
     const marker = track.locator('[data-self="true"]');
     expect(await marker.evaluate(el => getComputedStyle(el).transitionDuration)).toContain("0.2s");
     const motion = marker.evaluate(async el => {
@@ -53,7 +55,7 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     try { measured = await motion; } finally { clearInterval(timer); }
     expect(measured.distinctPositions).toBeGreaterThan(10);
     console.info("[track browser sample]", locale, measured);
-    expect(await field.evaluate(el => el.getBoundingClientRect().top)).toBe(topBefore);
+    expect(await sheet.evaluate(el => el.getBoundingClientRect().top)).toBe(topBefore);
     await expect(field).toBeFocused();
 
     // Every runner as text in the standings panel beside the decorative track.
@@ -62,6 +64,8 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     await expect(items).toHaveCount(count);
     await expect(items.filter({ hasText: "Bot" })).toHaveCount(Math.ceil(count / 4));
     const list = standings.getByRole("list");
+    // A keyboard stop of its own: it scrolls for a large crew.
+    await expect(list).toHaveAttribute("tabindex", "0");
     await list.focus();
     await expect(list).toBeFocused();
     await expectNoAccessibilityViolation(page);
