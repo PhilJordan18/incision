@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { getDictionary } from "@/i18n/dictionaries";
 import { raceTrackMessages } from "@/i18n/dictionaries/race-track";
 import type { RaceClientState } from "@/races/race-client";
+import { raceScreenMessages } from "@/i18n/dictionaries/race-screen";
+import { RaceStandings } from "./race-standings";
 import { RaceTrack } from "./race-track";
 
 const progress: NonNullable<RaceClientState["progress"]> = { raceId: "race", revision: 1, phase: "racing", startsAt: 0, timeLimit: null,
@@ -16,11 +18,21 @@ describe("semantic track", () => {
     const html = renderToStaticMarkup(createElement(RaceTrack, { progress, entrants: [{ entrantId: "a", displayName: "<script>captain</script>" },
       { entrantId: "b", displayName: "Bot 2" }], selfId: "a", t, locale }));
     expect(html).not.toContain("<script>"); expect(html).toContain("&lt;script&gt;");
-    expect(html).toContain(t.inactive); expect(html).toContain(t.status.abandoned);
-    expect(html).toContain(raceTrackMessages[locale].all); expect(html).toContain(raceTrackMessages[locale].bot);
-    expect(html.match(/<li /g)).toHaveLength(2); expect(html).toContain('data-self="true"');
-    expect(html).toContain('data-kind="bot"'); expect(html).toContain("<details");
+    expect(html).toContain(t.inactive); // Labelled runners' states; the full list is the standings'.
+    expect(html).toContain('data-self="true"');
+    expect(html).toContain('data-kind="bot"'); expect(html).toContain('aria-hidden="true"');
     expect(html).not.toContain("aria-live"); // Never announce four full lists each second.
+  });
+  it.each(["fr", "en"] as const)("lists every runner in the standings, furthest first, in %s", locale => {
+    const t = getDictionary(locale).races;
+    const html = renderToStaticMarkup(createElement(RaceStandings, { progress, entrants: [{ entrantId: "a", displayName: "<script>captain</script>" },
+      { entrantId: "b", displayName: "Bot 2" }], selfId: "a", t, locale }));
+    expect(html).not.toContain("<script>"); expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain(raceScreenMessages[locale].standingsHeading); expect(html).toContain(raceTrackMessages[locale].bot);
+    expect(html.match(/<li /g)).toHaveLength(2); expect(html.match(/<progress /g)).toHaveLength(2);
+    expect(html.indexOf('data-standing="a"')).toBeLessThan(html.indexOf('data-standing="b"'));
+    expect(html).toContain(t.inactive); expect(html).toContain(t.status.abandoned);
+    expect(html).not.toContain("aria-live");
   });
   it("renders spectators without a local marker, typing field or private images", () => {
     const html = renderToStaticMarkup(createElement(RaceTrack, { progress, entrants: [], selfId: null, t: getDictionary("en").races, locale: "en" }));

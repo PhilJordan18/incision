@@ -526,13 +526,11 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
   );
 
   if (snapshot.phase === "countdown" || snapshot.phase === "racing") {
-    // The host's leave asks a question: under the field, so that the text and the field never move.
+    // Leaving is a secondary action (#51): under « Ta frappe » for everyone, so the text comes
+    // first and nothing above the text or the field moves when it asks its question.
     return (
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          {connectionLine}
-          {!self.isHost && leave}
-        </div>
+      <div className="flex flex-col gap-4">
+        {connectionLine}
         <h1 id={ROOM_HEADING_ID} tabIndex={-1} className="sr-only">
           {format(t.roomTitle, { code: snapshot.code })}
         </h1>
@@ -547,7 +545,7 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
           onPresent={(raceId) => entrantActionRef.current(RACE_PRESENT_EVENT, raceId)}
           onAbandon={(raceId) => entrantActionRef.current(RACE_ABANDON_EVENT, raceId)}
           reconnecting={connection === "reconnecting"}
-          below={self.isHost ? <>{leave}<RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} /></> : undefined}
+          below={<>{leave}{self.isHost && <RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />}</>}
         />
       </div>
     );

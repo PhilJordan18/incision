@@ -8,7 +8,7 @@ import { raceProgressPayloadSchema, raceRevealPayloadSchema } from "../src/races
 /** Browser rendering fixture only: validated 4Hz wire data, NOT a runtime/load/SQL proof.
  * Production pages/assets remain real; only Socket.IO is routed to this local test server.
  */
-export async function trackFixture(room: PublicRoomSnapshot, count = 30) {
+export async function trackFixture(room: PublicRoomSnapshot, count = 30, options: { readonly bonuses?: boolean } = {}) {
   const http = createServer();
   const io = new Server(http, { transports: ["polling"], cors: { origin: true, credentials: true } });
   await new Promise<void>(resolve => http.listen(0, "127.0.0.1", resolve));
@@ -25,6 +25,12 @@ export async function trackFixture(room: PublicRoomSnapshot, count = 30) {
       entrants: entrants.map((e, i) => ({ entrantId: e.entrantId, kind: i % 4 === 0 ? "bot" : "human", status: i === 29 ? "abandoned" : "racing",
         position: Math.min(95, (i === 15 ? 20 : (i * 13) % 80) + step * 2), length: 100, netWpm: 30 + i, inactive: i === 28 })) } });
   }
+  let bonusRevision = 1;
+  const bonusSelf = () => ({ raceId, revision: bonusRevision, ackSeq: 0, enabled: true,
+    grants: [{ milestone: 25, kind: "shortenSelf" }, { milestone: 50, kind: "extendLeader" }, { milestone: 75, kind: "fogLeader" }], fog: null });
+  // `drop()` cuts every connection and the network refuses new ones until `restore()`: a lost
+  // connection (D-06), retried by the client, never a refused session.
+  let refusing = false;
   io.on("connection", socket => {
     socket.on("room:watch", (_payload, ack) => {
       const selfEntrantId = socket.handshake.query.spectator === "1" ? null : entrants[15]!.entrantId;
@@ -33,19 +39,27 @@ export async function trackFixture(room: PublicRoomSnapshot, count = 30) {
       socket.emit("race:progress", progress());
       if (selfEntrantId) socket.emit("race:self", { snapshot: { raceId, entrantId: selfEntrantId, textVersion: 0, target: text, typed: [], pendingError: false,
         ackSeq: 0, status: "racing", counters: { correctInserts: 0, totalInserts: 0 } }, measures: { netWpm: 45, accuracy: 0 }, control: "controlling" });
+      // An Arcade inventory for the layout only: the real grant/activation rules are bonus-fixture's.
+      if (selfEntrantId && options.bonuses) socket.emit("race:bonus:self", bonusSelf());
       ack({ ok: true, selfMemberId: room.members[0]!.memberId, snapshot: { ...room, revision: 1000, phase: "racing", capacity: 30,
         race: { raceId, state: "racing", interruptionReason: null } } });
     });
   });
   return {
     advance() { step++; revision++; io.emit("race:progress", progress()); },
+    /** A fresh copy of the private inventory, as the server sends after a grant or an activation. */
+    refreshBonuses() { if (options.bonuses) { bonusRevision++; io.emit("race:bonus:self", bonusSelf()); } },
     async route(context: BrowserContext, spectator = false) {
       await context.route("**/socket.io/**", async route => {
+        if (refusing) { await route.abort("internetdisconnected"); return; }
         const target = new URL(route.request().url()); target.hostname = "127.0.0.1"; target.port = String(address.port); target.searchParams.set("spectator", spectator ? "1" : "0");
         const response = await route.fetch({ url: target.toString(), headers: { ...await route.request().allHeaders(), cookie: "" } });
         await route.fulfill({ response });
       });
     },
+    // A transport cut, not a server "disconnect" (which the page reads as a session that ended).
+    drop() { refusing = true; for (const socket of io.sockets.sockets.values()) socket.conn.close(); },
+    restore() { refusing = false; },
     async close() { await io.close(); },
   };
 }
