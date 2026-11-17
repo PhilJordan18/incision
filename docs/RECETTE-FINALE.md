@@ -51,7 +51,11 @@ restent des étapes séparées à autoriser. La procédure de retour arrière es
 [DEPLOYMENT.md](DEPLOYMENT.md); la migration additive du journal doit être conservée
 lors d’un retour applicatif compatible, sans backfill fictif.
 
-## Nouvelle recette UX ciblée — à confirmer après intégration
+## Recette UX ciblée — acceptation A–G reçue les 16–17 novembre
+
+Le parcours ci-dessous est conservé comme protocole historique, pas comme demande
+de recommencer les étapes acceptées. Voir la [réconciliation après #206](evidence/reconciliation-2026-11-17/README.md)
+pour la CI intégrée et les réserves qui restent distinctes.
 
 Sans refaire la recette déjà acceptée, avec des données synthétiques seulement :
 
