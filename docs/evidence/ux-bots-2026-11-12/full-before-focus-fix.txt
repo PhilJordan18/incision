@@ -1,0 +1,304 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test --output=/workspace/scratch/ux-20261112/bots/full
+
+[WebServer] (node:5588) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_bots_full_20261112 ready, demo accounts: created, created
+[WebServer] (node:5623) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 55ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3601
+
+Running 218 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:5678) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓    1 [chromium] › e2e/arcade-settings.spec.ts:28:5 › Arcade reaches another member, survives reload and is frozen in the race; training is the default (5.0s)
+  ✓    2 [chromium] › e2e/bonus-journal.spec.ts:37:40 › bonus journal: fr, two themes, keyboard and small widths (5.3s)
+  ✓    3 [chromium] › e2e/bonus-journal.spec.ts:37:40 › bonus journal: en, two themes, keyboard and small widths (4.9s)
+  ✓    4 [chromium] › e2e/bonus-journal.spec.ts:69:5 › journal is server-rendered without JavaScript and refuses unrelated history readers (1.2s)
+  ✓    5 [chromium] › e2e/bonus-ui.spec.ts:49:5 › real race view and runtime: FIFO, Enter guards, three effects, translated target feedback and results (15.9s)
+  ✓    6 [chromium] › e2e/bonus-ui.spec.ts:100:5 › observer control transfer and reload restore the private inventory without replaying announcements (8.7s)
+  ✓    7 [chromium] › e2e/bot-races.spec.ts:20:7 › a real server bot finishes in mandatory, persists results and starts a fresh next round (20.1s)
+  ✓    8 [chromium] › e2e/bot-races.spec.ts:20:7 › a real server bot finishes in free, persists results and starts a fresh next round (20.5s)
+  ✓    9 [chromium] › e2e/brand-colors.spec.ts:7:11 › wordmark follows system canvas: fr-CA, abysse, JS true (6.3s)
+  ✓   10 [chromium] › e2e/brand-colors.spec.ts:7:11 › wordmark follows system canvas: fr-CA, abysse, JS false (2.0s)
+  ✓   11 [chromium] › e2e/brand-colors.spec.ts:7:11 › wordmark follows system canvas: fr-CA, aube, JS true (5.8s)
+  ✓   12 [chromium] › e2e/brand-colors.spec.ts:7:11 › wordmark follows system canvas: fr-CA, aube, JS false (1.9s)
+  ✓   13 [chromium] › e2e/brand-colors.spec.ts:7:11 › wordmark follows system canvas: en-US, abysse, JS true (4.3s)
+  ✓   14 [chromium] › e2e/brand-colors.spec.ts:7:11 › wordmark follows system canvas: en-US, abysse, JS false (1.7s)
+  ✓   15 [chromium] › e2e/brand-colors.spec.ts:7:11 › wordmark follows system canvas: en-US, aube, JS true (4.0s)
+  ✓   16 [chromium] › e2e/brand-colors.spec.ts:7:11 › wordmark follows system canvas: en-US, aube, JS false (2.1s)
+  ✓   17 [chromium] › e2e/code-limit.spec.ts:85:7 › room-code attempts per address (SALLE-10) › after 10 unknown codes, every code gets the same answer, which never names it (2.0s)
+  ✓   18 [chromium] › e2e/code-limit.spec.ts:104:7 › room-code attempts per address (SALLE-10) › views of an open room or of a race in progress never spend the budget (1.6s)
+  ✓   19 [chromium] › e2e/code-limit.spec.ts:136:7 › room-code attempts per address (SALLE-10) › a private room counts exactly like an unknown code (1.3s)
+  ✓   20 [chromium] › e2e/code-limit.spec.ts:149:7 › room-code attempts per address (SALLE-10) › headers written by the client never choose the address that is counted (586ms)
+  ✓   21 [chromium] › e2e/code-limit.spec.ts:163:7 › room-code attempts per address (SALLE-10) › the home field explains the refusal and keeps the focus (1.0s)
+  ✓   22 [chromium] › e2e/code-limit.spec.ts:179:7 › room-code attempts per address (SALLE-10) › a member still reaches their own room from the home field while their network is over budget (1.8s)
+  ✓   23 [chromium] › e2e/code-limit.spec.ts:195:7 › room-code attempts per address (SALLE-10) › 30 accounts joining one room from the same network are all admitted and spend nothing (20.9s)
+  ✓   24 [chromium] › e2e/code-limit.spec.ts:244:7 › room-code attempts per address (SALLE-10) › a member still opens their own room while their network is over budget (2.4s)
+  ✓   25 [chromium] › e2e/code-limit.spec.ts:257:7 › room-code attempts per address (SALLE-10) › over budget, every code typed gets the network's answer and the account keeps its room changes (4.4s)
+  ✓   26 [chromium] › e2e/code-limit.spec.ts:285:7 › room-code attempts per address (SALLE-10) › a code typed in lower case counts once, though the page redirects it (1.2s)
+  ✓   27 [chromium] › e2e/code-limit.spec.ts:296:9 › room-code attempts per address (SALLE-10) › the refusal page is accessible and fits 360 px in abysse (2.0s)
+  ✓   28 [chromium] › e2e/code-limit.spec.ts:296:9 › room-code attempts per address (SALLE-10) › the refusal page is accessible and fits 360 px in aube (2.1s)
+  ✓   29 [chromium] › e2e/code-limit.spec.ts:311:7 › room-code attempts per address (SALLE-10) › speaks English to an English interface (1.8s)
+  ✓   30 [chromium] › e2e/design.spec.ts:13:7 › theme (DES-05) › follows the system before any choice, from the inline script alone (723ms)
+  ✓   31 [chromium] › e2e/design.spec.ts:29:7 › theme (DES-05) › keeps an explicit choice, rendered by the server on the next pages (1.3s)
+  ✓   32 [chromium] › e2e/design.spec.ts:44:7 › language (I18N-02) › switches from the header, keeps the choice and translates metadata (1.3s)
+  ✓   33 [chromium] › e2e/design.spec.ts:64:7 › home (screen 01, JOIN-01) › checks the room code with the domain rule and explains the error (1.1s)
+  ✓   34 [chromium] › e2e/design.spec.ts:81:7 › home (screen 01, JOIN-01) › keeps the words of its title apart and fits one desktop screen (716ms)
+  ✓   35 [chromium] › e2e/design.spec.ts:90:7 › home (screen 01, JOIN-01) › shows my logo, the favicon and a single red action (1.1s)
+  ✓   36 [chromium] › e2e/design.spec.ts:101:7 › unknown URL (apps/web/AGENTS.md) › answers 404 with the not-found page rendered by the server, readable without JavaScript (868ms)
+  ✓   37 [chromium] › e2e/design.spec.ts:122:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the public pages in abysse (8.3s)
+  ✓   38 [chromium] › e2e/design.spec.ts:122:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the public pages in aube (6.2s)
+  ✓   39 [chromium] › e2e/design.spec.ts:132:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the account page in abysse (4.0s)
+  ✓   40 [chromium] › e2e/design.spec.ts:132:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the account page in aube (3.2s)
+  ✓   41 [chromium] › e2e/design.spec.ts:140:7 › layout and accessibility (DES-06, A11Y) › fits 360 px without horizontal scrolling (2.5s)
+  ✓   42 [chromium] › e2e/guest-entry-refusals.spec.ts:13:5 › an invalid cookie requires explicit reset before a new identity can enter (2.2s)
+  ✓   43 [chromium] › e2e/guest-entry-refusals.spec.ts:27:5 › missing cross-tab coordination refuses guest entry without creating an identity (652ms)
+  ✓   44 [chromium] › e2e/guest-entry-refusals.spec.ts:35:5 › without JavaScript guest entry explains its limit and account login still works (1.9s)
+  ✓   45 [chromium] › e2e/guest-entry-refusals.spec.ts:47:5 › simultaneous first guest entry and account login cannot leave both identities present (2.5s)
+  ✓   46 [chromium] › e2e/guest-journey.spec.ts:31:5 › first-cookie tabs share one presence, race, preserve account results and inherit every host control (27.3s)
+  ✓   47 [chromium] › e2e/guest-journey.spec.ts:101:7 › guest entry and room accessibility: fr-CA, abysse (19.8s)
+  ✓   48 [chromium] › e2e/guest-journey.spec.ts:101:7 › guest entry and room accessibility: fr-CA, aube (14.0s)
+  ✓   49 [chromium] › e2e/guest-journey.spec.ts:101:7 › guest entry and room accessibility: en-US, abysse (13.2s)
+  ✓   50 [chromium] › e2e/guest-journey.spec.ts:101:7 › guest entry and room accessibility: en-US, aube (13.3s)
+  ✓   51 [chromium] › e2e/guest-race-commands.spec.ts:7:5 › an admitted guest types with isolated identity after a account host start (4.6s)
+  ✓   52 [chromium] › e2e/guest-race-commands.spec.ts:7:5 › an admitted guest types with isolated identity after a guest host start (4.5s)
+  ✓   53 [chromium] › e2e/guest-session.spec.ts:8:5 › guest cookie is HttpOnly, stable across tabs and GET does not renew it (622ms)
+  ✓   54 [chromium] › e2e/guest-session.spec.ts:29:5 › forged, expired and malformed cookies cannot be renewed or implicitly replaced (61ms)
+  ✓   55 [chromium] › e2e/guest-session.spec.ts:44:5 › guest credentials grant no account or race access and require room membership (1.5s)
+  ✓   56 [chromium] › e2e/guest-session.spec.ts:61:5 › a valid account takes precedence without merging or renewing its old guest identity (1.3s)
+  ✓   57 [chromium] › e2e/guest-session.spec.ts:76:5 › cross-origin and missing-origin mutations are refused (30ms)
+  ✓   58 [chromium] › e2e/guest-session.spec.ts:85:5 › malformed account chunks cannot fall back to a valid guest (28ms)
+  ✓   59 [chromium] › e2e/guest-session.spec.ts:95:5 › guest room watch is read-only and an explicit renewal updates both live socket deadlines (2.3s)
+  ✓   60 [chromium] › e2e/guest-session.spec.ts:133:5 › a non-host guest keeps membership on reconnect, then loses it after the last socket's grace (30.5s)
+  ✓   61 [chromium] › e2e/guest-session.spec.ts:169:5 › an active guest must explicitly leave before account login, including a direct Auth.js callback (4.9s)
+  ✓   62 [chromium] › e2e/guest-temporary-results.spec.ts:4:5 › guest-only race displays temporary results without durable metrics or historical access (4.2s)
+  ✓   63 [chromium] › e2e/history.spec.ts:39:5 › private history navigates both ways without JavaScript and reopens persisted results (3.5s)
+  ✓   64 [chromium] › e2e/history.spec.ts:64:7 › history is accessible, responsive and translated in fr-CA (2.7s)
+  ✓   65 [chromium] › e2e/history.spec.ts:64:7 › history is accessible, responsive and translated in en-US (3.4s)
+  ✓   66 [chromium] › e2e/host-network-succession.spec.ts:5:5 › account host reconnects within grace then succeeds to a guest spectator after its last tab leaves (30.3s)
+  ✓   67 [chromium] › e2e/host-succession.spec.ts:39:7 › host departure during countdown preserves the race, records only their abandon and grants next-round control (10.7s)
+  ✓   68 [chromium] › e2e/host-succession.spec.ts:39:7 › host departure during racing preserves the race, records only their abandon and grants next-round control (11.3s)
+  ✓   69 [chromium] › e2e/host-succession.spec.ts:69:5 › last connected human leaving during a race closes and interrupts without official results (7.7s)
+  ✓   70 [chromium] › e2e/host-succession.spec.ts:92:5 › host departure on results preserves the saved race and transfers next-round controls live (19.5s)
+  ✓   71 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: fr-CA abysse (17.5s)
+  ✓   72 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: fr-CA aube (13.6s)
+  ✓   73 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: en-US abysse (9.5s)
+  ✓   74 [chromium] › e2e/host-succession.spec.ts:148:9 › host departure confirmation is readable and keyboard accessible: en-US aube (7.6s)
+  ✓   75 [chromium] › e2e/locale-format.spec.ts:60:5 › locale formats stay consistent through a race, server results and hydration (27.8s)
+  ✓   76 [chromium] › e2e/mobile-keyboard.spec.ts:49:5 › server-rendered participation stays opt-in before viewport information is available (332ms)
+  ✓   77 [chromium] › e2e/mobile-keyboard.spec.ts:55:5 › participation defaults follow 767/768, explicit choices survive resizing and submission (2.7s)
+  ✓   78 [chromium] › e2e/mobile-keyboard.spec.ts:91:9 › physical keyboard guidance, preserved progress and keyboard abandonment: fr-CA abysse (16.7s)
+  ✓   79 [chromium] › e2e/mobile-keyboard.spec.ts:91:9 › physical keyboard guidance, preserved progress and keyboard abandonment: fr-CA aube (15.5s)
+  ✓   80 [chromium] › e2e/mobile-keyboard.spec.ts:91:9 › physical keyboard guidance, preserved progress and keyboard abandonment: en-US abysse (13.0s)
+  ✓   81 [chromium] › e2e/mobile-keyboard.spec.ts:91:9 › physical keyboard guidance, preserved progress and keyboard abandonment: en-US aube (11.6s)
+  ✓   82 [chromium] › e2e/oauth-simulated.spec.ts:14:7 › starts a github sign-in with the minimal permissions, without email (507ms)
+  ✓   83 [chromium] › e2e/oauth-simulated.spec.ts:14:7 › starts a discord sign-in with the minimal permissions, without email (615ms)
+[WebServer] [auth] OAuthCallbackError
+  ✓   84 [chromium] › e2e/oauth-simulated.spec.ts:35:5 › brings a cancelled GitHub sign-in back to the sign-in page with a translated message (619ms)
+[WebServer] [auth] OAuthCallbackError
+  ✓   85 [chromium] › e2e/oauth-simulated.spec.ts:50:5 › accepts Discord's issuer parameter: a cancelled Discord sign-in gets the translated message (605ms)
+[WebServer] [auth] CallbackRouteError (tt OAUTH_INVALID_RESPONSE): unexpected "iss" (issuer) response parameter value
+  ✓   86 [chromium] › e2e/oauth-simulated.spec.ts:65:5 › still refuses a Discord redirect that names another issuer (966ms)
+  ✓   87 [chromium] › e2e/oauth-simulated.spec.ts:77:5 › shows Auth.js' refused-access errors on the translated error page (344ms)
+  ✓   88 [chromium] › e2e/oauth-simulated.spec.ts:82:5 › refuses the built-in sign-out endpoint: signing out goes through the account page (16ms)
+  ✓   89 [chromium] › e2e/profile-name.spec.ts:8:5 › saves the normalized name, preserves invalid input and keeps the login/session (2.0s)
+  ✓   90 [chromium] › e2e/profile-name.spec.ts:34:5 › progressively enhances the same protected form without JavaScript (1.1s)
+  ✓   91 [chromium] › e2e/profile-name.spec.ts:50:5 › renders the scoped profile controls in both languages/themes and reference widths (12.8s)
+  ✓   92 [chromium] › e2e/profile-photo.spec.ts:13:5 › saves only a normalized private image, survives reload, and preserves it after refusal (2.7s)
+  ✓   93 [chromium] › e2e/profile-photo.spec.ts:51:5 › uploads a maximum-size image without JavaScript and keeps other accounts isolated (3.4s)
+  ✓   94 [chromium] › e2e/profile-photo.spec.ts:71:5 › photo form is accessible in both locales/themes and reference widths (11.7s)
+  ✓   95 [chromium] › e2e/profile-photo.spec.ts:94:7 › oversized photos are controlled and preserve the prior photo: JS=true fr (4.3s)
+  ✓   96 [chromium] › e2e/profile-photo.spec.ts:94:7 › oversized photos are controlled and preserve the prior photo: JS=true en (4.2s)
+  ✓   97 [chromium] › e2e/profile-photo.spec.ts:94:7 › oversized photos are controlled and preserve the prior photo: JS=false fr (3.2s)
+  ✓   98 [chromium] › e2e/profile-photo.spec.ts:94:7 › oversized photos are controlled and preserve the prior photo: JS=false en (2.9s)
+  ✓   99 [chromium] › e2e/profile-statistics.spec.ts:41:5 › private statistics use completed races and remain readable without JavaScript (1.6s)
+  ✓  100 [chromium] › e2e/profile-statistics.spec.ts:62:40 › profile statistics respect language, themes and widths in fr (2.8s)
+  ✓  101 [chromium] › e2e/profile-statistics.spec.ts:62:40 › profile statistics respect language, themes and widths in en (2.9s)
+  ✓  102 [chromium] › e2e/public-rooms.spec.ts:56:7 › lists public rooms live, never code or private ones, and follows changes (fr-CA) (10.7s)
+  ✓  103 [chromium] › e2e/public-rooms.spec.ts:101:7 › a page that connects late or reconnects gets the current list from its watch (fr-CA) (1.7s)
+  ✓  104 [chromium] › e2e/public-rooms.spec.ts:116:62 › a public room leaves the list when changed to private (fr-CA) (2.2s)
+  ✓  105 [chromium] › e2e/public-rooms.spec.ts:116:62 › a public room leaves the list when changed to code (fr-CA) (2.2s)
+  ✓  106 [chromium] › e2e/public-rooms.spec.ts:130:7 › filters by language and complexity, with the keyboard and without JavaScript (fr-CA) (2.7s)
+  ✓  107 [chromium] › e2e/public-rooms.spec.ts:56:7 › lists public rooms live, never code or private ones, and follows changes (en-US) (20.9s)
+  ✓  108 [chromium] › e2e/public-rooms.spec.ts:101:7 › a page that connects late or reconnects gets the current list from its watch (en-US) (2.1s)
+  ✓  109 [chromium] › e2e/public-rooms.spec.ts:116:62 › a public room leaves the list when changed to private (en-US) (2.3s)
+  ✓  110 [chromium] › e2e/public-rooms.spec.ts:116:62 › a public room leaves the list when changed to code (en-US) (2.2s)
+  ✓  111 [chromium] › e2e/public-rooms.spec.ts:130:7 › filters by language and complexity, with the keyboard and without JavaScript (en-US) (2.7s)
+  ✓  112 [chromium] › e2e/public-rooms.spec.ts:165:5 › the explorer socket carries only public rooms, never ids, members or other rooms (1.5s)
+  ✓  113 [chromium] › e2e/quickplay.spec.ts:56:7 › an account joins the fullest admissible PUBLIC room as a participant (fr-CA) (11.3s)
+  ✓  114 [chromium] › e2e/quickplay.spec.ts:79:7 › without a room, an account is offered a PUBLIC room with the defaults, created only on request (fr-CA) (10.6s)
+  ✓  115 [chromium] › e2e/quickplay.spec.ts:102:7 › a member of a room is sent back to it, not moved (fr-CA) (3.1s)
+  ✓  116 [chromium] › e2e/quickplay.spec.ts:117:7 › a guest quickplays with a nickname only, and sees the empty state without a room (fr-CA) (8.8s)
+  ✓  117 [chromium] › e2e/quickplay.spec.ts:56:7 › an account joins the fullest admissible PUBLIC room as a participant (en-US) (12.4s)
+  ✓  118 [chromium] › e2e/quickplay.spec.ts:79:7 › without a room, an account is offered a PUBLIC room with the defaults, created only on request (en-US) (12.3s)
+  ✓  119 [chromium] › e2e/quickplay.spec.ts:102:7 › a member of a room is sent back to it, not moved (en-US) (3.8s)
+  ✓  120 [chromium] › e2e/quickplay.spec.ts:117:7 › a guest quickplays with a nickname only, and sees the empty state without a room (en-US) (9.3s)
+  ✓  121 [chromium] › e2e/quickplay.spec.ts:152:5 › quickplay and the offered creation work without JavaScript (1.2s)
+  ✓  122 [chromium] › e2e/race-charts-live.spec.ts:5:5 › a human and scheduled bot produce persisted curves and a private corrected-error heatmap (9.3s)
+  ✓  123 [chromium] › e2e/race-charts.spec.ts:42:5 › real stored charts and only the reader's heatmap render without JavaScript (1.4s)
+  ✓  124 [chromium] › e2e/race-charts.spec.ts:61:40 › charts, accessible tables and keyboard heatmap in fr (5.6s)
+  ✓  125 [chromium] › e2e/race-charts.spec.ts:61:40 › charts, accessible tables and keyboard heatmap in en (5.7s)
+[track browser sample] fr-CA { distinctPositions: 78, frames: 136, maxFrameMs: 33.40000000000009 }
+  ✓  126 [chromium] › e2e/race-track.spec.ts:13:7 › signature track: 30/50 runners, interpolation, spectators and responsive access fr-CA/aube (15.0s)
+[track browser sample] fr-CA { distinctPositions: 68, frames: 112, maxFrameMs: 66.70000000000005 }
+  ✓  127 [chromium] › e2e/race-track.spec.ts:13:7 › signature track: 30/50 runners, interpolation, spectators and responsive access fr-CA/abysse (21.4s)
+[track browser sample] en-US { distinctPositions: 39, frames: 75, maxFrameMs: 183.29999999999973 }
+  ✓  128 [chromium] › e2e/race-track.spec.ts:13:7 › signature track: 30/50 runners, interpolation, spectators and responsive access en-US/abysse (31.8s)
+[track browser sample] en-US { distinctPositions: 43, frames: 84, maxFrameMs: 200 }
+  ✓  129 [chromium] › e2e/race-track.spec.ts:13:7 › signature track: 30/50 runners, interpolation, spectators and responsive access en-US/aube (24.7s)
+  ✓  130 [chromium] › e2e/race.spec.ts:77:7 › the first complete race (F-04.0) › two players race: countdown, typing checked by the server, progress, results stored and reopened (24.2s)
+  ✓  131 [chromium] › e2e/race.spec.ts:156:7 › the first complete race (F-04.0) › a second tab of the same player watches, takes the input on request, and a reload resumes from the server (21.7s)
+  ✓  132 [chromium] › e2e/race.spec.ts:201:7 › the first complete race (F-04.0) › each interruption seen on an open page takes the focus, even twice in a row (3.9s)
+  ✓  133 [chromium] › e2e/race.spec.ts:231:7 › the first complete race (F-04.0) › a player who leaves during the race abandons, and keeps a ranked result (14.4s)
+  ✓  134 [chromium] › e2e/race.spec.ts:261:7 › the first complete race (F-04.0) › a player gives up only after confirming it, and the results say it was a choice (COURSE-07) (18.3s)
+  ✓  135 [chromium] › e2e/race.spec.ts:310:7 › the first complete race (F-04.0) › during the race, the host's leave asks under the field: nothing above it moves, no key types, the clock runs (15.1s)
+  ✓  136 [chromium] › e2e/race.spec.ts:382:7 › the first complete race (F-04.0) › an idle player is asked if they are still there after 60 s; the button or a keystroke clears it for everyone (D-17) (1.2m)
+  ✓  137 [chromium] › e2e/race.spec.ts:416:7 › the first complete race (F-04.0) › the host takes everyone present to the next round, a newcomer included, and races them again (F-04.7) (19.5s)
+  ✓  138 [chromium] › e2e/race.spec.ts:463:7 › the first complete race (F-04.0) › the host closes the room from the results: everyone sees it closed, and the race stays readable (F-04.7) (18.3s)
+  ✓  139 [chromium] › e2e/results-podium.spec.ts:46:5 › persisted podium, exact errors and historical record work without JavaScript and survive a later record (3.2s)
+  ✓  140 [chromium] › e2e/results-podium.spec.ts:67:40 › result podium is accessible and responsive in fr (8.7s)
+  ✓  141 [chromium] › e2e/results-podium.spec.ts:67:40 › result podium is accessible and responsive in en (7.8s)
+  ✓  142 [chromium] › e2e/room-bots.spec.ts:22:5 › host adds, changes and removes a bot; another member sees persisted updates but no controls (14.4s)
+  ✓  143 [chromium] › e2e/room-bots.spec.ts:45:5 › bots consume places and an explicit reload recovers after a full-room refusal (8.2s)
+  ✓  144 [chromium] › e2e/room-bots.spec.ts:61:5 › bot controls are accessible in both languages and themes at reference widths (25.0s)
+  ✓  145 [chromium] › e2e/room-bots.spec.ts:103:46 › new bot choices, saved roster and unsaved edits stay distinct (fr-CA) (1.7s)
+  ✓  146 [chromium] › e2e/room-bots.spec.ts:103:46 › new bot choices, saved roster and unsaved edits stay distinct (en-US) (1.5s)
+  ✓  147 [chromium] › e2e/room-capacity.spec.ts:17:7 › host capacity persists and refuses invalid bounds (fr-CA) (34.5s)
+  ✓  148 [chromium] › e2e/room-capacity.spec.ts:86:7 › creation persists selected capacity without JavaScript (fr-CA) (1.2s)
+  ✓  149 [chromium] › e2e/room-capacity.spec.ts:17:7 › host capacity persists and refuses invalid bounds (en-CA) (39.3s)
+  ✓  150 [chromium] › e2e/room-capacity.spec.ts:86:7 › creation persists selected capacity without JavaScript (en-CA) (821ms)
+  ✓  151 [chromium] › e2e/room-invitations.spec.ts:16:46 › invitation lifecycle, privacy and responsive controls (fr-CA) (25.4s)
+  ✓  152 [chromium] › e2e/room-invitations.spec.ts:16:46 › invitation lifecycle, privacy and responsive controls (en-US) (22.3s)
+  ✓  153 [chromium] › e2e/room-invitations.spec.ts:85:5 › a fresh guest can use an invitation without sharing its token with the session endpoint (3.2s)
+  ✓  154 [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (fr-CA) (17.8s)
+  ✘  155 [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (en-CA) (22.7s)
+(node:32482) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  156 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in waiting preserves its cookie deadline and prevents reentry (4.3s)
+  ✓  157 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in racing preserves its cookie deadline and prevents reentry (8.5s)
+  ✓  158 [chromium] › e2e/room-moderation.spec.ts:77:7 › guest expulsion in results preserves its cookie deadline and prevents reentry (13.8s)
+  ✓  159 [chromium] › e2e/room-settings.spec.ts:39:7 › word count 10 synchronizes, persists and is frozen at start (3.8s)
+  ✓  160 [chromium] › e2e/room-settings.spec.ts:39:7 › word count 200 synchronizes, persists and is frozen at start (4.0s)
+  ✓  161 [chromium] › e2e/room-settings.spec.ts:70:5 › saved language and duration 60 reach another member, survive reload and govern the real start (7.4s)
+  ✓  162 [chromium] › e2e/room-settings.spec.ts:70:5 › saved language and duration 600 reach another member, survive reload and govern the real start (7.5s)
+  ✓  163 [chromium] › e2e/room-settings.spec.ts:70:5 › saved language and duration none reach another member, survive reload and govern the real start (6.9s)
+  ✓  164 [chromium] › e2e/room-settings.spec.ts:115:5 › another host tab cannot silently overwrite a draft; cancel and explicit reload restore focus (2.7s)
+  ✓  165 [chromium] › e2e/room-settings.spec.ts:138:5 › settings remain accessible in both languages and themes at reference widths (13.8s)
+  ✓  166 [chromium] › e2e/room-settings.spec.ts:158:5 › a lost action response preserves the draft and offers a read, not an automatic retry (1.6s)
+  ✓  167 [chromium] › e2e/room-settings.spec.ts:185:7 › free typing survives reload, finishes with an error and switches back to mandatory for fr-CA (18.6s)
+  ✓  168 [chromium] › e2e/room-settings.spec.ts:250:7 › explicit unlimited and duration boundaries persist for fr-CA (4.9s)
+  ✓  169 [chromium] › e2e/room-settings.spec.ts:185:7 › free typing survives reload, finishes with an error and switches back to mandatory for en-US (18.7s)
+  ✓  170 [chromium] › e2e/room-settings.spec.ts:250:7 › explicit unlimited and duration boundaries persist for en-US (6.6s)
+  ✓  171 [chromium] › e2e/room-visibility.spec.ts:47:7 › host picks and changes visibility; PRIVATE refuses the code alone (fr-CA) (29.9s)
+  ✓  172 [chromium] › e2e/room-visibility.spec.ts:111:7 › a stale page is refused with an explicit message (fr-CA) (1.7s)
+  ✓  173 [chromium] › e2e/room-visibility.spec.ts:129:7 › creation keeps the chosen visibility without JavaScript (fr-CA) (975ms)
+  ✓  174 [chromium] › e2e/room-visibility.spec.ts:47:7 › host picks and changes visibility; PRIVATE refuses the code alone (en-US) (33.3s)
+  ✓  175 [chromium] › e2e/room-visibility.spec.ts:111:7 › a stale page is refused with an explicit message (en-US) (2.2s)
+  ✓  176 [chromium] › e2e/room-visibility.spec.ts:129:7 › creation keeps the chosen visibility without JavaScript (en-US) (1.7s)
+  ✓  177 [chromium] › e2e/rooms.spec.ts:62:7 › rooms by code with live presence (CP-06) › A creates a room, B joins with the code, both see the crew change live (7.9s)
+  ✓  178 [chromium] › e2e/rooms.spec.ts:99:7 › rooms by code with live presence (CP-06) › refuses unknown and invalid codes with translated messages (2.5s)
+  ✓  179 [chromium] › e2e/rooms.spec.ts:109:7 › rooms by code with live presence (CP-06) › answers an unknown or malformed code with screen 15's state, drawn by the server (6.4s)
+  ✓  180 [chromium] › e2e/rooms.spec.ts:131:7 › rooms by code with live presence (CP-06) › keeps one room per person and offers to leave the current one (9.4s)
+  ✓  181 [chromium] › e2e/rooms.spec.ts:162:7 › rooms by code with live presence (CP-06) › transfers hosting to a connected spectator, then closes when the last host leaves (5.5s)
+  ✓  182 [chromium] › e2e/rooms.spec.ts:235:7 › rooms by code with live presence (CP-06) › tells a member whose session ended elsewhere how to come back (7.2s)
+  ✓  183 [chromium] › e2e/rooms.spec.ts:252:7 › rooms by code with live presence (CP-06) › needs a session to create or open a room (1.5s)
+  ✓  184 [chromium] › e2e/rooms.spec.ts:259:7 › rooms by code with live presence (CP-06) › the host closes the waiting room only after confirming it; keeping it open changes nothing (5.7s)
+  ✓  185 [chromium] › e2e/rooms.spec.ts:284:9 › rooms by code with live presence (CP-06) › room pages have no WCAG A/AA violation and fit 360 px in abysse (11.9s)
+  ✓  186 [chromium] › e2e/rooms.spec.ts:284:9 › rooms by code with live presence (CP-06) › room pages have no WCAG A/AA violation and fit 360 px in aube (11.1s)
+  ✓  187 [chromium] › e2e/session.spec.ts:15:7 › protected access (SEC-01, server-side) › redirects an anonymous visitor to sign-in, then back to the protected page (2.8s)
+  ✓  188 [chromium] › e2e/session.spec.ts:25:7 › protected access (SEC-01, server-side) › exposes only the account id and the session end, in an HttpOnly cookie (3.4s)
+  ✓  189 [chromium] › e2e/session.spec.ts:36:7 › protected access (SEC-01, server-side) › keeps anonymous sockets out of protected events (78ms)
+  ✓  190 [chromium] › e2e/session.spec.ts:45:7 › sign-out ends every session of the account (option B) › closes the other browser's sockets and refuses every copy of the old cookie (6.2s)
+  ✓  191 [chromium] › e2e/session.spec.ts:84:7 › sign-out ends every session of the account (option B) › refuses an old cookie put back after sign-out, on HTTP and Socket.IO (3.3s)
+[WebServer] [auth] JWTSessionError (Q ERR_JWE_DECRYPTION_FAILED)
+[WebServer] [auth] JWTSessionError (Q ERR_JWE_DECRYPTION_FAILED)
+  ✓  192 [chromium] › e2e/session.spec.ts:101:7 › refused cookies › refuses a tampered cookie on HTTP and Socket.IO (3.4s)
+  ✓  193 [chromium] › e2e/session.spec.ts:114:7 › refused cookies › refuses a session signed in more than 24 hours ago (1.1s)
+  ✓  194 [chromium] › e2e/session.spec.ts:129:7 › refused cookies › refuses the session of a deleted account (3.7s)
+  ✓  195 [chromium] › e2e/sign-in.spec.ts:13:7 › sign-in page in French (TEST-03) › is translated, with labelled fields and the providers (755ms)
+[WebServer] [auth] CredentialsSignin
+[WebServer] [auth] CredentialsSignin
+  ✓  196 [chromium] › e2e/sign-in.spec.ts:24:7 › sign-in page in French (TEST-03) › answers the same generic error for a wrong password and an unknown login (4.5s)
+  ✓  197 [chromium] › e2e/sign-in.spec.ts:36:7 › sign-in page in French (TEST-03) › explains missing fields next to them (1.4s)
+[WebServer] [auth] CredentialsSignin
+[WebServer] [auth] CredentialsSignin
+[WebServer] [auth] CredentialsSignin
+[WebServer] [auth] CredentialsSignin
+[WebServer] [auth] CredentialsSignin
+[WebServer] [auth] CredentialsSignin
+  ✓  198 [chromium] › e2e/sign-in.spec.ts:51:7 › sign-in page in French (TEST-03) › pauses a login after repeated failures, with a translated message (10.9s)
+  ✓  199 [chromium] › e2e/sign-in.spec.ts:61:7 › sign-in page in French (TEST-03) › can be completed with the keyboard only (3.9s)
+[WebServer] [auth] CredentialsSignin
+  ✓  200 [chromium] › e2e/sign-in.spec.ts:79:7 › sign-in page in English › follows the browser language, including errors and the account page (3.8s)
+  ✓  201 [chromium] › e2e/sign-in.spec.ts:90:7 › sign-in page in English › keeps an explicit language cookie over the browser language (982ms)
+  ✓  202 [chromium] › e2e/spectator-quota.spec.ts:6:9 › spectator quota refusal and retry: fr-CA, abysse (6.0s)
+  ✓  203 [chromium] › e2e/spectator-quota.spec.ts:6:9 › spectator quota refusal and retry: fr-CA, aube (6.2s)
+  ✓  204 [chromium] › e2e/spectator-quota.spec.ts:6:9 › spectator quota refusal and retry: en-US, abysse (7.9s)
+  ✓  205 [chromium] › e2e/spectator-quota.spec.ts:6:9 › spectator quota refusal and retry: en-US, aube (7.8s)
+  ✓  206 [chromium] › e2e/text-settings.spec.ts:45:5 › complexity and text options reach another member, survive reload and are frozen at the start (4.5s)
+  ✓  207 [chromium] › e2e/text-settings.spec.ts:90:7 › random words: characters, refusals before any request and the server's answer (fr-CA) (4.5s)
+  ✓  208 [chromium] › e2e/text-settings.spec.ts:90:7 › random words: characters, refusals before any request and the server's answer (en-US) (5.6s)
+  ✓  209 [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (fr-CA) (11.9s)
+  ✓  210 [chromium] › e2e/theme-contrast.spec.ts:4:7 › reduced-motion theme changes keep secondary text readable (en-US) (10.5s)
+  ✓  211 [chromium] › e2e/typing-clarity.spec.ts:28:9 › typing guidance and refused edits in an ordinary race: fr-CA abysse mandatory (14.4s)
+  ✓  212 [chromium] › e2e/typing-clarity.spec.ts:28:9 › typing guidance and refused edits in an ordinary race: fr-CA abysse free (14.6s)
+  ✓  213 [chromium] › e2e/typing-clarity.spec.ts:28:9 › typing guidance and refused edits in an ordinary race: fr-CA aube mandatory (13.7s)
+  ✓  214 [chromium] › e2e/typing-clarity.spec.ts:28:9 › typing guidance and refused edits in an ordinary race: fr-CA aube free (14.2s)
+  ✓  215 [chromium] › e2e/typing-clarity.spec.ts:28:9 › typing guidance and refused edits in an ordinary race: en-US abysse mandatory (15.1s)
+  ✓  216 [chromium] › e2e/typing-clarity.spec.ts:28:9 › typing guidance and refused edits in an ordinary race: en-US abysse free (17.3s)
+  ✓  217 [chromium] › e2e/typing-clarity.spec.ts:28:9 › typing guidance and refused edits in an ordinary race: en-US aube mandatory (17.0s)
+  ✓  218 [chromium] › e2e/typing-clarity.spec.ts:28:9 › typing guidance and refused edits in an ordinary race: en-US aube free (17.3s)
+
+
+  1) [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (en-CA)
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator:  locator('p[role="alert"]')
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeFocused" locator('p[role="alert"]') with timeout 5000ms
+      - waiting for locator('p[role="alert"]')
+        14 × locator resolved to <p role="alert" tabindex="-1" class="text-erreur">⚠ Action unavailable. Refresh the page and try ag…</p>
+           - unexpected value "inactive"
+
+
+      67 |       await member.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
+      68 |       await expect(member.locator('p[role="alert"]')).toBeVisible();
+    > 69 |       await expect(member.locator('p[role="alert"]')).toBeFocused();
+         |                                                       ^
+      70 |       expect((await query("select id from lobby_members where account_id=$1 and left_at is null", [targetId]))).toHaveLength(0);
+      71 |       await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
+      72 |     } finally { await host.close(); await target.close(); }
+        at /workspace/incision-final-integrated/apps/web/e2e/room-moderation.spec.ts:69:55
+
+    Error Context: ../../../scratch/ux-20261112/bots/full/room-moderation-host-expel-37079-n-and-persistent-ban-en-CA--chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../scratch/ux-20261112/bots/full/room-moderation-host-expel-37079-n-and-persistent-ban-en-CA--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../scratch/ux-20261112/bots/full/room-moderation-host-expel-37079-n-and-persistent-ban-en-CA--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/room-moderation.spec.ts:12:7 › host expels all account tabs with confirmation and persistent ban (en-CA)
+  217 passed (30.4m)
+npm error Lifecycle script `test:e2e` failed with error:
+npm error code 1
+npm error path /workspace/incision-final-integrated/apps/web
+npm error workspace @incision/web@0.1.0
+npm error location /workspace/incision-final-integrated/apps/web
+npm error command failed
+npm error command sh -c playwright test --output=/workspace/scratch/ux-20261112/bots/full

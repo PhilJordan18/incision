@@ -5,6 +5,9 @@ import type { Locale } from "./locale";
 const fr = {
   title: "Bots", add: "Ajouter un bot", level: "Niveau du bot", remove: "Retirer", save: "Changer le niveau", empty: "Aucun bot dans cette salle.",
   label: "Bot", reload: "Recharger la salle", pending: "Modification en cours…", waiting: "Enregistré. En attente de la mise à jour de la salle…",
+  roster: "Bots dans la salle", addHelp: "Ce choix s’applique uniquement au prochain bot ajouté.",
+  savedLevel: "Niveau enregistré :", unsaved: "Modification non enregistrée :", saveHint: "Choisis « Changer le niveau » pour enregistrer.", noChanges: "Aucune modification en attente.",
+  added: "Bot ajouté à la salle.", saved: "Niveau du bot enregistré.", removed: "Bot retiré de la salle.",
   disconnected: "Attends la reconnexion avant de modifier les bots.",
   levels: { noob: "Mousse — novice", beginner: "Quartier-maître — débutant", intermediate: "Capitaine — intermédiaire", expert: "Empereur des mers — expert", impossible: "Roi des pirates — impossible" } satisfies Record<BotLevel, string>,
   errors: {
@@ -18,6 +21,9 @@ const fr = {
 const en: typeof fr = {
   title: "Bots", add: "Add a bot", level: "Bot level", remove: "Remove", save: "Change level", empty: "No bots in this room.",
   label: "Bot", reload: "Reload room", pending: "Saving…", waiting: "Saved. Waiting for the room update…",
+  roster: "Bots in the room", addHelp: "This choice applies only to the next bot you add.",
+  savedLevel: "Saved level:", unsaved: "Unsaved change:", saveHint: "Choose “Change level” to save.", noChanges: "No unsaved changes.",
+  added: "Bot added to the room.", saved: "Bot level saved.", removed: "Bot removed from the room.",
   disconnected: "Wait for reconnection before changing bots.",
   levels: { noob: "Cabin boy — novice", beginner: "Quartermaster — beginner", intermediate: "Captain — intermediate", expert: "Emperor of the seas — expert", impossible: "King of the pirates — impossible" },
   errors: {
