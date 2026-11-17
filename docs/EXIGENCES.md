@@ -4,6 +4,15 @@
 
 **Statuts :** j'utilise les trois statuts de l'énoncé : complet = comportement livré et vérifié; partiel = une partie seulement existe; non fait = aucune implémentation vérifiée. Une décision décrite dans l'architecture ne fait pas passer sa fonctionnalité au statut complet. « — » dans la colonne des tests signifie **aucun test associé existant**, pas un test réussi. Les tests mentionnés dans les notes restent à écrire.
 
+## Complément de navigation du 17 novembre 2026
+
+Le [complément de #205](evidence/account-empty-room-2026-11-17/README.md)
+ajoute le lien « Créer une salle » à l’état vide du compte, conformément au retour
+humain A. Six tests E2E ciblés FR/EN réussissent, avec thèmes, clavier, axe et
+360/390/1024/1440 px. Aucun statut officiel n’est promu : HIST-01 garde son
+périmètre existant; ce raccourci ne change ni SALLE-01 ni les permissions.
+Le correctif Next.js est dans la PR indépendante #206, pas dans cette branche.
+
 ## Qualification intégrée du 8 novembre 2026
 
 Les PR #199 puis #198 sont fusionnées; référence de départ de cette vérification :

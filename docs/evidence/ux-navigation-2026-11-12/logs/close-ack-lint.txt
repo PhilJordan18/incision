@@ -1,0 +1,23 @@
+
+> @incision/root@0.1.0 lint
+> npm run lint --workspaces --if-present
+
+
+> @incision/web@0.1.0 lint
+> eslint
+
+
+> @incision/database@0.1.0 lint
+> eslint .
+
+
+> @incision/domain@0.1.0 lint
+> eslint .
+
+
+> @incision/load@0.1.0 lint
+> eslint .
+
+
+> @incision/word-lists@0.1.0 lint
+> eslint .
