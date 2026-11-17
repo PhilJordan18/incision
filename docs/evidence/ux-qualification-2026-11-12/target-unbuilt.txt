@@ -1,0 +1,20 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/result-navigation-presence.spec.ts e2e/host-network-succession.spec.ts e2e/host-succession.spec.ts --output=/workspace/scratch/ux-20261112/qualification/target
+
+[WebServer] (node:19451) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_qualification_target_20261112 ready, demo accounts: created, created
+[WebServer] (node:19528) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 203ms
+[WebServer] [server] failed to start: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server. https://nextjs.org/docs/messages/production-start-no-build-id
+Error: Process from config.webServer was not able to start. Exit code: 1
+
+npm error Lifecycle script `test:e2e` failed with error:
+npm error code 1
+npm error path /workspace/incision-ux-qualification/apps/web
+npm error workspace @incision/web@0.1.0
+npm error location /workspace/incision-ux-qualification/apps/web
+npm error command failed
+npm error command sh -c playwright test e2e/result-navigation-presence.spec.ts e2e/host-network-succession.spec.ts e2e/host-succession.spec.ts --output=/workspace/scratch/ux-20261112/qualification/target
