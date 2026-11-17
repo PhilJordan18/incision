@@ -1,5 +1,11 @@
 # Recette humaine ciblée — journal des bonus
 
+> Mise à jour du 17 novembre : Philippe a confirmé les étapes 1–5 le 11 novembre,
+> puis la recette des cinq PR A–G les 16–17 novembre. Voir le
+> [registre consolidé](evidence/human-2026-11-17/README.md) pour les références
+> et limites. La fiche ci-dessous est conservée comme protocole historique;
+> ses mentions « à confirmer » décrivent son état initial du 8 novembre.
+
 **À confirmer par Philippe ou le coordinateur.** Cette fiche n’atteste aucune
 exécution humaine nouvelle. Elle complète les témoignages du 5 novembre, sans
 refaire les parcours déjà acceptés. Référence intégrée : `dev 39fe1249a1ce5b7337976acf4c36614557b305a1`
