@@ -15,6 +15,14 @@ Le correctif Next.js est dans la PR indépendante #206, pas dans cette branche.
 
 ## Qualification intégrée du 8 novembre 2026
 
+**Complément humain reçu les 11, 16 et 17 novembre :** la
+[recette consolidée A–G](evidence/human-2026-11-17/README.md) identifie les cinq
+têtes testées, les validations de Philippe, les remarques et leurs limites.
+Elle ne vaut ni fusion des PR encore ouvertes, ni validation de production,
+ni validation anticipée du correctif Next.js. Aucun statut global n’est promu
+sans couvrir le reste de l’exigence. Le rappel d’activité actuel est conservé
+pour la remise sur décision explicite de Philippe.
+
 Les PR #199 puis #198 sont fusionnées; référence de départ de cette vérification :
 `39fe1249a1ce5b7337976acf4c36614557b305a1`. Le
 [rapport intégré](evidence/integrated-2026-11-08/README.md) décrit la copie neuve,
@@ -92,7 +100,7 @@ Les PR #174 (durées) et #175 (frappe libre) ont été fusionnées par Philippe 
 
 | ID | Attendu (résumé) | Statut | Fichiers principaux existants | Tests associés | Notes et choix |
 |---|---|---|---|---|---|
-| TECH-01 | Next.js App Router et React, version stable actuelle | partiel | apps/web/package.json; package-lock.json; apps/web/src/app | CI à chaque push (build de production, E2E); e2e/design.spec.ts (404 rendue par le serveur avec le thème) | Next.js et eslint-config-next 16.4.3, React 19.3.0. Build Linux, typecheck et 209 E2E réussis sur c588a272; ancienne impossibilité de build levée. La stabilité « actuelle » des dépendances et la validation en production ne sont pas réattestées par cette qualification. |
+| TECH-01 | Next.js App Router et React, version stable actuelle | partiel | apps/web/package.json; package-lock.json; apps/web/src/app | CI à chaque push (build de production, E2E); e2e/design.spec.ts (404 rendue par le serveur avec le thème) | Correctif du 17 novembre : Next.js et eslint-config-next 16.4.6, React 19.3.0 inchangé. Qualification et limites : `docs/evidence/next-security-2026-11-17/README.md`. Preuve historique : build Linux, typecheck et 209 E2E réussis sur c588a272. La validation de production reste distincte. |
 | TECH-02 | TS uniquement, strict, aucun any explicite | complet | apps/web/tsconfig.json; tsconfig.base.json; apps/web/eslint.config.ts; packages/domain/eslint.config.ts; package.json (`check:no-js`) | CI à chaque push : `check:no-js`, lint (`no-explicit-any` et `ban-ts-comment` en erreur), `tsc --noEmit` | `strict` dans chaque workspace; `no-explicit-any` fixé en erreur dans la configuration ESLint de chaque workspace; les fichiers `.js/.jsx/.mjs/.cjs` suivis par Git font échouer la CI (sans égard à la casse). Contrainte permanente, appliquée automatiquement. |
 | TECH-03 | Tailwind CSS | complet | apps/web/src/app/globals.css; apps/web/postcss.config.json; apps/design/tokens.css; apps/web/src/components | e2e/design.spec.ts (axe dans les deux thèmes, 360 px) | Tailwind CSS v4 et les jetons de direction artistique structurent les pages. La piste utilise aussi `components/races/race-track.module.css` pour ses animations et positions; l’ancienne affirmation « aucune autre feuille de style » ne décrit plus ce dev. Aucun changement de style dans cette qualification. |
 | TECH-04 | PostgreSQL, ORM, migrations, seed des textes/comptes/historique | partiel | packages/database/src/schema; packages/database/drizzle; packages/database/src/migrations.ts; packages/database/src/identity/demo-accounts.ts; packages/database/scripts/seed-demo.ts; packages/database/src/schema/corpus.ts; packages/database/src/corpus; packages/database/scripts/import-corpus.ts; .github/workflows/deploy.yml; .github/workflows/seed-demo.yml | packages/database/test/*.db.test.ts sur PostgreSQL 17 en CI (demo-accounts.db.test.ts : idempotent, n'écrase jamais; corpus.db.test.ts : import atomique jusqu'à l'activation, idempotent, conflits refusés, nouvelle mesure sans nouveau passage, retrait, passages des courses enregistrées gardés, imports concurrents forcés à se chevaucher, tables en ajout seul, lecture qui refuse une version altérée; migrations.db.test.ts : 0003 → 0004 sans toucher salles et courses, puis retour à 0003 sans effet); src/corpus/check.test.ts; src/corpus/files.test.ts | Migrations, corpus versionné, seed comptes et seed historique présents et testés (demo-history.db.test.ts, demo-history-cli.db.test.ts). Le scénario de charge importe maintenant 2026-10-25.4 dans sa propre base jetable; cela ne vaut pas acceptation éditoriale du registre. PgBouncer et limites sont détaillés dans le rapport; aucune validation du pooler Neon ni accès à la recette. |
