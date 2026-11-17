@@ -6,11 +6,11 @@ import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionC
 const contexts: BrowserContext[] = [];
 test.afterEach(async () => { await Promise.all(contexts.splice(0).map((context) => context.close())); });
 
-async function fixture(browser: Browser, locale: string, javaScriptEnabled = true) {
+async function fixture(browser: Browser, locale: string, options: { javaScriptEnabled?: boolean; errors?: readonly { grapheme: string; count: number }[] } = {}) {
   const accounts = await query<{ id: string; session_version: number }>(
     "insert into accounts(display_name) values ('Chart Alice'), ('Chart Bob') returning id, session_version");
   const account = accounts[0]!;
-  const context = await browser.newContext({ locale, javaScriptEnabled, reducedMotion: "reduce" });
+  const context = await browser.newContext({ locale, javaScriptEnabled: options.javaScriptEnabled ?? true, reducedMotion: "reduce" });
   contexts.push(context);
   await context.addCookies([{ name: SESSION_COOKIE, url: test.info().project.use.baseURL!, value: await forgeSessionCookie({
     sub: account.id, sessionVersion: account.session_version, authTime: Math.floor(Date.now() / 1000),
@@ -24,7 +24,8 @@ async function fixture(browser: Browser, locale: string, javaScriptEnabled = tru
     const [entrant] = await query<{ id: string }>(`insert into race_entrants(race_id,account_id,ordinal,display_name_snapshot,kind,bot_level)
       values ($1,$2,$3,$4,$5,$6) returning id`, [id, accounts[n]?.id ?? null, n + 1, ["Chart Alice", "Chart Bob", "Chart Captain"][n], n === 2 ? "bot" : "human", n === 2 ? "intermediate" : null]);
     const elapsed = 2000;
-    const counters = { correctInserts: 3, totalInserts: 5 + n };
+    const errors = n === 0 && options.errors ? options.errors : [{ grapheme: n === 0 ? "é" : "Ж", count: 2 + n }];
+    const counters = { correctInserts: 3, totalInserts: 3 + errors.reduce((sum, error) => sum + error.count, 0) };
     const measures = computeMeasures(counters, asDuration(elapsed));
     await query(`insert into race_results(race_id,entrant_id,outcome,rank,elapsed_ms,position,length,
       correct_inputs,total_inputs,net_wpm,raw_wpm,accuracy)
@@ -34,13 +35,13 @@ async function fixture(browser: Browser, locale: string, javaScriptEnabled = tru
       { elapsed, counters, measures },
     ];
     await query("insert into race_wpm_series(race_id,entrant_id,series) values($1,$2,$3)", [id, entrant!.id, { version: 1, spacingMs: 1000, points }]);
-    await query("insert into race_key_errors(race_id,entrant_id,aggregate) values($1,$2,$3)", [id, entrant!.id, { version: 1, keys: [{ grapheme: n === 0 ? "é" : "Ж", count: 2 + n }] }]);
+    await query("insert into race_key_errors(race_id,entrant_id,aggregate) values($1,$2,$3)", [id, entrant!.id, { version: 1, keys: errors }]);
   }
   return { context, page: await context.newPage(), id };
 }
 
 test("real stored charts and only the reader's heatmap render without JavaScript", async ({ browser, page: visitor }) => {
-  const owner = await fixture(browser, "en", false);
+  const owner = await fixture(browser, "en", { javaScriptEnabled: false });
   await owner.page.goto(`/races/${owner.id}`);
   const speed = owner.page.getByRole("region", { name: "Speed during the race", exact: true });
   await expect(speed.locator("svg").first().locator("polyline")).toHaveCount(3);
@@ -78,7 +79,7 @@ for (const locale of ["fr", "en"]) test(`charts, accessible tables and keyboard 
         await owner.page.keyboard.press("ArrowRight");
         await expect.poll(() => graph.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
         expect(await graph.evaluate((node) => getComputedStyle(node).outlineStyle)).not.toBe("none");
-        const keyboard = heatmap.getByRole("region", { name: locale === "fr" ? "Repère AZERTY" : "AZERTY reference", exact: true });
+        const keyboard = heatmap.getByRole("region", { name: locale === "fr" ? "Repère de caractères" : "Character reference", exact: true });
         await keyboard.focus(); await expect(keyboard).toBeFocused();
         await owner.page.keyboard.press("Tab");
         await expect(keyboard.locator('[tabindex="0"]').first()).toBeFocused();
@@ -94,4 +95,40 @@ for (const locale of ["fr", "en"]) test(`charts, accessible tables and keyboard 
       }
     }
   }
+});
+
+for (const locale of ["fr", "en"]) for (const layout of ["fr-azerty", "us-qwerty", "ca-french", "ca-multilingual"]) test(`character reference ${layout} preserves every expected-character count (${locale})`, async ({ browser }) => {
+  test.slow();
+  const keys = [{ grapheme: " ", count: 1 }, { grapheme: "e", count: 2 }, { grapheme: "É", count: 3 }, { grapheme: "è", count: 4 }, { grapheme: "é", count: 5 }, { grapheme: "Ж", count: 6 }];
+  // Synthetic stored aggregates and matching official counters test projection, not physical keystrokes.
+  const owner = await fixture(browser, locale, { errors: keys });
+  await owner.page.goto(`/races/${owner.id}`);
+  const heatmap = owner.page.getByRole("region", { name: locale === "fr" ? "Tes caractères manqués" : "Your missed characters", exact: true });
+  const chooser = heatmap.getByRole("combobox");
+  await expect(chooser).toHaveValue(locale === "fr" ? "fr-azerty" : "us-qwerty");
+  await expect(chooser.getByRole("option")).toHaveCount(4);
+  await heatmap.locator("summary").click();
+  const initialTable = await heatmap.getByRole("table").textContent();
+  for (const theme of ["light", "dark"] as const) {
+    await owner.page.emulateMedia({ colorScheme: theme });
+    await expect(owner.page.locator("html")).toHaveAttribute("data-theme", theme === "light" ? "aube" : "abysse");
+      await chooser.selectOption(layout);
+      await expect(heatmap).toContainText(locale === "fr" ? "Total des erreurs : 21" : "Total errors : 21");
+      expect(await heatmap.getByRole("table").textContent()).toBe(initialTable);
+      for (const { grapheme, count } of keys.filter(key => key.grapheme !== " ")) {
+        await expect(heatmap.getByLabel(`${grapheme} — ${count} ${locale === "fr" ? "erreurs" : "errors"}`, { exact: true })).toHaveCount(1);
+      }
+      const reference = heatmap.getByRole("region", { name: locale === "fr" ? "Repère de caractères" : "Character reference" });
+      await expect(reference.getByLabel(`è — 4 ${locale === "fr" ? "erreurs" : "errors"}`, { exact: true })).toHaveCount(layout === "fr-azerty" || layout === "ca-multilingual" ? 1 : 0);
+      for (const width of [390, 1024, 1440]) {
+        await owner.page.setViewportSize({ width, height: 1000 });
+        await expectNoHorizontalScroll(owner.page); await expectNoAccessibilityViolation(owner.page);
+        await heatmap.screenshot({ path: test.info().outputPath(`${locale}-${theme}-${layout}-${width}.png`) });
+      }
+  }
+  await chooser.focus(); await expect(chooser).toBeFocused();
+  expect(await chooser.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe("none");
+  await chooser.press("Home"); await chooser.press("ArrowDown"); await chooser.press("Enter");
+  await expect(chooser).toHaveValue("us-qwerty");
+  await owner.page.reload(); await expect(chooser).toHaveValue(locale === "fr" ? "fr-azerty" : "us-qwerty");
 });
