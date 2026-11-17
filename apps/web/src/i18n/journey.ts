@@ -3,7 +3,7 @@ import type { Locale } from "./locale";
 const copy = {
   fr: {
     rooms: "Mes salles", races: "Mes courses", roomHelp: "Retrouve la salle ouverte dont tu fais encore partie. Tu ne peux appartenir qu’à une salle à la fois.",
-    returnRoom: "Retourner dans ma salle", noRoom: "Tu ne fais partie d’aucune salle ouverte.", unavailable: "Ta salle est indisponible pour le moment. Recharge cette page pour réessayer.",
+    returnRoom: "Retourner dans ma salle", noRoom: "Tu ne fais partie d’aucune salle ouverte.", createRoom: "Créer une salle", unavailable: "Ta salle est indisponible pour le moment. Recharge cette page pour réessayer.",
     historyHelp: "Consulte tes courses terminées et leurs résultats privés, même lorsque la salle est fermée.", history: "Consulter mon historique",
     guide: "Les repères de ta traversée", intro: "Une salle pour pratiquer ensemble, un journal pour suivre tes progrès.",
     steps: [
@@ -15,7 +15,7 @@ const copy = {
   },
   en: {
     rooms: "My rooms", races: "My races", roomHelp: "Find the open room you still belong to. You can belong to only one room at a time.",
-    returnRoom: "Return to my room", noRoom: "You do not belong to an open room.", unavailable: "Your room is unavailable right now. Reload this page to try again.",
+    returnRoom: "Return to my room", noRoom: "You do not belong to an open room.", createRoom: "Create a room", unavailable: "Your room is unavailable right now. Reload this page to try again.",
     historyHelp: "View your completed races and private results, even after the room closes.", history: "View my history",
     guide: "Chart your course", intro: "A room to practise together, a log to follow your progress.",
     steps: [

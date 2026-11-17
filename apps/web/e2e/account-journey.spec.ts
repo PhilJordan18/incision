@@ -15,7 +15,7 @@ async function audit(page: Page, name: string) {
   for (const theme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: theme });
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme === "light" ? "aube" : "abysse");
-    for (const width of [390, 1024, 1440]) {
+    for (const width of [360, 390, 1024, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       await expectNoHorizontalScroll(page); await expectNoAccessibilityViolation(page);
       await page.screenshot({ path: test.info().outputPath(`${name}-${theme}-${width}.png`), fullPage: true });
@@ -23,6 +23,21 @@ async function audit(page: Page, name: string) {
   }
 }
 for (const locale of ["fr-CA", "en-US"]) {
+  test(`empty rooms offers keyboard navigation to creation without creating a room (${locale})`, async ({ browser }) => {
+    test.slow();
+    const owner = await account(browser, locale);
+    await owner.page.goto("/account");
+    const rooms = owner.page.getByRole("region", { name: /^(Mes salles|My rooms)$/ });
+    const create = rooms.getByRole("link", { name: /^(Créer une salle|Create a room)$/ });
+    await expect(create).toHaveAttribute("href", "/rooms/new");
+    await expect(rooms.getByText(/Tu ne fais partie d’aucune salle ouverte|You do not belong to an open room/)).toBeVisible();
+    await audit(owner.page, "empty-account");
+    await create.focus(); await expect(create).toBeFocused(); await create.press("Enter");
+    await expect(owner.page).toHaveURL(/\/rooms\/new$/);
+    await expect(owner.page.getByRole("button", { name: /^(Ouvrir la salle|Open the room)$/ })).toBeVisible();
+    const [count] = await query<{ count: number }>("select count(*)::int as count from lobbies");
+    expect(count?.count).toBe(0);
+  });
   test(`account separates the active private room from past races (${locale})`, async ({ browser }) => {
     test.slow();
     const owner = await account(browser, locale);
@@ -41,7 +56,7 @@ for (const locale of ["fr-CA", "en-US"]) {
     await back.focus(); await expect(back).toBeFocused(); await back.press("Enter");
     await expect(profile).toHaveURL(roomURL); await expect(profile.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
     const other = await account(browser, locale); await other.page.goto("/account");
-    await expect(other.page.getByRole("region", { name: /^(Mes salles|My rooms)$/ }).getByRole("link")).toHaveCount(0);
+    await expect(other.page.getByRole("region", { name: /^(Mes salles|My rooms)$/ }).getByRole("link")).toHaveAttribute("href", "/rooms/new");
     await expect(other.page.getByText(code, { exact: false })).toHaveCount(0);
     await profile.goto("/account"); await history.getByRole("link").click(); await expect(profile).toHaveURL(/\/history$/);
     // A click does not acknowledge the asynchronous close action. Keep its request pending
@@ -61,7 +76,7 @@ for (const locale of ["fr-CA", "en-US"]) {
       await profile.goto("/account"); await expect(rooms.getByRole("link")).toHaveAttribute("href", `/rooms/${code}`);
     } finally { releaseClose(); }
     await expect(owner.page.getByRole("heading", { level: 1 })).toHaveText(/Salle\s*fermée|Room\s*closed/i);
-    await profile.goto("/account"); await expect(rooms.getByRole("link")).toHaveCount(0);
+    await profile.goto("/account"); await expect(rooms.getByRole("link")).toHaveAttribute("href", "/rooms/new");
   });
   test(`home explains existing play and guests have no personal navigation (${locale})`, async ({ browser }) => {
     test.slow();

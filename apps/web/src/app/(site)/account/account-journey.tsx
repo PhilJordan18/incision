@@ -20,7 +20,10 @@ export async function AccountJourney({ accountId, locale }: { readonly accountId
     <section id="my-rooms" aria-labelledby="my-rooms-title" className={`${card} scroll-mt-4 space-y-4`}>
       <h2 id="my-rooms-title" className="font-display text-3xl font-extrabold uppercase">{t.rooms}</h2>
       <p className="text-embrun">{t.roomHelp}</p>
-      {membership === null ? <p role="alert">{t.unavailable}</p> : membership === undefined ? <p className="text-brume">{t.noRoom}</p>
+      {membership === null ? <p role="alert">{t.unavailable}</p> : membership === undefined ? <>
+        <p className="text-brume">{t.noRoom}</p>
+        <Link href="/rooms/new" prefetch={false} className={secondaryButton}>{t.createRoom}</Link>
+      </>
         : <Link href={`/rooms/${membership.code}`} prefetch={false} className={secondaryButton}>{t.returnRoom} · {membership.code}</Link>}
     </section>
     <section aria-labelledby="my-races-title" className={`${card} space-y-4`}>
