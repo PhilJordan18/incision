@@ -89,8 +89,32 @@ le démarrage autorisé sur loopback a ensuite réussi. Aucun contrôle supprim�
 
 ## Limites et remise
 
+### Réconciliation après les cinq merges humains
+
+Le 17 novembre, #204, #205, #201, #203 et #202 sont fusionnées par Philippe.
+La branche #206 intègre `dev 556a0d9cca4320d5526e68d25c4a7b8f5c1905f5`
+par le commit de merge local `98e165868a64496251806d6aa235d9af178ea369`,
+sans réécriture d'historique. Seul conflit : introduction de
+`docs/RECETTE-FINALE.md`, résolu en conservant les deux attestations humaines.
+Aucune règle produit, migration ou donnée n'est changée par cette résolution.
+
+Comparaison avec la combinaison préalablement testée
+`ba3adc760d43cb45eadc5f0cac834c1d417231d6` : tous les fichiers applicatifs,
+tests, configurations et dépendances sont identiques; seul l'ordre des deux
+paragraphes de cette introduction diffère avant ajout du présent compte rendu.
+Cette combinaison a passé 2 668 tests unitaires, lint, types, build Next 16.4.6
+et 29 E2E Chromium en 2,6 minutes, sans skip ni relance : CTA FR/EN,
+navigation, Arcade, bonus, journal/historique, disposition, focus, zoom et
+course complète avec résultats persistés sur texte synthétique.
+Il ne s'agit pas d'une nouvelle recette humaine ni d'un essai sur corpus réel.
+
+Revue architecte de la résolution : aucune attestation effacée; validations
+A–G et limites conservées. Revue de la différence applicative avec la
+combinaison testée : aucune différence. Les CI doivent encore être contrôlées
+sur la nouvelle tête poussée; leurs résultats seront ajoutés à la PR.
+
 CI distante à vérifier sur les commits effectivement poussés; les résultats
 locaux ne la remplacent pas. OAuth réel, Neon, production et charge ne sont pas
-réexécutés ici. Une qualification de la combinaison finale reste distincte de
-ce correctif sur dev. Les validations humaines A–G sont conservées, non rejouées
+réexécutés ici. La mini-qualification combinée ci-dessus ne remplace pas ces
+contrôles d'environnement. Les validations humaines A–G sont conservées, non rejouées
 par l’agent. Aucun merge ou fermeture de carte n’est autorisé.
