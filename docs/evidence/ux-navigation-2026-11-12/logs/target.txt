@@ -1,0 +1,37 @@
+
+> @incision/web@0.1.0 test:e2e
+> playwright test e2e/account-journey.spec.ts e2e/design.spec.ts --output=/workspace/scratch/ux-20261112/navigation/target
+
+[WebServer] (node:11890) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [e2e] database incision_e2e_ux_navigation_target_20261112 ready, demo accounts: created, created
+[WebServer] (node:11942) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ✓ Running next.config.ts took 77ms
+[WebServer] [races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus
+[WebServer] [races] RACES_ENABLED=true: new races may start
+[WebServer] [server] production on port 3602
+
+Running 16 tests using 1 worker
+
+[WebServer] [races] boot recovery: 0 race(s) interrupted in their room, 0 no longer current in their room, 0 left for later
+(node:12083) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/account-journey.spec.ts:26:7 › account separates the active private room from past races (fr-CA) (12.2s)
+  ✓   2 [chromium] › e2e/account-journey.spec.ts:51:7 › home explains existing play and guests have no personal navigation (fr-CA) (8.1s)
+  ✓   3 [chromium] › e2e/account-journey.spec.ts:26:7 › account separates the active private room from past races (en-US) (13.4s)
+  ✓   4 [chromium] › e2e/account-journey.spec.ts:51:7 › home explains existing play and guests have no personal navigation (en-US) (9.0s)
+  ✓   5 [chromium] › e2e/design.spec.ts:13:7 › theme (DES-05) › follows the system before any choice, from the inline script alone (790ms)
+  ✓   6 [chromium] › e2e/design.spec.ts:29:7 › theme (DES-05) › keeps an explicit choice, rendered by the server on the next pages (1.2s)
+  ✓   7 [chromium] › e2e/design.spec.ts:44:7 › language (I18N-02) › switches from the header, keeps the choice and translates metadata (1.4s)
+  ✓   8 [chromium] › e2e/design.spec.ts:64:7 › home (screen 01, JOIN-01) › checks the room code with the domain rule and explains the error (1.5s)
+  ✓   9 [chromium] › e2e/design.spec.ts:81:7 › home (screen 01, JOIN-01) › keeps the words of its title apart and entry actions on the first desktop screen (424ms)
+  ✓  10 [chromium] › e2e/design.spec.ts:93:7 › home (screen 01, JOIN-01) › shows my logo, the favicon and a single red action (451ms)
+  ✓  11 [chromium] › e2e/design.spec.ts:104:7 › unknown URL (apps/web/AGENTS.md) › answers 404 with the not-found page rendered by the server, readable without JavaScript (599ms)
+  ✓  12 [chromium] › e2e/design.spec.ts:125:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the public pages in abysse (5.3s)
+  ✓  13 [chromium] › e2e/design.spec.ts:125:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the public pages in aube (5.6s)
+  ✓  14 [chromium] › e2e/design.spec.ts:135:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the account page in abysse (4.6s)
+  ✓  15 [chromium] › e2e/design.spec.ts:135:9 › layout and accessibility (DES-06, A11Y) › has no WCAG A/AA violation on the account page in aube (4.3s)
+  ✓  16 [chromium] › e2e/design.spec.ts:143:7 › layout and accessibility (DES-06, A11Y) › fits 360 px without horizontal scrolling (4.9s)
+
+  16 passed (1.4m)

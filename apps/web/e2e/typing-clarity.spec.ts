@@ -89,11 +89,13 @@ for (const locale of ["fr-CA", "en-US"] as const) {
           await Promise.all(document.getAnimations().filter(animation =>
             animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)));
         });
-        const before = await field.boundingBox();
+        // Neither the text's sheet nor « Ta frappe » moves while typing.
+        const sheet = runner.locator("[data-race-sheet]");
+        const before = [await sheet.boundingBox(), await field.boundingBox()];
         await field.pressSequentially(text[index]!, { delay: 80 });
         // A separate browser receives server-authoritative progress: rejected edits never preceded this key.
         await expect(progress).toHaveAttribute("value", String(index + 1));
-        expect(await field.boundingBox()).toEqual(before);
+        expect([await sheet.boundingBox(), await field.boundingBox()]).toEqual(before);
         await expect(guide).toBeVisible();
         await expectNoAccessibilityViolation(runner);
         await expectNoHorizontalScroll(runner);
@@ -111,6 +113,66 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
       await field.press("Enter");
       await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
+      // « Ta frappe » under the panels: away from it, the line says how to come back; a press on
+      // the text, on the field, or Escape from the text or a panel gives the keys back, and
+      // nothing typed elsewhere reaches the race.
+      const hint = runner.locator("#race-typing-hint");
+      const sheet = runner.locator("[data-race-sheet]");
+      const cursor = sheet.locator(".course-curseur");
+      // While the pad has the keys, the sheet's border (`moi`) and solid cursor say where they land.
+      const border = () => sheet.evaluate(element => getComputedStyle(element).borderTopColor);
+      const typingBorder = await border();
+      expect(await cursor.evaluate(element => getComputedStyle(element).backgroundImage)).toBe("none");
+      await field.blur();
+      expect(await border()).not.toBe(typingBorder);
+      await expect(hint).toHaveText(french
+        ? "Pour reprendre, clique dans « Ta frappe » ou sur le texte, ou appuie sur Échap depuis le texte ou un panneau."
+        : "To resume, click in “Your typing” or on the text, or press Escape from the text or a panel.");
+      // Away from the pad, the text's cursor is dashed: no keys land.
+      expect(await cursor.evaluate(element => getComputedStyle(element).backgroundImage)).not.toBe("none");
+      await runner.keyboard.type(text[3]!);
+      await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
+      await runner.locator(".course-texte").click({ position: { x: 40, y: 40 } });
+      await expect(field).toBeFocused();
+      await expect(hint).toHaveText(french
+        ? "Tape le texte ci-dessus : il montre ta progression. Coller est désactivé, et Entrée ne tape rien."
+        : "Type the text above: it shows your progress. Pasting is off, and Enter types nothing.");
+      expect(await runner.evaluate(() => window.getSelection()?.toString() ?? "")).toBe("");
+      await runner.keyboard.type(text[3]!, { delay: 80 });
+      await expect(progress).toHaveAttribute("value", "4");
+      // The text is a keyboard stop of its own (to scroll a long text); Escape there returns to the pad.
+      await runner.locator(".course-texte").focus();
+      await expect(field).not.toBeFocused();
+      await runner.keyboard.press("Escape");
+      await expect(field).toBeFocused();
+      // So does Escape from the standings, a panel of the row.
+      const standingsList = runner.getByRole("region", { name: french ? "Classement" : "Standings" }).getByRole("list");
+      await standingsList.focus();
+      await runner.keyboard.press("Escape");
+      await expect(field).toBeFocused();
+      // A press on the pad (its hint), or on the field itself, also gives the keys back.
+      await field.blur();
+      await hint.click();
+      await expect(field).toBeFocused();
+      await field.blur();
+      await field.click();
+      await expect(field).toBeFocused();
+      // Backspace inside an input method's composition (a dead key) edits the composition, not the race.
+      await field.evaluate(element => {
+        element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+        element.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", isComposing: true, bubbles: true, cancelable: true }));
+        element.dispatchEvent(new CompositionEvent("compositionend", { data: "", bubbles: true }));
+      });
+      await expect(runner.locator(".course-texte .course-juste")).toHaveCount(4);
+      await expect(progress).toHaveAttribute("value", "4");
+      if (errorMode === "free") {
+        // Free correction: a wrong character is marked and typing goes on past it.
+        await field.press(text[4] === "x" ? "y" : "x");
+        await expect(runner.locator(".course-texte .course-erreur")).toHaveCount(1);
+        await field.pressSequentially(text[5]!, { delay: 80 });
+        await expect(runner.locator(".course-texte .course-juste")).toHaveCount(5);
+        await expect(progress).toHaveAttribute("value", "6");
+      }
       for (const width of [1440, 1024, 390, 360]) {
         await runner.setViewportSize({ width, height: 1000 });
         if (width < 768) {

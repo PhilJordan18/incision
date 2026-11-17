@@ -1,3 +1,4 @@
+import { JourneyGuide } from "./_home/journey-guide";
 import Link from "next/link";
 import { card, secondaryButton } from "@/components/ui/styles";
 import { getRequestDictionary } from "@/i18n/server";
@@ -8,11 +9,10 @@ const VISIBILITIES = ["public", "code", "private"] as const;
 
 /** Home (screen 01), checkpoint subset: title, join by code, the sea, the three room kinds. */
 export default async function Home() {
-  const { t } = await getRequestDictionary();
+  const { t, locale } = await getRequestDictionary();
   return (
     <>
-      {/* On a desktop screen the whole page, footer included, fits without scrolling: the
-          title and the sea follow the screen's height as well as its width. */}
+      {/* Keep the entry actions first; the concise guide follows the existing room cards. */}
       <div className="grid items-center gap-8 [grid-template-columns:repeat(auto-fit,minmax(min(520px,100%),1fr))]">
         <section className="flex flex-col gap-5">
           <h1 className="font-display text-[clamp(56px,min(11vw,10.5svh),112px)] leading-[0.86] font-black uppercase">
@@ -55,6 +55,7 @@ export default async function Home() {
           ))}
         </ul>
       </section>
+      <JourneyGuide locale={locale} />
     </>
   );
 }

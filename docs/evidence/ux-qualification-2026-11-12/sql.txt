@@ -1,0 +1,15 @@
+
+> @incision/database@0.1.0 test:db
+> vitest run --config vitest.db.config.mts
+
+
+ RUN  v5.0.3 /workspace/incision-ux-qualification/packages/database
+
+
+ Test Files  40 passed | 1 skipped (41)
+      Tests  433 passed | 9 skipped (442)
+   Start at  03:48:52
+   Duration  237.10s (tests 73%, import 25%, transform 2%)
+
+    Isolate  41 workers spawned · ~272ms startup each (spawn + environment, per file)
+             at least ~10.88s faster with isolate: false — reuses workers across files instead of one per file

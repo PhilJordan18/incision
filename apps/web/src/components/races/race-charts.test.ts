@@ -44,7 +44,7 @@ describe("private race charts", () => {
     expect(html).toContain(raceCharts.en.missing);
     expect(html).not.toContain("<polyline");
     expect(html).not.toContain(raceCharts.en.zero);
-    expect(html).not.toContain('aria-label="AZERTY reference"');
+    expect(html).not.toContain('aria-label="Character reference"');
   });
   it("distinguishes a collected empty aggregate from missing data", () => {
     const html = render({ ...race, personalKeyErrors: { version: 1, keys: [] } });
