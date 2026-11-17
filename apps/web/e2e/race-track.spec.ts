@@ -33,7 +33,10 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     await expect(track.locator('[data-self="true"]')).toHaveCount(1);
     const field = page.getByLabel(locale === "fr-CA" ? "Ta frappe" : "Your typing", { exact: true });
     await expect(field).toBeEnabled(); await field.focus();
-    const topBefore = await field.evaluate(el => el.getBoundingClientRect().top);
+    // The text's sheet and « Ta frappe » hold still while the track and its routes move.
+    const sheet = page.locator("[data-race-sheet]");
+    const topBefore = await sheet.evaluate(el => el.getBoundingClientRect().top);
+    const fieldBefore = await field.boundingBox();
     const marker = track.locator('[data-self="true"]');
     expect(await marker.evaluate(el => getComputedStyle(el).transitionDuration)).toContain("0.2s");
     const motion = marker.evaluate(async el => {
@@ -53,25 +56,47 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     try { measured = await motion; } finally { clearInterval(timer); }
     expect(measured.distinctPositions).toBeGreaterThan(10);
     console.info("[track browser sample]", locale, measured);
-    expect(await field.evaluate(el => el.getBoundingClientRect().top)).toBe(topBefore);
+    expect(await sheet.evaluate(el => el.getBoundingClientRect().top)).toBe(topBefore);
+    expect(await field.boundingBox()).toEqual(fieldBefore);
     await expect(field).toBeFocused();
 
-    const summary = page.locator("summary").filter({ hasText: locale === "fr-CA" ? "Voir tous les coureurs" : "View all runners" });
-    await summary.focus(); await page.keyboard.press("Enter");
-    // Use the enclosing details to avoid coupling this contract to the existing heading wording.
-    const items = summary.locator("..").locator("li");
+    // Every runner as text in the standings panel beside the decorative track.
+    const standings = page.getByRole("region", { name: locale === "fr-CA" ? "Classement" : "Standings" });
+    const items = standings.getByRole("listitem");
     await expect(items).toHaveCount(count);
     await expect(items.filter({ hasText: "Bot" })).toHaveCount(Math.ceil(count / 4));
-    await page.keyboard.press("Tab");
-    await expect(summary.locator("..").locator("ul")).toBeFocused();
+    const list = standings.getByRole("list");
+    // A keyboard stop of its own: it scrolls for a large crew.
+    await expect(list).toHaveAttribute("tabindex", "0");
+    await list.focus();
+    await expect(list).toBeFocused();
     await expectNoAccessibilityViolation(page);
-    await summary.press("Enter");
-    for (const width of [1440, 1024, 390, 360]) {
+    // Every runner's route, in the marker's own colour; mine in `moi`, with my marker's rings.
+    const routes = track.locator("polyline[data-route]");
+    await expect(routes).toHaveCount(count);
+    const colours = await track.locator("[data-runner]").evaluateAll(markers => markers.map(marker => {
+      const id = marker.getAttribute("data-runner")!;
+      const route = marker.closest("[data-testid=race-track]")!.querySelector(`polyline[data-route="${id}"]`)!;
+      return { marker: getComputedStyle(marker).backgroundColor, route: getComputedStyle(route).stroke, self: marker.hasAttribute("data-self") };
+    }));
+    for (const colour of colours) expect(colour.route).toBe(colour.marker);
+    expect(new Set(colours.map(colour => colour.route)).size).toBe(5);
+    const mine = colours.find(colour => colour.self)!;
+    expect(colours.filter(colour => colour.route === mine.route)).toHaveLength(1);
+    // The same routes after a reload: stable colours, nothing re-dealt.
+    const beforeReload = await routes.evaluateAll(lines => lines.map(line => [line.getAttribute("data-route"), getComputedStyle(line).stroke, getComputedStyle(line).strokeDasharray]));
+    await page.reload();
+    await expect(routes).toHaveCount(count);
+    expect(await routes.evaluateAll(lines => lines.map(line => [line.getAttribute("data-route"), getComputedStyle(line).stroke, getComputedStyle(line).strokeDasharray]))).toEqual(beforeReload);
+    await expect(field).toBeFocused();
+    for (const width of [1440, 1024, 800, 390, 360]) {
       await page.setViewportSize({ width, height: 1000 });
       await expectNoHorizontalScroll(page);
       const size = await track.boundingBox();
-      expect(size!.height).toBe(width === 1024 ? 180 : 560);
-      if (width !== 1024) {
+      // In the race's row from 1024 px the chart takes the row's height; under it, its own.
+      if (width >= 1024) { expect(size!.height).toBeGreaterThanOrEqual(192); expect(size!.height).toBeLessThanOrEqual(352); }
+      else expect(size!.height).toBe(width === 800 ? 180 : 560);
+      if (width !== 800) {
         const labels = await track.locator("[data-track-label]").evaluateAll(elements => elements.map(el => {
           const rect = el.getBoundingClientRect(); return { top: rect.top, bottom: rect.bottom };
         }).sort((a, b) => a.top - b.top));
