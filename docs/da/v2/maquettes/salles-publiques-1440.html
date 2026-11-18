@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr" data-theme="abysse">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="jetons-lecture.css"><link rel="stylesheet" href="base.css"><style>
+
+.c-moi { --c: var(--color-moi); } .c-juste { --c: var(--color-juste); } .c-arcade { --c: var(--color-arcade); } .c-embrun { --c: var(--color-embrun); } .c-brume { --c: var(--color-brume); }
+.signal { height: 6px; background: repeating-linear-gradient(115deg, var(--color-houle) 0 10px, transparent 10px 20px); }
+.hull { fill: var(--color-ecume); }
+.sail { fill: var(--c); }
+.mast { stroke: var(--color-ecume); stroke-width: 1.5; stroke-linecap: round; }
+
+.c-ecume { --c: var(--color-ecume); } .c-or { --c: var(--color-or); }
+.land { fill: var(--color-erreur-fond); }
+.coastline { fill: none; stroke: var(--color-ligne); stroke-width: 4; stroke-linejoin: round; }
+.isle { fill: var(--color-sillage); stroke: var(--color-houle); stroke-width: 1.5; }
+.lp-glass { fill: color-mix(in srgb, var(--color-mer) 60%, transparent); stroke: var(--color-ecume); stroke-width: 2; }
+.lp-base { fill: var(--color-nuit); stroke: var(--color-ecume); stroke-width: 2; stroke-linejoin: round; }
+.lp-line { fill: none; stroke: var(--color-ecume); stroke-width: 1.5; stroke-linecap: round; }
+.lp-n1 { fill: var(--color-ligne); } .lp-n2 { fill: var(--color-ecume); }
+
+.site-header { position: relative; z-index: 2; }
+.deck { padding-bottom: 56px; }
+.foot { padding: 20px 48px; max-width: var(--container-page); margin: 40px auto 0; }
+h1.ph { font-size: 64px; line-height: 0.9; }
+.intro-p { max-width: 560px; font-size: 18px; color: var(--color-embrun); }
+.stack { display: flex; flex-direction: column; gap: 24px; }
+.panel { border-radius: var(--radius-carte); border: 1px solid var(--color-houle); background: var(--color-nuit); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel > h2, .ptitle h2 { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1; text-transform: uppercase; }
+.ptitle { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.muted { color: var(--color-brume); font-size: 14px; }
+.soft { color: var(--color-embrun); font-size: 14px; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.btn-discreet.idle { color: var(--color-brume); }
+.flabel { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 500; min-width: 0; max-width: 100%; }
+select.field { max-width: 100%; appearance: none; padding-right: 40px; background-image: linear-gradient(45deg, transparent 50%, var(--color-embrun) 50%), linear-gradient(135deg, var(--color-embrun) 50%, transparent 50%); background-position: calc(100% - 20px) 23px, calc(100% - 14px) 23px; background-size: 6px 6px; background-repeat: no-repeat; }
+input.field.num { width: 100%; }
+.chartbox { border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-mer); overflow: hidden; }
+.chartfig { display: block; width: 100%; height: auto; }
+.chartfig .cap { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.2em; fill: var(--color-embrun); }
+.chartfig .lbl { font-family: var(--font-sans); font-size: 15px; font-weight: 600; fill: var(--color-ecume); }
+.chartfig .code { font-family: var(--font-mono); font-size: 16px; letter-spacing: 0.22em; fill: var(--color-ecume); }
+.chartfig text.mono { font-family: var(--font-mono); font-size: 18px; fill: var(--color-brume); }
+.roomcode { font-family: var(--font-mono); font-size: 34px; line-height: 1; font-weight: 500; letter-spacing: 0.24em; }
+.sample { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-brume); }
+[data-theme="aube"] .land { fill: color-mix(in srgb, var(--color-ligne) 20%, var(--color-nuit)); }
+
+/* ---- waiting room */
+.quay { position: relative; height: 150px; overflow: hidden; border-block: 1px solid var(--color-sillage); background: var(--color-mer); }
+.quay svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dock { fill: var(--color-sillage); stroke: var(--color-houle); stroke-width: 1.5; }
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 32px 0 24px; }
+.head-l { display: flex; flex-direction: column; gap: 12px; }
+.live { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-embrun); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-juste); flex: none; }
+.dot.off { background: var(--color-voile); }
+.depart { flex-direction: row; align-items: center; gap: 28px; border-color: var(--color-voile); }
+.depart .codeblock { display: flex; flex-direction: column; gap: 10px; }
+.depart .coderow { display: flex; align-items: center; gap: 14px; }
+.iconbtn { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-bouton); border: 1px solid var(--color-houle); color: var(--color-embrun); background: transparent; }
+.depart .lane { flex: 1; min-width: 60px; height: 44px; }
+.depart .go { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+.depart .go .btn { align-self: flex-start; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--color-sillage); }
+.mrow .nm { font-weight: 600; }
+.mrow .you { font-weight: 400; color: var(--color-brume); }
+.mrow .hote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-ligne); }
+.mrow .st { margin-left: auto; }
+.mrow .pen { width: 24px; height: 16px; flex: none; }
+.gtag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; border: 1px solid var(--color-houle); border-radius: var(--radius-puce); padding: 2px 6px; color: var(--color-embrun); }
+.bots-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; align-items: start; }
+.sub { border-radius: var(--radius-carte); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.sub h3 { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.sub.berth { border: 2px dashed var(--color-voile); }
+.sub.roster { border: 1px solid var(--color-houle); background: var(--color-abysse); }
+.mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--color-ecume); font-family: var(--font-mono); font-size: 14px; line-height: 1; flex: none; }
+.mark.sq { border-radius: 4px; }
+.insignia { width: 48px; height: 48px; flex: none; border: 1px solid var(--color-houle); border-radius: var(--radius-bouton); padding: 4px; color: var(--color-embrun); }
+.idrow { display: flex; align-items: center; gap: 12px; }
+.botrow { border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-nuit); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.botrow.dirty { border-color: var(--color-or); }
+.chips { display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; margin: 0; }
+.chips div { border: 1px solid var(--color-houle); border-radius: var(--radius-puce); padding: 8px 12px; }
+.chips div.arc { border-color: var(--color-arcade); }
+.chips dt { color: var(--color-brume); } .chips dd { margin: 0; }
+.modrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+
+/* ---- create / join */
+.two { display: grid; grid-template-columns: minmax(0, 640px) minmax(0, 1fr); gap: 48px; align-items: start; padding-top: 8px; }
+.pagehead { display: flex; flex-direction: column; gap: 16px; padding: 40px 0 28px; }
+.legendm { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-brume); margin-bottom: 12px; padding: 0; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.choice { display: flex; flex-direction: column; gap: 4px; min-height: 44px; border: 1px solid var(--color-houle); border-radius: var(--radius-bouton); padding: 16px; cursor: pointer; }
+.choice.on { border: 2px solid var(--color-ecume); background: var(--color-sillage); padding: 15px; }
+.choice .rl { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.choice .n { font-family: var(--font-display); font-weight: 900; font-size: 20px; color: var(--color-brume); margin-left: auto; }
+.choice .b { font-size: 14px; color: var(--color-embrun); }
+.choice input { width: 18px; height: 18px; accent-color: var(--color-moi); flex: none; }
+.check { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; }
+.check input { width: 20px; height: 20px; accent-color: var(--color-action); flex: none; }
+
+/* ---- public rooms */
+.row3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; align-items: stretch; }
+.quick { border-color: var(--color-ligne); gap: 14px; background: radial-gradient(ellipse 70% 80% at 85% 100%, color-mix(in srgb, var(--color-ligne) 16%, transparent), transparent 70%), var(--color-nuit); }
+.quick h2 { font-family: var(--font-sans); font-size: 20px; font-weight: 700; text-transform: none; }
+.quick .btn { width: 100%; margin-top: auto; }
+.row3 .chartbox { display: flex; } .row3 .chartbox svg { width: 100%; height: 100%; min-height: 200px; }
+.listh { font-family: var(--font-display); font-weight: 900; font-size: 44px; text-transform: uppercase; line-height: 1; }
+.listh span { font-family: var(--font-mono); font-size: 14px; font-weight: 500; letter-spacing: 0.2em; color: var(--color-brume); margin-left: 12px; vertical-align: middle; }
+.filters { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: flex-end; }
+.fchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fchip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; border-radius: 9999px; border: 1px solid var(--color-houle); padding: 0 16px; font-size: 14px; color: var(--color-embrun); }
+.fchip.on { border: 2px solid var(--color-moi); background: color-mix(in srgb, var(--color-moi) 10%, transparent); color: var(--color-ecume); }
+.table { border-radius: var(--radius-carte); border: 1px solid var(--color-houle); background: var(--color-nuit); }
+.trow { display: grid; grid-template-columns: minmax(6rem, 1fr) minmax(6rem, 1.2fr) minmax(5.5rem, 1fr) minmax(8rem, 1.5fr) minmax(4.5rem, .8fr) minmax(7rem, 1.1fr) 8.5rem; gap: 8px 16px; align-items: center; padding: 16px 24px; }
+li.trow { border-top: 1px solid var(--color-houle); min-height: 84px; }
+.trow .k { display: none; }
+.trow .codec { font-family: var(--font-mono); font-weight: 600; letter-spacing: 0.12em; display: inline-flex; align-items: center; gap: 10px; }
+.trow .arc { color: var(--color-arcade); font-weight: 600; }
+.trow .ph { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+.trow .end { text-align: right; }
+.trow .btn { height: 44px; }
+
+@media (max-width: 1240px) { .bots-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1023px) {
+  .page { padding: 0 32px; } .site-header { padding: 20px 32px; } .foot { padding: 20px 32px; }
+  .cols, .pair, .two, .row3 { grid-template-columns: 1fr; }
+  .depart { flex-direction: column; align-items: stretch; } .depart .lane { display: none; } .depart .go { max-width: none; }
+  .trow.thead { display: none; }
+  li.trow { grid-template-columns: 1fr 1fr; }
+  .trow .k { display: inline; margin-right: 8px; }
+  .trow .end { text-align: left; grid-column: 1 / -1; }
+}
+@media (min-width: 640px) and (max-width: 1023px) { .bots-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); } }
+@media (max-width: 639px) {
+  .page { padding: 0 16px; } .site-header { padding: 16px; gap: 12px; } .foot { padding: 20px 16px; }
+  h1.ph { font-size: 48px; } .head { padding: 24px 0 20px; }
+  .quay { height: 110px; }
+  .panel { padding: 18px; } .roomcode { font-size: 28px; }
+  .choices { grid-template-columns: 1fr; }
+  li.trow { grid-template-columns: 1fr; padding: 16px 18px; }
+  .listh { font-size: 36px; } .listh span { display: block; margin: 8px 0 0; }
+  .depart .go .btn { align-self: stretch; }
+  .row3 .chartbox { display: none; }
+}
+/* Low screens (the app's `short` variant: >= 1024 px wide, <= 760 px high): the ornament goes, the controls stay. */
+@media (min-width: 1024px) and (max-height: 760px) {
+  .quay { display: none; } .site-header { padding-block: 12px; } .head { padding: 16px 0; } h1.ph { font-size: 52px; }
+  .pagehead { padding: 20px 0 16px; }
+}
+
+</style>
+</head>
+<body>
+<div class="deck">
+<header class="site-header ">
+  <a class="logo" href="#" aria-label="Incision, accueil"><img src="../../../../apps/design/logo/ico-red.svg" alt="" style="height:36px;width:36px"><img class="only-abysse" src="../../../../apps/design/logo/wm-white.svg" alt="" style="height:26px"><img class="only-aube" src="../../../../apps/design/logo/wm-black.svg" alt="" style="height:26px"></a>
+  <div class="site-tools">
+    <span class="pill" role="group" aria-label="Langue de l’interface"><a href="#" aria-current="true" class="lang on">FR</a><span aria-hidden="true">/</span><a href="#" class="lang">EN</a></span>
+    <button class="pill" type="button" aria-label="Passer au thème clair Aube"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"/></svg></button>
+    <nav aria-label="Navigation principale" class="site-nav"><a class="pill mono" href="#">Jouer</a><a class="pill solid" href="#">Se connecter</a></nav>
+  </div>
+</header>
+<main class="page"><div class="stack" style="gap:32px">
+  <div class="pagehead" style="padding-bottom:0"><h1 class="display ph">Prends la <em class="serif-word">mer</em></h1>
+    <p class="intro-p">Les salles publiques, en direct. Rejoins-en une en attente, ou crée la tienne.</p></div>
+  <div class="row3">
+    <section class="panel quick" aria-labelledby="qp"><span class="mono-label" style="color:var(--color-ligne)">[.Matchmaking]</span><h2 id="qp">Une course, tout de suite</h2>
+      <p class="muted" style="line-height:1.6">Rejoint la salle publique la plus remplie qui a encore une place. S’il n’y en a aucune, tu pourras en créer une.</p>
+      <button class="btn btn-primary" type="button">Trouver une salle</button></section>
+    <div class="chartbox" aria-hidden="true"><svg viewBox="0 0 860 240" preserveAspectRatio="xMidYMid slice" fill="none" focusable="false"><path d="M258 146 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M355 207 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M452 48 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M549 109 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M646 170 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M743 11 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M20 72 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M117 133 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M214 194 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M311 35 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M408 96 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M505 157 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M602 218 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M699 59 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M796 120 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M73 181 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M170 22 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M267 83 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M364 144 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M461 205 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M558 46 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M655 107 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M752 168 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M29 229 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M126 70 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M223 131 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M320 192 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M417 33 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M514 94 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M611 155 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M150 152 C270 142 600 150 700 132" stroke="var(--color-embrun)" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 11"/><path d="M272 114 C392 104 600 150 700 132" stroke="var(--color-embrun)" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 11"/><path d="M350 178 C470 168 600 150 700 132" stroke="var(--color-embrun)" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 11"/>
+  <g transform="translate(730 150) scale(1.1)"><path class="isle" d="M-90 20 q14 -46 60 -38 q34 -24 70 2 q40 6 36 34 q-84 24 -166 2 Z"/><g transform="translate(0 -28) scale(1.0)"><path d="M-8 34 L-4 -14 H4 L8 34 Z" fill="var(--color-ecume)"/><path d="M-6.5 10 H6.5 L6 2 H-6 Z" fill="var(--color-brume)"/><rect x="-7" y="-24" width="14" height="10" fill="var(--color-or)"/><path d="M-9 -24 L0 -34 L9 -24 Z" fill="var(--color-ecume)"/><path d="M8 -19 L78 -42 M8 -19 L82 -16 M-8 -19 L-70 -40" stroke="var(--color-or)" stroke-width="1.5" stroke-linecap="round" opacity=".75"/></g></g><g class="c-moi" transform="translate(120 150) scale(2.2)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(250 112) scale(1.6)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(330 176) scale(1.5)"><path class="mast" d="M0 -22 V3"/><rect class="sail" x="-7" y="-15" width="13" height="13" rx="1.5"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(440 128) scale(1.3)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(520 168) scale(1.1)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g></svg></div>
+  </div>
+  <section class="stack" style="gap:20px" aria-labelledby="lh"><h2 id="lh" class="listh">Salles publiques<span>· 3 ouvertes</span></h2>
+    <div class="filters"><fieldset><legend class="legendm">Langue du texte</legend><div class="fchips"><span class="fchip on"><span aria-hidden=true>✓</span>Toutes</span><span class="fchip">Français</span><span class="fchip">Anglais</span></div></fieldset>
+      <fieldset><legend class="legendm">Complexité</legend><div class="fchips"><span class="fchip on"><span aria-hidden=true>✓</span>Toutes</span><span class="fchip">Facile</span><span class="fchip">Moyenne</span><span class="fchip">Difficile</span></div></fieldset></div>
+    <p class="muted" role="status">La liste se met à jour en direct.</p>
+    <div class="table"><div class="trow thead mono-label" aria-hidden="true"><span>Salle</span><span>Hôte</span><span>Mode</span><span>Texte</span><span>Joueurs</span><span>État</span><span></span></div>
+      <ul><li class="trow"><dl style="display:contents"><div><dt class="k mono-label">Salle</dt><dd style="margin:0;display:inline"><span class="codec">B7K4PQ</span></dd></div><div><dt class="k mono-label">Hôte</dt><dd style="margin:0;display:inline">Lina</dd></div><div><dt class="k mono-label">Mode</dt><dd style="margin:0;display:inline"><span class="arc"><span aria-hidden="true">◆ </span>Arcade</span></dd></div><div><dt class="k mono-label">Texte</dt><dd style="margin:0;display:inline">FR · Moyenne · 50 mots</dd></div>
+  <div><dt class="k mono-label">Joueurs</dt><dd style="margin:0;display:inline"><span style="font-family:var(--font-mono)">5 / 8</span></dd></div><div><dt class="k mono-label">État</dt><dd style="margin:0;display:inline"><span class="ph" style="color:var(--color-juste)">[.En attente]</span></dd></div></dl><div class="end"><a class="btn btn-secondary" href="#" aria-label="Rejoindre la salle B7K4PQ">Rejoindre</a></div></li>
+      <li class="trow"><dl style="display:contents"><div><dt class="k mono-label">Salle</dt><dd style="margin:0;display:inline"><span class="codec">M3T9XD</span></dd></div><div><dt class="k mono-label">Hôte</dt><dd style="margin:0;display:inline">Noa</dd></div><div><dt class="k mono-label">Mode</dt><dd style="margin:0;display:inline">Entraînement</dd></div><div><dt class="k mono-label">Texte</dt><dd style="margin:0;display:inline">EN · Facile · mots au hasard</dd></div>
+  <div><dt class="k mono-label">Joueurs</dt><dd style="margin:0;display:inline"><span style="font-family:var(--font-mono)">2 / 6</span></dd></div><div><dt class="k mono-label">État</dt><dd style="margin:0;display:inline"><span class="ph" style="color:var(--color-or)">[.En course]</span></dd></div></dl><div class="end"><span class="muted">Course en cours</span></div></li>
+      <li class="trow"><dl style="display:contents"><div><dt class="k mono-label">Salle</dt><dd style="margin:0;display:inline"><span class="codec">Q8R2LW</span></dd></div><div><dt class="k mono-label">Hôte</dt><dd style="margin:0;display:inline">Éli</dd></div><div><dt class="k mono-label">Mode</dt><dd style="margin:0;display:inline">Entraînement</dd></div><div><dt class="k mono-label">Texte</dt><dd style="margin:0;display:inline">FR · Difficile · 120 mots</dd></div>
+  <div><dt class="k mono-label">Joueurs</dt><dd style="margin:0;display:inline"><span style="font-family:var(--font-mono)">4 / 4</span></dd></div><div><dt class="k mono-label">État</dt><dd style="margin:0;display:inline"><span class="ph" style="color:var(--color-juste)">[.En attente]</span></dd></div></dl><div class="end"><span class="muted">Complète</span></div></li></ul></div>
+    <p class="muted">Une salle en course reste visible, mais n’accepte personne avant les résultats.</p></section>
+</div></main>
+<footer class="foot mono-label">Incision · un projet de Philippe Monfouayi <span class="sample" style="margin-left:16px">· Données d’exemple</span></footer>
+</div>
+</body>
+</html>
