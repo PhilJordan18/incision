@@ -7,9 +7,8 @@ import { guestAwareAction } from "@/identity/guest-browser";
 import { changeVisibilityAction, guestChangeVisibilityAction, type VisibilityActionState } from "@/server/rooms/visibility-actions";
 import { roomVisibilityCopy } from "@/i18n/room-visibility";
 import type { Locale } from "@/i18n/locale";
-import { card, discreetButton, secondaryButton } from "@/components/ui/styles";
+import { card, discreetButton, panelTitle, secondaryButton } from "@/components/ui/styles";
 import { VisibilityChoices } from "./visibility-choices";
-import { panelTitle } from "./room-panel-styles";
 
 type Props = { readonly code: string; readonly visibility: RoomVisibility; readonly revision: number; readonly host: boolean;
   readonly guest: boolean; readonly live: boolean; readonly locale: Locale; readonly refresh: () => void };

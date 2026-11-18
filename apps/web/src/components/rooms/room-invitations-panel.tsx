@@ -3,8 +3,7 @@ import { useRef, useState, useTransition } from "react";
 import type { Locale } from "@/i18n/locale";
 import { invitationCopy } from "@/i18n/invitations";
 import { createInvitationAction, listInvitationsAction, revokeInvitationAction } from "@/server/rooms/invitation-actions";
-import { card, discreetButton, fieldLabel, secondaryButton, textField } from "../ui/styles";
-import { panelTitle } from "./room-panel-styles";
+import { card, discreetButton, fieldLabel, panelTitle, secondaryButton, textField } from "../ui/styles";
 
 type Listing = Extract<Awaited<ReturnType<typeof listInvitationsAction>>, { ok: true }>;
 export function RoomInvitationsPanel({ code, locale, live }: { code: string; locale: Locale; live: boolean }) {

@@ -3,6 +3,7 @@
 import { GuestActivityRefresh, withGuestCookieLock } from "@/identity/guest-browser";
 import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
+import { Quay, type QuayHull, quayBerths } from "@/components/nautical";
 import { RoomCrewPanel } from "@/components/rooms/room-crew-panel";
 import { RoomCapacityPanel } from "@/components/rooms/room-capacity-panel";
 import { RoomVisibilityPanel } from "@/components/rooms/room-visibility-panel";
@@ -24,7 +25,9 @@ import { card, discreetButton, monoLabel, secondaryButton } from "@/components/u
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
+import { roomCrewCopy } from "@/i18n/room-crew";
 import { roomStartNote } from "@/i18n/room-settings";
+import { formatNumber } from "@/i18n/value-format";
 import { BonusChannel } from "@/races/bonus-channel";
 import { BonusClient } from "@/races/bonus-client";
 import { RACE_BONUS_ACTIVATE_EVENT, RACE_BONUS_ANNOUNCEMENT_EVENT, RACE_BONUS_SELF_EVENT } from "@/races/bonus-protocol";
@@ -578,8 +581,17 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
   const rejoinRoom = () => { setConnection("connecting"); retryNowRef.current(); };
   // Second layout (DA2-5a, D-15): the start plaque, the settings, who may enter, the crew and
   // the bots, then moderation. The DOM order is the visual order at every width.
+  // The quay: mine first, then the other participants, then the bots; eight hulls at most, then a count.
+  const moored: QuayHull[] = [
+    ...(self.role === "participant" ? [{ kind: "human", colour: "moi", self: true } as const] : []),
+    ...snapshot.members.filter((member) => member.role === "participant" && member.memberId !== selfMemberId).map(() => ({ kind: "human" } as const)),
+    ...(snapshot.bots ?? []).map(() => ({ kind: "bot" } as const)),
+  ];
+  const beyond = quayBerths(moored.length).beyond;
   return (
     <div className="flex flex-col gap-6">
+      {/* Decorative and bounded: hidden from assistive technology by the primitive, removed on a low screen. */}
+      <Quay hulls={moored} more={beyond > 0 ? format(roomCrewCopy(locale).moored, { count: formatNumber(beyond, locale) }) : undefined} className="h-[110px]! rounded-carte sm:h-[150px]! short:hidden" />
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex flex-col gap-3">
           <p className={monoLabel}>

@@ -137,6 +137,41 @@ test("the crew is grouped, spectators have their own counter and the top counter
   await expect(emptyCrew.getByText("1 / 30 participants", { exact: true })).toBeVisible();
 });
 
+test("the quay is decorative: eight hulls at most, then a count; pennants and eyes follow the roles", async ({ browser }) => {
+  const host = await account(browser, "Capitaine");
+  const code = await openRoom(host);
+  const quay = host.locator("[data-quay]");
+  await expect(quay).toHaveAttribute("aria-hidden", "true");
+  await expect(quay.locator("[data-quay-hull]")).toHaveCount(1);
+  await expect(quay.locator("text")).toHaveCount(0);
+  await occupy(host, code, { participants: 5, spectators: 2, bots: 10, capacity: 20 });
+  // Sixteen sail (six participants, ten bots): eight are drawn, humans first, the rest is a number.
+  await expect(quay.locator("[data-quay-hull]")).toHaveCount(8);
+  await expect(quay.locator('[data-quay-hull="triangle"]')).toHaveCount(6);
+  await expect(quay.locator('[data-quay-hull="square"]')).toHaveCount(2);
+  await expect(quay.locator("text")).toHaveText("+8 au mouillage");
+  expect(await quay.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe("none");
+  // Nothing of it is in the accessibility tree: the crew list says who is there.
+  expect(await host.getByRole("main").ariaSnapshot()).not.toContain("au mouillage");
+  const crew = region(host, /^Équipage$/);
+  await expect(crew.locator("[data-pennant]")).toHaveCount(6);
+  await expect(crew.locator('[data-pennant][data-colour="moi"]')).toHaveCount(1);
+  await expect(crew.getByRole("listitem").first().locator('[data-pennant][data-colour="moi"]')).toHaveCount(1);
+  await expect(crew.locator("[data-spectator-eye]")).toHaveCount(2);
+  await expect(crew.getByRole("list", { name: /^Spectateurs/ }).locator("[data-pennant]")).toHaveCount(0);
+  // Bounded inside the page, and removed on a low screen.
+  const [box, main] = [await quay.boundingBox(), await host.getByRole("main").boundingBox()];
+  if (!box || !main) throw new Error("quay");
+  expect(box.x).toBeGreaterThanOrEqual(main.x);
+  expect(box.x + box.width).toBeLessThanOrEqual(main.x + main.width);
+  expect(box.height).toBeLessThanOrEqual(150);
+  await host.setViewportSize({ width: 1280, height: 640 });
+  await expect(quay).toBeHidden();
+  await host.setViewportSize({ width: 390, height: 844 });
+  await expect(quay).toBeVisible();
+  await expectNoHorizontalScroll(host);
+});
+
 test("a non-host sees the room in the same order without any host control; updates stay live", async ({ browser }) => {
   const host = await account(browser, "Capitaine");
   const member = await account(browser, "Lina");

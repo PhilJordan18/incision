@@ -7,8 +7,7 @@ import { expelMemberAction, guestExpelMemberAction, type ModerationActionState }
 import { roomModerationCopy } from "@/i18n/room-moderation";
 import type { Locale } from "@/i18n/locale";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
-import { card, discreetButton, secondaryButton } from "@/components/ui/styles";
-import { panelTitle } from "./room-panel-styles";
+import { card, discreetButton, panelTitle, secondaryButton } from "@/components/ui/styles";
 
 export function RoomModerationPanel({ snapshot, guest, live, locale, refresh }: {
   readonly snapshot: PublicRoomSnapshot; readonly guest: boolean; readonly live: boolean;

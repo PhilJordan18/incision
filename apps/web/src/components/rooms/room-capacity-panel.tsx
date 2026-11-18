@@ -7,8 +7,7 @@ import { guestAwareAction } from "@/identity/guest-browser";
 import { changeCapacityAction, guestChangeCapacityAction, type CapacityActionState } from "@/server/rooms/capacity-actions";
 import { roomAccessCopy } from "@/i18n/room-access";
 import type { Locale } from "@/i18n/locale";
-import { card, discreetButton, fieldLabel, secondaryButton, textField } from "@/components/ui/styles";
-import { panelTitle } from "./room-panel-styles";
+import { card, discreetButton, fieldLabel, panelTitle, secondaryButton, textField } from "@/components/ui/styles";
 
 type Props = { readonly code: string; readonly capacity: number; readonly revision: number; readonly host: boolean;
   readonly guest: boolean; readonly live: boolean; readonly locale: Locale; readonly refresh: () => void };

@@ -1,12 +1,12 @@
+import { Pennant, SpectatorEye } from "@/components/nautical";
 import { GuestAvatar } from "@/components/rooms/guest-avatar";
-import { card, monoLabel } from "@/components/ui/styles";
+import { card, monoLabel, panelTitle } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
 import { roomCrewCopy } from "@/i18n/room-crew";
 import { formatNumber } from "@/i18n/value-format";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
-import { panelTitle } from "./room-panel-styles";
 
 /**
  * Spectators a room holds (D-22). The domain applies the quota (`admissionRefusal`) without
@@ -74,7 +74,8 @@ function CrewGroup({ id, label, count, members, selfMemberId, t }: GroupProps) {
           {members.map((member) => (
             <li key={member.memberId} className="flex min-h-11 flex-wrap items-center gap-3 py-2">
               <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full forced-colors:border-2 forced-colors:border-[CanvasText] ${member.online ? "bg-juste forced-colors:bg-[CanvasText]" : "bg-voile forced-colors:bg-[Canvas]"}`} />
-              {member.role === "spectator" && <EyeIcon />}
+              {/* C1 vocabulary: a participant flies a pennant (mine in my colour), a spectator has an eye. The role is also written. */}
+              {member.role === "spectator" ? <SpectatorEye className="shrink-0" /> : <Pennant kind="human" colour={member.memberId === selfMemberId ? "moi" : "ecume"} className="shrink-0" />}
               {member.isGuest && <GuestAvatar compact nickname={member.displayName} label={t.guestLabel} />}
               <span className="min-w-0 font-semibold break-words">
                 {member.displayName}
@@ -88,15 +89,5 @@ function CrewGroup({ id, label, count, members, selfMemberId, t }: GroupProps) {
         </ul>
       )}
     </div>
-  );
-}
-
-/** A spectator watches: an eye where a participant flies a pennant (C1 vocabulary). The role is also written. */
-function EyeIcon() {
-  return (
-    <svg width="24" height="16" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" className="shrink-0 text-brume">
-      <path d="M1.5 8S5.5 2 12 2s10.5 6 10.5 6-4 6-10.5 6S1.5 8 1.5 8Z" />
-      <circle cx="12" cy="8" r="2.5" />
-    </svg>
   );
 }

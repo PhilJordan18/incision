@@ -9,12 +9,11 @@ import type { Locale } from "@/i18n/locale";
 import { roomBotsCopy } from "@/i18n/room-bots";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
 import { changeRoomBotAction, type BotActionState } from "@/server/rooms/bot-actions";
-import { card, discreetButton } from "@/components/ui/styles";
+import { card, discreetButton, panelTitle } from "@/components/ui/styles";
 import { formatNumber } from "@/i18n/value-format";
 
 import { AddRoomBot } from "./add-room-bot";
 import { RoomBotRow } from "./room-bot-row";
-import { panelTitle } from "./room-panel-styles";
 
 export function RoomBotsPanel({ guest = false, snapshot, host, live, locale, refresh }: {
   readonly guest?: boolean;
