@@ -48,6 +48,7 @@ Inchangés : connexion, erreur d'authentification, entrée d'invité, invitation
 
 - Ce sont des dessins statiques. Les contrôles faits dessus ([couverture](couverture.md)) ne valent pas pour l'application : chaque écran est vérifié de nouveau une fois intégré.
 - Dans l'en-tête des maquettes, les liens FR / EN sont dessinés à 22 px de haut. C'est un raccourci de dessin : l'application garde son en-tête et ses cibles de 44 px.
+- La planche `vocabulaire-pavillons` montre trois découpes de fanion (triangle, queue d'aronde, rectangle). À l'intégration, le fanion garde la forme du type de coureur (triangle pour un humain, carré pour un bot) et le tracé de sa route est repris par un trait sous le fanion : une queue d'aronde se confondrait avec le rectangle d'un bot. Cet écart à la planche est en étude.
 - Les noms, les vitesses et les rangs des maquettes sont des exemples. L'application n'affiche que ses vraies données.
 - `maquettes/jetons-lecture.css` est une copie de lecture des jetons pour ouvrir les maquettes hors de l'application. Elle n'est jamais importée par l'application.
 
