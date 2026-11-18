@@ -20,6 +20,15 @@ File names: `course-<width>x<height>-<theme>-<language>-<runners>[-forced-colour
 | `course-768x480-abysse-fr-30-zoom-200.jpg`, `course-768x480-aube-en-50-zoom-200.jpg` (200 % zoom) | none | — |
 | `vocabulaire-pavillons.jpg` is the reference for the shapes | `vocabulaire-pavillons.jpg` | — |
 
+## Pennant: mock-up and app, side by side
+
+`fanions-comparaison.jpg` puts the mock-up's pennants beside the app's, for a human and a bot
+with a solid, dashed and dotted route, in Abysse and Aube, enlarged and at real size. It is built
+from the app's own components and from the mock-up's drawings copied as they are; cases the
+mock-up never drew are marked « non dessiné ». The difference is **under study, not decided**
+(`docs/da/v2/README.md`). What the board shows against the app's solution: at real size the dashed
+and dotted lines under the cloth are hard to tell apart.
+
 ## Where the app differs from the mock-up, on purpose
 
 - **Layout heights and the names' column** are the app's: names stay in their own column with a
