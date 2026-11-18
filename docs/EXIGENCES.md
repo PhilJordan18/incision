@@ -4,6 +4,21 @@
 
 **Statuts :** j'utilise les trois statuts de l'énoncé : complet = comportement livré et vérifié; partiel = une partie seulement existe; non fait = aucune implémentation vérifiée. Une décision décrite dans l'architecture ne fait pas passer sa fonctionnalité au statut complet. « — » dans la colonne des tests signifie **aucun test associé existant**, pas un test réussi. Les tests cités avec leurs résultats sont des preuves existantes; les contrôles explicitement restants ne sont pas réputés réussis.
 
+## Clôture technique hors UI après #209 — 17 novembre 2026
+
+Référence intégrée : `b98314ac6257c358ab93865d57f00e12f70b5fb9`.
+Le [registre de clôture hors UI](evidence/non-ui-closeout-2026-11-17/README.md)
+rattache les contrôles réellement exécutés aux réserves : réentrée après ban,
+quickplay vide et agrégats disposent déjà de preuves automatiques précises.
+Ces preuves ne deviennent pas des attestations humaines supplémentaires.
+Les deux CI de #209 réussissent sur `75b01fac394a3681611ccaa0e8d3b4d71cc8948e`,
+dont l'arbre est identique à celui du merge : 2 669 unitaires, 433 SQL,
+11 intégration et 251 E2E; neuf tests PgBouncer restent ignorés.
+Une exécution locale ciblée ajoute 111 tests réussis sur la base intégrée.
+Les statuts restent à 34 complets et 56 partiels : ce rapprochement ne clôt pas
+les critères plus larges des cartes ni les réserves de production. A–G restent
+acquis; C1 devra faire l'objet de sa propre qualification delta.
+
 ## Réconciliation documentaire A–G après #207 — 17 novembre 2026
 
 Base de cette mise à jour : `e899596751c93312263babd90d5edfb8c1999276`.
