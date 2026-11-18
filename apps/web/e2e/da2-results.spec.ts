@@ -192,21 +192,30 @@ for (const locale of ["fr", "en"] as const) test(`race page: pennants, coast and
     }
     await expectNoAccessibilityViolation(page);
   }
-  // Forced colours: every shape takes a system colour; kind still reads by shape.
-  await page.emulateMedia({ forcedColors: "active" });
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/races/${race.id}`);
-  const system = await page.evaluate(() => {
-    const probe = document.createElement("span"); probe.style.color = "CanvasText"; probe.style.backgroundColor = "Canvas"; document.body.append(probe);
-    const computed = getComputedStyle(probe); const colours = { text: computed.color, canvas: computed.backgroundColor }; probe.remove(); return colours;
-  });
-  for (const cloth of await page.locator("[data-pennant-cloth], [data-sail-cloth]").all()) {
-    expect(await cloth.evaluate((node) => getComputedStyle(node).fill)).toBe(system.text);
+  // Forced colours, set on the context so the browser repaints with the system palette: every
+  // shape takes a system colour, and kind still reads by shape. The light system palette only:
+  // headless Chromium does not paint a dark forced palette faithfully.
+  for (const scheme of ["light"] as const) {
+    const forced = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "fr-CA", reducedMotion: "reduce", forcedColors: "active", colorScheme: scheme });
+    contexts.push(forced);
+    await forced.addCookies(await reader.context.cookies());
+    const contrasted = await forced.newPage();
+    await contrasted.goto(`/races/${race.id}`);
+    const system = await contrasted.evaluate(() => {
+      const probe = document.createElement("span"); probe.style.color = "CanvasText"; probe.style.backgroundColor = "Canvas"; document.body.append(probe);
+      const computed = getComputedStyle(probe); const colours = { text: computed.color, canvas: computed.backgroundColor }; probe.remove(); return colours;
+    });
+    expect(system.text).not.toBe(system.canvas);
+    for (const cloth of await contrasted.locator("[data-pennant-cloth], [data-sail-cloth]").all()) {
+      expect(await cloth.evaluate((node) => getComputedStyle(node).fill)).toBe(system.text);
+      expect(await backdrop(cloth), `${scheme} surface behind a shape`).toBe(system.canvas);
+    }
+    expect(await contrasted.locator("[data-coast-land]").evaluate((node) => getComputedStyle(node).fill)).toBe(system.canvas);
+    expect(await contrasted.locator("[data-coast-edge]").evaluate((node) => getComputedStyle(node).stroke)).toBe(system.text);
+    await expect(contrasted.locator('svg[data-pennant="square"]').first()).toBeVisible();
+    await expect(contrasted.locator('svg[data-pennant="triangle"]').first()).toBeVisible();
+    await expectNoHorizontalScroll(contrasted);
   }
-  expect(await page.locator("[data-coast-land]").evaluate((node) => getComputedStyle(node).fill)).toBe(system.canvas);
-  expect(await page.locator("[data-coast-edge]").evaluate((node) => getComputedStyle(node).stroke)).toBe(system.text);
-  await expect(page.locator('svg[data-pennant="square"]').first()).toBeVisible();
-  await expectNoHorizontalScroll(page);
 });
 
 for (const locale of ["fr", "en"] as const) test(`history and account: wave marks behind the title, states intact, both themes (${locale})`, async ({ browser }) => {

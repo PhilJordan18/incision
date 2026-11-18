@@ -26,17 +26,17 @@ type Size = keyof typeof SIZES;
 type Theme = "abysse" | "aube";
 type Shot = readonly [locale: "fr" | "en", theme: Theme, size: Size];
 
-/** French in both themes at every width; English once per theme. */
+/** French in Abysse at every width, in Aube at three; English once per theme. */
 const MATRIX: readonly Shot[] = [
   ["fr", "abysse", "1440"], ["fr", "abysse", "1024"], ["fr", "abysse", "390"], ["fr", "abysse", "360"], ["fr", "abysse", "1280x640"],
-  ["fr", "aube", "1440"], ["fr", "aube", "1024"], ["fr", "aube", "390"], ["fr", "aube", "360"], ["fr", "aube", "1280x640"],
+  ["fr", "aube", "1440"], ["fr", "aube", "390"], ["fr", "aube", "1280x640"],
   ["en", "abysse", "1440"], ["en", "aube", "1440"],
 ];
 
 async function shoot(page: Page, name: string): Promise<void> {
   mkdirSync(out!, { recursive: true });
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: path.join(out!, `${name}.jpg`), type: "jpeg", quality: 82, fullPage: true });
+  await page.screenshot({ path: path.join(out!, `${name}.jpg`), type: "jpeg", quality: 72, fullPage: true });
 }
 
 async function matrix(page: Page, name: string, visit: () => Promise<void>, shots: readonly Shot[] = MATRIX): Promise<void> {
@@ -76,15 +76,20 @@ test("captures: race page", async ({ browser }) => {
     await reader.page.getByRole("region", { name: /^(Journal des bonus|Bonus journal)$/ }).locator("summary").nth(1).click();
   };
   await matrix(reader.page, "race-page", open);
-  // Forced colours (Windows contrast themes), both schemes.
-  for (const scheme of ["dark", "light"] as const) {
-    await setLocale(reader.context, "fr"); await setTheme(reader.context, scheme === "dark" ? "abysse" : "aube");
-    await reader.page.emulateMedia({ forcedColors: "active", colorScheme: scheme });
-    await reader.page.setViewportSize(SIZES["1440"]);
-    await open();
-    await shoot(reader.page, `race-page-forced-colors-${scheme}`);
+  // Forced colours (Windows contrast themes): set on the context, so the browser really repaints
+  // the page with the system palette. Light palette only: headless Chromium does not paint a dark
+  // forced palette faithfully (the page keeps its authored colours), so that one is not evidence.
+  for (const scheme of ["light"] as const) {
+    const forced = await browser.newContext({ viewport: SIZES["1440"], locale: "fr-CA", reducedMotion: "reduce", forcedColors: "active", colorScheme: scheme });
+    contexts.push(forced);
+    await forced.addCookies(await reader.context.cookies());
+    await setLocale(forced, "fr"); await setTheme(forced, "aube");
+    const page = await forced.newPage();
+    await page.goto(`/races/${race.id}`);
+    await shoot(page, `race-page-forced-colors-${scheme}`);
+    await page.goto("/account");
+    await shoot(page, `account-forced-colors-${scheme}`);
   }
-  await reader.page.emulateMedia({ forcedColors: "none", colorScheme: null });
   // 200 % zoom of a 1440 px window: 720 CSS px at twice the density.
   const zoomed = await browser.newContext({ viewport: { width: 720, height: 450 }, deviceScaleFactor: 2, locale: "fr-CA", reducedMotion: "reduce" });
   contexts.push(zoomed);
