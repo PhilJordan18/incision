@@ -23,7 +23,7 @@ export class Client {
   arcadeGrants = 0;
   fogAnnouncements = 0;
   private bonusSelf: BonusSelf | undefined;
-  guestFogRefused = false;
+  guestActivationRefused = false;
   bonusRefusal: string | undefined;
   errors = 0;
   disconnects = 0;
@@ -114,11 +114,12 @@ export class Client {
     return this.socket.timeout(10_000).emitWithAck(event, payload);
   }
 
-  async type(index: number, fog?: { claim: () => boolean; guest: boolean }) {
+  async type(index: number, arcade?: { claim: () => boolean; guest: boolean; awaitGrant: boolean }) {
     await waitFor(() => this.reveal !== undefined, this.signal);
     const reveal = this.reveal!;
     // Server clock decides the countdown. RTT is not subtracted; this starts conservatively late.
     await sleep(Math.max(0, reveal.reveal.startsAt - reveal.serverNow) + 200 + index * 7, undefined, { signal: this.signal });
+    if (arcade?.awaitGrant) await waitFor(() => this.arcadeGrants > 0, this.signal, 30_000);
     let seq = 1;
     for (const grapheme of reveal.reveal.text) {
       const before = performance.now();
@@ -134,12 +135,12 @@ export class Client {
       this.acknowledged++;
       seq++;
       const grant = this.bonusSelf?.grants[0];
-      if (grant?.kind === "fogLeader" && fog?.claim()) {
+      if (grant !== undefined && (arcade?.guest || grant.kind === "fogLeader") && arcade?.claim()) {
         const activation = bonusActivationAckSchema.parse(await this.ask(RACE_BONUS_ACTIVATE_EVENT, {
           raceId: reveal.reveal.raceId, seq: 1, milestone: grant.milestone,
         }));
-        if (fog.guest && !activation.ok && activation.error === "UNAUTHORIZED") this.guestFogRefused = true;
-        else if (fog.guest || !activation.ok || !activation.result.ok) {
+        if (arcade.guest && !activation.ok && activation.error === "UNAUTHORIZED") this.guestActivationRefused = true;
+        else if (arcade.guest || !activation.ok || !activation.result.ok) {
           this.bonusRefusal = !activation.ok ? activation.error : activation.result.ok ? "UNEXPECTED_SUCCESS" : activation.result.reason;
           throw new Error("Unexpected Arcade fog activation result");
         }
@@ -156,8 +157,8 @@ export class Client {
   }
 }
 
-export async function waitFor(predicate: () => boolean, signal: AbortSignal) {
-  const deadline = performance.now() + 15_000;
+export async function waitFor(predicate: () => boolean, signal: AbortSignal, timeoutMs = 15_000) {
+  const deadline = performance.now() + timeoutMs;
   while (!predicate()) {
     if (performance.now() >= deadline) throw new Error("Load observation timeout");
     await sleep(50, undefined, { signal });

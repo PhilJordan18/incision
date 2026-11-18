@@ -28,6 +28,7 @@ async function main() {
   const secret = randomBytes(32).toString("base64url");
   const guestKey = settings.guestArcade ? randomBytes(32).toString("base64url") : undefined;
   const guests = settings.guestArcade ? 15 : 0;
+  const delayedPerIdentity = 12;
   const admin = new pg.Client({ connectionString: settings.admin, connectionTimeoutMillis: 5_000, query_timeout: 15_000 });
   const pool = new pg.Pool({ connectionString: url.toString(), max: 5, connectionTimeoutMillis: 5_000, query_timeout: 15_000 });
   const controller = new AbortController();
@@ -52,7 +53,8 @@ async function main() {
     runners: settings.runners, spectators: settings.spectators, guests, arcade: settings.guestArcade,
     expectedSocketConnections: settings.browser ? 51 : 50,
     fixtureSetup: "Synthetic identities and signed local sessions; real DB membership functions, not HTTP sign-in/admission load",
-    scenario: "One full FR race drawn from the versioned corpus with default settings, mandatory correction, correct inserts, one per 125–153 ms plus ACK delay",
+    scenario: "One full FR race drawn from the versioned corpus, mandatory correction, one correct insert per 125–153 ms plus ACK delay",
+    arcadeDelayedRunners: settings.guestArcade ? delayedPerIdentity * 2 : 0,
     corpusVersion: LOAD_CORPUS_VERSION,
     visualSmoothness: "NOT_CHECKED",
     productionCapacity: "NOT_CHECKED",
@@ -63,7 +65,7 @@ async function main() {
   let startRefusal: string | undefined;
   let browserReport: BrowserReport | undefined;
   let guestArcade: {
-    guestResults: number; arcadeRunners: number; fogObservers: number; guestFogRefusals: number;
+    guestResults: number; arcadeRunners: number; fogObservers: number; guestActivationRefusals: number;
     measurements: ReturnType<typeof sqlDelta>; guestSqlBudget: number; durationMs: number;
   } | undefined;
   const cleanupErrors: string[] = [];
@@ -147,7 +149,10 @@ async function main() {
         claimedFog.add(identity);
         return true;
       };
-      return client.type(index, settings.guestArcade ? { claim, guest: identity === "guest" } : undefined);
+      const identityIndex = index - (identity === "guest" ? accountRunners : 0);
+      return client.type(index, settings.guestArcade ? {
+        claim, guest: identity === "guest", awaitGrant: identityIndex < delayedPerIdentity,
+      } : undefined);
     });
     try { await Promise.all(typing); }
     catch (error) {
@@ -166,9 +171,9 @@ async function main() {
     const durationMs = performance.now() - raceStarted;
     // Initial grant plus the number of persistence windows spanned by the measured phase.
     const guestSqlBudget = guests * (1 + Math.ceil(durationMs / GUEST_COMMAND_LIMIT.persistEveryMs));
-    const arcadeRunners = clients.slice(0, settings.runners).filter(client => client.arcadeGrants === 3).length;
+    const arcadeRunners = clients.slice(0, settings.runners).filter(client => client.arcadeGrants > 0).length;
     const fogObservers = clients.slice(settings.runners).filter(client => client.fogAnnouncements === 1).length;
-    const guestFogRefusals = clients.filter(client => client.guestFogRefused).length;
+    const guestActivationRefusals = clients.filter(client => client.guestActivationRefused).length;
     // Publication of results is a committed room snapshot, not just the in-memory ended event.
     const snapshots = await Promise.all(clients.map(async (client) => {
       const ack = roomWatchAckSchema.parse(await client.ask("room:watch", { code: room.room.code }));
@@ -193,8 +198,8 @@ async function main() {
     )).rows[0]?.count ?? 0) : 0;
     if (measurements !== undefined) {
       stage = "guest SQL and Arcade coverage";
-      guestArcade = { guestResults, arcadeRunners, fogObservers, guestFogRefusals, measurements, guestSqlBudget, durationMs };
-      if (guestResults !== guests || arcadeRunners !== settings.runners || fogObservers !== settings.spectators || guestFogRefusals !== 1 ||
+      guestArcade = { guestResults, arcadeRunners, fogObservers, guestActivationRefusals, measurements, guestSqlBudget, durationMs };
+      if (guestResults !== guests || arcadeRunners < 2 * delayedPerIdentity || fogObservers !== settings.spectators || guestActivationRefusals !== 1 ||
           measurements.guestSessionLocks < guests || measurements.guestActivityWrites < guests ||
           measurements.guestSessionLocks > guestSqlBudget || measurements.guestActivityWrites > guestSqlBudget) {
         throw new Error("Guest SQL, persisted results or Arcade grant coverage failed");
