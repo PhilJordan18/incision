@@ -122,6 +122,21 @@ test("room results: each pennant has its runner's shape, the reader's own has it
     }
     await expectNoAccessibilityViolation(page);
   }
+  // Race → podium → table → journal → legend: on the race page, the legend shows the same
+  // pennant as the room's table did for each entrant, and so do the page's own lists.
+  const inRoom = new Map<number, Drawn>();
+  for (const entrant of entrants) inRoom.set(entrant.ordinal, await pennantOf(guest.page.getByRole("table").first().locator(`[data-result-entrant="${entrant.ordinal}"]`)));
+  await guest.page.getByRole("link", { name: "Open the race page", exact: true }).click();
+  await expect(guest.page).toHaveURL(new RegExp(`/races/${raceId}$`));
+  const legend = guest.page.getByRole("region", { name: "Speed during the race", exact: true }).locator("ol > li[data-result-entrant]");
+  await expect(legend).toHaveCount(entrants.length);
+  for (const entrant of entrants) {
+    const expected = inRoom.get(entrant.ordinal)!;
+    expect(await pennantOf(guest.page.locator(`ol > li[data-result-entrant="${entrant.ordinal}"]`)), "legend").toEqual(expected);
+    expect(await pennantOf(guest.page.getByRole("table").first().locator(`[data-result-entrant="${entrant.ordinal}"]`)), "table").toEqual(expected);
+    expect(await pennantOf(guest.page.locator(`summary[data-result-entrant="${entrant.ordinal}"]`)), "journal").toEqual(expected);
+    expect(await pennantOf(guest.page.getByRole("region", { name: "Podium", exact: true }).locator(`[data-result-entrant="${entrant.ordinal}"]`)), "podium").toEqual(expected);
+  }
 });
 
 for (const locale of ["fr", "en"] as const) test(`race page: pennants, coast and focus stay readable in both themes (${locale})`, async ({ browser }) => {
@@ -284,5 +299,188 @@ for (const locale of ["fr", "en"] as const) test(`history and account: wave mark
     });
   } finally {
     await query("alter table race_results_away rename to race_results");
+  }
+});
+
+test("who may read the results: host, member, guest, spectator, outsider and signed-out visitor", async ({ browser }) => {
+  test.setTimeout(150_000);
+  const host = await sailor(browser, "Capitaine"); const member = await sailor(browser, "Lina");
+  const watcher = await sailor(browser, "Vigie"); const outsider = await sailor(browser, "Passant");
+  const visitor = await browser.newContext({ locale: "fr-CA", reducedMotion: "reduce" });
+  const signedOut = await browser.newContext({ locale: "fr-CA", reducedMotion: "reduce" });
+  contexts.push(host.context, member.context, watcher.context, outsider.context, visitor, signedOut);
+  await query("update lobbies set host_member_id=null"); await query("delete from lobbies");
+  await host.page.goto("/rooms/new");
+  await host.page.getByRole("button", { name: "Ouvrir la salle", exact: true }).click();
+  await expect(host.page.getByText("[.En direct]", { exact: true })).toBeVisible();
+  const code = host.page.url().split("/").at(-1)!;
+  const [room] = await query<{ id: string }>("select id from lobbies where code=$1", [code]);
+  await member.page.goto(`/rooms/${code}`);
+  await member.page.getByRole("button", { name: "Rejoindre la salle", exact: true }).click();
+  await expect(member.page.getByText("[.En direct]", { exact: true })).toBeVisible();
+  // A guest enters through the guest form; a spectator is seated by a fixture row (admission has its own specs).
+  const guestPage = await visitor.newPage();
+  await guestPage.goto(`/guest?code=${code}`);
+  await guestPage.getByLabel("Pseudo pour cette salle").fill("Mousse");
+  await guestPage.getByRole("button", { name: "Entrer dans la salle", exact: true }).click();
+  await expect(guestPage.getByText("[.En direct]", { exact: true })).toBeVisible();
+  await query(`insert into lobby_members (lobby_id, account_id, role, display_name, display_name_canonical) values ($1, $2, 'spectator', 'Vigie', 'vigie')`, [room!.id, watcher.accountId]);
+  await watcher.page.goto(`/rooms/${code}`);
+  await expect(watcher.page.getByText("[.En direct]", { exact: true })).toBeVisible();
+  const bots = host.page.getByRole("region", { name: "Bots", exact: true });
+  await bots.getByRole("combobox").first().selectOption("impossible");
+  await bots.getByRole("button", { name: "Ajouter un bot", exact: true }).click();
+  await expect(bots.getByRole("listitem")).toHaveCount(1);
+  await host.page.getByRole("button", { name: "Lancer la course", exact: true }).click();
+  const runners = [host.page, member.page, guestPage];
+  for (const page of runners) await expect(page.getByLabel("Ta frappe", { exact: true })).toBeEnabled({ timeout: 15_000 });
+  const [race] = await query<{ id: string }>("select current_race_id as id from lobbies where code=$1", [code]);
+  const entrantIds = (await query<{ id: string }>("select id from race_entrants where race_id=$1", [race!.id])).map((row) => row.id);
+  expect(entrantIds).toHaveLength(4);
+  for (const page of runners) await giveUp(page);
+  for (const page of [...runners, watcher.page]) await expectResults(page);
+
+  for (const page of [...runners, watcher.page]) {
+    const table = page.getByRole("table").first();
+    // Everyone admitted reads the same four rows, each with one pennant; the journal lists the same four.
+    await expect(table.getByRole("rowheader")).toHaveCount(4);
+    await expect(table.locator("svg[data-pennant]")).toHaveCount(4);
+    await expect(table.locator('svg[data-pennant="square"]')).toHaveCount(1);
+    await expect(page.locator("summary[data-result-entrant] svg[data-pennant]")).toHaveCount(4);
+    // No race entrant id reaches the page with the pennants.
+    const html = await page.content();
+    for (const id of entrantIds) expect(html).not.toContain(id);
+  }
+  // A runner sees one pennant in their own colour, on their own row; the arrival scene is theirs.
+  for (const page of runners) {
+    const table = page.getByRole("table").first();
+    await expect(table.locator('svg[data-pennant][data-colour="moi"]')).toHaveCount(1);
+    await expect(table.getByRole("row").filter({ hasText: "(toi)" }).locator('svg[data-pennant][data-colour="moi"]')).toHaveCount(1);
+    await expect(page.locator("[data-arrival-shore] [data-coast]")).toHaveCount(1);
+    await expect(page.locator('[data-arrival-shore] [data-ship][data-colour="moi"]')).toHaveCount(1);
+  }
+  // A spectator has no route of their own: no `moi` pennant, no rank, no arrival scene, the same table.
+  await expect(watcher.page.getByText("Tu n’as pas couru cette manche.", { exact: true })).toBeVisible();
+  await expect(watcher.page.locator('svg[data-pennant][data-colour="moi"]')).toHaveCount(0);
+  await expect(watcher.page.locator("[data-arrival-shore], [data-coast]")).toHaveCount(0);
+  // Only the host has the red action; only account entrants get the link to the race page.
+  await expect(host.page.getByRole("main").locator(".bg-action")).toHaveText("Prochaine manche");
+  for (const page of [member.page, guestPage, watcher.page]) await expect(page.getByRole("main").locator(".bg-action")).toHaveCount(0);
+  await expect(member.page.getByRole("link", { name: "Voir la fiche de la course", exact: true })).toBeVisible();
+  for (const page of [guestPage, watcher.page]) await expect(page.getByRole("link", { name: "Voir la fiche de la course", exact: true })).toHaveCount(0);
+
+  // The race page stays its account entrants' only: the member reads it, nobody else gets a pennant.
+  const path = `/races/${race!.id}`;
+  await member.page.goto(path);
+  await expect(member.page.getByRole("table").first().locator("svg[data-pennant]")).toHaveCount(4);
+  for (const page of [watcher.page, outsider.page]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(/introuvable/i);
+    await expect(page.locator("svg[data-pennant], [data-coast]")).toHaveCount(0);
+  }
+  await guestPage.goto(path);
+  await expect(guestPage).toHaveURL(/\/sign-in/);
+  const stranger = await signedOut.newPage();
+  await stranger.goto(path);
+  await expect(stranger).toHaveURL(/\/sign-in/);
+  await stranger.goto(`/rooms/${code}`);
+  await expect(stranger.locator("svg[data-pennant], [data-coast]")).toHaveCount(0);
+});
+
+for (const theme of ["abysse", "aube"] as const) test(`account: the name and photo forms while a save is pending (${theme})`, async ({ browser }) => {
+  const reader = await sailor(browser, "Capitaine");
+  contexts.push(reader.context);
+  const { page } = reader;
+  await setTheme(reader.context, theme);
+  const evidence = process.env.DA2_CAPTURES;
+  const shoot = async (name: string) => {
+    if (evidence !== undefined) await page.screenshot({ path: `${evidence}/${name}-fr-${theme}-1440.jpg`, type: "jpeg", quality: 72, fullPage: true });
+  };
+  // The photo: the request is held, so the form stays in its pending state.
+  await page.goto("/account");
+  let release: () => void = () => {};
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/api/account/photo", async (route) => {
+    if (route.request().method() !== "POST") { await route.continue(); return; }
+    await held; await route.continue();
+  });
+  const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.getByLabel("Photo de profil", { exact: true }).setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: pixel });
+  const photoForm = page.locator("form").filter({ has: page.locator("#profile-photo") });
+  await photoForm.getByRole("button", { name: "Enregistrer la photo", exact: true }).click();
+  await expect(photoForm).toHaveAttribute("aria-busy", "true");
+  await expect(page.locator("#profile-photo")).toBeDisabled();
+  const savingPhoto = photoForm.getByRole("button", { name: "Enregistrement…", exact: true });
+  await expect(savingPhoto).toHaveAttribute("aria-disabled", "true");
+  // The pending word is the state, not a colour alone; the page keeps its one red action and its title band.
+  await expect(page.getByRole("main").locator(".bg-action")).toHaveCount(1);
+  await expect(page.getByRole("main").locator("svg[data-wave-marks]")).toHaveCount(1);
+  await expectNoAccessibilityViolation(page);
+  await expectNoHorizontalScroll(page);
+  await shoot("account-photo-pending");
+  release();
+  await expect(photoForm).toHaveAttribute("aria-busy", "false");
+  await page.unroute("**/api/account/photo");
+
+  // The name: the server action's request is held the same way.
+  await page.goto("/account");
+  let releaseName: () => void = () => {};
+  const heldName = new Promise<void>((resolve) => { releaseName = resolve; });
+  await page.route("**/account", async (route) => {
+    if (route.request().method() !== "POST") { await route.continue(); return; }
+    await heldName; await route.continue();
+  });
+  const nameForm = page.locator("form").filter({ has: page.locator("#display-name") });
+  await page.locator("#display-name").fill("Capitaine Cap");
+  await nameForm.getByRole("button", { name: "Enregistrer le nom", exact: true }).click();
+  await expect(nameForm).toHaveAttribute("aria-busy", "true");
+  await expect(page.locator("#display-name")).toHaveAttribute("readonly", "");
+  const savingName = nameForm.getByRole("button", { name: "Enregistrement…", exact: true });
+  await expect(savingName).toHaveAttribute("aria-disabled", "true");
+  // Still the page's one red action, still readable while it waits.
+  await expect(page.getByRole("main").locator(".bg-action")).toHaveCount(1);
+  await expect(savingName).toHaveClass(/bg-action/);
+  await expectNoAccessibilityViolation(page);
+  await shoot("account-name-pending");
+  releaseName();
+  await expect(page.getByRole("status").filter({ hasText: "Nom enregistré." })).toBeVisible();
+  await expect(nameForm).toHaveAttribute("aria-busy", "false");
+});
+
+test("forced colours: wave marks, pennants and the coast take system colours on every screen of the card", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const reader = await sailor(browser, "Capitaine", { forcedColors: "active", colorScheme: "light" });
+  const other = await sailor(browser, "Lina", { forcedColors: "active", colorScheme: "light" });
+  contexts.push(reader.context, other.context);
+  const system = async (page: Page) => page.evaluate(() => {
+    const probe = document.createElement("span"); probe.style.color = "CanvasText"; probe.style.backgroundColor = "Canvas"; document.body.append(probe);
+    const computed = getComputedStyle(probe); const colours = { text: computed.color, canvas: computed.backgroundColor }; probe.remove(); return colours;
+  });
+  await seedRace(crew(reader.accountId, other.accountId));
+  for (const path of ["/history", "/account"]) {
+    await reader.page.goto(path);
+    expect(await reader.page.evaluate(() => matchMedia("(forced-colors: active)").matches)).toBe(true);
+    const colours = await system(reader.page);
+    const marks = reader.page.getByRole("main").locator("svg[data-wave-marks] path");
+    expect(await marks.count()).toBeGreaterThan(3);
+    expect(await marks.first().evaluate((node) => getComputedStyle(node).stroke)).toBe(colours.text);
+    await expectNoHorizontalScroll(reader.page);
+  }
+  // The results in a real room, as the host and as the other member.
+  await roomResults(reader, other);
+  await giveUp(other.page); await giveUp(reader.page);
+  for (const { page } of [reader, other]) {
+    await expectResults(page);
+    const colours = await system(page);
+    expect(colours.text).not.toBe(colours.canvas);
+    const cloths = page.locator("[data-pennant-cloth], [data-sail-cloth]");
+    expect(await cloths.count()).toBeGreaterThanOrEqual(9);
+    for (const cloth of await cloths.all()) expect(await cloth.evaluate((node) => getComputedStyle(node).fill)).toBe(colours.text);
+    expect(await page.locator("[data-coast-edge]").evaluate((node) => getComputedStyle(node).stroke)).toBe(colours.text);
+    // Kind still reads by shape, and the reader's row by its word, not by colour.
+    await expect(page.getByRole("table").first().locator('svg[data-pennant="square"]')).toHaveCount(1);
+    await expect(page.getByRole("table").first().locator('svg[data-pennant="triangle"]')).toHaveCount(2);
+    await expect(page.getByRole("table").first().getByText(/\((toi|you)\)/)).toHaveCount(1);
+    await expectNoHorizontalScroll(page);
   }
 });

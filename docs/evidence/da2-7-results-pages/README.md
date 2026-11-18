@@ -29,6 +29,7 @@ File names: `<screen>[-<state>]-<language>-<theme>-<width or 1280x640>.jpg`;
 | `account-fr-abysse-390.jpg`, `-360` | `compte-390.jpg` | `account-fr-abysse-390.jpg` |
 | `account-fr-aube-1440.jpg`, `-390`, `-1280x640`, `account-en-aube-1440.jpg` | none | `account-fr-aube-1440.jpg` |
 | `account-empty-*`, `account-name-invalid-*`, `account-statistics-unavailable-*` (Abysse and Aube) | none | — |
+| `account-photo-pending-fr-<theme>-1440.jpg`, `account-name-pending-fr-<theme>-1440.jpg` (a save held in flight, written by `e2e/da2-results.spec.ts`) | none | — |
 
 ## Where the app differs from the mock-up, on purpose
 
