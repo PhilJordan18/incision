@@ -18,7 +18,8 @@
   border: 1px solid var(--color-houle);
   background: var(--color-mer);
 }
-.horizontalOnly { display: none; }
+/* `.track` in front: these win over the drawings' own `display`, whatever the stylesheets' order. */
+.track .horizontalOnly { display: none; }
 /* A milestone: a dotted parallel across the chart, with its share of the text. */
 .milestone {
   position: absolute;
@@ -45,12 +46,13 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: 15%;
+  /* Never thinner than its two words: on the shortest chart the shore stays under them. */
+  height: max(15%, 36px);
   pointer-events: none;
 }
 .finishText {
   position: absolute;
-  top: 8px;
+  top: 6px;
   left: 12px;
   color: var(--color-erreur);
   font-weight: 700;
@@ -114,9 +116,9 @@
 /* A named runner: the marker is the foot of its ship, which carries the colour on its sail. */
 .named { z-index: 2; width: 0; height: 0; box-shadow: none; }
 .self { z-index: 3; }
+/* The front runner: its ship has the `or` ring; on the tablet's chart it keeps its ship. */
 .leader { z-index: 2; }
 .bot { border-radius: 6px; }
-.named.bot { border-radius: 0; }
 .ship {
   --ship-size: 46px;
   position: absolute;
@@ -142,12 +144,12 @@
 .rank { margin-right: 4px; font-family: var(--font-mono); font-weight: 700; }
 .rank::after { content: "."; }
 .selfLabel { font-weight: 700; }
-.more { position: absolute; top: 8px; right: 12px; color: var(--color-embrun); }
+.more { position: absolute; top: 6px; right: 12px; color: var(--color-embrun); }
 .horizontalMore { display: none; }
 
 /* A runner's pennant before its name: the sail's shape, the route's colour and dash. */
 /* Smaller than in the standings: a name's line keeps its 12 px height, so five names still fit apart. */
-.pennant { width: 18px; height: 12px; margin-right: 4px; vertical-align: -1px; }
+.track .pennant { width: 18px; height: 12px; margin-right: 4px; vertical-align: -1px; }
 
 /* In the race's row (≥ 1024 px), the chart fills the row's height instead of its own. */
 @media (min-width: 1024px) {
@@ -156,12 +158,16 @@
 }
 /* Tablet: the same chart turned on its side, the start on the left and the coast on the right. */
 @media (min-width: 640px) and (max-width: 1023px) {
-  .verticalMore, .verticalRoutes, .verticalOnly { display: none; }
+  .verticalMore, .verticalRoutes, .track .verticalOnly { display: none; }
   .horizontalMore { display: inline; }
-  .horizontalRoutes, .horizontalOnly { display: block; }
+  .horizontalRoutes, .track .horizontalOnly { display: block; }
   .track { height: 180px; }
   .point { left: var(--horizontal-x); top: var(--horizontal-y); }
   .ship { --ship-size: 36px; }
+  /* Only the two runners named on this chart sail a ship; the other named ones are dots again,
+     as « + N » counts them. */
+  .named:not(.self):not(.leader) { width: 8px; height: 8px; box-shadow: 0 0 0 1px var(--color-mer); }
+  .named:not(.self):not(.leader) .ship { display: none; }
   .self .ship { --ship-size: 46px; }
   .milestone { top: 0; left: var(--at-x); width: 1px; height: 100%;
     background: repeating-linear-gradient(180deg, var(--color-houle) 0 2px, transparent 2px 8px); }
@@ -183,6 +189,8 @@
   .selfRoute { stroke: Highlight; }
   .milestone { background: none; border-top: 1px dotted CanvasText; }
   .finishText, .milestoneLabel, .more { color: CanvasText; }
+  /* A milestone's dotted line must not strike a name through. */
+  .label { background: Canvas; }
 }
 @media (forced-colors: active) and (min-width: 640px) and (max-width: 1023px) {
   .milestone { border-top: 0; border-left: 1px dotted CanvasText; }

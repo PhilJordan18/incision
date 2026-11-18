@@ -105,16 +105,20 @@ for (const item of cases) {
     await expect(track.locator("[data-compass]:visible")).toHaveCount(1);
     await expect(track.getByText(locale === "fr-CA" ? "Arrivée" : "Finish", { exact: true })).toBeVisible();
     const boxes = await chartBoxes(page);
-    // Every marker inside the chart; no name over another name, the compass or a hull.
-    for (const marker of boxes.markers) {
+    // Every marker and hull inside the chart; no name over another name, the compass or a hull.
+    for (const marker of [...boxes.markers, ...boxes.ships]) {
       expect(marker.left).toBeGreaterThanOrEqual(boxes.track.left); expect(marker.right).toBeLessThanOrEqual(boxes.track.right);
       expect(marker.top).toBeGreaterThanOrEqual(boxes.track.top); expect(marker.bottom).toBeLessThanOrEqual(boxes.track.bottom);
     }
-    expect(boxes.ships.length).toBeGreaterThanOrEqual(3);
+    // Five named runners sail on the vertical chart; on the tablet's, only the two it names (me and a sole leader).
+    if (horizontal) expect(boxes.ships.length).toBe(boxes.labels.length); else expect(boxes.ships.length).toBeGreaterThanOrEqual(3);
+    // Along the top, the coastline never crosses the finish word or the others' count.
+    if (!horizontal) expect(await track.evaluate(el => { const edge = el.querySelector("[data-coast]:not([data-coast=vertical]) [data-coast-edge]")!.getBoundingClientRect();
+      return [...el.querySelectorAll(":scope > span")].filter(word => getComputedStyle(word).top === "6px").every(word => word.getBoundingClientRect().bottom <= edge.top + 1); })).toBe(true);
     for (const [i, label] of boxes.labels.entries()) {
       for (const other of boxes.labels.slice(i + 1)) expect(overlap(label, other), "two names overlap").toBe(false);
       for (const compass of boxes.compass) expect(overlap(label, compass), "a name over the compass").toBe(false);
-      if (!horizontal) for (const hull of boxes.ships) expect(overlap(label, hull), "a name over a hull").toBe(false);
+      for (const hull of boxes.ships) expect(overlap(label, hull), "a name over a hull").toBe(false);
     }
     // The compass is on the chart, clear of the text sheet above it.
     if (width >= 768) {

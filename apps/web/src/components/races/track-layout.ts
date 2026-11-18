@@ -29,7 +29,7 @@ export type RouteStyle = {
 /**
  * Each runner's route, fixed for the round: the player's own in `moi`, the others by their place
  * in the crew sorted by id (not by rank, which changes), a colour then a dash pattern, so that
- * twelve neighbours never share both. Names, initials and markers still identify every runner:
+ * twelve neighbours never share both. Names, pennants and sails still identify every runner:
  * the colour is never the only cue (rule 8).
  */
 export function routeStyle(stableIndex: number, self: boolean): RouteStyle {
@@ -90,7 +90,7 @@ export const trackX = (t: number) => 5 + 88 * t;
 /** The milestones drawn across the chart, as shares of the text. */
 export const MILESTONES = [0.25, 0.5, 0.75] as const;
 
-/** The names' column (in % of the chart's height): five two-line names (31 px) fit apart on a 12 rem chart, under the finish band (12 %). */
+/** The names' column (in % of the chart's height): five two-line names (31 px) fit apart on a 12 rem chart, under the coast (15 %). */
 export const LABEL_TOP = 25;
 export const LABEL_BOTTOM = 90;
 export const LABEL_GAP = 16.25;
@@ -117,7 +117,7 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
     // The lanes leave the chart's bottom-left corner (vertical) and bottom edge (horizontal) to the
     // compass and the names: a ship never starts or sails over them.
     const lane = 16 + 39 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
-    const horizontalLane = 16 + 46 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
+    const horizontalLane = 16 + 40 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
     const vertical = (t: number) => [lane + swing(t, id), trackY(t)] as const;
     const horizontal = (t: number) => [trackX(t), horizontalLane + swing(t, id)] as const;
     const progress = ratio(runner);

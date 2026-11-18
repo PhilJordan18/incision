@@ -28,6 +28,10 @@ File names: `course-<width>x<height>-<theme>-<language>-<runners>[-forced-colour
 - **Pennant of a dashed runner**: the mock-up cuts it as a swallowtail. Here the cloth keeps the
   kind's shape (triangle: human, square: bot) and the dash is a sample of the route under it.
 - **Compass**: bottom-left of the chart instead of bottom-right, where the names' column is.
+- **A bot's name on the chart** no longer starts with « □ »: its square sail and square pennant say
+  it, as in the mock-up. The standings keep « · □ Bot » in words.
+- **Tablet chart**: only the two runners it names (me and the leader) sail a ship; the three
+  other named runners are dots there, as its « + N autres coureurs » counts them.
 - **Ships** are drawn at 85 % of the mock-up's size, so that they fit the shortest chart (12 rem).
 
 ## Contrast measured on the app (`race ships contrast`, 1440 × 900, 30 runners)

@@ -44,8 +44,8 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
         <span className={styles.milestoneLabel}>{formatProgress(share * 100, 100, locale)}</span>
       </span>)}
       {/* The finish is a coast: one drawing, along the top (vertical chart) or the right (horizontal). */}
-      <div className={`${styles.coast} ${styles.verticalOnly}`} data-finish="vertical"><Coast orientation="horizontal" /></div>
-      <div className={`${styles.coast} ${styles.horizontalOnly}`} data-finish="horizontal"><Coast orientation="vertical" /></div>
+      <div className={`${styles.coast} ${styles.verticalOnly}`}><Coast orientation="horizontal" /></div>
+      <div className={`${styles.coast} ${styles.horizontalOnly}`}><Coast orientation="vertical" /></div>
       <span className={`${styles.finishText} font-mono text-xs uppercase tracking-widest`}>{text.finish}</span>
       {/* Away from the text sheet, under the routes: it measures nothing and never moves. */}
       <Compass heading={-90} className={`${styles.compass} ${styles.verticalOnly}`} />

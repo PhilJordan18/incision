@@ -152,9 +152,9 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
       // One coast and one compass at every width; on the tablet's horizontal chart the coast is on the right.
       await expect(track.locator("[data-coast]:visible")).toHaveAttribute("data-coast", width === 800 ? "vertical" : "horizontal");
       await expect(track.locator("[data-compass]:visible")).toHaveCount(1);
-      // Ships and dots stay inside the chart, whatever its direction.
-      const inside = await track.locator("[data-runner]").evaluateAll(markers => { const box = markers[0]!.closest("[data-testid=race-track]")!.getBoundingClientRect();
-        return markers.every(marker => { const at = marker.getBoundingClientRect(); return at.left >= box.left && at.right <= box.right && at.top >= box.top && at.bottom <= box.bottom; }); });
+      // Dots and hulls stay inside the chart, whatever its direction (a named marker is its ship's foot).
+      const inside = await track.locator("[data-runner], [data-ship]:visible > path:last-of-type").evaluateAll(marks => { const box = marks[0]!.closest("[data-testid=race-track]")!.getBoundingClientRect();
+        return marks.every(mark => { const at = mark.getBoundingClientRect(); return at.left >= box.left && at.right <= box.right && at.top >= box.top && at.bottom <= box.bottom; }); });
       expect(inside).toBe(true);
       await page.screenshot({ animations: "disabled", path: test.info().outputPath(`track-${theme}-${width}.png`), fullPage: true });
       if (width === 360) await expectNoAccessibilityViolation(page);
@@ -168,7 +168,7 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     // The marker no longer carries initials (DA2-2): its ship's sail and hull take the two system colours.
     const systemColors = await marker.evaluate(el => ({ background: getComputedStyle(el).backgroundColor,
       sail: getComputedStyle(el.querySelector("[data-sail-cloth]")!).fill, hull: getComputedStyle(el.querySelector("[data-ship] > path:last-of-type")!).fill,
-      edge: getComputedStyle(el.closest("[data-testid=race-track]")!.querySelector("[data-coast]:not([hidden]) [data-coast-edge]")!).stroke,
+      edge: getComputedStyle(el.closest("[data-testid=race-track]")!.querySelector('[data-coast="horizontal"] [data-coast-edge]')!).stroke,
       forced: matchMedia("(forced-colors: active)").matches }));
     expect(systemColors.forced).toBe(true);
     expect(systemColors.sail).toBe(systemColors.background);
