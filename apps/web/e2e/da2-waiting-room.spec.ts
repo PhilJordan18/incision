@@ -270,6 +270,12 @@ for (const locale of ["fr-CA", "en-US"] as const) for (const theme of ["abysse",
     await bots.nth(1).getByRole("combobox").selectOption("expert");
     await bots.nth(6).getByRole("button", { name: /^(Modifier|Edit) Bot 7$/ }).click();
     await expect(bots.nth(1).getByText(/^(Non enregistré|Unsaved)$/)).toBeVisible();
+    // Screen reader: the open and unsaved states are in the tree (expanded, status), not only on screen.
+    const tree = await region(host, /^Bots$/).ariaSnapshot();
+    expect(tree).toMatch(/button "(Annuler :|Cancel:) Bot 2" \[expanded\]/);
+    expect(tree).toMatch(/status: "?(Modification non enregistrée|Unsaved change)/);
+    expect(tree).toMatch(/button "(Modifier|Edit) Bot 1"(?! \[expanded\])/);
+    if (EVIDENCE !== undefined && theme === "abysse") await writeFile(`${EVIDENCE}/arbre-accessibilite-bots-${locale.slice(0, 2)}.txt`, tree);
     for (const width of [1440, 1024, 390, 360]) {
       await host.setViewportSize({ width, height: 900 });
       await expectNoHorizontalScroll(host);
