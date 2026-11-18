@@ -77,6 +77,10 @@ async function expectTokenColoursOnly(drawing: Locator): Promise<void> {
     .flatMap((element) => ["fill", "stroke", "style", "color"].map((name) => element.getAttribute(name)))
     .filter((value): value is string => value !== null && value !== "none"));
   expect(authored).toEqual([]);
+  // …nor as a literal inside a class name (`fill-[#…]`, `rgb(…)`).
+  const literals = await drawing.evaluate((node) => [node, ...node.querySelectorAll("*")]
+    .flatMap((element) => [...element.classList]).filter((name) => /#[0-9a-f]{3,8}\b|rgb|hsl|oklch/i.test(name)));
+  expect(literals).toEqual([]);
 }
 async function redActions(page: Page): Promise<number> { return page.locator("main .bg-action").count(); }
 /** Tabs through the whole page; returns how many stops it met. Each one shows a focus ring and sits outside the drawings. */
@@ -98,9 +102,10 @@ async function expectKeyboardSkipsDrawings(page: Page): Promise<number> {
     expect(state.inDrawing, `tab stop ${stops} (${state.name}) is outside the drawings`).toBe(false);
     expect(state.ring, `tab stop ${stops} (${state.name}) shows a focus ring`).toBe(true);
   }
+  expect(stops, "the page was walked to its end").toBeLessThan(60);
   return stops;
 }
-/** Smallest contrast, against the sea behind it, of the solid shapes that carry a scene's meaning. */
+/** Smallest contrast of the chosen solid shapes against the sea of the frame (their fill at full opacity; land behind a shape is not considered). */
 async function shapeContrast(drawing: Locator, selector: string): Promise<number> {
   return drawing.evaluate((node, shapes) => {
     const probe = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
@@ -118,6 +123,7 @@ async function shapeContrast(drawing: Locator, selector: string): Promise<number
       const mark = luminance(getComputedStyle(shape).fill);
       return (Math.max(mark, sea) + 0.05) / (Math.min(mark, sea) + 0.05);
     });
+    if (ratios.length === 0) throw new Error(`No shape matches ${shapes}`);
     return Math.min(...ratios);
   }, selector);
 }
@@ -171,7 +177,7 @@ for (const locale of LOCALES) {
         await capture(page, `create-${tag}-${option.theme}-${width}`);
       }
     }
-    // A low screen: the red action is still on the first screen, the chart beside the form.
+    // A low screen: the chart stays beside the form and the page does not scroll sideways (the form is taller than 640 px, as before).
     await setTheme(page, THEMES[0]);
     await page.setViewportSize({ width: 1280, height: 640 });
     await expectNoHorizontalScroll(page);
@@ -195,6 +201,19 @@ for (const locale of LOCALES) {
     await expectSilentDrawing(chart);
     await expectNoAccessibilityViolation(page);
     await capture(page, `create-error-${tag}-aube-1440`);
+
+    // While the room is being opened the button is marked busy and renamed, in Aube too (the answer is held back here).
+    await capacity.fill("30");
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route("**/rooms/new", async (route) => { if (route.request().method() === "POST") await held; await route.continue(); });
+    await page.getByRole("button", { name: open }).click();
+    const busy = page.getByRole("button", { name: fr ? "Ouverture…" : "Opening…" });
+    await expect(busy).toHaveAttribute("aria-disabled", "true");
+    await expectSilentDrawing(chart);
+    await capture(page, `create-pending-${tag}-aube-1440`);
+    release();
+    await expect(page).toHaveURL(/\/rooms\/[2-9A-HJKMNP-Z]{6}$/);
   });
 
   test(`public rooms: the fleet fills the two free columns and leaves under 640 px (${locale})`, async ({ browser }) => {
@@ -227,8 +246,14 @@ for (const locale of LOCALES) {
             expect(Math.abs(fleetBox.height - cardBox.height)).toBeLessThanOrEqual(1);
             expect(fleetBox.width).toBeGreaterThan(cardBox.width * 1.9);
             // The whole drawing fits its frame: the first ship and the lighthouse are never cropped.
-            const drawn = await fleet.locator("svg > g").last().boundingBox();
-            expect(drawn?.x ?? 0).toBeGreaterThanOrEqual(fleetBox.x);
+            for (const part of await fleet.locator("svg > g:not(:first-child)").all()) {
+              const drawn = await part.boundingBox();
+              if (drawn === null) throw new Error("Every ship and the island are drawn");
+              expect(drawn.x).toBeGreaterThanOrEqual(fleetBox.x);
+              expect(drawn.x + drawn.width).toBeLessThanOrEqual(fleetBox.x + fleetBox.width);
+              expect(drawn.y).toBeGreaterThanOrEqual(fleetBox.y);
+              expect(drawn.y + drawn.height).toBeLessThanOrEqual(fleetBox.y + fleetBox.height);
+            }
           }
           await expectNoHorizontalScroll(page);
           await expectNoAccessibilityViolation(page);
@@ -339,7 +364,12 @@ for (const locale of LOCALES) {
       await expect(waves).toHaveCount(1);
       await expectSilentDrawing(waves);
       await expectTokenColoursOnly(waves);
-      await expect(panel).toHaveClass(new RegExp(`\\b${expected.border}\\b`));
+      // The colour that is really drawn, not the class list (the card style carries a border class of its own).
+      expect(await panel.evaluate((section, token) => {
+        const probe = document.createElement("i"); probe.style.color = `var(--color-${token})`; section.append(probe);
+        const wanted = getComputedStyle(probe).color; probe.remove();
+        return getComputedStyle(section).borderTopColor === wanted;
+      }, expected.border), `the panel's border is ${expected.border}`).toBe(true);
       await expect(sign).toHaveText(expected.sign);
       const actions = panel.getByRole("link").or(panel.getByRole("button"));
       await expect(actions).toHaveText([...expected.actions]);
@@ -366,14 +396,17 @@ for (const locale of LOCALES) {
       }
       await setTheme(page, THEMES[0]);
       await page.setViewportSize({ width: 1440, height: 900 });
-      await expectKeyboardSkipsDrawings(page);
+      expect(await expectKeyboardSkipsDrawings(page)).toBeGreaterThanOrEqual(expected.actions.length);
     };
     const create = fr ? /^Créer une salle$/ : /^Create a room$/;
     const home = fr ? /^Revenir à l’accueil$/ : /^Back to the home page$/;
 
-    // 1. Unknown code: neutral, with the code form and its red action.
-    await page.goto("/rooms/ZZZZZ2");
-    await expectState("unknown", { border: "border-houle", sign: "· ", heading: fr ? /^Code introuvable$/ : /^Code not found$/, actions: [fr ? /^Rejoindre la salle$/ : /^Join the room$/, create], red: 1 });
+    // 1. Unknown code: neutral, with the code form and its red action. Through a network of its own:
+    // the loopback address and its budget of failed codes are shared by every spec (SALLE-10).
+    const proxy = await startForwardingProxy(test.info().project.use.baseURL ?? "", fr ? "203.0.113.61" : "203.0.113.62");
+    proxies.push(proxy);
+    await page.goto(`${proxy.url}/rooms/ZZZZZ2`);
+    await expectState("unknown", { border: "houle", sign: "· ", heading: fr ? /^Code introuvable$/ : /^Code not found$/, actions: [fr ? /^Rejoindre la salle$/ : /^Join the room$/, create], red: 1 });
     await expect(page.getByRole("textbox", { name: fr ? "Code de salle" : "Room code" })).toBeVisible();
 
     // 2. Already in a room, as a member who may leave it: on the room page and on « Créer une salle ».
@@ -386,14 +419,14 @@ for (const locale of LOCALES) {
     await member.goto(`/rooms/${other}`);
     await expect(member.getByRole("heading", { level: 1 })).toHaveText(fr ? /^Déjà en salle$/ : /^Already in a room$/);
     await expect(memberWaves).toHaveCount(1);
-    await expect(member.locator("main section").filter({ has: memberWaves })).toHaveClass(/\bborder-or\b/);
+    await expect(member.locator("main section").filter({ has: memberWaves }).locator("p").first()).toHaveText(/^⚠ /);
     await expectNoAccessibilityViolation(member);
     await member.screenshot({ path: evidenceDir === undefined ? test.info().outputPath("in-another.png") : path.resolve(evidenceDir, `state-in-another-room-${tag}-abysse-1440.png`), fullPage: true });
     await member.goto("/rooms/new");
     await expect(member.getByRole("heading", { level: 1 })).toHaveText(fr ? /^Déjà en salle$/ : /^Already in a room$/);
     await expect(memberWaves).toHaveCount(1);
     await expect(scene(member, "access-chart")).toHaveCount(0);
-    await member.emulateMedia({ colorScheme: "light" });
+    await setTheme(member, THEMES[1]);
     await expectNoAccessibilityViolation(member);
     await member.screenshot({ path: evidenceDir === undefined ? test.info().outputPath("already.png") : path.resolve(evidenceDir, `state-already-in-room-${tag}-aube-1440.png`), fullPage: true });
 
@@ -409,43 +442,48 @@ for (const locale of LOCALES) {
       [code],
     );
     await page.goto(`/rooms/${code}`);
-    await expectState("racing", { border: "border-or", sign: "⚠ ", heading: fr ? /^Course\s+lancée$/ : /^Race\s+running$/, actions: [create, home] });
+    await expectState("racing", { border: "or", sign: "⚠ ", heading: fr ? /^Course\s+lancée$/ : /^Race\s+running$/, actions: [create, home] });
     await query("update lobbies set phase = 'closed', closed_at = now() where code = $1", [code]);
     await page.goto(`/rooms/${code}`);
-    await expectState("closed", { border: "border-houle", sign: "· ", heading: fr ? /^Salle\s+fermée$/ : /^Room\s+closed$/, actions: [create, home] });
+    await expectState("closed", { border: "houle", sign: "· ", heading: fr ? /^Salle\s+fermée$/ : /^Room\s+closed$/, actions: [create, home] });
 
     // 4. Page not found.
     await page.goto("/cap-perdu");
-    await expectState("not-found", { border: "border-houle", sign: "· ", heading: fr ? /^Cap\s+perdu$/ : /^Off\s+course$/, actions: [home] });
+    await expectState("not-found", { border: "houle", sign: "· ", heading: fr ? /^Cap\s+perdu$/ : /^Off\s+course$/, actions: [home] });
 
     // 5. Too many wrong codes from one network: the same panel whatever the code.
-    const proxy = await startForwardingProxy(test.info().project.use.baseURL ?? "", fr ? "203.0.113.61" : "203.0.113.62");
-    proxies.push(proxy);
-    for (let index = 0; index < 10; index += 1) await page.request.get(`${proxy.url}/rooms/ZZZZ${"23456789AB"[index]}9`);
+    // The unknown code above already spent one of the ten failed codes this network may try in a minute.
+    for (let index = 0; index < 9; index += 1) await page.request.get(`${proxy.url}/rooms/ZZZZ${"23456789AB"[index]}9`);
     await page.goto(`${proxy.url}/rooms/ZZZZZ3`);
-    await expectState("throttled", { border: "border-or", sign: "⚠ ", heading: fr ? /^Trop d’essais$/ : /^Too many tries$/, actions: [fr ? /^Réessayer$/ : /^Try again$/, home] });
+    await expectState("throttled", { border: "or", sign: "⚠ ", heading: fr ? /^Trop d’essais$/ : /^Too many tries$/, actions: [fr ? /^Réessayer$/ : /^Try again$/, home] });
   });
 }
 
-test("forced colours: every drawing keeps a system colour and the forms stay readable", async ({ browser }) => {
-  test.slow();
-  const host = await account(browser, "Hôte", "fr-CA");
-  const code = await openRoom(host, "public");
-  const page = await account(browser, "Contraste", "fr-CA", { forcedColors: "active" });
-  await page.setViewportSize({ width: 1440, height: 1100 });
-  const systemColours = async (drawing: Locator) => drawing.evaluate((node) => {
-    const system = new Set(["Canvas", "CanvasText", "Highlight"].map((name) => { const probe = document.createElement("i"); probe.style.color = name; node.append(probe); const value = getComputedStyle(probe).color; probe.remove(); return value; }));
-    return [...node.querySelectorAll("path, rect, circle, text")].filter((shape) => getComputedStyle(shape).display !== "none" && shape.closest(".forced-colors\\:hidden") === null)
-      .flatMap((shape) => [getComputedStyle(shape).fill, getComputedStyle(shape).stroke]).filter((value) => value !== "none" && !system.has(value));
+for (const option of THEMES) {
+  test(`forced colours with ${option.theme}: every drawing takes system colours and the forms stay readable`, async ({ browser }) => {
+    test.slow();
+    const host = await account(browser, "Hôte", "fr-CA");
+    const code = await openRoom(host, "public");
+    const page = await account(browser, "Contraste", "fr-CA", { forcedColors: "active" });
+    await page.setViewportSize({ width: 1440, height: 1100 });
+    /** Fills and strokes of a drawing that are not a system colour (the hidden chart grid aside). */
+    const authoredColours = async (drawing: Locator) => drawing.evaluate((node) => {
+      const system = new Set(["Canvas", "CanvasText", "Highlight"].map((name) => { const probe = document.createElement("i"); probe.style.color = name; node.append(probe); const value = getComputedStyle(probe).color; probe.remove(); return value; }));
+      const shapes = [...node.querySelectorAll("path, rect, circle, text")].filter((shape) => shape.closest(".forced-colors\\:hidden") === null);
+      if (shapes.length === 0) throw new Error("The drawing has shapes");
+      return shapes.flatMap((shape) => [getComputedStyle(shape).fill, getComputedStyle(shape).stroke]).filter((value) => value !== "none" && !system.has(value));
+    });
+    for (const [url, name, shot] of [["/rooms/new", "access-chart", "create"], ["/rooms", "fleet", "public-rooms"], [`/rooms/${code}`, "join-chart", "join"], ["/cap-perdu", "corner-waves", "state-not-found"]] as const) {
+      await page.goto(url);
+      // The theme a person chose (here through the system scheme) must not bring token colours back.
+      await setTheme(page, option);
+      await expect(scene(page, name)).toBeVisible();
+      expect(await authoredColours(scene(page, name)), `${name} uses system colours only`).toEqual([]);
+      // A viewport capture: headless Chromium drops the forced rendering in a full-page one.
+      await capture(page, `${shot}-fr-forced-colours-${option.theme}-1440`, false);
+    }
   });
-  for (const [url, name, capture_] of [["/rooms/new", "access-chart", "create"], ["/rooms", "fleet", "public-rooms"], [`/rooms/${code}`, "join-chart", "join"], ["/rooms/ZZZZZ2", "corner-waves", "state-unknown"]] as const) {
-    await page.goto(url);
-    await expect(scene(page, name)).toBeVisible();
-    expect(await systemColours(scene(page, name)), `${name} uses system colours only`).toEqual([]);
-    // A viewport capture: headless Chromium drops the forced rendering in a full-page one.
-    await capture(page, `${capture_}-fr-forced-colours-1440`, false);
-  }
-});
+}
 
 test("without JavaScript the pages and their drawings are served complete", async ({ browser }) => {
   const page = await account(browser, "Sans script", "fr-CA", { javaScriptEnabled: false });
@@ -454,6 +492,6 @@ test("without JavaScript the pages and their drawings are served complete", asyn
   await expect(page.getByRole("button", { name: open })).toBeVisible();
   await page.goto("/rooms");
   await expect(scene(page, "fleet")).toBeVisible();
-  await page.goto("/rooms/ZZZZZ2");
+  await page.goto("/cap-perdu");
   await expect(scene(page, "corner-waves")).toHaveCount(1);
 });
