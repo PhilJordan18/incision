@@ -128,7 +128,7 @@ export function SeaDecor({ id, ghost, ghostSide = "right" }: SeaDecorProps) {
 }
 
 /** Mono caption inside a scene. */
-export const sceneCaption = "fill-embrun font-mono text-[12px] tracking-[0.2em] uppercase max-md:text-[15px] max-md:tracking-[0.08em]";
+export const sceneCaption = "fill-embrun font-mono text-[12px] tracking-[0.2em] uppercase max-xl:text-[15px] max-xl:tracking-[0.08em]";
 
 /** Width and side margins of the site's pages, applied inside each full-width band of the home. */
 export const HOME_CONTAINER = "mx-auto w-full max-w-page px-4 sm:px-8 lg:px-12";

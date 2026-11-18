@@ -70,7 +70,7 @@ const copy: Record<Locale, HomeRouteCopy> = {
       bonusesAtMilestones: "Bonuses at milestones",
       logbook: "Logbook",
       record: "Record",
-      curve: "Curve",
+      curve: "Chart",
       sample: { typed: "The sea was calm that m", wrong: "e", typedAfter: "rning, and yet the cr", next: "e", rest: "w knew the crossing would be long." },
       keyboardRows: ["qwertyuiop", "asdfghjkl", "zxcvbnm"],
       recentKeys: "hcr",

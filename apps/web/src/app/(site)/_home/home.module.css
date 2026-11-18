@@ -52,8 +52,9 @@ main:has(> .route) {
     opacity: 1;
   }
 
+  /* `!important`: one caption sets its own colour with an important utility. */
   .scene text {
-    fill: currentColor;
+    fill: currentColor !important;
     stroke: none;
   }
 

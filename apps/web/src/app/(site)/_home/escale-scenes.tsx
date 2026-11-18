@@ -9,8 +9,8 @@ import { GlassCompass, Isle, Lighthouse, sceneCaption, SceneShip } from "./scene
  */
 
 const figure = `${styles.scene} pointer-events-none block h-auto w-full`;
-const LABEL = "fill-ecume font-sans text-[15px] font-semibold max-md:text-[19px]";
-const KEY_TEXT = "font-mono text-[14px] max-md:text-[17px]";
+const LABEL = "fill-ecume font-sans text-[15px] font-semibold max-xl:text-[19px]";
+const KEY_TEXT = "font-mono text-[14px] max-xl:text-[17px]";
 
 function Figure({ name, viewBox, children }: { readonly name: string; readonly viewBox: string; readonly children: ReactNode }) {
   return (
@@ -63,7 +63,7 @@ export type AccessSceneWords = { readonly publicRoom: string; readonly byCode: s
 export function AccessScene({ words }: { readonly words: AccessSceneWords }) {
   return (
     <Figure name="access" viewBox="0 0 600 460">
-      <path d="M75 0V460M150 0V460M225 0V460M300 0V460M375 0V460M450 0V460M525 0V460M0 75H600M0 150H600M0 225H600M0 300H600M0 375H600M0 450H600" className="stroke-houle" opacity="0.35" />
+      <path d="M75 0V460M150 0V460M225 0V460M300 0V460M375 0V460M450 0V460M525 0V460M0 75H600M0 150H600M0 225H600M0 300H600M0 375H600M0 450H600" className={`${styles.backdrop} stroke-houle`} opacity="0.35" />
       <g className="stroke-embrun" strokeWidth="2.6" strokeLinecap="round" strokeDasharray="0.1 11">
         <path d="M190 396C200 330 250 250 256 200" />
         <path d="M190 396C230 380 290 360 318 326" />
@@ -86,7 +86,7 @@ export function AccessScene({ words }: { readonly words: AccessSceneWords }) {
       <path d="M332 300v-9a6 6 0 0 1 12 0v9Z" className="fill-abysse" />
       <path d="M338 282V250" className="stroke-ecume" strokeWidth="2" />
       <rect x="282" y="222" width="112" height="30" rx="5" className="fill-abysse stroke-voile" strokeWidth="1.5" />
-      <text x="338" y="243" textAnchor="middle" className="fill-ecume font-mono text-[16px] tracking-[0.22em] uppercase max-md:text-[18px]">
+      <text x="338" y="243" textAnchor="middle" className="fill-ecume font-mono text-[16px] tracking-[0.22em] uppercase max-xl:text-[18px]">
         {words.code}
       </text>
       <Isle x={486} y={132} scale={0.95} />
@@ -105,7 +105,7 @@ export function AccessScene({ words }: { readonly words: AccessSceneWords }) {
       <CompassRose x={540} y={400} north={words.north} />
       <SceneShip x={190} y={420} scale={1.9} tone="moi" />
       <text x="120" y="262" textAnchor="middle" className={sceneCaption}>{`01 · ${words.publicRoom}`}</text>
-      <text x="338" y="376" textAnchor="middle" className={sceneCaption}>{`02 · ${words.byCode}`}</text>
+      <text x="338" y="420" textAnchor="middle" className={sceneCaption}>{`02 · ${words.byCode}`}</text>
       <text x="486" y="250" textAnchor="middle" className={sceneCaption}>{`03 · ${words.privateRoom}`}</text>
     </Figure>
   );
@@ -157,7 +157,7 @@ export function ModesScene({ words }: { readonly words: ModesSceneWords }) {
       <SceneShip x={150} y={248} scale={2.4} tone="ecume" />
       <path
         d="M330 300q13-11 26 0t26 0 26 0M318 392q13-11 26 0t26 0 26 0 26 0M452 430q13-11 26 0t26 0 26 0 26 0M330 196q13-11 26 0t26 0M440 250q13-11 26 0t26 0M330 96q13-11 26 0t26 0"
-        className="stroke-houle"
+        className={`${styles.backdrop} stroke-houle`}
         strokeWidth="2"
         strokeLinecap="round"
       />
@@ -171,9 +171,9 @@ export function ModesScene({ words }: { readonly words: ModesSceneWords }) {
       </g>
       {BONUS_PLACES.map(({ x, y }, index) => (
         <g key={y}>
-          <path d={`M${x + 24} ${y}H530`} className="stroke-arcade" strokeDasharray="2 6" opacity="0.7" />
+          <path d={`M${x + 140} ${y}H530`} className="stroke-arcade" strokeDasharray="2 6" opacity="0.7" />
           <g transform={`translate(${x} ${y})`}>
-            <path d="M-30 26q8-7 15 0t15 0 15 0 15 0" className="stroke-houle" strokeWidth="2" strokeLinecap="round" />
+            <path d="M-30 26q8-7 15 0t15 0 15 0 15 0" className={`${styles.backdrop} stroke-houle`} strokeWidth="2" strokeLinecap="round" />
             <path d="M0-24V-44l14 5-14 5" className="fill-arcade stroke-arcade" strokeWidth="2" strokeLinejoin="round" />
             <circle r="24" className="fill-nuit stroke-arcade" strokeWidth="2" />
             <g className="stroke-arcade" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" transform="translate(-12 -12)">
@@ -296,7 +296,7 @@ export type LogbookSceneWords = {
 };
 
 const PAGE_LINES = range(11).map((line) => 104 + line * 28);
-const SMALL_CAPTION = "font-mono text-[8.5px] tracking-[0.14em] uppercase max-md:text-[10px] max-md:tracking-[0.02em]";
+const SMALL_CAPTION = "font-mono text-[8.5px] tracking-[0.14em] uppercase max-xl:text-[10px] max-xl:tracking-[0.02em]";
 /** The three pennant shapes of the vocabulary: human, bot, me. No name beside them: the home has no runner. */
 const PENNANTS = [
   <path key="human" d="M2-11 22-3 2 5Z" className="fill-or" />,
@@ -357,7 +357,7 @@ export function LogbookScene({ words }: { readonly words: LogbookSceneWords }) {
 /** The departure quay: the lighthouse, three moored ships, the compass, and mine leaving. */
 export function QuayScene() {
   return (
-    <svg data-scene="quay" viewBox="0 0 560 300" fill="none" aria-hidden="true" focusable="false" className={`${styles.scene} pointer-events-none block h-auto w-full md:w-[420px] md:flex-none lg:w-[560px]`}>
+    <svg data-scene="quay" viewBox="0 0 560 300" fill="none" aria-hidden="true" focusable="false" className={`${styles.scene} pointer-events-none block h-auto w-full md:w-[420px] md:flex-none xl:w-[560px]`}>
       <path d="M20 280q13-11 26 0t26 0 26 0 26 0 26 0 26 0M300 290q13-11 26 0t26 0 26 0 26 0 26 0 26 0 26 0 26 0" className="stroke-houle" strokeWidth="2" strokeLinecap="round" />
       <path d="M70 226V262M172 226V262M274 226V262M376 226V262" className="stroke-voile" strokeWidth="5" strokeLinecap="round" />
       <rect x="30" y="196" width="380" height="30" rx="4" className="fill-voile" />

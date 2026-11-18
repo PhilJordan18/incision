@@ -59,7 +59,7 @@ export function RouteMap({ locale, t }: RouteMapProps) {
       {/* A still picture of the race's text sheet: nothing here is typed or moves. */}
       <div aria-hidden="true" className="rounded-carte border border-moi bg-nuit px-3.5 pt-3 pb-1.5 md:px-5 md:pt-3.5 md:pb-2">
         <p className="font-mono text-[11px] font-medium tracking-[0.2em] text-brume uppercase">{t.races.textLabel}</p>
-        <p className="course-texte text-sm! md:text-[15px]! lg:text-lg!">
+        <p className="course-texte text-sm! md:text-[15px]! xl:text-lg!">
           <span className="course-juste">{route.scenes.sample.typed}</span>
           <span className="course-erreur">{route.scenes.sample.wrong}</span>
           <span className="course-juste">{route.scenes.sample.typedAfter}</span>
@@ -87,10 +87,10 @@ export function RouteMap({ locale, t }: RouteMapProps) {
 
   return (
     <section aria-labelledby="journey-heading">
-      <div className="relative pt-11 pb-16 text-center md:pt-14 md:pb-[84px] lg:pt-[72px] lg:pb-24">
+      <div className="relative pt-11 pb-16 text-center md:pt-14 md:pb-[84px] xl:pt-[72px] xl:pb-24">
         <div className={HOME_CONTAINER}>
           <p className={etiquette}>{`[.${route.mapLabel}]`}</p>
-          <h2 id="journey-heading" className="mt-3.5 mb-3 font-display text-[44px] leading-[0.9] font-black uppercase md:text-[64px] lg:text-[88px]">
+          <h2 id="journey-heading" className="mt-3.5 mb-3 font-display text-[44px] leading-[0.9] font-black uppercase md:text-[64px] xl:text-[88px]">
             {title.bold}
             {title.serif !== "" && (
               <>
@@ -113,16 +113,16 @@ export function RouteMap({ locale, t }: RouteMapProps) {
               {index === 2 ? <RedBand /> : <div aria-hidden="true" className={`${styles.belt} bg-abysse`} />}
               <div className="relative overflow-hidden py-9 md:py-10">
                 <SeaDecor id={`home-waves-${number}`} ghost={number} ghostSide={onSea ? "right" : "left"} />
-                <div className={`${HOME_CONTAINER} relative flex flex-col gap-[18px] md:grid md:min-h-[440px] md:grid-cols-[1fr_84px_1fr] md:items-center md:gap-4 lg:min-h-[520px] lg:grid-cols-[1fr_120px_1fr] lg:gap-6`}>
-                  <div aria-hidden="true" className="relative z-10 grid h-[60px] w-[60px] place-items-center rounded-full border-[3px] border-moi bg-abysse pt-1 font-display text-[26px] leading-none font-black md:order-2 md:h-16 md:w-16 md:justify-self-center md:text-[28px] lg:h-[84px] lg:w-[84px] lg:text-[38px]">
+                <div className={`${HOME_CONTAINER} relative flex flex-col gap-[18px] md:grid md:min-h-[440px] md:grid-cols-[1fr_84px_1fr] md:items-center md:gap-4 xl:min-h-[520px] xl:grid-cols-[1fr_120px_1fr] xl:gap-6`}>
+                  <div aria-hidden="true" className="relative z-10 grid h-[60px] w-[60px] place-items-center rounded-full border-[3px] border-moi bg-abysse pt-1 font-display text-[26px] leading-none font-black md:order-2 md:h-16 md:w-16 md:justify-self-center md:text-[28px] xl:h-[84px] xl:w-[84px] xl:text-[38px]">
                     {number}
                   </div>
                   <div className={onSea ? "md:order-3" : "md:order-1"}>
                     <p className={etiquette}>{`[.${route.stops[index] ?? ""}]`}</p>
-                    <h3 id={headingId} className="mt-2 mb-2.5 font-display text-[40px] leading-[0.9] font-black uppercase md:mt-3 md:mb-3.5 md:text-[46px] lg:text-[64px]">
+                    <h3 id={headingId} className="mt-2 mb-2.5 font-display text-[40px] leading-[0.9] font-black uppercase md:mt-3 md:mb-3.5 md:text-[46px] xl:text-[64px]">
                       {step.title}
                     </h3>
-                    <p className="max-w-[520px] text-base text-embrun lg:text-lg">{step.body}</p>
+                    <p className="max-w-[520px] text-base text-embrun xl:text-lg">{step.body}</p>
                     {index === 0 && <AccessList t={t} />}
                   </div>
                   <div className={onSea ? "md:order-1" : "md:order-3"}>{scenes[index]}</div>
