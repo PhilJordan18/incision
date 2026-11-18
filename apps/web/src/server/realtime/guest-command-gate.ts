@@ -76,7 +76,9 @@ export class GuestCommandGate {
       const result = await this.options.store<Answer | GuestCommandFailure>({
         proof: input.proof, lobbyId: input.lobbyId, memberId: input.memberId,
         run: () => {
-          if (guestCommandFence().pending > 0 || guestCommandFence().epoch !== epoch) return { answer: { ok: false, error: "UNAVAILABLE" }, activity: false };
+          // Nothing has been applied: let the client back off and authorize afresh.
+          // SQL failures after application still fail closed below, without replay.
+          if (guestCommandFence().pending > 0 || guestCommandFence().epoch !== epoch) return { answer: { ok: false, error: "RATE_LIMITED" }, activity: false };
           if (!input.alive()) return { answer: { ok: false, error: "UNAUTHORIZED" }, activity: false };
           const applied = input.apply();
           return { answer: applied.answer, activity: applied.activity || grant?.pendingAt !== undefined,
