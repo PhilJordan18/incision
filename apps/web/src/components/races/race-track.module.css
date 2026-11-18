@@ -1,7 +1,9 @@
 /*
- * The track as a sea chart (Philippe's request, #51): a faint graticule, a chequered finish line
- * with its flag, and each runner's route from the start to their real progress. Tokens only, no
- * image (design rule 10); nothing blinks or moves on its own, the markers follow the broadcast.
+ * The track as a sea chart (Philippe's request, #51; art direction C1 « Cap », docs/da/v2):
+ * three milestones, the red coast as the finish with its word, each runner's route from the
+ * start to their real progress, a ship for each named runner and a glass compass in the corner
+ * furthest from the text. Tokens only, no image (design rule 10); nothing blinks or moves on its
+ * own, the markers follow the broadcast.
  */
 .section {
   width: 100%;
@@ -16,41 +18,49 @@
   border: 1px solid var(--color-houle);
   background: var(--color-mer);
 }
-/* The chart's graticule: thin meridians and parallels, under everything. */
-.chart {
+.horizontalOnly { display: none; }
+/* A milestone: a dotted parallel across the chart, with its share of the text. */
+.milestone {
   position: absolute;
-  inset: 0;
-  background-image:
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--color-houle) 55%, transparent) 0 1px, transparent 1px 48px),
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--color-houle) 55%, transparent) 0 1px, transparent 1px 48px);
-  pointer-events: none;
-}
-/* The finish: a chequered band in `ligne`, the design's finish colour, across the chart. */
-.finish {
-  position: absolute;
-  top: 12%;
+  top: var(--at-y);
   left: 0;
   width: 100%;
-  height: 6px;
-  background: repeating-linear-gradient(90deg, var(--color-ligne) 0 8px, var(--color-nuit) 8px 16px);
-  border-block: 1px solid var(--color-ligne);
+  height: 1px;
+  background: repeating-linear-gradient(90deg, var(--color-houle) 0 2px, transparent 2px 8px);
+  pointer-events: none;
+}
+.milestoneLabel {
+  position: absolute;
+  left: 10px;
+  bottom: 3px;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  color: var(--color-brume);
+  white-space: nowrap;
+}
+/* The finish: the coast, across the top of the chart; a runner at 100 % lands on its edge. */
+.coast {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 15%;
+  pointer-events: none;
 }
 .finishText {
   position: absolute;
-  top: calc(12% - 18px);
-  left: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-ligne);
-  font-weight: 600;
+  top: 8px;
+  left: 12px;
+  color: var(--color-erreur);
+  font-weight: 700;
 }
-/* A pennant, drawn in CSS. */
-.flag {
-  width: 10px;
-  height: 12px;
-  border-left: 2px solid var(--color-ligne);
-  background: linear-gradient(135deg, var(--color-ligne) 50%, transparent 50%) left top / 100% 60% no-repeat;
+.compass {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 46px;
+  height: auto;
 }
 
 /* Runner colours, fixed per runner for the round (track-layout's `routeStyle`). */
@@ -101,15 +111,22 @@
   background: var(--route);
   box-shadow: 0 0 0 1px var(--color-mer);
 }
-.named { z-index: 2; width: 22px; height: 22px; }
+/* A named runner: the marker is the foot of its ship, which carries the colour on its sail. */
+.named { z-index: 2; width: 0; height: 0; box-shadow: none; }
 .self { z-index: 3; }
-.self::before, .self::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid var(--color-moi); }
-.self::before { inset: -9px; opacity: 0.6; border-width: 2px; }
-.self::after { inset: -18px; opacity: 0.25; }
-/* The front runner's ring in `or` (rule 5: gold is the first's), beside its stable colour. */
-.leader { outline: 3px solid var(--color-or); outline-offset: 2px; }
-.bot, .bot::before, .bot::after { border-radius: 6px; }
-.initials { display: grid; place-items: center; height: 100%; font-size: 10px; font-weight: 700; color: var(--color-abysse); }
+.leader { z-index: 2; }
+.bot { border-radius: 6px; }
+.named.bot { border-radius: 0; }
+.ship {
+  --ship-size: 46px;
+  position: absolute;
+  left: calc(var(--ship-size) / -2);
+  /* The ship's foot (SHIP_ANCHOR: 31 / 54 of its box) on the marker. */
+  top: calc(var(--ship-size) * -0.574);
+  width: var(--ship-size);
+  height: var(--ship-size);
+}
+.self .ship { --ship-size: 58px; }
 .label {
   position: absolute;
   left: 64%;
@@ -125,43 +142,35 @@
 .rank { margin-right: 4px; font-family: var(--font-mono); font-weight: 700; }
 .rank::after { content: "."; }
 .selfLabel { font-weight: 700; }
-.more { position: absolute; top: calc(12% - 18px); right: 12px; color: var(--color-embrun); }
+.more { position: absolute; top: 8px; right: 12px; color: var(--color-embrun); }
 .horizontalMore { display: none; }
 
-/* A route's sample beside a name: same colour and dash. */
-.swatch {
-  display: inline-block;
-  width: 20px;
-  height: 6px;
-  margin-right: 6px;
-  vertical-align: middle;
-  overflow: visible;
-}
-.swatch line {
-  stroke: var(--route);
-  stroke-width: 3px;
-  stroke-linecap: round;
-}
+/* A runner's pennant before its name: the sail's shape, the route's colour and dash. */
+.pennant { margin-right: 4px; }
 
 /* In the race's row (≥ 1024 px), the chart fills the row's height instead of its own. */
 @media (min-width: 1024px) {
   .section { display: flex; height: 100%; flex-direction: column; }
   .track { flex: 1 1 auto; height: auto; min-height: 12rem; }
 }
+/* Tablet: the same chart turned on its side, the start on the left and the coast on the right. */
 @media (min-width: 640px) and (max-width: 1023px) {
-  .verticalMore, .verticalRoutes { display: none; }
+  .verticalMore, .verticalRoutes, .verticalOnly { display: none; }
   .horizontalMore { display: inline; }
-  .horizontalRoutes { display: block; }
+  .horizontalRoutes, .horizontalOnly { display: block; }
   .track { height: 180px; }
   .point { left: var(--horizontal-x); top: var(--horizontal-y); }
-  .named:not(.self):not(.leader) { width: 10px; height: 10px; }
-  .named:not(.self):not(.leader) .initials { display: none; }
-  .finish { top: 0; left: 95%; height: 100%; width: 6px; border-block: 0; border-inline: 1px solid var(--color-ligne);
-    background: repeating-linear-gradient(180deg, var(--color-ligne) 0 8px, var(--color-nuit) 8px 16px); }
-  .finishText { left: auto; right: 7%; top: 8px; }
+  .ship { --ship-size: 36px; }
+  .self .ship { --ship-size: 46px; }
+  .milestone { top: 0; left: var(--at-x); width: 1px; height: 100%;
+    background: repeating-linear-gradient(180deg, var(--color-houle) 0 2px, transparent 2px 8px); }
+  .milestoneLabel { left: 5px; bottom: auto; top: 6px; }
+  .coast { top: 0; left: auto; right: 0; width: 8%; height: 100%; }
+  .finishText { left: auto; right: 9%; top: 6px; }
+  .compass { left: auto; right: 9%; bottom: 6px; width: 38px; }
   .label { display: none; }
-  .selfLabel, .leaderLabel { display: block; left: var(--horizontal-label-x); width: 24%; top: 86%; }
-  .leaderLabel { top: 70%; }
+  .selfLabel, .leaderLabel { display: block; left: var(--horizontal-label-x); width: 24%; top: 91%; }
+  .leaderLabel { top: 74%; }
   .more { top: auto; right: auto; bottom: 4px; left: 16px; font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -169,11 +178,11 @@
 }
 @media (forced-colors: active) {
   .point { background: CanvasText; forced-color-adjust: none; box-shadow: none; }
-  .initials { color: Canvas !important; }
-  .self::before, .self::after { border-color: Highlight; opacity: 1; }
-  .leader { outline-color: Highlight; }
-  .route, .swatch line { stroke: CanvasText; }
+  .route { stroke: CanvasText; }
   .selfRoute { stroke: Highlight; }
-  .finish { background: CanvasText; border-color: CanvasText; }
-  .flag { border-color: CanvasText; background: CanvasText; }
+  .milestone { background: none; border-top: 1px dotted CanvasText; }
+  .finishText, .milestoneLabel, .more { color: CanvasText; }
+}
+@media (forced-colors: active) and (min-width: 640px) and (max-width: 1023px) {
+  .milestone { border-top: 0; border-left: 1px dotted CanvasText; }
 }

@@ -1,18 +1,23 @@
 "use client";
 
 import { memo, type CSSProperties } from "react";
+import { Coast, Compass, Pennant, Ship } from "@/components/nautical";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { raceTrackMessages } from "@/i18n/dictionaries/race-track";
 import type { Locale } from "@/i18n/locale";
 import { formatNumber } from "@/i18n/value-format";
 import { formatProgress, formatWpm } from "@/races/format";
 import type { RaceClientState } from "@/races/race-client";
-import { type RouteStyle, standingsOrder, type TrackPoint, trackLayout } from "./track-layout";
+import { MILESTONES, standingsOrder, type TrackPoint, trackLayout, trackX, trackY } from "./track-layout";
 import styles from "./race-track.module.css";
 
 /**
  * Only public broadcast fields enter the track. No extrapolation, scoring or private photos. The
  * track is decorative for assistive technology: the standings panel beside it lists every runner.
+ *
+ * Art direction C1 « Cap »: a named runner is a ship (triangle sail for a human, square for a bot)
+ * whose sail, route and pennant share one colour and one dash; the others stay dots. The finish
+ * is the red coast, with its word; a glass compass sits in the corner furthest from the text.
  */
 export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t, locale }: {
   readonly entrants: RaceClientState["entrants"];
@@ -24,8 +29,8 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
   const text = raceTrackMessages[locale];
   const names = new Map(entrants.map((entrant) => [entrant.entrantId, entrant.displayName]));
   const points = trackLayout(progress?.entrants ?? [], selfId);
-  // A named marker carries its standings rank, also written before its label's name: crews often
-  // share initials (« Matelot 7 », « Matelot 13 »), so marker and name match without colour (rule 8).
+  // A label starts with its runner's standings rank: crews often share initials (« Matelot 7 »,
+  // « Matelot 13 »), so the track's names and the standings match without colour (rule 8).
   const ranks = new Map(standingsOrder(progress?.entrants ?? []).map((runner, index) => [runner.entrantId, formatNumber(index + 1, locale)]));
   const others = points.filter((point) => !point.labelled).length;
   const horizontalOthers = points.filter((point) => !point.self && point.tone !== "leader").length;
@@ -33,9 +38,18 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
     <h2 id="track-heading" className="mb-3 font-display text-2xl font-extrabold uppercase">{t.trackHeading}</h2>
     <p className="sr-only">{text.progression}</p>
     <div className={styles.track} data-testid="race-track" aria-hidden="true">
-      <div className={styles.chart} />
-      <span className={`${styles.finishText} font-mono text-xs uppercase tracking-widest`}><span className={styles.flag} />{text.finish}</span>
-      <div className={styles.finish} />
+      {/* The chart: a quarter, a half, three quarters of the text. */}
+      {MILESTONES.map((share) => <span key={share} className={`${styles.milestone} font-mono`}
+        style={{ "--at-y": `${trackY(share)}%`, "--at-x": `${trackX(share)}%` } as CSSProperties}>
+        <span className={styles.milestoneLabel}>{formatProgress(share * 100, 100, locale)}</span>
+      </span>)}
+      {/* The finish is a coast: one drawing, along the top (vertical chart) or the right (horizontal). */}
+      <div className={`${styles.coast} ${styles.verticalOnly}`} data-finish="vertical"><Coast orientation="horizontal" /></div>
+      <div className={`${styles.coast} ${styles.horizontalOnly}`} data-finish="horizontal"><Coast orientation="vertical" /></div>
+      <span className={`${styles.finishText} font-mono text-xs uppercase tracking-widest`}>{text.finish}</span>
+      {/* Away from the text sheet, under the routes: it measures nothing and never moves. */}
+      <Compass heading={-90} className={`${styles.compass} ${styles.verticalOnly}`} />
+      <Compass heading={0} className={`${styles.compass} ${styles.horizontalOnly}`} />
       {/* The sea routes, under the markers: from the start to each runner's real progress. */}
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={`${styles.routes} ${styles.verticalRoutes}`}>
         {points.map((point) => <polyline key={point.runner.entrantId} points={point.path} data-route={point.runner.entrantId}
@@ -51,17 +65,19 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
         const { runner } = point;
         const name = names.get(runner.entrantId) ?? "";
         const rank = ranks.get(runner.entrantId) ?? "";
+        const leader = point.tone === "leader";
         const position = { "--point-x": `${point.x}%`, "--point-y": `${point.y}%`, "--label-y": `${point.labelY}%`,
           "--horizontal-x": `${point.horizontalX}%`, "--horizontal-y": `${point.horizontalY}%`,
-          "--horizontal-label-x": `${Math.max(2, Math.min(72, point.horizontalX - 5))}%` } as CSSProperties;
+          "--horizontal-label-x": `${Math.max(2, Math.min(60, point.horizontalX - 5))}%` } as CSSProperties;
         return <div key={runner.entrantId}>
+          {/* The marker is the runner's real position: a dot, or the foot of a named runner's ship. */}
           <span data-runner={runner.entrantId} data-self={point.self || undefined} data-kind={runner.kind} data-position={runner.position}
-            data-route-colour={point.route.colour} style={position}
-            className={`${styles.point} ${point.labelled ? styles.named : ""} ${styles[point.route.colour]} ${point.self ? styles.self : ""} ${point.tone === "leader" ? styles.leader : ""} ${runner.kind === "bot" ? styles.bot : ""}`}>
-            {point.labelled && <span className={styles.initials}>{rank}</span>}
+            data-route-colour={point.route.colour} data-route-dash={point.route.dash} style={position}
+            className={`${styles.point} ${point.labelled ? styles.named : ""} ${styles[point.route.colour]} ${point.self ? styles.self : ""} ${leader ? styles.leader : ""} ${runner.kind === "bot" ? styles.bot : ""}`}>
+            {point.labelled && <Ship kind={runner.kind} colour={point.route.colour} self={point.self} leader={leader} className={styles.ship} />}
           </span>
-          {point.labelled && <span data-track-label style={position} className={`${styles.label} ${point.self ? styles.selfLabel : ""} ${point.tone === "leader" ? styles.leaderLabel : ""}`}>
-            <span className={styles.labelName}><RouteSwatch route={point.route} /><span className={styles.rank}>{rank}</span>{runner.kind === "bot" ? "□ " : ""}{name}{point.self ? ` (${t.you})` : ""}</span>
+          {point.labelled && <span data-track-label style={position} className={`${styles.label} ${point.self ? styles.selfLabel : ""} ${leader ? styles.leaderLabel : ""}`}>
+            <span className={styles.labelName}><Pennant kind={runner.kind} colour={point.route.colour} dash={point.route.dash} className={styles.pennant} /><span className={styles.rank}>{rank}</span>{name}{point.self ? ` (${t.you})` : ""}</span>
             {/* Two lines at most; the standings say the rest in full. */}
             <span className={styles.labelName}>
               {formatProgress(runner.position, runner.length, locale)} · {formatWpm(runner.netWpm, locale)} {t.wpm}
@@ -80,14 +96,4 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
 
 function routeClass(point: TrackPoint): string {
   return `${styles[point.route.colour]} ${styles[point.route.dash]} ${point.self ? styles.selfRoute : point.labelled ? styles.namedRoute : ""}`;
-}
-
-/**
- * A runner's route as a short line sample, beside the name (the track's labels, the standings):
- * the same colour and dash as on the chart. Decorative; the name says who it is.
- */
-export function RouteSwatch({ route }: { readonly route: RouteStyle }) {
-  return <svg aria-hidden="true" viewBox="0 0 20 6" className={`${styles.swatch} ${styles[route.colour]} ${styles[route.dash]}`}>
-    <line x1="1" y1="3" x2="19" y2="3" />
-  </svg>;
 }

@@ -81,6 +81,15 @@ function routePath(ratio: number, point: (t: number) => readonly [number, number
   return coords.length === 1 ? `${coords[0]} ${coords[0]}` : coords.join(" ");
 }
 
+/**
+ * The lengthwise axis of both charts, in % of the track: the start at 0, the finish (the coast) at 1.
+ * Vertical: upwards. Horizontal (tablet): to the right.
+ */
+export const trackY = (t: number) => 90 - 77 * t;
+export const trackX = (t: number) => 5 + 88 * t;
+/** The milestones drawn across the chart, as shares of the text. */
+export const MILESTONES = [0.25, 0.5, 0.75] as const;
+
 /** The names' column (in % of the chart's height): five two-line names (31 px) fit apart on a 12 rem chart, under the finish band (12 %). */
 export const LABEL_TOP = 25;
 export const LABEL_BOTTOM = 90;
@@ -105,10 +114,12 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
   const raw = stable.map((runner, index) => {
     const id = runner.entrantId;
     // A fixed lane per runner (its place in the crew by id), so that a route never jumps sideways.
-    const lane = 9 + 46 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
-    const horizontalLane = 14 + 66 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
-    const vertical = (t: number) => [lane + swing(t, id), 90 - 77 * t] as const;
-    const horizontal = (t: number) => [5 + 88 * t, horizontalLane + swing(t, id)] as const;
+    // The lanes leave the chart's bottom-left corner (vertical) and bottom edge (horizontal) to the
+    // compass and the names: a ship never starts or sails over them.
+    const lane = 16 + 39 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
+    const horizontalLane = 16 + 46 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
+    const vertical = (t: number) => [lane + swing(t, id), trackY(t)] as const;
+    const horizontal = (t: number) => [trackX(t), horizontalLane + swing(t, id)] as const;
     const progress = ratio(runner);
     const [x, y] = vertical(progress);
     const [horizontalX, horizontalY] = horizontal(progress);

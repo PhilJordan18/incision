@@ -83,6 +83,53 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     expect(new Set(colours.map(colour => colour.route)).size).toBe(5);
     const mine = colours.find(colour => colour.self)!;
     expect(colours.filter(colour => colour.route === mine.route)).toHaveLength(1);
+    // Three-way match (DA2-2): a runner's sail, route and pennant share one colour and one dash,
+    // and the sail and the pennant share the shape of its kind (triangle: human, square: bot).
+    const crew = await page.evaluate(() => [...document.querySelectorAll("[data-testid=race-track] [data-runner]")].map(marker => {
+      const id = marker.getAttribute("data-runner")!;
+      const route = marker.closest("[data-testid=race-track]")!.querySelector(`polyline[data-route="${id}"]`)!;
+      const paint = (el: Element | null | undefined, property: "fill" | "stroke" | "strokeDasharray") => el ? getComputedStyle(el)[property] : null;
+      const pennant = (el: Element | null) => el && { shape: el.getAttribute("data-pennant"), cloth: paint(el.querySelector("[data-pennant-cloth]"), "fill"),
+        wake: paint(el.querySelector("[data-pennant-wake]"), "stroke"), dash: paint(el.querySelector("[data-pennant-wake]"), "strokeDasharray") };
+      const ship = marker.querySelector("[data-ship]");
+      return { id, kind: marker.getAttribute("data-kind"), self: marker.hasAttribute("data-self"),
+        route: { stroke: paint(route, "stroke"), dash: paint(route, "strokeDasharray") },
+        ship: ship && { shape: ship.getAttribute("data-sail"), sail: paint(ship.querySelector("[data-sail-cloth]"), "fill"), rings: ship.querySelectorAll("circle").length },
+        label: pennant(marker.parentElement!.querySelector("[data-track-label] [data-pennant]")),
+        standing: pennant(document.querySelector(`[data-standing="${id}"] [data-pennant]`)) };
+    }));
+    expect(crew).toHaveLength(count);
+    for (const runner of crew) {
+      const shape = runner.kind === "bot" ? "square" : "triangle";
+      // Every runner has a pennant in the standings: its route's colour and dash, its kind's shape.
+      expect(runner.standing, runner.id).toEqual({ shape, cloth: runner.route.stroke, wake: runner.route.stroke, dash: runner.route.dash });
+      // A named runner sails a ship: the same colour on the sail, the same pennant beside the name.
+      if (runner.ship) {
+        expect(runner.ship.sail, runner.id).toBe(runner.route.stroke);
+        expect(runner.ship.shape, runner.id).toBe(shape);
+        expect(runner.label, runner.id).toEqual(runner.standing);
+      } else expect(runner.label, runner.id).toBeNull();
+    }
+    const ships = crew.filter(runner => runner.ship);
+    expect(ships.length).toBeGreaterThanOrEqual(3); expect(ships.length).toBeLessThanOrEqual(5);
+    // Both kinds sail among the named, told apart by the sail alone.
+    expect(new Set(ships.map(runner => runner.ship!.shape))).toEqual(new Set(["triangle", "square"]));
+    // My ship keeps its two rings; a sole leader's has the single `or` ring (none in a tie, as
+    // before; race-track.test.ts pins the ring itself); nobody else has any.
+    expect(crew.find(runner => runner.self)!.ship!.rings).toBe(2);
+    const otherRings = ships.filter(runner => !runner.self).map(runner => runner.ship!.rings);
+    expect(otherRings.every(rings => rings === 0 || rings === 1)).toBe(true);
+    expect(otherRings.filter(rings => rings === 1).length).toBeLessThanOrEqual(1);
+    // Colour is never alone: the four shared colours each come solid, dashed and dotted.
+    expect(new Set(crew.map(runner => `${runner.route.stroke}/${runner.route.dash}`)).size).toBe(13);
+    expect(new Set(crew.map(runner => runner.route.dash)).size).toBe(3);
+    // The finish is the coast, with its word; the compass sits on the track, under the text sheet.
+    await expect(track.locator("[data-coast]:visible")).toHaveCount(1);
+    await expect(track.locator("[data-coast]:visible")).toHaveAttribute("data-coast", "horizontal");
+    await expect(track.getByText(locale === "fr-CA" ? "Arrivée" : "Finish", { exact: true })).toBeVisible();
+    const compass = track.locator("[data-compass]:visible");
+    await expect(compass).toHaveCount(1);
+    expect((await compass.boundingBox())!.y).toBeGreaterThan((await sheet.boundingBox())!.y + (await sheet.boundingBox())!.height);
     // The same routes after a reload: stable colours, nothing re-dealt.
     const beforeReload = await routes.evaluateAll(lines => lines.map(line => [line.getAttribute("data-route"), getComputedStyle(line).stroke, getComputedStyle(line).strokeDasharray]));
     await page.reload();
@@ -102,6 +149,13 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
         }).sort((a, b) => a.top - b.top));
         for (let i = 1; i < labels.length; i++) expect(labels[i]!.top).toBeGreaterThanOrEqual(labels[i - 1]!.bottom);
       }
+      // One coast and one compass at every width; on the tablet's horizontal chart the coast is on the right.
+      await expect(track.locator("[data-coast]:visible")).toHaveAttribute("data-coast", width === 800 ? "vertical" : "horizontal");
+      await expect(track.locator("[data-compass]:visible")).toHaveCount(1);
+      // Ships and dots stay inside the chart, whatever its direction.
+      const inside = await track.locator("[data-runner]").evaluateAll(markers => { const box = markers[0]!.closest("[data-testid=race-track]")!.getBoundingClientRect();
+        return markers.every(marker => { const at = marker.getBoundingClientRect(); return at.left >= box.left && at.right <= box.right && at.top >= box.top && at.bottom <= box.bottom; }); });
+      expect(inside).toBe(true);
       await page.screenshot({ animations: "disabled", path: test.info().outputPath(`track-${theme}-${width}.png`), fullPage: true });
       if (width === 360) await expectNoAccessibilityViolation(page);
     }
@@ -111,10 +165,15 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     await page.emulateMedia({ forcedColors: "active" });
     // axe-core #3978 mixes authored and forced foregrounds in high-contrast mode.
     // Keep all axe rules above/below in both authored themes; inspect system-color rendering here.
+    // The marker no longer carries initials (DA2-2): its ship's sail and hull take the two system colours.
     const systemColors = await marker.evaluate(el => ({ background: getComputedStyle(el).backgroundColor,
-      initials: getComputedStyle(el.querySelector("span")!).color, forced: matchMedia("(forced-colors: active)").matches }));
+      sail: getComputedStyle(el.querySelector("[data-sail-cloth]")!).fill, hull: getComputedStyle(el.querySelector("[data-ship] > path:last-of-type")!).fill,
+      edge: getComputedStyle(el.closest("[data-testid=race-track]")!.querySelector("[data-coast]:not([hidden]) [data-coast-edge]")!).stroke,
+      forced: matchMedia("(forced-colors: active)").matches }));
     expect(systemColors.forced).toBe(true);
-    expect(systemColors.background).not.toBe(systemColors.initials);
+    expect(systemColors.sail).toBe(systemColors.background);
+    expect(systemColors.sail).not.toBe(systemColors.hull);
+    expect(systemColors.edge).toBe(systemColors.sail);
     expect(systemColors.background).not.toBe("rgba(0, 0, 0, 0)");
     await page.screenshot({ animations: "disabled", path: test.info().outputPath(`track-${theme}-forced-colors.png`), fullPage: true });
     await page.emulateMedia({ forcedColors: "none" });

@@ -34,6 +34,33 @@ describe("semantic track", () => {
     expect(html).toContain(t.inactive); expect(html).toContain(t.status.abandoned);
     expect(html).not.toContain("aria-live");
   });
+  it("draws a ship for each named runner: its kind's sail, its route's colour, my rings, the leader's ring", () => {
+    const crew: NonNullable<RaceClientState["progress"]> = { ...progress, entrants: [
+      { entrantId: "a", kind: "human", status: "racing", position: 4, length: 10, netWpm: 45, inactive: false },
+      { entrantId: "b", kind: "bot", status: "racing", position: 8, length: 10, netWpm: 60, inactive: false },
+      ...Array.from({ length: 10 }, (_, i) => ({ entrantId: `z${i}`, kind: "human" as const, status: "racing" as const, position: 0, length: 10, netWpm: 0, inactive: false }))] };
+    const html = renderToStaticMarkup(createElement(RaceTrack, { progress: crew, entrants: [], selfId: "a", t: getDictionary("fr").races, locale: "fr" }));
+    const marker = (id: string) => html.match(new RegExp(`<span data-runner="${id}"[^>]*>(.*?)</span>`))![0];
+    // Me: a human, triangle sail in `moi`, two rings. The leader: a bot, square sail, one ring.
+    expect(marker("a")).toContain('data-sail="triangle"'); expect(marker("a")).toContain('data-colour="moi"');
+    expect(marker("a").match(/<circle/g)).toHaveLength(2);
+    expect(marker("b")).toContain('data-sail="square"'); expect(marker("b").match(/<circle/g)).toHaveLength(1);
+    expect(marker("b")).toContain(`data-colour="${marker("b").match(/data-route-colour="(\w+)"/)![1]}"`);
+    // At most five ships; every other runner stays a dot.
+    expect(html.match(/data-ship=/g)!.length).toBeLessThanOrEqual(5);
+    expect(html.match(/data-runner=/g)).toHaveLength(12);
+    // One pennant per name on the track, cut and coloured like its ship.
+    expect(html.match(/data-pennant=/g)).toHaveLength(html.match(/data-ship=/g)!.length);
+    expect(html).toMatch(/data-pennant="square" data-colour="\w+" data-dash="\w+"/);
+    // The coast is the finish, and the finish word stays.
+    expect(html).toContain('data-coast="horizontal"'); expect(html).toContain('data-coast="vertical"');
+    expect(html).toContain(raceTrackMessages.fr.finish); expect(html).toContain("data-compass");
+  });
+  it("gives every runner of the standings the pennant of its kind and route", () => {
+    const html = renderToStaticMarkup(createElement(RaceStandings, { progress, entrants: [], selfId: "a", t: getDictionary("fr").races, locale: "fr" }));
+    expect(html).toMatch(/data-standing="a".*?data-pennant="triangle" data-colour="moi" data-dash="solid"/);
+    expect(html).toMatch(/data-standing="b".*?data-pennant="square" data-colour="juste" data-dash="solid"/);
+  });
   it("renders spectators without a local marker, typing field or private images", () => {
     const html = renderToStaticMarkup(createElement(RaceTrack, { progress, entrants: [], selfId: null, t: getDictionary("en").races, locale: "en" }));
     expect(html).not.toContain('data-self="true"'); expect(html).not.toContain("<input"); expect(html).not.toContain("<img");
