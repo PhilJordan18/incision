@@ -76,7 +76,8 @@ async function typeText(field: ReturnType<Page["getByLabel"]>, text: string): Pr
 test("a held e can be replaced by an accent before it reaches the race", async ({ browser }) => {
   const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
   const { page: runner } = await signedIn(browser, "Matelot", { locale: "fr-CA" });
-  await join(runner, await openRoom(host));
+  const code = await openRoom(host);
+  await join(runner, code);
   await host.getByRole("button", { name: "Start the race" }).click();
   const field = runner.getByLabel("Ta frappe", { exact: true });
   await expect(field).toBeEnabled({ timeout: 6000 });
@@ -90,17 +91,30 @@ test("a held e can be replaced by an accent before it reaches the race", async (
   await field.evaluate(element => {
     if (!(element instanceof HTMLInputElement)) throw new Error("Missing typing input");
     element.select();
+  });
+  await runner.keyboard.up("e");
+  await field.evaluate(element => {
     element.dispatchEvent(new InputEvent("beforeinput", {
       inputType: "insertReplacementText", data: "ê", bubbles: true, cancelable: true,
     }));
   });
-  await runner.keyboard.up("e");
   await expect(field).toHaveAttribute("aria-invalid", "true");
   await expect(runner.locator(".course-texte .course-juste")).toHaveCount(1);
   await expect(field).toHaveValue("");
   await field.press("Backspace");
   await field.press("e");
   await expect(host.getByRole("progressbar", { name: "Matelot" })).toHaveAttribute("value", "2");
+  const text = await raceText(runner);
+  await Promise.all([typeText(field, text.slice(2)), typeText(host.getByLabel("Your typing"), text)]);
+  await expect(runner.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
+  const [counts] = await query<{ correct_inputs: string; total_inputs: string }>(
+    `select r.correct_inputs, r.total_inputs from race_results r
+      join race_entrants e on e.id = r.entrant_id
+      join lobbies l on l.current_race_id = r.race_id
+      where l.code = $1 and e.display_name_snapshot = $2`, [code, "Matelot"],
+  );
+  expect(counts).toEqual({ correct_inputs: String(text.length), total_inputs: String(text.length + 1) });
+
 });
 
 test.describe("the first complete race (F-04.0)", () => {
