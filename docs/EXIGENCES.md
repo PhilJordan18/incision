@@ -33,6 +33,16 @@ ne décrivent plus ces cinq lignes ni les six PR intégrées.
 Cela ne valide pas la production, Neon ou les améliorations hors périmètre.
 Aucun pourcentage global de 100 % n’est revendiqué.
 
+## Qualification locale du lot 3
+
+Le [rapport du lot 3](evidence/lot3-guest-arcade/README.md) ajoute des preuves
+pour COURSE-04, AUTH-01, CONF-09, PERF-02, PERF-03 et TECH-04, sans changer leurs
+statuts. La course mixte à capacité maximale a persisté 30 résultats, dont
+15 invités, et un onglet Chromium a observé la piste pendant la charge.
+Les accès SQL invités sont comptés sur la phase mesurée. La suite PostgreSQL
+avec PgBouncer configuré a réussi 442 tests, dont les neuf du pooler local.
+Les validations A–G et 1/2 conservent leur périmètre d’origine.
+
 ## Complément de navigation du 17 novembre 2026
 
 Le [complément de #205](evidence/account-empty-room-2026-11-17/README.md)

@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-11-18T05:14:59.453Z",
+  "sha": "5647eb4d22f60195a96bd3c365d41831884764dd",
+  "dirty": false,
+  "node": "v24.19.0",
+  "machine": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 5,
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
+    "memoryGiB": 17.58584976196289,
+    "loadBefore": [
+      0.41,
+      0.68,
+      0.56
+    ]
+  },
+  "buildId": "cOzMO0vhSX4xtccuGKf6M",
+  "fixtureSetup": "Synthetic identities and signed local sessions; real DB membership functions, not HTTP sign-in/admission load",
+  "scenario": "One full FR race drawn from the versioned corpus, mandatory correction, one correct insert per 125–153 ms plus ACK delay",
+  "guests": 15,
+  "arcade": true,
+  "arcadeDelayedRunners": 24,
+  "expectedSocketConnections": 51,
+  "durationMs": 58132.446995,
+  "corpus": {
+    "version": "2026-10-25.4",
+    "checksum": "9aef01c6c0166eaf32bf66e6fba653464b80b495330fed1fdc6a127e5e30e709"
+  },
+  "coverage": {
+    "runners": 30,
+    "spectators": 20,
+    "finished": 30,
+    "stored": 30,
+    "observing": 20,
+    "acknowledged": 8190,
+    "expected": 8190,
+    "errors": 0,
+    "disconnects": 0
+  },
+  "guestArcade": {
+    "guestResults": 15,
+    "arcadeRunners": 24,
+    "fogObservers": 20,
+    "guestActivationRefusals": 1,
+    "measurements": {
+      "total": 186,
+      "guestSessionLocks": 15,
+      "guestActivityWrites": 15
+    },
+    "guestSqlBudget": 30,
+    "durationMs": 55100.89582500001
+  },
+  "batchAckRttMs": {
+    "count": 8190,
+    "median": 0.6521229999998468,
+    "p95": 2.1138840000057826,
+    "p99": 16.076778000002378,
+    "max": 109.95885999999882
+  },
+  "spectatorBroadcastGapMs": {
+    "count": 4120,
+    "median": 250.41444999999658,
+    "p95": 252.40765999999712,
+    "p99": 256.59259100000054,
+    "max": 334.41014799999994
+  },
+  "browser": {
+    "passed": true,
+    "mode": "real spectator page during the same server load",
+    "additionalSockets": 1,
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "locale": "fr-CA",
+    "theme": "abysse",
+    "durationMs": 55096.90000000002,
+    "minRunners": 30,
+    "runners": 30,
+    "distinctPositions": 916,
+    "frameIntervalsMs": {
+      "count": 3293,
+      "median": 16.69999999999709,
+      "p95": 16.700000000004366,
+      "p99": 16.80000000000291,
+      "max": 16.80000000000291
+    },
+    "longTasksMs": {
+      "count": 0,
+      "median": null,
+      "p95": null,
+      "p99": null,
+      "max": null
+    },
+    "pageErrors": 0,
+    "resultsVisible": true
+  },
+  "cleanupErrors": []
+}

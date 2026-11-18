@@ -92,6 +92,35 @@ a subjective visual judgement or a physical screen refresh guarantee. It runs on
 machine as the load clients and server; sampling itself has overhead. Other locales, themes,
 small widths and keyboard behavior are covered separately by existing browser tests.
 
+## Mixed guest and Arcade qualification
+
+Use a fresh, dedicated PostgreSQL 17 instance listening on `127.0.0.1:5433`.
+Start it with `shared_preload_libraries=pg_stat_statements` and pass the URL of its
+synthetic administrator database if it differs from the default.
+
+```sh
+LOAD_CONFIRM=local-only LOAD_GUEST_ARCADE=1 LOAD_BROWSER=1 npm run load -w @incision/load
+```
+
+This mode runs 15 account racers, 15 guest racers and 20 account spectators.
+The extra Chromium observer is optional. Guest cookies use a run-generated key,
+and the fixtures use the regular database creation and admission functions.
+Twenty-four entrants start typing after receiving their first award. This gives
+both groups eligible runners while keeping the same acknowledgement pacing.
+One account activates an eligible fog grant, and the spectators must receive
+the announcement. One guest attempts to activate a grant and must receive the
+current protocol refusal. If the random draw offers no eligible account fog
+grant, the load run fails its effects coverage.
+
+The harness creates `pg_stat_statements` in its own database. It samples aggregate
+query calls from just before race start until results publication, before the
+final watches and shutdown. It reports total calls, guest session locks and
+guest activity writes. Each of the latter two must be between the guest count
+and the guest count times the initial grant plus the number of 60-second
+persistence windows spanned. Reports contain counts only. Administrative SQL,
+shutdown flushes, admission bursts, multiple rooms and Azure are outside this
+measurement. These are regression budgets for this controlled scenario.
+
 ## Remaining PERF-03 evidence
 
 Repeat the observation on target physical devices and obtain human acceptance. The final signature track, and later server/UI
