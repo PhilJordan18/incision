@@ -73,6 +73,36 @@ async function typeText(field: ReturnType<Page["getByLabel"]>, text: string): Pr
   await field.pressSequentially(text, { delay: 70 });
 }
 
+test("a held e can be replaced by an accent before it reaches the race", async ({ browser }) => {
+  const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
+  const { page: runner } = await signedIn(browser, "Matelot", { locale: "fr-CA" });
+  await join(runner, await openRoom(host));
+  await host.getByRole("button", { name: "Start the race" }).click();
+  const field = runner.getByLabel("Ta frappe", { exact: true });
+  await expect(field).toBeEnabled({ timeout: 6000 });
+  await expect(field).toBeFocused();
+  await runner.keyboard.insertText("T");
+  await expect(runner.locator(".course-texte .course-juste")).toHaveCount(1);
+
+  // Model the browser events around an OS candidate selection. The fixture expects e here:
+  // the chosen ê alone must be a fault, with the e in the text still untyped.
+  await runner.keyboard.down("e");
+  await field.evaluate(element => {
+    if (!(element instanceof HTMLInputElement)) throw new Error("Missing typing input");
+    element.select();
+    element.dispatchEvent(new InputEvent("beforeinput", {
+      inputType: "insertReplacementText", data: "ê", bubbles: true, cancelable: true,
+    }));
+  });
+  await runner.keyboard.up("e");
+  await expect(field).toHaveAttribute("aria-invalid", "true");
+  await expect(runner.locator(".course-texte .course-juste")).toHaveCount(1);
+  await expect(field).toHaveValue("");
+  await field.press("Backspace");
+  await field.press("e");
+  await expect(host.getByRole("progressbar", { name: "Matelot" })).toHaveAttribute("value", "2");
+});
+
 test.describe("the first complete race (F-04.0)", () => {
   test("two players race: countdown, typing checked by the server, progress, results stored and reopened", async ({ browser }) => {
     const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
