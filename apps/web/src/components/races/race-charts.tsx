@@ -1,11 +1,13 @@
 import { KeyHeatmap } from "@/components/results/key-heatmap";
 import type { EntrantResultView, RaceResultView } from "@incision/database";
+import { Pennant } from "@/components/nautical";
 import { card, monoLabel } from "@/components/ui/styles";
 import { raceCharts } from "@/i18n/race-charts";
 import type { Locale } from "@/i18n/locale";
 import { formatNumber } from "@/i18n/value-format";
 import { formatElapsed } from "@/races/format";
 import { BotIdentityLabel } from "./bot-identity-label";
+import { resultRoutes } from "./result-routes";
 
 type Copy = (typeof raceCharts)[Locale];
 const title = "font-display text-3xl font-extrabold uppercase";
@@ -15,13 +17,16 @@ const cell = "px-4 py-3 font-mono text-right whitespace-nowrap";
 export function RaceCharts({ race, locale }: { readonly race: RaceResultView; readonly locale: Locale }) {
   if (race.state !== "finished") return null;
   const t = raceCharts[locale];
+  // The legend's pennants: each runner's route on the track (colour, dash) and its sail's shape.
+  const routes = resultRoutes(race.entrants);
   return <div className="flex min-w-0 flex-col gap-8">
     <section aria-labelledby="race-speed-heading" className={`${card} min-w-0 space-y-4`}>
       <h2 id="race-speed-heading" className={title}>{t.speed}</h2>
       <p className="text-sm text-embrun">{t.speedHelp}</p>
       <SpeedPlot entrants={race.entrants} locale={locale} t={t} />
       <ol className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        {race.entrants.map((entrant) => <li key={entrant.ordinal} className={entrant.isSelf ? "text-moi" : "text-embrun"}>
+        {race.entrants.map((entrant) => <li key={entrant.ordinal} data-result-entrant={entrant.ordinal} className={entrant.isSelf ? "text-moi" : "text-embrun"}>
+          <Pennant kind={entrant.kind ?? "human"} {...routes.get(entrant.ordinal)} className="mr-2" />
           {formatNumber(entrant.ordinal, locale)}. {entrant.displayName}{entrant.isSelf ? ` (${t.you})` : ""}
           <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
           {entrant.result?.wpmSeries === undefined ? ` — ${t.missing}` : ""}

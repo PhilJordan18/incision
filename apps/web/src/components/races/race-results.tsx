@@ -1,5 +1,6 @@
 import { ResultsBonusJournal } from "./results-bonus-journal";
 import type { RaceResultView } from "@incision/database";
+import { Coast, Pennant, Ship, SHIP_ANCHOR, WaveMarks } from "@/components/nautical";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { card, monoLabel, secondaryButton } from "@/components/ui/styles";
@@ -11,6 +12,7 @@ import { resultsDetails } from "@/i18n/results-details";
 import { formatAccuracy, formatElapsed, formatWpm, ordinal } from "@/races/format";
 import { ResultsPodium } from "./results-podium";
 import { BotIdentityLabel } from "./bot-identity-label";
+import { type ResultEntrant, resultRoutes } from "./result-routes";
 
 type RaceResultsProps = {
   readonly race: RaceResultView;
@@ -35,6 +37,8 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
   const self = race.entrants.find((entrant) => entrant.isSelf);
   const details = resultsDetails[locale];
   const record = self?.result?.outcome === "finished" ? race.personalRecord : undefined;
+  // Each runner's pennant: the colour and dash of its route on the track, the shape of its sail.
+  const routes = resultRoutes(race.entrants);
   const finishers = ranked.filter((entrant) => entrant.result?.outcome === "finished").length;
   // The race page is its entrants' history (HIST-02): the link is shown to them only.
   const openRace =
@@ -59,11 +63,14 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
 
       {self?.result !== undefined ? (
         <div className="flex flex-col gap-6">
-          {/* The one red mist of the screen, behind the rank (design rule 4). */}
-          <p className="red-mist flex items-baseline gap-4 self-start px-10 py-6 -mx-10 -my-6 [--mist-x:30%] [--mist-y:55%]">
-            <span className="font-display text-[96px] leading-none font-black text-ecume sm:text-[120px]">{ordinal(self.result.rank, locale, t.results.ordinal)}</span>
-            <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: formatNumber(ranked.length, locale) })}</span>
-          </p>
+          {/* The red coast beside the rank: it replaces the red mist here (art direction C1, D-15). */}
+          <div className="grid items-center gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-8">
+            <p className="flex items-baseline gap-4">
+              <span className="font-display text-[96px] leading-none font-black text-ecume sm:text-[120px]">{ordinal(self.result.rank, locale, t.results.ordinal)}</span>
+              <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: formatNumber(ranked.length, locale) })}</span>
+            </p>
+            <ArrivalShore entrants={ranked} routes={routes} />
+          </div>
           {record !== undefined && (
             <div aria-label={details.recordLabel} role="note" className={`self-start rounded-lg border bg-nuit p-3 text-sm ${record.status === "improved" || record.status === "tied" ? "border-or" : "border-houle"}`}>
               <p className={`font-semibold ${record.status === "improved" || record.status === "tied" ? "text-or" : "text-embrun"}`}>
@@ -91,7 +98,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
 
       {actions === undefined ? openRace : actions(openRace)}
 
-      <ResultsPodium entrants={ranked} locale={locale} t={t} />
+      <ResultsPodium entrants={ranked} locale={locale} t={t} routes={routes} />
 
       {/* Scrolls sideways at 360 px: focusable and named, so the keyboard reaches every column. */}
       <div role="region" aria-label={t.results.tableLabel} tabIndex={0} className={`${card} overflow-x-auto p-0`}>
@@ -117,7 +124,8 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
               return (
                 <tr key={entrant.ordinal} className={`border-b border-sillage last:border-b-0 ${entrant.isSelf ? "bg-moi/10" : ""}`}>
                   <td className="px-4 py-3 font-mono">{ordinal(result.rank, locale, t.results.ordinal)}</td>
-                  <th scope="row" className="px-4 py-3 font-semibold">
+                  <th scope="row" data-result-entrant={entrant.ordinal} className="px-4 py-3 font-semibold">
+                    <Pennant kind={entrant.kind ?? "human"} {...routes.get(entrant.ordinal)} className="mr-2" />
                     {entrant.displayName}
                     <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
                     {entrant.isSelf ? <span className="font-normal text-brume"> ({t.you})</span> : null}
@@ -143,6 +151,40 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
       <p className="text-sm text-brume">{details.errorsHelp}</p>
       <ResultsBonusJournal race={race} locale={locale} t={t} />
     </section>
+  );
+}
+
+/** Where the ships of the scene sit, first rank nearest the coast: decoration, never a measure. */
+const BERTHS = [
+  { left: "24%", top: "58%" },
+  { left: "42%", top: "66%" },
+  { left: "58%", top: "70%" },
+  { left: "73%", top: "76%" },
+  { left: "86%", top: "80%" },
+] as const;
+
+/**
+ * The arrival beside the rank: the red coast, and the ships of the first places in rank order
+ * (the reader's own always among them, a little larger). Decorative: the podium and the table
+ * below say everything it shows.
+ */
+function ArrivalShore({ entrants, routes }: { readonly entrants: readonly ResultEntrant[]; readonly routes: ReturnType<typeof resultRoutes> }) {
+  const first = entrants.slice(0, BERTHS.length);
+  const self = entrants.find((entrant) => entrant.isSelf);
+  const ships = self === undefined || first.includes(self) ? first : [...first.slice(0, -1), self];
+  return (
+    <div aria-hidden="true" data-arrival-shore="" className="relative h-24 overflow-hidden rounded-carte border border-sillage bg-mer sm:h-[132px]">
+      <WaveMarks width={900} height={132} className="absolute inset-0 size-full" />
+      <div className="absolute inset-x-0 top-0 h-[36%] sm:h-[45%]"><Coast /></div>
+      {ships.map((entrant, index) => {
+        const size = entrant.isSelf ? 78 : 58;
+        return (
+          <span key={entrant.ordinal} className="absolute" style={{ left: BERTHS[index]!.left, top: BERTHS[index]!.top, marginLeft: -size * SHIP_ANCHOR.x, marginTop: -size * SHIP_ANCHOR.y }}>
+            <Ship kind={entrant.kind ?? "human"} colour={routes.get(entrant.ordinal)?.colour} size={size} />
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
