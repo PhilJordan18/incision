@@ -44,10 +44,11 @@ la version alors testée, pas une nouvelle exécution sur le correctif actuel.
 
 ## Décisions et remarques séparées
 
-- **À corriger dans la tranche autorisée :** ajouter « Créer une salle » à l’état
+- **Corrigé et intégré par #205 :** « Créer une salle » dans l’état
   vide de « Mes salles », avec traduction EN et parcours existant inchangé.
-- **Sécurité :** mise à jour ciblée de Next.js et de sa configuration ESLint;
-  contrôles techniques distincts de cette recette humaine.
+  [Preuves ciblées](../account-empty-room-2026-11-17/README.md), distinctes de A.
+- **Sécurité intégrée par #206 :** mise à jour ciblée de Next.js et de sa configuration ESLint;
+  [contrôles techniques](../next-security-2026-11-17/README.md) distincts de cette recette humaine.
 - **Décision explicite du 17 novembre :** conserver le rappel d’activité actuel,
   non modal, pour la remise. Une modale n’est pas un correctif restant.
 - **Salle après départ :** Philippe rappelle le délai de grâce de 30 secondes.
@@ -58,6 +59,11 @@ la version alors testée, pas une nouvelle exécution sur le correctif actuel.
   des réglages, curseur-boussole de navigation, ambiance sonore et heatmap
   thermique continue. Les dispositions clavier et les trajets colorés ont déjà
   été acceptés; aucune image générée ni modification du logo n’est demandée.
+
+C1 et les écrans approuvés ultérieurement, dont les réglages et leur version
+Aube, constituent un chantier distinct en cours. Leur validation de maquette
+ne transfère pas A–G au futur code; aucune nouvelle recette humaine n’est
+revendiquée ici.
 
 ## Limites avant remise
 
