@@ -141,7 +141,11 @@ test("the crew is grouped, spectators have their own counter and the top counter
 test("the quay is decorative: eight hulls at most, then a count; pennants and eyes follow the roles", async ({ browser }) => {
   const host = await account(browser, "Capitaine");
   const code = await openRoom(host);
-  const quay = host.locator("[data-quay]");
+  // Two strips, one shown at a time: eight hulls and the count from 1024 px, three hulls under it.
+  const quay = host.locator("[data-quay]").first();
+  const narrowQuay = host.locator("[data-quay]").nth(1);
+  await expect(host.locator("[data-quay]")).toHaveCount(2);
+  await expect(narrowQuay).toBeHidden();
   await expect(quay).toHaveAttribute("aria-hidden", "true");
   await expect(quay.locator("[data-quay-hull]")).toHaveCount(1);
   await expect(quay.locator("text")).toHaveCount(0);
@@ -168,9 +172,26 @@ test("the quay is decorative: eight hulls at most, then a count; pennants and ey
   expect(box.height).toBeLessThanOrEqual(150);
   await host.setViewportSize({ width: 1280, height: 640 });
   await expect(quay).toBeHidden();
-  await host.setViewportSize({ width: 390, height: 844 });
-  await expect(quay).toBeVisible();
-  await expectNoHorizontalScroll(host);
+  await expect(narrowQuay).toBeHidden();
+  for (const width of [1023, 768, 390, 360]) {
+    await host.setViewportSize({ width, height: 844 });
+    await expect(quay).toBeHidden();
+    await expect(narrowQuay).toBeVisible();
+    await expect(narrowQuay).toHaveAttribute("aria-hidden", "true");
+    // No word is drawn there, so none is clipped; every hull drawn is inside the strip.
+    await expect(narrowQuay.locator("text")).toHaveCount(0);
+    await expect(narrowQuay.locator("[data-quay-hull]")).toHaveCount(3);
+    const strip = await narrowQuay.boundingBox();
+    const last = await narrowQuay.locator("[data-quay-hull]").last().boundingBox();
+    if (!strip || !last) throw new Error("narrow quay");
+    expect(last.x + last.width, `width ${width}`).toBeLessThanOrEqual(strip.x + strip.width);
+    await expectNoHorizontalScroll(host);
+  }
+  // From 1024 px the count is whole: it ends inside the strip.
+  await host.setViewportSize({ width: 1024, height: 900 });
+  const [wide, count] = [await quay.boundingBox(), await quay.locator("text").boundingBox()];
+  if (!wide || !count) throw new Error("quay count");
+  expect(count.x + count.width).toBeLessThanOrEqual(wide.x + wide.width);
 });
 
 test("a non-host sees the room in the same order without any host control; updates stay live", async ({ browser }) => {
