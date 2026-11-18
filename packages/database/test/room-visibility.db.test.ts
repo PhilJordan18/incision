@@ -238,6 +238,6 @@ describe("host visibility changes under the room lock (CONF-11)", () => {
       .toMatchObject({ ok: true });
     expect(await changeRoomVisibility(db, { accountId: host, code, revision: (await state(lobbyId)).revision, visibility: "public" }))
       .toMatchObject({ ok: true });
-    expect(await joinRoomByCode(db, { accountId: banned, code, role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
+    expect(await joinRoomByCode(db, { accountId: banned, code, role: "participant" })).toEqual({ ok: false, error: "ROOM_BANNED" });
   });
 });

@@ -4,6 +4,10 @@ import {
   raceBatchAckSchema, raceProgressPayloadSchema, raceRevealPayloadSchema,
   type RaceRevealPayload,
 } from "../../../apps/web/src/races/protocol";
+import {
+  bonusActivationAckSchema, bonusAnnouncementSchema, bonusSelfSchema,
+  RACE_BONUS_ACTIVATE_EVENT, RACE_BONUS_ANNOUNCEMENT_EVENT, RACE_BONUS_SELF_EVENT, type BonusSelf,
+} from "../../../apps/web/src/races/bonus-protocol";
 import { Samples } from "./metrics";
 import { roomSnapshotSchema } from "../../../apps/web/src/rooms/protocol";
 
@@ -16,6 +20,11 @@ export class Client {
   terminal = false;
   resultsPublished = false;
   acknowledged = 0;
+  arcadeGrants = 0;
+  fogAnnouncements = 0;
+  private bonusSelf: BonusSelf | undefined;
+  guestActivationRefused = false;
+  bonusRefusal: string | undefined;
   errors = 0;
   disconnects = 0;
   private lastProgress: number | undefined;
@@ -27,6 +36,20 @@ export class Client {
     this.socket = io(input.origin, {
       autoConnect: false, transports: ["websocket"], reconnection: false,
       timeout: 10_000, extraHeaders: { origin: input.origin, cookie: input.cookie },
+    });
+    this.socket.on(RACE_BONUS_SELF_EVENT, (payload: unknown) => {
+      const parsed = bonusSelfSchema.safeParse(payload);
+      if (!parsed.success || input.spectator) this.errors++;
+      else if (parsed.data.enabled) {
+        this.bonusSelf = parsed.data;
+        this.arcadeGrants = Math.max(this.arcadeGrants, parsed.data.grants.length + parsed.data.ackSeq);
+      }
+    });
+    this.socket.on(RACE_BONUS_ANNOUNCEMENT_EVENT, (payload: unknown) => {
+      const parsed = bonusAnnouncementSchema.safeParse(payload);
+      if (!parsed.success) this.errors++;
+      else if (parsed.data.announcement.type === "activated" &&
+          parsed.data.announcement.receipt.grant.kind === "fogLeader") this.fogAnnouncements++;
     });
     this.socket.on("race:reveal", (payload: unknown) => {
       const parsed = raceRevealPayloadSchema.safeParse(payload);
@@ -91,11 +114,12 @@ export class Client {
     return this.socket.timeout(10_000).emitWithAck(event, payload);
   }
 
-  async type(index: number) {
+  async type(index: number, arcade?: { claim: () => boolean; guest: boolean; awaitGrant: boolean }) {
     await waitFor(() => this.reveal !== undefined, this.signal);
     const reveal = this.reveal!;
     // Server clock decides the countdown. RTT is not subtracted; this starts conservatively late.
     await sleep(Math.max(0, reveal.reveal.startsAt - reveal.serverNow) + 200 + index * 7, undefined, { signal: this.signal });
+    if (arcade?.awaitGrant) await waitFor(() => this.arcadeGrants > 0, this.signal, 30_000);
     let seq = 1;
     for (const grapheme of reveal.reveal.text) {
       const before = performance.now();
@@ -110,6 +134,17 @@ export class Client {
       }
       this.acknowledged++;
       seq++;
+      const grant = this.bonusSelf?.grants[0];
+      if (grant !== undefined && (arcade?.guest || grant.kind === "fogLeader") && arcade?.claim()) {
+        const activation = bonusActivationAckSchema.parse(await this.ask(RACE_BONUS_ACTIVATE_EVENT, {
+          raceId: reveal.reveal.raceId, seq: 1, milestone: grant.milestone,
+        }));
+        if (arcade.guest && !activation.ok && activation.error === "UNAUTHORIZED") this.guestActivationRefused = true;
+        else if (arcade.guest || !activation.ok || !activation.result.ok) {
+          this.bonusRefusal = !activation.ok ? activation.error : activation.result.ok ? "UNEXPECTED_SUCCESS" : activation.result.reason;
+          throw new Error("Unexpected Arcade fog activation result");
+        }
+      }
       // 6.5–8 batches/s, one in flight; no catch-up burst after a slow response.
       await sleep(125 + (index % 5) * 7, undefined, { signal: this.signal });
     }
@@ -122,8 +157,8 @@ export class Client {
   }
 }
 
-export async function waitFor(predicate: () => boolean, signal: AbortSignal) {
-  const deadline = performance.now() + 15_000;
+export async function waitFor(predicate: () => boolean, signal: AbortSignal, timeoutMs = 15_000) {
+  const deadline = performance.now() + timeoutMs;
   while (!predicate()) {
     if (performance.now() >= deadline) throw new Error("Load observation timeout");
     await sleep(50, undefined, { signal });

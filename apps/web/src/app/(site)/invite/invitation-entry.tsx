@@ -33,7 +33,7 @@ export function InvitationEntry({ locale, guestCopy, account, guestsEnabled }: {
         try {
           const result = await joinInvitationAction(data);
           if ("code" in result) { router.push(`/rooms/${result.code}`); return; }
-          setError(result.error === "INVITATION_UNAVAILABLE" ? t.invalid : result.error === "RATE_LIMITED" ? t.limited : t.unavailable);
+          setError(result.error === "ROOM_BANNED" ? guestCopy.errors.ROOM_BANNED : result.error === "INVITATION_UNAVAILABLE" ? t.invalid : result.error === "RATE_LIMITED" ? t.limited : t.unavailable);
         } catch { setError(t.unavailable); }
       });
     }}>

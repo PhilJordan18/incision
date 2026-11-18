@@ -208,7 +208,8 @@ for (const locale of ["fr-CA", "en-US"]) {
     await expect(host.locator(".course-erreur")).toHaveCount(1);
     await expect(host.locator(".course-juste")).toHaveCount(2);
     await expect(host.locator(".course-bloque")).toHaveCount(0);
-    await expect(member.getByRole("progressbar", { name: `FreeHost${locale}` })).not.toHaveAttribute("value", "0");
+    // Wait for all three server-observed inputs before reloading the typing client.
+    await expect(member.getByRole("progressbar", { name: `FreeHost${locale}` })).toHaveAttribute("value", "3");
     await host.reload();
     await expect(field).toBeEnabled({ timeout: 10_000 });
     await expect(host.locator(".course-erreur")).toHaveCount(1);

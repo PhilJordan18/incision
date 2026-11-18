@@ -164,6 +164,7 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
 export type JoinRoomInput = { readonly accountId: string; readonly code: RoomCode; readonly role: MemberRole };
 
 export type JoinRoomResult =
+  | { readonly ok: false; readonly error: "ROOM_BANNED" }
   | { readonly ok: true; readonly lobbyId: string; readonly memberId: string; readonly alreadyMember: boolean }
   | { readonly ok: false; readonly error: "ROOM_NOT_FOUND" | "ROOM_FULL" | "SPECTATORS_FULL" | "ACCOUNT_NOT_FOUND" }
   /** The phase tells a closed room from a race in progress (the code limit counts only the first). */
@@ -211,7 +212,8 @@ export type LockedAdmissionRoom = { readonly id: string; readonly phase: RoomPha
 export async function admitAccountToLockedRoom(tx: Transaction, { accountId, role, lobby }: {
   readonly accountId: string; readonly role: MemberRole; readonly lobby: LockedAdmissionRoom;
 }): Promise<JoinRoomResult> {
-  if (await isBannedFromRoom(tx, lobby.id, { kind: "account", accountId })) return { ok: false, error: "ROOM_NOT_FOUND" };
+  // Access to this room was authorized by code or a valid invitation before exposing the ban.
+  if (await isBannedFromRoom(tx, lobby.id, { kind: "account", accountId })) return { ok: false, error: "ROOM_BANNED" };
   const current = await findActiveMembership(tx, accountId);
   if (current !== undefined) {
     return current.lobbyId === lobby.id

@@ -23,7 +23,7 @@ export async function stop(child: ChildProcess) {
   try { await exited; } finally { clearTimeout(force); }
 }
 
-export async function start(input: { port: number; database: string; secret: string }, signal: AbortSignal) {
+export async function start(input: { port: number; database: string; secret: string; guestKey?: string }, signal: AbortSignal) {
   await access(path.join(app, ".next/BUILD_ID"));
   // Next and the custom server load dotenv files. Refuse rather than read any developer secrets.
   for (const name of [".env", ".env.local", ".env.production", ".env.production.local"]) {
@@ -40,6 +40,7 @@ export async function start(input: { port: number; database: string; secret: str
       NODE_ENV: "production", PORT: String(input.port), APP_URL: origin, AUTH_URL: origin,
       AUTH_SECRET: input.secret, DATABASE_URL: input.database, TRUSTED_PROXY_HOPS: "0",
       RACES_ENABLED: "true",
+      ...(input.guestKey === undefined ? {} : { GUEST_SESSION_SECRET: input.guestKey, GUEST_ENTRY_ENABLED: "true" }),
       AUTH_GITHUB_ID: "load-fixture", AUTH_GITHUB_SECRET: "load-fixture",
       AUTH_DISCORD_ID: "load-fixture", AUTH_DISCORD_SECRET: "load-fixture",
     },

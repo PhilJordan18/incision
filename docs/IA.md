@@ -60,3 +60,7 @@ Sélection fondée sur les entrées réelles du journal, sans remplacer les tém
 ## Réflexion personnelle — à confirmer par Philippe
 
 La réflexion personnelle n'est pas rédigée à la place de l'étudiant. Restent à exprimer avec ses mots : ce qu'il garde de cette collaboration, les décisions qu'il a réellement prises, et comment ces erreurs ont changé sa façon de vérifier les propositions des agents. Le coordinateur doit confirmer cette partie avant la remise scolaire.
+
+### Complément factuel — 18 novembre 2026
+
+Codex avait représenté OAuth comme une recette humaine restant à faire malgré les preuves du checkpoint 1. Philippe l’a signalé et a confirmé le fonctionnement de GitHub et Discord. Le suivi distingue désormais la validation fonctionnelle acquise du contrôle d’un prochain déploiement; aucun nouveau test OAuth distant n’est inventé.

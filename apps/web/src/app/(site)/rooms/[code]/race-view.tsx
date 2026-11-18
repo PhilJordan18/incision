@@ -561,6 +561,8 @@ function TypingPad({
       return;
     }
     let composing = false;
+    let accentKey: string | undefined;
+    let pendingBase: string | undefined;
     const insert = (data: string) => {
       // Enter is reserved (D-16): never a keystroke, whatever the input method sends.
       if (data.length === 0 || containsLineBreak(data)) {
@@ -570,14 +572,37 @@ function TypingPad({
         race.type({ type: "insert", grapheme });
       }
     };
+    const baseIsSelected = () => pendingBase !== undefined && field.value === pendingBase
+      && field.selectionStart === 0 && field.selectionEnd === pendingBase.length;
+    const commitBase = (replacement = pendingBase) => {
+      if (pendingBase === undefined) return;
+      pendingBase = undefined;
+      field.value = "";
+      if (replacement !== undefined && !field.disabled) insert(replacement);
+    };
     const onBeforeInput = (event: InputEvent) => {
       if (event.inputType === "insertCompositionText") {
         // An input method composes; its result arrives with `compositionend`.
         return;
       }
-      event.preventDefault();
       if (event.inputType === "insertText" && event.data !== null) {
+        const firstBase = event.data === accentKey && pendingBase === undefined && field.value === "";
+        commitBase();
+        if (firstBase && event.cancelable && !event.isComposing && !field.disabled) {
+          // Keep only this provisional e in the native field so the OS can select it.
+          // Nothing is sent to the race until the key or the replacement is committed.
+          pendingBase = event.data;
+          return;
+        }
+        event.preventDefault();
         insert(event.data);
+        return;
+      }
+      event.preventDefault();
+      if (event.inputType === "insertReplacementText" && event.data !== null && baseIsSelected()) {
+        const candidate = event.data.normalize("NFC");
+        const accents = pendingBase === "E" ? /^[ÉÈÊË]$/u : /^[éèêë]$/u;
+        if (accents.test(candidate)) commitBase(candidate);
       }
       // Pasting, dropping, line breaks and other edits are refused (screen 08).
     };
@@ -586,16 +611,40 @@ function TypingPad({
       insert(event.data);
       field.value = "";
     };
-    const onCompositionStart = () => { composing = true; };
+    const onCompositionStart = () => {
+      composing = true;
+      if (baseIsSelected()) pendingBase = undefined;
+      else commitBase();
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== accentKey?.toLowerCase()) return;
+      accentKey = undefined;
+      if (!baseIsSelected()) commitBase();
+    };
+    const onInput = () => {
+      // Some native edits cannot be cancelled. Keep their DOM changes out of the next key.
+      const value = pendingBase ?? "";
+      if (!composing && field.value !== value) field.value = value;
+    };
+    const onBlur = () => {
+      accentKey = undefined;
+      commitBase();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.repeat && !event.isComposing && !composing && !event.ctrlKey && !event.metaKey && !event.altKey
+        && (event.key === "e" || event.key === "E")) accentKey = event.key;
       if (event.key === "Backspace") {
         // An input method edits its own composition (a dead key, a candidate): not the race's text.
         if (event.isComposing || composing) return;
         event.preventDefault();
+        commitBase();
         race.type({ type: "deleteBackward" });
       } else if (event.key === "Enter") {
         // Leave IME confirmation alone; it is not a bonus or a typing event (D-16).
-        if (!event.isComposing && !composing && event.keyCode !== 229) event.preventDefault();
+        if (!event.isComposing && !composing && event.keyCode !== 229) {
+          event.preventDefault();
+          commitBase();
+        }
         const current = race.getState();
         if (isBonusKeyIntent({
           key: event.key, repeat: event.repeat, isComposing: event.isComposing || composing,
@@ -612,16 +661,22 @@ function TypingPad({
     };
     const refuse = (event: Event) => event.preventDefault();
     field.addEventListener("beforeinput", onBeforeInput);
+    field.addEventListener("input", onInput);
     field.addEventListener("compositionstart", onCompositionStart);
     field.addEventListener("compositionend", onCompositionEnd);
     field.addEventListener("keydown", onKeyDown);
+    field.addEventListener("keyup", onKeyUp);
+    field.addEventListener("blur", onBlur);
     field.addEventListener("paste", refuse);
     field.addEventListener("drop", refuse);
     return () => {
       field.removeEventListener("beforeinput", onBeforeInput);
+      field.removeEventListener("input", onInput);
       field.removeEventListener("compositionstart", onCompositionStart);
       field.removeEventListener("compositionend", onCompositionEnd);
       field.removeEventListener("keydown", onKeyDown);
+      field.removeEventListener("keyup", onKeyUp);
+      field.removeEventListener("blur", onBlur);
       field.removeEventListener("paste", refuse);
       field.removeEventListener("drop", refuse);
     };
