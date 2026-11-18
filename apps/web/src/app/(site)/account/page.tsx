@@ -38,8 +38,8 @@ export default async function AccountPage({ searchParams }: { readonly searchPar
   const statistics = await readAccountStatistics(authDatabase(), accountId).catch(() => null);
   return (
     <>
-      {/* The title's band, with the wave marks behind it (art direction C1): decoration only. */}
-      <div className="relative min-w-0">
+      {/* The title's band, with the wave marks behind it only (art direction C1): decoration, clipped to the band. */}
+      <div className="relative -my-4 min-w-0 overflow-hidden py-4">
         <WaveMarks className="absolute inset-0 size-full opacity-80" />
         <div className="relative"><PageHeading bold={t.account.headingBold} serif={t.account.headingSerif} /></div>
       </div>

@@ -124,8 +124,9 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
               return (
                 <tr key={entrant.ordinal} className={`border-b border-sillage last:border-b-0 ${entrant.isSelf ? "bg-moi/10" : ""}`}>
                   <td className="px-4 py-3 font-mono">{ordinal(result.rank, locale, t.results.ordinal)}</td>
-                  <th scope="row" data-result-entrant={entrant.ordinal} className="px-4 py-3 font-semibold">
-                    <Pennant kind={entrant.kind ?? "human"} {...routes.get(entrant.ordinal)} className="mr-2" />
+                  {/* The pennant keeps its own gutter, so a name that wraps never leaves it alone on a line. */}
+                  <th scope="row" data-result-entrant={entrant.ordinal} className="relative py-3 pr-4 pl-12 font-semibold">
+                    <Pennant kind={entrant.kind ?? "human"} {...routes.get(entrant.ordinal)} className="absolute top-4 left-4" />
                     {entrant.displayName}
                     <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
                     {entrant.isSelf ? <span className="font-normal text-brume"> ({t.you})</span> : null}
@@ -156,7 +157,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
 
 /** Where the ships of the scene sit, first rank nearest the coast: decoration, never a measure. */
 const BERTHS = [
-  { left: "24%", top: "58%" },
+  { left: "24%", top: "60%" },
   { left: "42%", top: "66%" },
   { left: "58%", top: "70%" },
   { left: "73%", top: "76%" },
@@ -178,11 +179,14 @@ function ArrivalShore({ entrants, self, routes }: {
   return (
     <div aria-hidden="true" data-arrival-shore="" className="relative h-24 overflow-hidden rounded-carte border border-sillage bg-mer sm:h-[132px]">
       <WaveMarks width={900} height={132} className="absolute inset-0 size-full" />
-      <div className="absolute inset-x-0 top-0 h-[36%] sm:h-[45%]"><Coast /></div>
+      <div className="absolute inset-x-0 top-0 h-[32%] sm:h-[38%]"><Coast /></div>
       {ships.map((entrant, index) => {
-        const size = entrant.isSelf ? 78 : 58;
+        const size = entrant.isSelf ? 70 : 56;
+        const foot = { x: size * SHIP_ANCHOR.x, y: size * SHIP_ANCHOR.y };
+        // Pinned by its foot, and a little smaller in the phone's lower scene, so no mast reaches the coast.
         return (
-          <span key={entrant.ordinal} className="absolute" style={{ left: BERTHS[index]!.left, top: BERTHS[index]!.top, marginLeft: -size * SHIP_ANCHOR.x, marginTop: -size * SHIP_ANCHOR.y }}>
+          <span key={entrant.ordinal} className="absolute max-sm:scale-[0.8]"
+            style={{ left: BERTHS[index]!.left, top: BERTHS[index]!.top, marginLeft: -foot.x, marginTop: -foot.y, transformOrigin: `${foot.x}px ${foot.y}px` }}>
             <Ship kind={entrant.kind ?? "human"} colour={routes.get(entrant.ordinal)?.colour} size={size} />
           </span>
         );

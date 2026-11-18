@@ -38,13 +38,13 @@ export default async function History({ searchParams }: PageProps<"/history">) {
   }
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {/* The title's band, with the wave marks behind it (art direction C1): decoration only. */}
-      <div className="relative flex min-w-0 flex-col gap-6">
+      {/* The title's band, with the wave marks behind it only (art direction C1): decoration, clipped to the band. */}
+      <div className="relative -my-4 min-w-0 overflow-hidden py-4">
         <WaveMarks className="absolute inset-0 size-full opacity-80" />
         <div className="relative"><PageHeading bold={t.bold} serif={t.serif} /></div>
-        <p className="relative text-embrun">{t.intro}</p>
-        <Link href="/account" className={`${discreetButton} relative self-start`}>{t.account}</Link>
       </div>
+      <p className="text-embrun">{t.intro}</p>
+      <Link href="/account" className={`${discreetButton} self-start`}>{t.account}</Link>
       {invalid || unavailable ? (
         <section className={`${card} flex flex-col items-start gap-4`}>
           <p role="alert">{invalid ? t.invalid : t.unavailable}</p>

@@ -184,8 +184,13 @@ for (const locale of ["fr", "en"] as const) test(`race page: pennants, coast and
     for (const size of [{ width: 1440, height: 900 }, { width: 1280, height: 640 }, { width: 1024, height: 768 }, { width: 720, height: 450 }, { width: 390, height: 844 }, { width: 360, height: 780 }]) {
       await page.setViewportSize(size);
       await expectNoHorizontalScroll(page);
-      // The ships stay inside their scene, under the coast's land.
+      // The ships stay inside their scene, and no mast or sail reaches the coast (its shore is
+      // never deeper than 90 % of its band).
       const box = (await shore.boundingBox())!;
+      const band = (await shore.locator("[data-coast]").boundingBox())!;
+      for (const part of await shore.locator("[data-ship] path, [data-ship] rect").all()) {
+        expect((await part.boundingBox())!.y, `ship under the coast at ${size.width} px`).toBeGreaterThanOrEqual(band.y + band.height * 0.9);
+      }
       for (const ship of await shore.locator("[data-ship] [data-sail-cloth]").all()) {
         const sail = (await ship.boundingBox())!;
         expect(sail.x).toBeGreaterThanOrEqual(box.x); expect(sail.x + sail.width).toBeLessThanOrEqual(box.x + box.width);
