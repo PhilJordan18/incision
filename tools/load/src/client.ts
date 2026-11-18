@@ -23,6 +23,8 @@ export class Client {
   arcadeGrants = 0;
   fogAnnouncements = 0;
   private bonusSelf: BonusSelf | undefined;
+  guestFogRefused = false;
+  bonusRefusal: string | undefined;
   errors = 0;
   disconnects = 0;
   private lastProgress: number | undefined;
@@ -112,7 +114,7 @@ export class Client {
     return this.socket.timeout(10_000).emitWithAck(event, payload);
   }
 
-  async type(index: number, claimFog?: () => boolean) {
+  async type(index: number, fog?: { claim: () => boolean; guest: boolean }) {
     await waitFor(() => this.reveal !== undefined, this.signal);
     const reveal = this.reveal!;
     // Server clock decides the countdown. RTT is not subtracted; this starts conservatively late.
@@ -132,11 +134,15 @@ export class Client {
       this.acknowledged++;
       seq++;
       const grant = this.bonusSelf?.grants[0];
-      if (grant?.kind === "fogLeader" && claimFog?.()) {
+      if (grant?.kind === "fogLeader" && fog?.claim()) {
         const activation = bonusActivationAckSchema.parse(await this.ask(RACE_BONUS_ACTIVATE_EVENT, {
           raceId: reveal.reveal.raceId, seq: 1, milestone: grant.milestone,
         }));
-        if (!activation.ok || !activation.result.ok) throw new Error("Arcade fog activation refused");
+        if (fog.guest && !activation.ok && activation.error === "UNAUTHORIZED") this.guestFogRefused = true;
+        else if (fog.guest || !activation.ok || !activation.result.ok) {
+          this.bonusRefusal = !activation.ok ? activation.error : activation.result.ok ? "UNEXPECTED_SUCCESS" : activation.result.reason;
+          throw new Error("Unexpected Arcade fog activation result");
+        }
       }
       // 6.5–8 batches/s, one in flight; no catch-up burst after a slow response.
       await sleep(125 + (index % 5) * 7, undefined, { signal: this.signal });

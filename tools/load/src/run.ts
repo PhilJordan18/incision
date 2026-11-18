@@ -63,7 +63,7 @@ async function main() {
   let startRefusal: string | undefined;
   let browserReport: BrowserReport | undefined;
   let guestArcade: {
-    guestResults: number; arcadeRunners: number; fogObservers: number;
+    guestResults: number; arcadeRunners: number; fogObservers: number; guestFogRefusals: number;
     measurements: ReturnType<typeof sqlDelta>; guestSqlBudget: number; durationMs: number;
   } | undefined;
   const cleanupErrors: string[] = [];
@@ -139,14 +139,16 @@ async function main() {
     }
     const sampling = await browser?.sample();
     stage = "typing and acknowledgements";
-    let fogClaimed = false;
-    const claimFog = () => {
-      if (fogClaimed) return false;
-      fogClaimed = true;
-      return true;
-    };
-    const typing = clients.slice(0, settings.runners).map((client, index) =>
-      client.type(index, index >= accountRunners && guests > 0 ? claimFog : undefined));
+    const claimedFog = new Set<"account" | "guest">();
+    const typing = clients.slice(0, settings.runners).map((client, index) => {
+      const identity = index >= accountRunners ? "guest" : "account";
+      const claim = () => {
+        if (claimedFog.has(identity)) return false;
+        claimedFog.add(identity);
+        return true;
+      };
+      return client.type(index, settings.guestArcade ? { claim, guest: identity === "guest" } : undefined);
+    });
     try { await Promise.all(typing); }
     catch (error) {
       controller.abort();
@@ -166,6 +168,7 @@ async function main() {
     const guestSqlBudget = guests * (1 + Math.ceil(durationMs / GUEST_COMMAND_LIMIT.persistEveryMs));
     const arcadeRunners = clients.slice(0, settings.runners).filter(client => client.arcadeGrants === 3).length;
     const fogObservers = clients.slice(settings.runners).filter(client => client.fogAnnouncements === 1).length;
+    const guestFogRefusals = clients.filter(client => client.guestFogRefused).length;
     // Publication of results is a committed room snapshot, not just the in-memory ended event.
     const snapshots = await Promise.all(clients.map(async (client) => {
       const ack = roomWatchAckSchema.parse(await client.ask("room:watch", { code: room.room.code }));
@@ -190,8 +193,8 @@ async function main() {
     )).rows[0]?.count ?? 0) : 0;
     if (measurements !== undefined) {
       stage = "guest SQL and Arcade coverage";
-      guestArcade = { guestResults, arcadeRunners, fogObservers, measurements, guestSqlBudget, durationMs };
-      if (guestResults !== guests || arcadeRunners !== settings.runners || fogObservers !== settings.spectators ||
+      guestArcade = { guestResults, arcadeRunners, fogObservers, guestFogRefusals, measurements, guestSqlBudget, durationMs };
+      if (guestResults !== guests || arcadeRunners !== settings.runners || fogObservers !== settings.spectators || guestFogRefusals !== 1 ||
           measurements.guestSessionLocks < guests || measurements.guestActivityWrites < guests ||
           measurements.guestSessionLocks > guestSqlBudget || measurements.guestActivityWrites > guestSqlBudget) {
         throw new Error("Guest SQL, persisted results or Arcade grant coverage failed");
@@ -220,7 +223,10 @@ async function main() {
     // Never serialize raw driver/server errors: they may contain a connection string or cookie.
     report = { ...metadata, passed: false, failure: error instanceof Error ? error.name : "UnknownError",
       stage, startRefusal, guestArcade, browser: browserReport,
-      coverage: clients.map((client, index) => ({ index, acknowledged: client.acknowledged, progressCount: client.progressCount, terminal: client.terminal, errors: client.errors, disconnects: client.disconnects })),
+      coverage: clients.map((client, index) => ({
+        index, acknowledged: client.acknowledged, progressCount: client.progressCount,
+        terminal: client.terminal, errors: client.errors, disconnects: client.disconnects, bonusRefusal: client.bonusRefusal,
+      })),
     };
     console.error("Load run failed; see the sanitized report (no raw secrets logged).");
   } finally {
