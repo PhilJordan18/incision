@@ -142,8 +142,8 @@ test("the quay is decorative: eight hulls at most, then a count; pennants and ey
   const host = await account(browser, "Capitaine");
   const code = await openRoom(host);
   // Two strips, one shown at a time: eight hulls and the count from 1024 px, three hulls under it.
-  const quay = host.locator("[data-quay]").first();
-  const narrowQuay = host.locator("[data-quay]").nth(1);
+  const quay = host.locator('[data-room-quay="wide"] [data-quay]');
+  const narrowQuay = host.locator('[data-room-quay="narrow"] [data-quay]');
   await expect(host.locator("[data-quay]")).toHaveCount(2);
   await expect(narrowQuay).toBeHidden();
   await expect(quay).toHaveAttribute("aria-hidden", "true");

@@ -591,9 +591,13 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
   return (
     <div className="flex flex-col gap-6">
       {/* Decorative and bounded: hidden from assistive technology by the primitive, removed on a low screen. */}
-      <Quay hulls={moored} more={beyond > 0 ? format(roomCrewCopy(locale).moored, { count: formatNumber(beyond, locale) }) : undefined} className="hidden rounded-carte lg:block short:hidden" />
+      <div data-room-quay="wide" className="contents">
+        <Quay hulls={moored} more={beyond > 0 ? format(roomCrewCopy(locale).moored, { count: formatNumber(beyond, locale) }) : undefined} className="hidden rounded-carte lg:block short:hidden" />
+      </div>
       {/* Under 1024 px the strip is too narrow for eight hulls and their count: three hulls, no clipped words. The crew counters say the numbers. */}
-      <Quay hulls={moored.slice(0, 3)} className="h-[110px]! rounded-carte lg:hidden" />
+      <div data-room-quay="narrow" className="contents">
+        <Quay hulls={moored.slice(0, 3)} className="h-[110px]! rounded-carte lg:hidden" />
+      </div>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex flex-col gap-3">
           <p className={monoLabel}>
