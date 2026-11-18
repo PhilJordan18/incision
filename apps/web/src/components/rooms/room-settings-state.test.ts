@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { awaitingSettings, draftConflict, draftTextRefusal, editableSettings, requiresSettingsRefresh, settingsDraft, settingsForm, validDraft, type SavedRoomSettings } from "./room-settings-state";
+import { awaitingSettings, draftConflict, draftTextRefusal, editableSettings, pendingFields, refusalConcernsOptions, refusalFields, requiresSettingsRefresh, SETTINGS_FIELDS, settingsDraft, settingsForm, validDraft, validSeconds, validWordCount, type SavedRoomSettings } from "./room-settings-state";
 import { roomSettingsCopy, roomStartNote } from "@/i18n/room-settings";
 import { parseConfigureRoomForm } from "@/server/rooms/room-settings";
 
@@ -121,5 +121,70 @@ describe("waiting-room settings state", () => {
     // The same characters in coherent mode are not settings at all.
     expect(draftTextRefusal({ ...random, textKind: "coherent", include: "k", exclude: "k" })).toBeUndefined();
     for (const locale of ["fr", "en"] as const) expect(Object.keys(roomSettingsCopy(locale).textRefusals)).toHaveLength(10);
+  });
+
+  // DA2-8: the grouped edit form reads these; the rules above are unchanged.
+  it("names the invalid field with the same bounds as the whole draft", () => {
+    for (const wordCount of ["", "9", "201", "10.5", "2e1", "-10", " 50", "0050", "50\n"]) expect(validWordCount({ ...settingsDraft(saved), wordCount }), wordCount).toBe(false);
+    for (const wordCount of ["10", "50", "200"]) expect(validWordCount({ ...settingsDraft(saved), wordCount })).toBe(true);
+    for (const seconds of ["", "29", "601", "30.5", "3e1", "-30", " 60", "0030"]) expect(validSeconds({ ...settingsDraft(saved), seconds }), seconds).toBe(false);
+    for (const seconds of ["none", "30", "600"]) expect(validSeconds({ ...settingsDraft(saved), seconds })).toBe(true);
+    // One field in error never hides the other, and both make the draft invalid.
+    const both = { ...settingsDraft(saved), wordCount: "9", seconds: "29" };
+    expect([validWordCount(both), validSeconds(both), validDraft(both)]).toEqual([false, false, false]);
+    expect(validSeconds({ ...settingsDraft(saved), wordCount: "9" })).toBe(true);
+  });
+  it("lists pending changes field by field, in the form's order, against the saved settings", () => {
+    const draft = settingsDraft(saved);
+    expect(pendingFields(draft, saved)).toEqual([]);
+    expect(pendingFields({ ...draft, textLanguage: "en" }, saved)).toEqual(["textLanguage"]);
+    expect(pendingFields({ ...draft, wordCount: "60" }, saved)).toEqual(["wordCount"]);
+    expect(pendingFields({ ...draft, wordCount: "" }, saved)).toEqual(["wordCount"]);
+    expect(pendingFields({ ...draft, seconds: "none" }, saved)).toEqual(["seconds"]);
+    expect(pendingFields({ ...draft, seconds: "120" }, saved)).toEqual([]);
+    expect(pendingFields({ ...draft, errorMode: "free", bonusesEnabled: true }, saved)).toEqual(["errorMode", "bonusesEnabled"]);
+    // The four options are one field; going back to the saved value is no change.
+    expect(pendingFields({ ...draft, numbers: true, capitals: false }, saved)).toEqual(["options"]);
+    const toggled = { ...draft, numbers: true, capitals: false };
+    expect(pendingFields({ ...toggled, numbers: false, capitals: true }, saved)).toEqual([]);
+    const everything = { ...draft, textLanguage: "en" as const, textKind: "random" as const, complexity: "hard" as const, wordCount: "20", accents: false, include: "kw", exclude: "e", seconds: "none", errorMode: "free" as const, bonusesEnabled: true };
+    expect(pendingFields(everything, saved)).toEqual([...SETTINGS_FIELDS]);
+  });
+  it("compares characters as the request carries them (D-10): kept, repeated or coherent drafts are not changes", () => {
+    const random = { ...saved, textKind: "random" as const, includeCharacters: ["k", "w"], excludeCharacters: ["e"] };
+    const draft = settingsDraft(random);
+    expect(pendingFields(draft, random)).toEqual([]);
+    expect(pendingFields({ ...draft, include: "kkww" }, random)).toEqual([]);
+    expect(pendingFields({ ...draft, include: "kwz" }, random)).toEqual(["include"]);
+    expect(pendingFields({ ...draft, exclude: "" }, random)).toEqual(["exclude"]);
+    // Going coherent drops the saved characters on save: the type and both fields change.
+    expect(pendingFields({ ...draft, textKind: "coherent" }, random)).toEqual(["textKind", "include", "exclude"]);
+    // Characters typed, then kept in a coherent draft, are never sent: not a change.
+    expect(pendingFields({ ...settingsDraft(saved), include: "kw" }, saved)).toEqual([]);
+    expect(pendingFields({ ...settingsDraft(saved), textKind: "random", include: "kw" }, saved)).toEqual(["textKind", "include"]);
+  });
+  it("a concurrent save changes what is pending without touching the draft", () => {
+    const draft = { ...settingsDraft(saved), seconds: "45" };
+    const remote = { ...saved, revision: 8, timeLimitMs: 45_000, textLanguage: "en" as const };
+    expect(pendingFields(draft, saved)).toEqual(["seconds"]);
+    expect(pendingFields(draft, remote)).toEqual(["textLanguage"]);
+    expect(draftConflict(draft, remote)).toBe(true);
+    expect(draft.seconds).toBe("45");
+  });
+  it("places every text refusal on fields of the form, the character refusals on both character fields", () => {
+    for (const locale of ["fr", "en"] as const) {
+      for (const problem of Object.keys(roomSettingsCopy(locale).textRefusals) as (keyof ReturnType<typeof roomSettingsCopy>["textRefusals"])[]) {
+        const fields = refusalFields(problem);
+        expect(fields.length, problem).toBeGreaterThan(0);
+        // In the form's order, so the first is where the message sits and where focus goes.
+        expect([...fields], problem).toEqual(SETTINGS_FIELDS.filter((field) => fields.includes(field)));
+      }
+    }
+    for (const problem of ["UNSUPPORTED_CHARACTER", "CHARACTER_INCLUDED_AND_EXCLUDED", "INCLUDED_CHARACTER_DISABLED", "OPTION_FULLY_EXCLUDED"] as const) expect(refusalFields(problem)).toEqual(["include", "exclude"]);
+    expect(refusalFields("WORD_COUNT_OUT_OF_RANGE")).toEqual(["wordCount"]);
+    expect(refusalFields("WORDS_UNAVAILABLE")).toEqual(["textKind"]);
+    expect(refusalConcernsOptions("INCLUDED_CHARACTER_DISABLED")).toBe(true);
+    expect(refusalConcernsOptions("OPTION_FULLY_EXCLUDED")).toBe(true);
+    expect(refusalConcernsOptions("CHARACTER_INCLUDED_AND_EXCLUDED")).toBe(false);
   });
 });

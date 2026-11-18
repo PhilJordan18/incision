@@ -13,6 +13,7 @@ import {
 } from "@incision/domain";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
 import type { ConfigureRoomError } from "@/server/rooms/actions";
+import type { TextSettingsProblem } from "@/server/rooms/text-settings";
 
 export type SavedRoomSettings = NonNullable<PublicRoomSnapshot["settings"]>;
 export type SettingsDraft = {
@@ -83,11 +84,83 @@ export function draftConflict(draft: SettingsDraft | null, settings: SavedRoomSe
   return draft !== null && (settings === undefined || draft.revision !== settings.revision);
 }
 
+/** The word count as the server accepts it: a whole number of the range, never clamped. */
+export function validWordCount(draft: SettingsDraft): boolean {
+  return /^\d{1,3}$/.test(draft.wordCount) && Number(draft.wordCount) >= MIN_TEXT_WORDS && Number(draft.wordCount) <= MAX_TEXT_WORDS;
+}
+
+/** No limit, or the server's whole-second range. */
+export function validSeconds(draft: SettingsDraft): boolean {
+  return draft.seconds === "none" || (/^\d{1,3}$/.test(draft.seconds) && Number(draft.seconds) >= TIME_LIMIT_MIN_MS / 1000
+    && Number(draft.seconds) <= TIME_LIMIT_MAX_MS / 1000);
+}
+
 export function validDraft(draft: SettingsDraft): boolean {
-  return /^\d{1,3}$/.test(draft.wordCount) && Number(draft.wordCount) >= MIN_TEXT_WORDS && Number(draft.wordCount) <= MAX_TEXT_WORDS
-    && (draft.errorMode === "mandatory" || draft.errorMode === "free") && (draft.seconds === "none" || (/^\d{1,3}$/.test(draft.seconds) && Number(draft.seconds) >= TIME_LIMIT_MIN_MS / 1000
-    && Number(draft.seconds) <= TIME_LIMIT_MAX_MS / 1000))
+  return validWordCount(draft)
+    && (draft.errorMode === "mandatory" || draft.errorMode === "free") && validSeconds(draft)
     && draft.include.length <= MAX_CHARACTERS_INPUT && draft.exclude.length <= MAX_CHARACTERS_INPUT && draftTextRefusal(draft) === undefined;
+}
+
+/**
+ * The fields of the edit form (DA2-8), in the form's order: text (language, type, complexity,
+ * word count, options, characters), duration, typing mode, game mode. The four text options
+ * are one field, as the summary shows them.
+ */
+export const SETTINGS_FIELDS = ["textLanguage", "textKind", "complexity", "wordCount", "options", "include", "exclude", "seconds", "errorMode", "bonusesEnabled"] as const;
+export type SettingsField = (typeof SETTINGS_FIELDS)[number];
+
+/**
+ * The fields whose draft differs from the saved settings, in the form's order: what a save would
+ * change. Compared as the request would carry them, so characters typed twice, or kept in a draft
+ * while the text is coherent (D-10, never sent), are not changes. A draft that cannot be read as a
+ * number differs from any saved number.
+ */
+export function pendingFields(draft: SettingsDraft, settings: SavedRoomSettings): readonly SettingsField[] {
+  const random = draft.textKind === "random";
+  const characters = (field: "include" | "exclude", saved: readonly string[]) =>
+    (random ? draftCharacters(draft[field]).join("") : "") !== (settings.textKind === "random" ? saved.join("") : "");
+  const savedSeconds = settings.timeLimitMs === null ? "none" : String(settings.timeLimitMs / 1000);
+  const changed: Record<SettingsField, boolean> = {
+    textLanguage: draft.textLanguage !== settings.textLanguage,
+    textKind: draft.textKind !== settings.textKind,
+    complexity: draft.complexity !== settings.complexity,
+    wordCount: draft.wordCount !== String(settings.wordCount),
+    options: TEXT_OPTIONS.some((option) => draft[option] !== settings[option]),
+    include: characters("include", settings.includeCharacters),
+    exclude: characters("exclude", settings.excludeCharacters),
+    seconds: draft.seconds !== savedSeconds,
+    errorMode: draft.errorMode !== settings.errorMode,
+    bonusesEnabled: draft.bonusesEnabled !== settings.bonusesEnabled,
+  };
+  return SETTINGS_FIELDS.filter((field) => changed[field]);
+}
+
+/**
+ * The fields a text refusal is about, in the form's order: its message sits beside the first and
+ * every one is marked in error. The four refusals about the characters mark both character fields,
+ * as before the form was grouped; the server's own refusals (random words) name what their
+ * message asks to change.
+ */
+const REFUSAL_FIELDS = {
+  WORD_COUNT_OUT_OF_RANGE: ["wordCount"],
+  UNSUPPORTED_CHARACTER: ["include", "exclude"],
+  CHARACTER_INCLUDED_AND_EXCLUDED: ["include", "exclude"],
+  INCLUDED_CHARACTER_DISABLED: ["include", "exclude"],
+  OPTION_FULLY_EXCLUDED: ["include", "exclude"],
+  NO_COMPATIBLE_WORDS: ["complexity", "exclude"],
+  INCLUDED_CHARACTER_UNAVAILABLE: ["include"],
+  INCLUDED_CHARACTERS_DO_NOT_FIT: ["wordCount", "include"],
+  FORBIDDEN_PAIRS_UNAVOIDABLE: ["complexity", "include", "exclude"],
+  WORDS_UNAVAILABLE: ["textKind"],
+} as const satisfies Record<TextSettingsProblem, readonly SettingsField[]>;
+
+export function refusalFields(problem: TextSettingsProblem): readonly SettingsField[] {
+  return REFUSAL_FIELDS[problem];
+}
+
+/** The two refusals that an option switched off or emptied also explains: the options point to the message too. */
+export function refusalConcernsOptions(problem: TextSettingsProblem): boolean {
+  return problem === "INCLUDED_CHARACTER_DISABLED" || problem === "OPTION_FULLY_EXCLUDED";
 }
 
 /** Acknowledgement alone is not the new snapshot. A newer snapshot also satisfies the ack. */
