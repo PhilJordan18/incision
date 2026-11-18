@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr" data-theme="abysse">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="jetons-lecture.css"><link rel="stylesheet" href="base.css"><style>
+
+.race-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: var(--container-page); margin: 0 auto; padding: 16px 48px 12px; }
+.race-id { display: flex; align-items: center; gap: 16px; }
+.tiles { display: flex; gap: 8px; }
+.tile { display: flex; align-items: baseline; gap: 10px; border: 1px solid var(--color-houle); border-radius: var(--radius-bouton); background: var(--color-nuit); padding: 4px 12px; }
+.tile b { font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1.2; }
+.tile b small { font-size: 15px; color: var(--color-brume); }
+.race { display: grid; gap: 14px; }
+.sheet { border: 1px solid var(--color-moi); border-radius: var(--radius-carte); background: var(--color-nuit); padding: 14px 24px 10px; }
+.row { display: grid; grid-template-columns: 330px 1fr 310px; gap: 14px; height: 336px; }
+.panel { position: relative; border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-nuit); padding: 18px 20px; overflow: hidden; min-width: 0; }
+.panel h2 { font-family: var(--font-display); font-weight: 800; font-size: 28px; text-transform: uppercase; line-height: 1; }
+.panel h2 small { font-family: var(--font-mono); font-size: 12px; font-weight: 400; color: var(--color-brume); letter-spacing: 0.1em; }
+.panel .note { font-size: 13px; color: var(--color-brume); margin: 8px 0 6px; }
+.rank-row { display: grid; grid-template-columns: 22px 26px 1fr auto; align-items: center; gap: 4px 8px; padding: 8px 0; border-top: 1px solid var(--color-sillage); font-size: 14px; }
+.rank-row .n { font-family: var(--font-display); font-weight: 800; font-size: 20px; }
+.rank-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-row .meta { font-family: var(--font-mono); font-size: 11px; color: var(--color-brume); }
+.rank-row.me { border: 0; border-left: 3px solid var(--color-moi); background: color-mix(in srgb, var(--color-moi) 10%, transparent); padding-left: 8px; margin-left: -11px; }
+.rank-row.me .name { font-weight: 700; }
+.track-wrap { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.track-wrap h2 { font-family: var(--font-display); font-weight: 800; font-size: 28px; text-transform: uppercase; line-height: 1; }
+.track { position: relative; flex: 1; border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-mer); overflow: hidden; }
+.track svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.track text { font-family: var(--font-sans); font-size: 12px; fill: var(--color-ecume); }
+.track text .sub { font-size: 11px; font-weight: 400; fill: var(--color-embrun); }
+.track text.mono { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; fill: var(--color-brume); }
+.track text.finish { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; fill: var(--color-ligne); }
+.c-moi { --c: var(--color-moi); } .c-juste { --c: var(--color-juste); } .c-arcade { --c: var(--color-arcade); } .c-embrun { --c: var(--color-embrun); } .c-brume { --c: var(--color-brume); }
+.route { fill: none; stroke: var(--c); stroke-width: 2; stroke-linecap: round; }
+.route.dashed { stroke-dasharray: 7 4; } .route.anon { stroke-width: 1; opacity: 0.45; stroke-dasharray: 1 4; }
+.route.self { stroke-width: 3.5; }
+.dot { fill: var(--c); }
+.bonus li { display: grid; grid-template-columns: 22px 1fr; gap: 2px 8px; padding: 7px 0; border-top: 1px solid var(--color-sillage); font-size: 13px; color: var(--color-brume); }
+.bonus li b { color: var(--color-ecume); font-weight: 600; }
+.bonus li .st { color: var(--color-arcade); font-weight: 600; }
+.bonus svg { color: var(--color-arcade); }
+.pad { display: grid; grid-template-columns: auto 420px 1fr; align-items: center; gap: 8px 16px; border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-nuit); padding: 12px 20px; }
+.pad input { height: 48px; border-radius: var(--radius-bouton); border: 1px solid var(--color-moi); outline: 3px solid var(--color-moi); outline-offset: 3px; background: var(--color-abysse); padding: 0 16px; font-family: var(--font-mono); font-size: 20px; }
+.pad .hint { font-size: 13px; color: var(--color-brume); }
+.pad .legend { grid-column: 1 / -1; }
+.actions { display: flex; gap: 12px; }
+
+.c-moi { --c: var(--color-moi); } .c-juste { --c: var(--color-juste); } .c-arcade { --c: var(--color-arcade); } .c-embrun { --c: var(--color-embrun); } .c-brume { --c: var(--color-brume); }
+.signal { height: 6px; background: repeating-linear-gradient(115deg, var(--color-houle) 0 10px, transparent 10px 20px); }
+.hull { fill: var(--color-ecume); }
+.sail { fill: var(--c); }
+.mast { stroke: var(--color-ecume); stroke-width: 1.5; stroke-linecap: round; }
+
+.c-ecume { --c: var(--color-ecume); } .c-or { --c: var(--color-or); }
+.land { fill: var(--color-erreur-fond); }
+.coastline { fill: none; stroke: var(--color-ligne); stroke-width: 4; stroke-linejoin: round; }
+.isle { fill: var(--color-sillage); stroke: var(--color-houle); stroke-width: 1.5; }
+.lp-glass { fill: color-mix(in srgb, var(--color-mer) 60%, transparent); stroke: var(--color-ecume); stroke-width: 2; }
+.lp-base { fill: var(--color-nuit); stroke: var(--color-ecume); stroke-width: 2; stroke-linejoin: round; }
+.lp-line { fill: none; stroke: var(--color-ecume); stroke-width: 1.5; stroke-linecap: round; }
+.lp-n1 { fill: var(--color-ligne); } .lp-n2 { fill: var(--color-ecume); }
+
+.race-top { padding-bottom: 14px; }
+.route.anon { opacity: 0.35; }
+
+.padfull { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 18px 22px 16px; }
+.padfull input { height: 64px; width: 100%; font-size: 22px; }
+.padfull .legend { font-size: 14px; }
+[data-theme="aube"] .land { fill: color-mix(in srgb, var(--color-ligne) 20%, var(--color-nuit)); }
+
+.page { padding: 0 32px; }
+.race-top { flex-direction: column; align-items: stretch; gap: 10px; padding: 16px 32px 12px; }
+.tiles { justify-content: flex-end; }
+.course-texte { font-size: 22px; }
+.row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr); height: 380px; }
+.panel { padding: 16px; }
+.panel h2, .track-wrap h2 { font-size: 24px; }
+.rank-row { grid-template-columns: 18px 24px 1fr; }
+.rank-row .meta { grid-column: 3; }
+.bonus li { font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="deck">
+<header class="race-top">
+  <div class="race-id"><a class="logo" href="#" aria-label="Incision, accueil"><img src="../../../../apps/design/logo/ico-red.svg" alt="" style="height:34px;width:34px"></a><span class="etiquette" style="color:var(--color-juste)">[.En direct]</span><span class="etiquette">[.Salle B7K4PQ]</span></div>
+  <div class="tiles" aria-label="Mesures">
+  <div class="tile"><span class="mono-label">Temps</span><b>01:12</b></div>
+  <div class="tile"><span class="mono-label">Vitesse</span><b>47 <small>MPM</small></b></div>
+  <div class="tile"><span class="mono-label">Précision</span><b>96 <small>%</small></b></div>
+  <div class="tile"><span class="mono-label">Progression</span><b>52 <small>%</small></b></div>
+</div>
+</header>
+<main class="page race">
+  <section class="sheet " aria-label="Texte à taper"><div class="mono-label">Texte à taper</div><p class="course-texte"><span class="course-juste">La mer était calme ce m</span><span class="course-erreur">e</span><span class="course-juste">tin-là, et pourtant l’éq</span><span class="course-curseur">u</span>ipage savait que la traversée serait longue. Plus loin, les lumières des autres navires se resserraient vers la ligne rouge.</p></section>
+  <div class="row">
+    <section class="panel" aria-labelledby="cl-h">
+  <h2 id="cl-h"><span>Classement</span> <small>(30)</small></h2>
+  <p class="note">En direct, selon la progression. Le classement final vient avec les résultats.</p>
+  <ol><li class="rank-row"><span class="n">1</span><svg class="c-embrun" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 L20 7.5 L3 13 Z" fill="var(--c)"/></svg><span class="name">Lina</span><span class="meta">78 % · 62 MPM</span></li><li class="rank-row"><span class="n">2</span><svg class="c-juste" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><rect x="3" y="2" width="15" height="11" rx="1.5" fill="var(--c)"/></svg><span class="name">Matelot 13 · ☐ Bot</span><span class="meta">74 % · 58 MPM</span></li><li class="rank-row"><span class="n">4</span><svg class="c-arcade" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 H20 L15 7.5 L20 13 H3 Z" fill="var(--c)"/></svg><span class="name">Noa</span><span class="meta">58 % · 51 MPM</span></li><li class="rank-row me"><span class="n">5</span><svg class="c-moi" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 L20 7.5 L3 13 Z" fill="var(--c)"/></svg><span class="name">Capitaine (toi)</span><span class="meta">52 % · 47 MPM</span></li><li class="rank-row"><span class="n">6</span><svg class="c-juste" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 H20 L15 7.5 L20 13 H3 Z" fill="var(--c)"/></svg><span class="name">Éli</span><span class="meta">49 % · 45 MPM</span></li></ol>
+</section>
+    <section class="track-wrap" aria-labelledby="tr-h"><h2 id="tr-h">Équipage en course</h2><div class="track"><svg viewBox="0 0 400 340" preserveAspectRatio="none" aria-hidden="true"><path d="M0 257.5 H400" stroke="var(--color-houle)" stroke-dasharray="2 6"/><text class="mono" x="10" y="252.5">25 %</text><path d="M0 187.0 H400" stroke="var(--color-houle)" stroke-dasharray="2 6"/><text class="mono" x="10" y="182.0">50 %</text><path d="M0 116.5 H400" stroke="var(--color-houle)" stroke-dasharray="2 6"/><text class="mono" x="10" y="111.5">75 %</text>
+  <path class="land" d="M-10 -10 L-10 46.0 L29 47.5 L91 49.0 L136 50.5 L164 52.0 L214 40.0 L248 41.5 L304 43.0 L343 44.5 L405 46.0 L410 46 L410 -10 Z"/><path class="coastline" d="M-10 46.0 L29 47.5 L91 49.0 L136 50.5 L164 52.0 L214 40.0 L248 41.5 L304 43.0 L343 44.5 L405 46.0 L410 46" style="stroke-width:3"/>
+  <text class="finish" x="12" y="24" style="fill:var(--color-erreur)">ARRIVÉE</text><text class="mono" x="388" y="24" text-anchor="end" style="fill:var(--color-embrun)">+ 25 AUTRES COUREURS</text>
+  <g class="c-brume"><path class="route anon" d="M24 328 C24 285.7, 38 285.7, 38 243.4"/><circle class="dot" cx="38" cy="243.4" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M59 328 C59 265.95, 59 265.95, 59 203.9"/><circle class="dot" cx="59" cy="203.9" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M89 328 C89 297.0, 75 297.0, 75 266.0"/><circle class="dot" cx="75" cy="266.0" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M102 328 C102 277.25, 116 277.25, 116 226.5"/><circle class="dot" cx="116" cy="226.5" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M128 328 C128 242.0, 128 242.0, 128 156.0"/><circle class="dot" cx="128" cy="156.0" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M155 328 C155 302.6, 141 302.6, 141 277.2"/><circle class="dot" cx="141" cy="277.2" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M186 328 C186 271.6, 200 271.6, 200 215.2"/><circle class="dot" cx="200" cy="215.2" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M238 328 C238 289.95, 238 289.95, 238 251.9"/><circle class="dot" cx="238" cy="251.9" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M264 328 C264 250.45, 250 250.45, 250 172.9"/><circle class="dot" cx="250" cy="172.9" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M277 328 C277 281.45, 291 281.45, 291 234.9"/><circle class="dot" cx="291" cy="234.9" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M306 328 C306 261.75, 306 261.75, 306 195.5"/><circle class="dot" cx="306" cy="195.5" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M339 328 C339 299.8, 325 299.8, 325 271.6"/><circle class="dot" cx="325" cy="271.6" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M327 328 C327 274.4, 341 274.4, 341 220.8"/><circle class="dot" cx="341" cy="220.8" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M356 328 C356 311.1, 356 311.1, 356 294.2"/><circle class="dot" cx="356" cy="294.2" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M39 328 C39 306.85, 25 306.85, 25 285.7"/><circle class="dot" cx="25" cy="285.7" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M298 328 C298 237.75, 312 237.75, 312 147.5"/><circle class="dot" cx="312" cy="147.5" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M369 328 C369 287.1, 369 287.1, 369 246.2"/><circle class="dot" cx="369" cy="246.2" r="3" opacity="0.55"/></g><g class="c-brume"><path class="route anon" d="M61 328 C61 247.65, 47 247.65, 47 167.3"/><circle class="dot" cx="47" cy="167.3" r="3" opacity="0.55"/></g><g class="c-embrun"><path class="route solid" d="M161 328 C161 218.0, 141 218.0, 141 108.0"/><circle cx="141" cy="104.0" r="21" fill="none" stroke="var(--color-or)" stroke-width="3"/><g class="c-embrun" transform="translate(141 108.0) scale(1.0)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><text x="169" y="108.0">1. Lina<tspan x="169" dy="13" class="sub">62 MPM</tspan></text></g><g class="c-juste"><path class="route solid" d="M226 328 C226 223.65, 250 223.65, 250 119.3"/><g class="c-juste" transform="translate(250 119.3) scale(1.0)"><path class="mast" d="M0 -22 V3"/><rect class="sail" x="-7" y="-15" width="13" height="13" rx="1.5"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><text x="278" y="119.3">2. Matelot 13<tspan x="278" dy="13" class="sub">58 MPM</tspan></text></g><g class="c-arcade"><path class="route dashed" d="M42 328 C42 246.2, 66 246.2, 66 164.4"/><g class="c-arcade" transform="translate(66 164.4) scale(1.0)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><text x="94" y="164.4">4. Noa<tspan x="94" dy="13" class="sub">51 MPM</tspan></text></g><g class="c-moi"><path class="route solid self" d="M208 328 C208 254.7, 188 254.7, 188 181.4"/><circle cx="188" cy="177.4" r="24" fill="none" stroke="var(--color-moi)" stroke-width="2" opacity="0.6"/><circle cx="188" cy="177.4" r="32" fill="none" stroke="var(--color-moi)" opacity="0.25"/><g class="c-moi" transform="translate(188 181.4) scale(1.25)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><text x="216" y="181.4" font-weight="700">5. Capitaine (toi)<tspan x="216" dy="13" class="sub">47 MPM</tspan></text></g><g class="c-juste"><path class="route dashed" d="M292 328 C292 258.9, 316 258.9, 316 189.8"/><g class="c-juste" transform="translate(316 189.8) scale(1.0)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><text x="344" y="189.8">6. Éli<tspan x="344" dy="13" class="sub">45 MPM</tspan></text></g>
+  <g transform="translate(366 300) scale(.36)"><g transform="translate(0 0)">
+  <path class="lp-base" d="M-72 45 H72 L61 65 H-61 Z"/>
+  <path class="lp-base" d="M-48 32 H48 V45 H-48 Z"/>
+  <circle class="lp-glass" r="58"/>
+  <path class="lp-line" d="M-36 -29 A46 46 0 0 1 -12 -44" opacity=".6"/>
+  <path class="lp-line" d="M0 -58 V0"/>
+  <rect class="lp-n2" x="-10" y="-63" width="21" height="6" rx="3"/>
+  <g transform="rotate(-90)"><path class="lp-n1" d="M0 -5 L36 0 L0 5 Z"/><path class="lp-n2" d="M0 -5 L-36 0 L0 5 Z"/></g>
+  <circle r="3" fill="var(--color-abysse)" stroke="var(--color-ecume)" stroke-width="1.5"/>
+</g></g>
+</svg></div></section>
+    <section class="panel bonus" aria-labelledby="bonus-h">
+  <h2 id="bonus-h" style="color:var(--color-arcade)">Bonus</h2>
+  <p class="note">Entrée dans le champ de frappe active le prochain bonus. Aucun caractère n’est saisi.</p>
+  <ul>
+    <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19L19 5M12 5h7v7"/></svg><span><b>Raccourci</b> · jalon 25 % · <span class="st">prochain · prêt · Entrée</span><br>Retire jusqu’à 3 mots pas encore commencés.</span></li>
+    <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5 13a7 7 0 0 0 14 0M8 11h8"/></svg><span><b>Rallonge</b> · jalon 50 % · en réserve<br>Ajoute 3 mots au texte du meneur.</span></li>
+    <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8c3-3 6 3 9 0s6 3 9 0M3 14c3-3 6 3 9 0s6 3 9 0"/></svg><span><b>Brouillard</b> · jalon 75 % · en réserve</span></li>
+  </ul>
+</section>
+  </div>
+  <section class="pad padfull">
+  <label class="mono-label" for="frappe" style="color:var(--color-ecume)">Ta frappe</label>
+  <input id="frappe" value="l’éq" aria-describedby="hint">
+  <p class="hint" id="hint">Tape le texte ci-dessus : il montre ta progression. Coller est désactivé, et Entrée ne tape rien.</p>
+  <div class="mono-label" style="margin-top:14px">Correction obligatoire</div>
+  <p class="legend"><span><span class="course-juste lg">a</span> Juste : caractère souligné.</span>
+  <span><span class="course-bloque lg">a</span> Erreur encadrée : corrige le caractère pour avancer.</span>
+  <span><span class="course-curseur lg">a</span> Barre verticale : prochain caractère à taper.</span></p>
+</section>
+<div class="actions"><button class="btn btn-discreet" type="button">Abandonner la course</button><button class="btn btn-discreet" type="button">Quitter la salle</button></div>
+</main>
+</div>
+</body>
+</html>

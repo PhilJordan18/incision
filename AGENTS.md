@@ -17,6 +17,7 @@ The site name and logo must be created by the student without AI (DES-01/02). Do
 - Follow the ten rules of section 1 of the design README: one acting red per screen, `#BC0404` for the logo only, bright colours reserved for runners, nothing moves near the text to type, errors never shown by colour alone, targets ≥ 44 px, visible focus.
 - Logos: `apps/design/logo/*.svg`, copied unchanged into the app's `public/` folder. Fonts through `next/font/google`: Big Shoulders Display (800, 900), Instrument Serif (400, normal and italic), Geist, Geist Mono, exposed as `--font-display`, `--font-serif`, `--font-sans`, `--font-mono`.
 - The design predates the final brief: **the brief and [EXIGENCES.md](docs/EXIGENCES.md) prevail for product rules** (choice D-15 lists the adaptations). A request that contradicts the design is flagged before coding; an improvement keeps the existing version and is proposed, documented, for Philippe's approval.
+- [`docs/da/v2/`](docs/da/v2/README.md) complements `apps/design/` with the second iteration (C1 « Cap »), approved by Philippe on November 17, 2026, for the screens its README lists. For those screens its mock-ups are the reference and `docs/da/v2/plan.md` the scope; `apps/design/tokens.css` stays the only source of tokens, and every other screen and rule still follows `apps/design/`. Agents do not edit `docs/da/v2/` outside a card that says so.
 - Before calling a screen done, run the checklist of section 7 of the design README and compare screenshots at 1440, 1024 and 390 px with the reference image.
 
 ## Human approvals

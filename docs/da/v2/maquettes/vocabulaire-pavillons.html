@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr" data-theme="abysse">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="jetons-lecture.css"><link rel="stylesheet" href="base.css"><style>
+
+.c-moi { --c: var(--color-moi); } .c-juste { --c: var(--color-juste); } .c-arcade { --c: var(--color-arcade); } .c-embrun { --c: var(--color-embrun); } .c-brume { --c: var(--color-brume); }
+.signal { height: 6px; background: repeating-linear-gradient(115deg, var(--color-houle) 0 10px, transparent 10px 20px); }
+.hull { fill: var(--color-ecume); }
+.sail { fill: var(--c); }
+.mast { stroke: var(--color-ecume); stroke-width: 1.5; stroke-linecap: round; }
+
+.c-ecume { --c: var(--color-ecume); } .c-or { --c: var(--color-or); }
+.land { fill: var(--color-erreur-fond); }
+.coastline { fill: none; stroke: var(--color-ligne); stroke-width: 4; stroke-linejoin: round; }
+.isle { fill: var(--color-sillage); stroke: var(--color-houle); stroke-width: 1.5; }
+.lp-glass { fill: color-mix(in srgb, var(--color-mer) 60%, transparent); stroke: var(--color-ecume); stroke-width: 2; }
+.lp-base { fill: var(--color-nuit); stroke: var(--color-ecume); stroke-width: 2; stroke-linejoin: round; }
+.lp-line { fill: none; stroke: var(--color-ecume); stroke-width: 1.5; stroke-linecap: round; }
+.lp-n1 { fill: var(--color-ligne); } .lp-n2 { fill: var(--color-ecume); }
+
+.stamp { display: inline-block; font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-ligne); border: 2px solid var(--color-ligne); padding: 5px 12px; transform: rotate(-3deg); }
+.tab { display: inline-block; background: var(--color-ecume); color: var(--color-abysse); padding: 4px 12px 2px; transform: rotate(-2deg); transform-origin: left bottom; }
+.hard { box-shadow: 6px 6px 0 var(--color-houle); }
+
+.vocab { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 24px; }
+.vocab li { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-nuit); padding: 16px; font-size: 14px; color: var(--color-brume); }
+.vocab strong { color: var(--color-ecume); font-weight: 600; font-size: 15px; }
+.vocab .fig { height: 124px; display: grid; place-items: center; background: var(--color-mer); border-radius: var(--radius-bouton); margin-bottom: 8px; }
+.vocab code { font-family: var(--font-mono); font-size: 12px; color: var(--color-embrun); }
+
+</style>
+</head>
+<body>
+<ul class="vocab"><li><div class="fig"><svg viewBox="-40 -40 80 70" width="150" height="120" aria-hidden="true" fill="none"><g class="c-ecume" transform="translate(0 12) scale(2.2)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g></svg></div><strong>Navire</strong><span>Un coureur humain : voile triangulaire. Plat, sans détail, immobile hors de sa progression.</span></li><li><div class="fig"><svg viewBox="-40 -40 80 70" width="150" height="120" aria-hidden="true" fill="none"><g class="c-ecume" transform="translate(0 12) scale(2.2)"><path class="mast" d="M0 -22 V3"/><rect class="sail" x="-7" y="-15" width="13" height="13" rx="1.5"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g></svg></div><strong>Navire d’un bot</strong><span>Voile carrée : la forme distingue le bot, pas la couleur.</span></li><li><div class="fig"><svg viewBox="-40 -40 80 70" width="150" height="120" aria-hidden="true" fill="none"><circle cx="0" cy="2" r="30" stroke="var(--color-moi)" stroke-width="2" opacity=".6"/><g class="c-moi" transform="translate(0 12) scale(2.2)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g></svg></div><strong>Mon navire</strong><span>Le seul en <code>color-moi</code>, avec ses anneaux.</span></li><li><div class="fig"><svg viewBox="-40 -40 80 70" width="150" height="120" aria-hidden="true" fill="none"><circle cx="0" cy="2" r="28" stroke="var(--color-or)" stroke-width="3"/><g class="c-ecume" transform="translate(0 12) scale(2.0)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g></svg></div><strong>Le meneur</strong><span>Anneau <code>color-or</code>, comme aujourd’hui.</span></li><li><div class="fig"><svg viewBox="-40 -34 84 70" width="150" height="120" aria-hidden="true" fill="none"><g fill="var(--color-ecume)" stroke="var(--color-ecume)" stroke-width="2" stroke-linecap="round"><path d="M-34 -22 V22" fill="none"/><path d="M-32 -20 L-8 -9 L-32 2 Z" stroke="none"/><path d="M-4 -22 V22" fill="none"/><path d="M-2 -20 H24 L15 -9 L24 2 H-2 Z" stroke="none"/><path d="M-34 6 V8" fill="none" opacity="0"/><path d="M28 -22 V22" fill="none"/><rect x="30" y="-20" width="8" height="22" stroke="none"/></g></svg></div><strong>Pavillons</strong><span>Triangle, queue d’aronde, rectangle : la découpe double la couleur dans le classement.</span></li><li><div class="fig"><svg viewBox="-40 -34 80 70" width="150" height="120" aria-hidden="true" fill="none"><g transform="translate(0 -4)">
+  <path class="lp-base" d="M-28 17 H28 L23 25 H-23 Z"/>
+  <path class="lp-base" d="M-18 12 H18 V17 H-18 Z"/>
+  <circle class="lp-glass" r="22"/>
+  <path class="lp-line" d="M-14 -11 A18 18 0 0 1 -4 -17" opacity=".6"/>
+  <path class="lp-line" d="M0 -22 V0"/>
+  <rect class="lp-n2" x="-4" y="-27" width="8" height="6" rx="3"/>
+  <g transform="rotate(-58)"><path class="lp-n1" d="M0 -5 L14 0 L0 5 Z"/><path class="lp-n2" d="M0 -5 L-14 0 L0 5 Z"/></g>
+  <circle r="3" fill="var(--color-abysse)" stroke="var(--color-ecume)" stroke-width="1.5"/>
+</g></svg></div><strong>Compas sous verre</strong><span>Indique le cap vers l’arrivée. Clin d’œil aux instruments des navigateurs, dessin original.</span></li><li><div class="fig"><svg viewBox="-40 -40 80 70" width="150" height="120" aria-hidden="true" fill="none"><path class="land" d="M-40 -40 H40 V-6 L28 2 L14 -8 L0 4 L-16 -6 L-28 2 L-40 -4 Z"/><path class="coastline" d="M-40 -4 L-28 2 L-16 -6 L0 4 L14 -8 L28 2 L40 -6"/></svg></div><strong>La côte rouge</strong><span>L’arrivée est une terre : aplat <code>color-erreur-fond</code>, trait <code>color-ligne</code>. Pas de halo.</span></li><li><div class="fig"><div style="padding-top:34px"><span class="stamp">Feuillet 01</span></div></div><strong>Tampon</strong><span>Étiquette inclinée de 3 degrés, pour le journal de bord. Jamais sur un bouton.</span></li></ul>
+</body>
+</html>
