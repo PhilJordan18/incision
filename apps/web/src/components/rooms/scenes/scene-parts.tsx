@@ -3,15 +3,16 @@ import type { ReactNode } from "react";
 /**
  * Pieces shared by the C1 room-entry scenes (docs/da/v2, card DA2-6): the sea chart frame and
  * the land drawings. Everything here is decorative, static and hidden from assistive technology.
- * Colours are token classes; in forced colours every shape takes a system colour.
+ * Colours are token classes; in forced colours every shape takes a system colour, and that
+ * rule is marked important so that it also wins over the Aube variants (`[data-theme=aube] …`).
  */
 
 /** A stroke without fill. */
-export const LINE = "fill-none forced-colors:stroke-[CanvasText]";
+export const LINE = "fill-none forced-colors:stroke-[CanvasText]!";
 /** A filled shape without outline. */
-export const SOLID = "forced-colors:fill-[CanvasText]";
+export const SOLID = "forced-colors:fill-[CanvasText]!";
 /** A surface with an outline: emptied and outlined in forced colours. */
-export const SURFACE = "forced-colors:fill-[Canvas] forced-colors:stroke-[CanvasText]";
+export const SURFACE = "forced-colors:fill-[Canvas]! forced-colors:stroke-[CanvasText]!";
 
 /** The framed sea a scene is drawn on. `className` sizes it; the drawing never takes a click or the focus. */
 export function SeaChart({ scene, className = "", children }: { readonly scene: string; readonly className?: string; readonly children: ReactNode }) {
@@ -31,7 +32,7 @@ export function Isle({ transform, wide = false, halo = false }: { readonly trans
     <g transform={transform}>
       {halo && <path d={outline} transform="scale(1.34) translate(0 -3)" strokeDasharray="3 6" className={`${LINE} stroke-houle [[data-theme=aube]_&]:stroke-voile`} />}
       <path d={outline} strokeWidth="1.5" className={`${SURFACE} fill-sillage stroke-houle [[data-theme=aube]_&]:fill-houle [[data-theme=aube]_&]:stroke-voile`} />
-      {!wide && <path d="M-44 8 q10 -30 40 -26 q26 -10 42 14 q-40 12 -82 12 Z" className={`fill-houle [[data-theme=aube]_&]:fill-sillage forced-colors:fill-[Canvas]`} />}
+      {!wide && <path d="M-44 8 q10 -30 40 -26 q26 -10 42 14 q-40 12 -82 12 Z" className={`fill-houle [[data-theme=aube]_&]:fill-sillage forced-colors:fill-[Canvas]!`} />}
     </g>
   );
 }
@@ -41,8 +42,8 @@ export function Lighthouse({ transform }: { readonly transform: string }) {
   return (
     <g transform={transform}>
       <path d="M-8 34 L-4 -14 H4 L8 34 Z" className={`${SOLID} fill-ecume`} />
-      <path d="M-6.5 10 H6.5 L6 2 H-6 Z" className="fill-brume forced-colors:fill-[Canvas]" />
-      <rect x="-7" y="-24" width="14" height="10" className="fill-or forced-colors:fill-[Highlight]" />
+      <path d="M-6.5 10 H6.5 L6 2 H-6 Z" className="fill-brume forced-colors:fill-[Canvas]!" />
+      <rect x="-7" y="-24" width="14" height="10" className="fill-or forced-colors:fill-[Highlight]!" />
       <path d="M-9 -24 L0 -34 L9 -24 Z" className={`${SOLID} fill-ecume`} />
       <path d="M8 -19 L78 -42 M8 -19 L82 -16 M-8 -19 L-70 -40" strokeWidth="1.5" strokeLinecap="round" opacity=".75" className={`${LINE} stroke-or`} />
     </g>
@@ -68,8 +69,8 @@ export function Tree({ transform }: { readonly transform: string }) {
 }
 
 /** A dotted course across the chart. */
-export function Course({ d, tone = "stroke-embrun", width = 2 }: { readonly d: string; readonly tone?: string; readonly width?: number }) {
-  return <path d={d} strokeWidth={width} strokeLinecap="round" strokeDasharray="0.1 11" className={`${LINE} ${tone}`} />;
+export function Course({ d, width = 2 }: { readonly d: string; readonly width?: number }) {
+  return <path d={d} strokeWidth={width} strokeLinecap="round" strokeDasharray="0.1 11" className={`${LINE} stroke-embrun`} />;
 }
 
 /** The sign a room's code is written on. Without a code (no room yet) it shows blank dots, never an example. */

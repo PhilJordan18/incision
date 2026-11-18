@@ -3,7 +3,8 @@ import { roomEntryCopy } from "@/i18n/room-entry";
 import { CodeSign, Course, House, Isle, Lighthouse, LINE, SeaChart, SOLID, SURFACE, Tree } from "./scene-parts";
 import { SceneShip, WaveField } from "./sea-marks";
 
-const GRID = [75, 150, 225, 300, 375, 450, 525];
+const MERIDIANS = [75, 150, 225, 300, 375, 450, 525];
+const PARALLELS = [75, 150, 225, 300, 375, 450];
 const CAPTION = `${SOLID} fill-embrun font-mono text-[12px] tracking-[0.2em] uppercase`;
 /** The eight points of the compass rose, long on the cardinals. */
 const ROSE = Array.from({ length: 8 }, (_, index) => ({ angle: index * 45, reach: index % 2 === 0 ? 50 : 27.4 }));
@@ -13,14 +14,14 @@ const ROSE = Array.from({ length: 8 }, (_, index) => ({ angle: index * 45, reach
  * harbour under its lighthouse, a fort you enter with a code, an island closed by buoys that
  * only a letter reaches. It repeats the form's three choices and says nothing new.
  */
-export function AccessChart({ locale, className }: { readonly locale: Locale; readonly className?: string }) {
+export function AccessChart({ locale }: { readonly locale: Locale }) {
   const t = roomEntryCopy(locale).chart;
   return (
-    <SeaChart scene="access-chart" className={className}>
+    <SeaChart scene="access-chart">
       <svg viewBox="0 0 600 460" fill="none" focusable="false" className="block h-auto w-full">
         <g opacity=".35" className="fill-none stroke-houle forced-colors:hidden [[data-theme=aube]_&]:stroke-ombre">
-          {GRID.map((x) => <path key={`v${x}`} d={`M${x} 0V460`} />)}
-          {GRID.map((y) => <path key={`h${y}`} d={`M0 ${y}H600`} />)}
+          {MERIDIANS.map((x) => <path key={`v${x}`} d={`M${x} 0V460`} />)}
+          {PARALLELS.map((y) => <path key={`h${y}`} d={`M0 ${y}H600`} />)}
         </g>
         <WaveField width={600} height={460} count={18} />
         <Course d="M190 396 C200 330 250 250 256 200" width={2.6} />
@@ -44,7 +45,7 @@ export function AccessChart({ locale, className }: { readonly locale: Locale; re
         {/* 02 · the fort: its gate opens with the room's code, which does not exist yet. */}
         <Isle transform="translate(340 318) scale(1.05)" halo />
         <path d="M300 300 V282 h8 v6 h8 v-6 h8 v6 h8 v-6 h8 v6 h8 v-6 h8 v6 h8 v-6 h8 V300 Z" className={`${SOLID} fill-embrun`} />
-        <path d="M332 300 v-9 a6 6 0 0 1 12 0 v9 Z" className="fill-abysse forced-colors:fill-[Canvas]" />
+        <path d="M332 300 v-9 a6 6 0 0 1 12 0 v9 Z" className="fill-abysse forced-colors:fill-[Canvas]!" />
         <path d="M338 282 V250" strokeWidth="2" className={`${LINE} stroke-ecume`} />
         <CodeSign x={282} y={222} width={112} height={30} />
 
@@ -55,13 +56,13 @@ export function AccessChart({ locale, className }: { readonly locale: Locale; re
           <path key={`${x}-${y}`} d={`M${x} ${y} l6 -10 l6 10 Z`} className={`${SOLID} fill-voile`} />)}
         <path d="M478 122 V96 h16 V122 Z" className={`${SOLID} fill-embrun`} />
         <path d="M474 96 L486 80 L498 96 Z" className={`${SOLID} fill-ecume`} />
-        <rect x="483" y="104" width="6" height="8" className="fill-abysse forced-colors:fill-[Canvas]" />
+        <rect x="483" y="104" width="6" height="8" className="fill-abysse forced-colors:fill-[Canvas]!" />
         <Tree transform="translate(512 126)" />
         <Tree transform="translate(456 128)" />
         <g transform="translate(470 286) rotate(-14)">
           <rect x="-22" y="-15" width="44" height="30" rx="3" strokeWidth="1.5" className={`${SURFACE} fill-nuit stroke-ecume`} />
           <path d="M-22 -13 L0 3 L22 -13" strokeWidth="1.5" className={`${LINE} stroke-ecume`} />
-          <circle cy="5" r="5" className="fill-ligne forced-colors:fill-[Highlight]" />
+          <circle cy="5" r="5" className="fill-ligne forced-colors:fill-[Highlight]!" />
         </g>
 
         <g transform="translate(540 400) scale(.5)">

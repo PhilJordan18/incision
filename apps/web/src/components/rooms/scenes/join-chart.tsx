@@ -5,9 +5,9 @@ import { GlassCompass, SceneShip, WaveField } from "./sea-marks";
  * The small chart beside « Rejoindre la salle » (mock-up `rejoindre`): the visitor's ship on
  * its way to the room, whose sign carries the real code of the page.
  */
-export function JoinChart({ code, className }: { readonly code: string; readonly className?: string }) {
+export function JoinChart({ code }: { readonly code: string }) {
   return (
-    <SeaChart scene="join-chart" className={className}>
+    <SeaChart scene="join-chart">
       <svg viewBox="0 0 560 400" fill="none" focusable="false" className="block h-auto w-full">
         <WaveField width={560} height={400} count={18} />
         <path d="M96 352 C180 300 250 250 330 206" strokeWidth="3" strokeLinecap="round" strokeDasharray="0.1 14" className={`${LINE} stroke-moi`} />
