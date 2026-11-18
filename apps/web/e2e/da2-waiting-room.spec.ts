@@ -343,3 +343,68 @@ test("screen reader: names, roles and states of the room, as the accessibility t
     if (role === "member") break;
   }
 });
+
+test("the four states that replace the room keep their tone, texts and actions, with wave marks in the corner", async ({ browser }) => {
+  const ending = (page: Page) => page.locator("[data-room-ending]");
+  // Each state is produced by the real flow, from a second browser or tab.
+  const check = async (page: Page, state: string, heading: RegExp, actions: string[], name: string) => {
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
+    await expect(ending(page)).toHaveAttribute("data-room-ending", state);
+    await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+    const marks = ending(page).locator("[data-wave-marks]");
+    await expect(marks).toHaveAttribute("aria-hidden", "true");
+    expect(await marks.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe("none");
+    // Unchanged: the tone's sign, and the same actions in the same order.
+    await expect(ending(page).locator("section > p").first()).toContainText(/^[⚠×·] /);
+    await expect(ending(page).locator("a, button")).toHaveText(actions);
+    // In the corner, clear of the label and of the heading; no wave is behind a word.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(marks).toBeVisible();
+    const boxes = await ending(page).evaluate((panel) => {
+      const rect = (element: Element | null) => element?.getBoundingClientRect();
+      const waves = [...panel.querySelectorAll("[data-wave-marks] path")].map((path) => path.getBoundingClientRect());
+      const words = [rect(panel.querySelector("section > p")), rect(panel.querySelector("h1"))];
+      const range = document.createRange();
+      const text = words.map((_, index) => { range.selectNodeContents(panel.querySelectorAll("section > p, h1")[index]!); return range.getBoundingClientRect(); });
+      return { overlap: waves.some((wave) => text.some((word) => wave.left < word.right && wave.right > word.left && wave.top < word.bottom && wave.bottom > word.top)), count: waves.length, panel: panel.getBoundingClientRect().right, right: Math.max(...waves.map((wave) => wave.right)) };
+    });
+    expect(boxes.count).toBeGreaterThan(0);
+    expect(boxes.overlap, state).toBe(false);
+    expect(boxes.right).toBeLessThanOrEqual(boxes.panel);
+    await expectNoAccessibilityViolation(page);
+    await capture(page, `etat-${name}-fr-abysse-1440`, false);
+    // On a phone the label can reach the corner: the marks are left out.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(marks).toBeHidden();
+    await expectNoHorizontalScroll(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+  };
+  const host = await account(browser, "Capitaine");
+  const expelled = await account(browser, "Lina");
+  const leaver = await account(browser, "Noa");
+  const signedOut = await account(browser, "Alix", { theme: "aube" });
+  const stays = await account(browser, "Maé");
+  const code = await openRoom(host);
+  for (const page of [expelled, leaver, signedOut, stays]) await join(page, code);
+  // Expelled by the host.
+  const moderation = region(host, /^Modération de la salle$/);
+  await moderation.getByRole("button", { name: "Expulser Lina" }).click();
+  await moderation.getByRole("button", { name: "Confirmer l’expulsion" }).click();
+  await check(expelled, "expelled", /Expulsé|expuls/i, ["Revenir à l’accueil"], "expulse");
+  // Left from another tab of the same member.
+  const otherTab = await leaver.context().newPage();
+  await otherTab.goto(`/rooms/${code}`);
+  await expect(otherTab.getByText(LIVE)).toBeVisible();
+  await otherTab.getByRole("button", { name: "Quitter la salle" }).click();
+  await check(leaver, "notMember", /Tu as quitté la salle/i, ["Rejoindre à nouveau", "Revenir à l’accueil"], "quittee");
+  // Signed out elsewhere (Aube).
+  const account2 = await signedOut.context().newPage();
+  await account2.goto("/account");
+  await account2.getByRole("button", { name: "Se déconnecter" }).click();
+  await check(signedOut, "signedOut", /Reconnecte-toi/i, ["Me reconnecter", "Revenir à l’accueil"], "session-terminee-aube");
+  // Closed by the host, for the member who stayed and for the host.
+  await host.getByRole("button", { name: "Fermer la salle" }).click();
+  await host.getByRole("button", { name: "Oui, fermer la salle" }).click();
+  await check(stays, "closed", /Salle\s*fermée/i, ["Créer une salle", "Revenir à l’accueil"], "fermee");
+  await expect(ending(host)).toHaveAttribute("data-room-ending", "closed");
+});
