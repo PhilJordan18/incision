@@ -123,8 +123,26 @@ describe("coalesced guest SQL cost and authority", () => {
     state.wait = new Promise<void>((resolve) => { release = resolve; });
     const apply = vi.fn(accepted); const command = gate.run({ ...member, apply }); await Promise.resolve();
     let finish = () => {}; const mutation = guestCommandFence().mutation(() => new Promise<void>((resolve) => { finish = resolve; }));
-    release(); expect(await command).toEqual({ ok: false, error: "UNAVAILABLE" });
-    expect(apply).not.toHaveBeenCalled(); finish(); await mutation; await gate.stop();
+    release(); const answer = await command;
+    state.invalid = true; finish(); await mutation;
+    expect(answer).toEqual({ ok: false, error: "RATE_LIMITED" });
+    expect(apply).not.toHaveBeenCalled();
+    expect(await gate.run({ ...member, apply })).toEqual({ ok: false, error: "UNAUTHORIZED" });
+    expect(apply).not.toHaveBeenCalled(); await gate.stop();
+  });
+
+  it("allows a fresh authorization after an unrelated transition without applying the refused batch", async () => {
+    const { gate, state } = setup(); let release = () => {};
+    state.wait = new Promise<void>((resolve) => { release = resolve; });
+    const apply = vi.fn(accepted);
+    const command = gate.run({ ...member, apply }); await Promise.resolve();
+    await guestCommandFence().mutation(async () => undefined);
+    release();
+    expect(await command).toEqual({ ok: false, error: "RATE_LIMITED" });
+    expect(apply).not.toHaveBeenCalled(); expect(state.activity).toEqual([false]);
+    expect(await gate.run({ ...member, apply })).toEqual({ ok: true });
+    expect(state.calls).toBe(2); expect(apply).toHaveBeenCalledOnce();
+    await gate.stop();
   });
 
   it("revalidates SQL after expiry and never resurrects an expired grant", async () => {

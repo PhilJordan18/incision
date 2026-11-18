@@ -14,6 +14,10 @@ produit, merge ou fermeture de carte dans cette tranche.
 
 ## État intégré après #206 — 17 novembre 2026
 
+Suivi CI #209 : [refus transitoire invité](evidence/ci209-guest-retry/README.md).
+Correction pré-application et tests de concurrence, sans promotion de statut
+pour AUTH-02, SEC-01 ou PERF-02 et sans rejouer A–G.
+
 Référence vérifiée : `dev 5619c6e1167c198cf668c11b0fd8bcb092626303`.
 Les PR #204, #205, #201, #203, #202 et #206 sont intégrées.
 La [réconciliation](evidence/reconciliation-2026-11-17/README.md) distingue
