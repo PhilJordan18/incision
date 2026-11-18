@@ -7,8 +7,9 @@ import { guestAwareAction } from "@/identity/guest-browser";
 import { changeVisibilityAction, guestChangeVisibilityAction, type VisibilityActionState } from "@/server/rooms/visibility-actions";
 import { roomVisibilityCopy } from "@/i18n/room-visibility";
 import type { Locale } from "@/i18n/locale";
-import { card, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
+import { card, discreetButton, secondaryButton } from "@/components/ui/styles";
 import { VisibilityChoices } from "./visibility-choices";
+import { panelTitle } from "./room-panel-styles";
 
 type Props = { readonly code: string; readonly visibility: RoomVisibility; readonly revision: number; readonly host: boolean;
   readonly guest: boolean; readonly live: boolean; readonly locale: Locale; readonly refresh: () => void };
@@ -54,13 +55,13 @@ export function RoomVisibilityPanel({ code, visibility, revision, host, guest, l
       finally { busy.current = false; }
     });
   }
-  return <section className={`${card} flex flex-col gap-4`} aria-labelledby={`${id}-title`}>
-    <h2 id={`${id}-title`} className={monoLabel}>{t.title}</h2>
+  return <section className={`${card} flex min-w-0 flex-col gap-4`} aria-labelledby={`${id}-title`} data-editing={host && draft !== null ? "" : undefined}>
+    <h2 id={`${id}-title`} className={panelTitle}>{t.title}</h2>
     <div aria-live="polite">
       <p><span className="text-brume">{t.current} </span><strong className="font-semibold">{t.choices[visibility].label}</strong></p>
       <p className="text-sm text-embrun">{t.choices[visibility].body}</p>
     </div>
-    {host && <button ref={edit} type="button" className={`${discreetButton} self-start`} disabled={!enabled || draft !== null}
+    {host && <button ref={edit} type="button" className={`${discreetButton} mt-auto self-start`} disabled={!enabled || draft !== null}
       onClick={() => { setDraft({ visibility, revision }); setAnswer({}); }}>{t.edit}</button>}
     {host && !live && <p role="status">{t.disconnected}</p>}
     {host && draft !== null && <form ref={focusChoice} className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); save(); }}>

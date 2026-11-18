@@ -7,7 +7,8 @@ import { guestAwareAction } from "@/identity/guest-browser";
 import { changeCapacityAction, guestChangeCapacityAction, type CapacityActionState } from "@/server/rooms/capacity-actions";
 import { roomAccessCopy } from "@/i18n/room-access";
 import type { Locale } from "@/i18n/locale";
-import { card, discreetButton, fieldLabel, monoLabel, secondaryButton, textField } from "@/components/ui/styles";
+import { card, discreetButton, fieldLabel, secondaryButton, textField } from "@/components/ui/styles";
+import { panelTitle } from "./room-panel-styles";
 
 type Props = { readonly code: string; readonly capacity: number; readonly revision: number; readonly host: boolean;
   readonly guest: boolean; readonly live: boolean; readonly locale: Locale; readonly refresh: () => void };
@@ -47,11 +48,11 @@ export function RoomCapacityPanel({ code, capacity, revision, host, guest, live,
       finally { busy.current = false; }
     });
   }
-  return <section className={`${card} flex flex-col gap-4`} aria-labelledby={`${id}-title`}>
-    <h2 id={`${id}-title`} className={monoLabel}>{t.title}</h2>
+  return <section className={`${card} flex min-w-0 flex-col gap-4`} aria-labelledby={`${id}-title`}>
+    <h2 id={`${id}-title`} className={panelTitle}>{t.title}</h2>
     <p aria-live="polite">{t.capacity} : {capacity}</p>
     <p id={`${id}-hint`} className="text-sm text-brume">{t.hint}</p>
-    {host && <button ref={edit} type="button" className={`${discreetButton} self-start`} disabled={!enabled || draft !== null}
+    {host && <button ref={edit} type="button" className={`${discreetButton} mt-auto self-start`} disabled={!enabled || draft !== null}
       onClick={() => { setDraft({ capacity: String(capacity), revision }); setAnswer({}); }}>{t.edit}</button>}
     {host && !live && <p role="status">{t.disconnected}</p>}
     {host && draft !== null && <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); save(); }}>

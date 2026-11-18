@@ -9,10 +9,12 @@ import type { Locale } from "@/i18n/locale";
 import { roomBotsCopy } from "@/i18n/room-bots";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
 import { changeRoomBotAction, type BotActionState } from "@/server/rooms/bot-actions";
-import { card, discreetButton, monoLabel } from "@/components/ui/styles";
+import { card, discreetButton } from "@/components/ui/styles";
+import { formatNumber } from "@/i18n/value-format";
 
 import { AddRoomBot } from "./add-room-bot";
 import { RoomBotRow } from "./room-bot-row";
+import { panelTitle } from "./room-panel-styles";
 
 export function RoomBotsPanel({ guest = false, snapshot, host, live, locale, refresh }: {
   readonly guest?: boolean;
@@ -54,18 +56,23 @@ export function RoomBotsPanel({ guest = false, snapshot, host, live, locale, ref
       } finally { submitting.current = false; }
     });
   }
-  return <section aria-labelledby={`${id}-title`} className={`${card} flex flex-col gap-4`}>
-    <h2 id={`${id}-title`} className={monoLabel}>{t.title}</h2>
+  const count = snapshot.bots?.length ?? 0;
+  // DA2-5a: the add block, then what the panel answers, then the roster on the panel's full width.
+  return <section aria-labelledby={`${id}-title`} className={`${card} flex min-w-0 flex-col gap-4`}>
+    <h2 id={`${id}-title`} className={panelTitle}>{t.title}</h2>
     {host && <AddRoomBot t={t} enabled={enabled} submit={submit} buttonRef={addButton} />}
-    <div className="space-y-3">
-      <h3 className="text-lg font-semibold">{t.roster}</h3>
-      {(snapshot.bots?.length ?? 0) === 0 ? <p className="text-brume">{t.empty}</p> : <ul className="flex flex-col gap-3">
+    {host && !live && <p role="status" className="text-brume">{t.disconnected}</p>}
+    <p role="status" className="text-sm text-embrun empty:-mt-4">{pending ? t.pending : awaiting ? t.waiting : confirmation}</p>
+    {answer.error && <div className="flex flex-col items-start gap-2 border-l-[3px] border-or pl-2.5"><p role="alert" className="text-erreur"><span aria-hidden="true">⚠ </span>{t.errors[answer.error]}</p>
+      <button type="button" className={discreetButton} onClick={() => { setAnswer({}); refresh(); }}>{t.reload}</button></div>}
+    <div className="rounded-carte border border-houle bg-abysse">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <h3 className="font-semibold">{t.roster}</h3>
+        <span className="rounded-puce border-[1.5px] border-ecume px-2 font-mono text-sm">{formatNumber(count, locale)}</span>
+      </div>
+      {count === 0 ? <p className="border-t border-houle p-4 text-brume">{t.empty}</p> : <ul className="flex flex-col border-t border-houle divide-y divide-sillage">
         {snapshot.bots?.map((bot, index) => <RoomBotRow key={bot.botId} bot={bot} index={index} t={t} host={host} enabled={enabled} submit={submit} />)}
       </ul>}
     </div>
-    {host && !live && <p role="status" className="text-brume">{t.disconnected}</p>}
-    <p role="status">{pending ? t.pending : awaiting ? t.waiting : confirmation}</p>
-    {answer.error && <div><p role="alert" className="text-erreur">{t.errors[answer.error]}</p>
-      <button type="button" className={discreetButton} onClick={() => { setAnswer({}); refresh(); }}>{t.reload}</button></div>}
   </section>;
 }

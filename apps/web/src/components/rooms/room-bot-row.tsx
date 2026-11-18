@@ -15,7 +15,7 @@ export function RoomBotRow({ bot, index, t, host, enabled, submit }: {
   const level = draft.saved === bot.level ? draft.level : bot.level;
   const id = useId();
   const dirty = level !== bot.level;
-  return <li className="space-y-3 rounded-carte border border-houle p-4">
+  return <li className="space-y-3 px-4 py-3">
     <div className="flex items-center gap-3"><BotInsignia level={bot.level} />
       <div><p className="font-semibold">{t.label} {index + 1}</p><p className="text-sm text-embrun">{t.savedLevel} {t.levels[bot.level]}</p></div>
     </div>

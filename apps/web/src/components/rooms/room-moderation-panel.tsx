@@ -7,7 +7,8 @@ import { expelMemberAction, guestExpelMemberAction, type ModerationActionState }
 import { roomModerationCopy } from "@/i18n/room-moderation";
 import type { Locale } from "@/i18n/locale";
 import type { PublicRoomSnapshot } from "@/rooms/protocol";
-import { card, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
+import { card, discreetButton, secondaryButton } from "@/components/ui/styles";
+import { panelTitle } from "./room-panel-styles";
 
 export function RoomModerationPanel({ snapshot, guest, live, locale, refresh }: {
   readonly snapshot: PublicRoomSnapshot; readonly guest: boolean; readonly live: boolean;
@@ -47,10 +48,10 @@ export function RoomModerationPanel({ snapshot, guest, live, locale, refresh }: 
     });
   }
   return <section className={`${card} flex flex-col gap-4`} aria-labelledby={`${id}-title`}>
-    <h2 ref={heading} tabIndex={-1} id={`${id}-title`} className={monoLabel}>{t.title}</h2>
+    <h2 ref={heading} tabIndex={-1} id={`${id}-title`} className={panelTitle}>{t.title}</h2>
     {!live && <p role="status">{t.disconnected}</p>}
-    <ul className="flex flex-col gap-3">{snapshot.members.filter((member) => !member.isHost).map((member) =>
-      <li key={member.memberId} className="flex flex-wrap items-center justify-between gap-3">
+    <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,16.25rem),1fr))] gap-x-6 gap-y-1">{snapshot.members.filter((member) => !member.isHost).map((member) =>
+      <li key={member.memberId} className="flex min-h-[52px] flex-wrap items-center justify-between gap-3">
         <span className="min-w-0 break-words">{member.displayName}</span>
         <button type="button" className={discreetButton} disabled={!enabled || draft !== null}
           aria-label={`${t.expel} ${member.displayName}`} onClick={(event) => {
