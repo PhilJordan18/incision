@@ -69,7 +69,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
               <span className="font-display text-[96px] leading-none font-black text-ecume sm:text-[120px]">{ordinal(self.result.rank, locale, t.results.ordinal)}</span>
               <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: formatNumber(ranked.length, locale) })}</span>
             </p>
-            <ArrivalShore entrants={ranked} routes={routes} />
+            <ArrivalShore entrants={ranked} self={self} routes={routes} />
           </div>
           {record !== undefined && (
             <div aria-label={details.recordLabel} role="note" className={`self-start rounded-lg border bg-nuit p-3 text-sm ${record.status === "improved" || record.status === "tied" ? "border-or" : "border-houle"}`}>
@@ -149,7 +149,7 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
       </div>
       <p className="text-sm text-brume">{t.results.rounding}</p>
       <p className="text-sm text-brume">{details.errorsHelp}</p>
-      <ResultsBonusJournal race={race} locale={locale} t={t} />
+      <ResultsBonusJournal race={race} locale={locale} t={t} routes={routes} />
     </section>
   );
 }
@@ -168,10 +168,13 @@ const BERTHS = [
  * (the reader's own always among them, a little larger). Decorative: the podium and the table
  * below say everything it shows.
  */
-function ArrivalShore({ entrants, routes }: { readonly entrants: readonly ResultEntrant[]; readonly routes: ReturnType<typeof resultRoutes> }) {
+function ArrivalShore({ entrants, self, routes }: {
+  readonly entrants: readonly ResultEntrant[];
+  readonly self: ResultEntrant;
+  readonly routes: ReturnType<typeof resultRoutes>;
+}) {
   const first = entrants.slice(0, BERTHS.length);
-  const self = entrants.find((entrant) => entrant.isSelf);
-  const ships = self === undefined || first.includes(self) ? first : [...first.slice(0, -1), self];
+  const ships = first.includes(self) ? first : [...first.slice(0, -1), self];
   return (
     <div aria-hidden="true" data-arrival-shore="" className="relative h-24 overflow-hidden rounded-carte border border-sillage bg-mer sm:h-[132px]">
       <WaveMarks width={900} height={132} className="absolute inset-0 size-full" />

@@ -14,7 +14,10 @@ export function ResultsPodium({ entrants, locale, t, routes = resultRoutes(entra
   readonly entrants: readonly ResultEntrant[];
   readonly locale: Locale;
   readonly t: Dictionary["races"];
-  /** Each runner's route style by ordinal, as on the track; computed from `entrants` when the caller has none. */
+  /**
+   * Each runner's route style by ordinal, as on the track. Pass the race's own (`resultRoutes` of
+   * the whole crew, as the track counts it); the default suits a list that is the whole crew.
+   */
   readonly routes?: ReturnType<typeof resultRoutes>;
 }) {
   const places = entrants.filter((entrant) => entrant.result !== undefined && entrant.result.rank <= 3)

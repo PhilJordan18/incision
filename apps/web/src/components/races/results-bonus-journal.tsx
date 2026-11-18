@@ -9,11 +9,12 @@ import { BotIdentityLabel } from "./bot-identity-label";
 import { resultRoutes } from "./result-routes";
 
 /** Native disclosure works with the keyboard and without client JavaScript. */
-export function ResultsBonusJournal({ race, locale, t }: {
+export function ResultsBonusJournal({ race, locale, t, routes = resultRoutes(race.entrants) }: {
   readonly race: RaceResultView; readonly locale: Locale; readonly t: Dictionary["races"];
+  /** Each runner's route style by ordinal, as on the track. */
+  readonly routes?: ReturnType<typeof resultRoutes>;
 }) {
   const labels = bonusJournalLabels[locale];
-  const routes = resultRoutes(race.entrants);
   const seconds = new Intl.NumberFormat(locale, { maximumFractionDigits: 3 });
   return <section aria-label={labels.heading} className="flex min-w-0 flex-col gap-3">
     <h2 className="font-display text-3xl font-extrabold uppercase">{labels.heading}</h2>

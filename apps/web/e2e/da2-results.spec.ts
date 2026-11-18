@@ -49,7 +49,7 @@ async function backdrop(element: Locator): Promise<string> {
   });
 }
 
-test("room results: each pennant has its runner's colour and shape on the track; host and non-host", async ({ browser }) => {
+test("room results: each pennant has its runner's shape, the reader's own has its track colour, no other claims one; host and non-host", async ({ browser }) => {
   test.setTimeout(120_000);
   const host = await sailor(browser, "Capitaine"); const guest = await sailor(browser, "Lina", { locale: "en-US" });
   contexts.push(host.context, guest.context);
@@ -85,10 +85,12 @@ test("room results: each pennant has its runner's colour and shape on the track;
         expect(track.self).toBe(true);
         expect(row).toEqual({ shape: "triangle", colour: "moi", dash: "solid" });
       } else {
-        // Never another runner's colour: the track's own, or none claimed where the stored
-        // results do not carry the track identity (reported with DA2-7).
-        expect([track.colour, "ecume"]).toContain(row.colour);
-        expect(row.colour).not.toBe("moi");
+        // The stored results do not carry the race entrant id the track assigns colours by
+        // (reported with DA2-7): another runner's pennant claims no runner colour and no dash.
+        // When the projection carries the id, this becomes `track.colour` and the track's dash.
+        expect(track.self).toBe(false);
+        expect(row.colour).toBe("ecume");
+        expect(row.dash).toBe("solid");
       }
       // The same pennant in the bonus journal, and in the podium for the first three.
       const journal = await pennantOf(page.locator(`summary[data-result-entrant="${entrant.ordinal}"]`));
