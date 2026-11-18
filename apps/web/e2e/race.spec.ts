@@ -478,6 +478,10 @@ test.describe("the first complete race (F-04.0)", () => {
     // The explicit button for one (reached with Tab from « Ta frappe »), a keystroke for the other;
     // the button gives the focus back to typing.
     await host.keyboard.press("Tab");
+    // WebKit can give the native non-modal dialog its own stop before tabbing to its button.
+    if (await hostDialog.evaluate(dialog => dialog.ownerDocument.activeElement === dialog)) {
+      await host.keyboard.press("Tab");
+    }
     await expect(host.getByRole("button", { name: "I’m here" })).toBeFocused();
     await host.keyboard.press("Enter");
     await expect(hostQuestion).toHaveCount(0);
