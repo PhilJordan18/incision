@@ -40,25 +40,39 @@ main:has(> .route) {
   background: linear-gradient(var(--color-sillage) 0 6px, transparent 6px 28px, var(--color-sillage) 28px 34px);
 }
 
-/* Forced colours: the scenes keep their shapes with the system's text colour on its background. */
+/* Forced colours: every scene becomes a line drawing in the text colour the system imposes
+   around it (`currentColor`), on the system's own background. The backdrops that pass behind
+   text (sea, chart lines, wave marks, outlined numbers) are removed. */
 @media (forced-colors: active) {
-  .scene *,
-  .scene {
-    fill: Canvas;
-    stroke: CanvasText;
+  .scene,
+  .scene * {
+    color: inherit;
+    fill: none;
+    stroke: currentColor;
+    opacity: 1;
   }
 
   .scene text {
-    fill: CanvasText;
+    fill: currentColor;
     stroke: none;
   }
 
+  .backdrop {
+    display: none;
+  }
+
   .spine {
-    border-left-color: CanvasText;
+    border-left-color: currentColor;
   }
 
   .belt {
     background: none;
-    border-block: 1px solid CanvasText;
+    border-block: 1px solid;
+  }
+}
+
+@media (forced-colors: active) {
+  .scene .land {
+    fill: none;
   }
 }

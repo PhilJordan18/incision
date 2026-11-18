@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import styles from "./home.module.css";
-import { GlassCompass, Isle, Lighthouse, sceneCaption, SceneShip } from "./scene-parts";
+import { GlassCompass, Isle, Lighthouse, sceneCaption, sceneCaptionTight, SceneShip } from "./scene-parts";
 
 /**
  * The four drawings of the route map (C1 « Cap »). Each one is decorative: `aria-hidden`, static,
@@ -12,9 +12,9 @@ const figure = `${styles.scene} pointer-events-none block h-auto w-full`;
 const LABEL = "fill-ecume font-sans text-[15px] font-semibold max-md:text-[19px]";
 const KEY_TEXT = "font-mono text-[14px] max-md:text-[17px]";
 
-function Figure({ viewBox, children }: { readonly viewBox: string; readonly children: ReactNode }) {
+function Figure({ name, viewBox, children }: { readonly name: string; readonly viewBox: string; readonly children: ReactNode }) {
   return (
-    <svg viewBox={viewBox} fill="none" aria-hidden="true" focusable="false" className={figure}>
+    <svg data-scene={name} viewBox={viewBox} fill="none" aria-hidden="true" focusable="false" className={figure}>
       {children}
     </svg>
   );
@@ -62,7 +62,7 @@ export type AccessSceneWords = { readonly publicRoom: string; readonly byCode: s
 /** Escale 01: three isles, one per way into a room (listed, by code, by invitation). */
 export function AccessScene({ words }: { readonly words: AccessSceneWords }) {
   return (
-    <Figure viewBox="0 0 600 460">
+    <Figure name="access" viewBox="0 0 600 460">
       <path d="M75 0V460M150 0V460M225 0V460M300 0V460M375 0V460M450 0V460M525 0V460M0 75H600M0 150H600M0 225H600M0 300H600M0 375H600M0 450H600" className="stroke-houle" opacity="0.35" />
       <g className="stroke-embrun" strokeWidth="2.6" strokeLinecap="round" strokeDasharray="0.1 11">
         <path d="M190 396C200 330 250 250 256 200" />
@@ -138,7 +138,7 @@ const BONUS_PLACES = [
 /** Escale 02: a calm training lane beside an Arcade lane with its three bonus buoys. */
 export function ModesScene({ words }: { readonly words: ModesSceneWords }) {
   return (
-    <Figure viewBox="0 0 600 460">
+    <Figure name="modes" viewBox="0 0 600 460">
       <g className="fill-brume">
         <circle cx="40" cy="60" r="1.5" />
         <circle cx="96" cy="34" r="1" />
@@ -178,7 +178,7 @@ export function ModesScene({ words }: { readonly words: ModesSceneWords }) {
               {BONUS_ICONS[index]}
             </g>
             <text x="36" y="-2" className={LABEL}>{words.bonuses[index]?.name}</text>
-            <text x="36" y="15" className={sceneCaption}>{words.bonuses[index]?.milestone}</text>
+            <text x="36" y="15" className={sceneCaptionTight}>{words.bonuses[index]?.milestone}</text>
           </g>
         </g>
       ))}
@@ -216,7 +216,7 @@ export function TypingScene({ words }: { readonly words: TypingSceneWords }) {
     return undefined;
   })();
   return (
-    <Figure viewBox="0 0 600 348">
+    <Figure name="typing" viewBox="0 0 600 348">
       <rect width="600" height="168" rx="12" className="fill-abysse stroke-houle" />
       <clipPath id="home-track-clip">
         <rect width="600" height="168" rx="12" />
@@ -308,7 +308,7 @@ export function LogbookScene({ words }: { readonly words: LogbookSceneWords }) {
   const keys = [...words.keys[0]].map((letter, column) => ({ letter, x: 330 + column * 37, y: 326, missed: false }));
   const secondRow = [...words.keys[1], ...words.missedKeys].map((letter, column) => ({ letter, x: 330 + column * 37, y: 362, missed: column >= words.keys[1].length }));
   return (
-    <Figure viewBox="0 0 600 460">
+    <Figure name="logbook" viewBox="0 0 600 460">
       <path d="M24 74 296 58V422L24 438ZM304 58 576 74V438L304 422Z" className="fill-houle" opacity="0.6" />
       <path d="M34 62 296 46V410L34 426Z" className="fill-nuit stroke-houle" strokeWidth="1.5" />
       <path d={PAGE_LINES.map((y) => `M52 ${y}H280`).join("")} className="stroke-houle" opacity="0.45" />
@@ -356,7 +356,7 @@ export function LogbookScene({ words }: { readonly words: LogbookSceneWords }) {
 /** The departure quay: the lighthouse, three moored ships, the compass, and mine leaving. */
 export function QuayScene() {
   return (
-    <svg viewBox="0 0 560 300" fill="none" aria-hidden="true" focusable="false" className={`${styles.scene} pointer-events-none block h-auto w-full md:w-[420px] md:flex-none lg:w-[560px]`}>
+    <svg data-scene="quay" viewBox="0 0 560 300" fill="none" aria-hidden="true" focusable="false" className={`${styles.scene} pointer-events-none block h-auto w-full md:w-[420px] md:flex-none lg:w-[560px]`}>
       <path d="M20 280q13-11 26 0t26 0 26 0 26 0 26 0 26 0M300 290q13-11 26 0t26 0 26 0 26 0 26 0 26 0 26 0 26 0" className="stroke-houle" strokeWidth="2" strokeLinecap="round" />
       <path d="M70 226V262M172 226V262M274 226V262M376 226V262" className="stroke-voile" strokeWidth="5" strokeLinecap="round" />
       <rect x="30" y="196" width="380" height="30" rx="4" className="fill-voile" />

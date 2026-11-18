@@ -99,7 +99,7 @@ export function SeaDecor({ id, ghost, ghostSide = "right" }: SeaDecorProps) {
       fill="none"
       aria-hidden="true"
       focusable="false"
-      className={`${styles.scene} pointer-events-none absolute inset-0 h-full w-full`}
+      className={`${styles.backdrop} pointer-events-none absolute inset-0 h-full w-full`}
     >
       <pattern id={id} width="291" height="183" patternUnits="userSpaceOnUse">
         <path
@@ -129,3 +129,5 @@ export function SeaDecor({ id, ghost, ghostSide = "right" }: SeaDecorProps) {
 
 /** Mono caption inside a scene. */
 export const sceneCaption = "fill-embrun font-mono text-[12px] tracking-[0.2em] uppercase max-md:text-[15px] max-md:tracking-[0.08em]";
+/** The same caption, tighter, where the words share a narrow lane with a route. */
+export const sceneCaptionTight = "fill-embrun font-mono text-[12px] tracking-[0.1em] uppercase max-md:text-[15px] max-md:tracking-[0.04em]";

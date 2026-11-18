@@ -43,9 +43,9 @@ export function FirstFrame({ finish, heading, children }: FirstFrameProps) {
         focusable="false"
         className={`${styles.scene} pointer-events-none block h-[300px] w-full md:absolute md:inset-0 md:h-full`}
       >
-        <rect width="1440" height="600" className="fill-mer" />
-        <path d={HORIZONS} className="stroke-houle" opacity="0.34" />
-        <path d={BEARINGS} className="stroke-houle" opacity="0.3" />
+        <rect width="1440" height="600" className={`${styles.backdrop} fill-mer`} />
+        <path d={HORIZONS} className={`${styles.backdrop} stroke-houle`} opacity="0.34" />
+        <path d={BEARINGS} className={`${styles.backdrop} stroke-houle`} opacity="0.3" />
         <path d="M1085 520q26-30 62-18 34-16 52 12 10 22-22 28-52 14-92-2ZM690 330q18-16 38-6 16 10 2 20-26 10-40-14Z" className="fill-sillage stroke-houle" strokeWidth="1.5" />
         <path d="M800 500 704 640" className="stroke-moi" strokeWidth="3" strokeLinecap="round" strokeDasharray="0.1 15" />
         {FLEET.map((ship) => (
@@ -56,7 +56,7 @@ export function FirstFrame({ finish, heading, children }: FirstFrameProps) {
           <stop offset="0.4" className="[stop-color:var(--color-abysse)]" />
           <stop offset="0.56" className="[stop-color:var(--color-abysse)]" stopOpacity="0" />
         </linearGradient>
-        <rect width="1440" height="600" fill="url(#home-sea-fade)" className="only-abysse" />
+        <rect width="1440" height="600" fill="url(#home-sea-fade)" className={`${styles.backdrop} only-abysse`} />
         <path className={styles.land} d={`M-10-10V52.2L${COAST}V-10Z`} />
         <path className={styles.coastline} d={`M-10 52.2 ${COAST}`} />
         <text x="1392" y="34" textAnchor="end" className="fill-erreur font-mono text-[13px] font-bold tracking-[0.2em] uppercase">
