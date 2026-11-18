@@ -170,7 +170,7 @@ test.describe("home route map and quay (C1 « Cap », DES-04, A11Y-02)", () => {
     await page.goto("/");
     const quay = page.getByRole("region", { name: "Prêt à lever l’ancre ?" });
     await expect(quay.getByText("[.Départ]")).toBeVisible();
-    const code = quay.getByLabel("Code de salle, au quai de départ", { exact: true });
+    const code = quay.getByLabel("Code de salle — au quai de départ", { exact: true });
     await expect(code).toHaveAttribute("id", "quay-room-code");
     const join = quay.getByRole("button", { name: "Embarquer avec ce code", exact: true });
     await expect(join).not.toHaveClass(/bg-action/);
@@ -195,9 +195,9 @@ test.describe("home route map and quay (C1 « Cap », DES-04, A11Y-02)", () => {
     const map = page.getByRole("region", { name: "Chart your course" });
     await expect(map.getByText("[.Route chart]")).toBeVisible();
     await expect(map.getByText("[.Port of call 04]")).toBeVisible();
-    const quay = page.getByRole("region", { name: "Ready to weigh anchor?" });
+    const quay = page.getByRole("region", { name: "Ready to cast off?" });
     await expect(quay.getByText("[.Departure]")).toBeVisible();
-    await expect(quay.getByLabel("Room code, at the departure quay", { exact: true })).toBeVisible();
+    await expect(quay.getByLabel("Room code — at the departure quay", { exact: true })).toBeVisible();
     await expect(quay.getByRole("button", { name: "Board with this code", exact: true })).toBeVisible();
     await expect(page.locator("main .bg-action")).toHaveCount(1);
   });

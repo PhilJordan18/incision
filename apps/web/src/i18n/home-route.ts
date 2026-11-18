@@ -60,8 +60,8 @@ const copy: Record<Locale, HomeRouteCopy> = {
     mapLabel: "Route chart",
     stops: ["Port of call 01", "Port of call 02", "Port of call 03", "Port of call 04"],
     departureLabel: "Departure",
-    quayTitleBold: "Ready to weigh",
-    quayTitleSerif: "anchor?",
+    quayTitleBold: "Ready to cast",
+    quayTitleSerif: "off?",
     quayCodeContext: "at the departure quay",
     quayJoin: "Board with this code",
     scenes: {

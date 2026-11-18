@@ -27,7 +27,7 @@ export default async function Home() {
             <br />
             <em className="font-serif font-normal normal-case italic">{t.home.titleSerif}</em>
           </h1>
-          <p className="max-w-[560px] text-base leading-normal text-embrun md:max-w-[440px] md:text-[17px] lg:max-w-[560px] lg:text-lg">{t.home.description}</p>
+          <p className="max-w-[560px] text-base leading-normal text-embrun lg:max-w-[440px] lg:text-[17px] xl:max-w-[560px] xl:text-lg">{t.home.description}</p>
           <JoinCodeForm
             t={t.home}
             besideAction={

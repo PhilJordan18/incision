@@ -37,7 +37,7 @@ export function QuayJoinForm({ t, codeContext, joinLabel, besideAction }: QuayJo
     <form action={formAction} noValidate className="flex flex-col gap-2">
       <label htmlFor="quay-room-code" className={monoLabel}>
         {t.codeLabel}
-        <span className="sr-only">{`, ${codeContext}`}</span>
+        <span className="sr-only">{` — ${codeContext}`}</span>
       </label>
       <div className="flex flex-wrap items-center gap-3">
         <input
