@@ -7,6 +7,7 @@ import type { Dictionary } from "@/i18n/dictionaries";
 export function NotFoundPanel({ t }: { readonly t: Dictionary["notFound"] }) {
   return (
     <StatePanel
+      waves
       tone="neutral"
       label={t.label}
       heading={{ bold: t.headingBold, serif: t.headingSerif }}
