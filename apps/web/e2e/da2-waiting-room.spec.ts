@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
 import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
 
@@ -285,4 +286,39 @@ test("forced colours and a 200 % zoom keep every state readable", async ({ brows
   await expectNoHorizontalScroll(zoomed);
   await expect(zoomed.getByRole("button", { name: "Lancer la course" })).toBeVisible();
   await capture(zoomed, "zoom-200-fr-abysse-720");
+});
+
+test("keyboard only: every stop of the room shows its focus, in the page's order", async ({ browser }) => {
+  const host = await account(browser, "Capitaine");
+  const code = await openRoom(host);
+  await occupy(host, code, { participants: 2, spectators: 1, bots: 2 });
+  const expected = await host.getByRole("main").locator("button:not([disabled]), select:not([disabled]), input:not([disabled]):not([type=hidden]), a[href]").evaluateAll((controls) => controls.map((control) => control.getAttribute("aria-label") ?? control.textContent ?? ""));
+  await host.getByRole("heading", { level: 1 }).focus();
+  const visited: string[] = [];
+  for (let stop = 0; stop < expected.length; stop++) {
+    await host.keyboard.press("Tab");
+    const focused = host.locator(":focus");
+    visited.push(await focused.evaluate((control) => control.getAttribute("aria-label") ?? control.textContent ?? ""));
+    // The global ring: 3 px in the `moi` colour, on every surface.
+    expect(await focused.evaluate((control) => getComputedStyle(control).outlineWidth), visited.at(-1)).toBe("3px");
+  }
+  expect(visited).toEqual(expected);
+  expect(visited.slice(0, 4)).toEqual(["Quitter la salle", "Copier le code", "Lancer la course", "Fermer la salle"]);
+});
+
+test("screen reader: names, roles and states of the room, as the accessibility tree gives them", async ({ browser }) => {
+  for (const [name, role] of [["Capitaine", "host"], ["Lina", "member"]] as const) {
+    const page = await account(browser, name);
+    let code = "";
+    if (role === "host") { code = await openRoom(page); await occupy(page, code, { participants: 1, spectators: 1, bots: 2 }); }
+    else { const [room] = await query<{ code: string }>("select code from lobbies limit 1"); await join(page, room?.code ?? ""); }
+    const tree = await page.getByRole("main").ariaSnapshot();
+    for (const expected of ['region "Code de la salle"', 'region "Réglages de la course"', 'region "Équipage"', 'heading "Participants', 'heading "Spectateurs', 'region "Bots"', 'heading "Bots dans la salle"']) expect(tree, role).toContain(expected);
+    expect(tree.includes('button "Lancer la course"'), role).toBe(role === "host");
+    expect(tree.includes('region "Modération de la salle"'), role).toBe(role === "host");
+    // The decorations (quay, pennants, eyes, insignias) are not announced.
+    expect(tree).not.toMatch(/img(?! "Invité")/);
+    if (EVIDENCE !== undefined) await writeFile(`${EVIDENCE}/arbre-accessibilite-${role === "host" ? "hote" : "non-hote"}-fr.txt`, tree.replace(/[2-9A-HJKMNP-Z]{6}/g, "CODE00"));
+    if (role === "member") break;
+  }
 });
