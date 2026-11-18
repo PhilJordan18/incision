@@ -1,5 +1,5 @@
-import { CodeSign, Isle, LINE, SeaChart } from "./scene-parts";
-import { GlassCompass, SceneShip, WaveField } from "./sea-marks";
+import { ChartCompass, ChartShip, CodeSign, Isle, LINE, SeaChart } from "./scene-parts";
+import { WaveField } from "./wave-field";
 
 /**
  * The small chart beside « Rejoindre la salle » (mock-up `rejoindre`): the visitor's ship on
@@ -15,12 +15,12 @@ export function JoinChart({ code }: { readonly code: string }) {
           <Isle wide />
           <CodeSign x={-70} y={-74} width={140} height={38} code={code} />
           <path d="M-40 -36 V-14 M40 -36 V-14" strokeWidth="2" className={`${LINE} stroke-voile`} />
-          <SceneShip transform="translate(-58 34) scale(1.3)" />
-          <SceneShip transform="translate(-14 38) scale(1.3)" />
-          <SceneShip transform="translate(34 36) scale(1.3)" bot />
+          <ChartShip x={-58} y={34} scale={1.3} />
+          <ChartShip x={-14} y={38} scale={1.3} />
+          <ChartShip x={34} y={36} scale={1.3} bot />
         </g>
-        <SceneShip transform="translate(96 346) scale(2.6)" sail="fill-moi" />
-        <GlassCompass transform="translate(470 330)" />
+        <ChartShip x={96} y={346} scale={2.6} colour="moi" />
+        <ChartCompass x={470} y={330} radius={34} heading={-58} />
       </svg>
     </SeaChart>
   );

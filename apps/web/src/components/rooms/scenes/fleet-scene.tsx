@@ -1,5 +1,5 @@
-import { Course, Isle, Lighthouse, SeaChart } from "./scene-parts";
-import { SceneShip, WaveField } from "./sea-marks";
+import { ChartShip, Course, Isle, Lighthouse, SeaChart } from "./scene-parts";
+import { WaveField } from "./wave-field";
 
 /**
  * The fleet heading for the public harbour, in the two columns beside the matchmaking card
@@ -19,11 +19,11 @@ export function FleetScene({ className = "" }: { readonly className?: string }) 
           <Isle wide />
           <Lighthouse transform="translate(0 -28)" />
         </g>
-        <SceneShip transform="translate(120 150) scale(2.2)" sail="fill-moi" />
-        <SceneShip transform="translate(250 112) scale(1.6)" />
-        <SceneShip transform="translate(330 176) scale(1.5)" bot />
-        <SceneShip transform="translate(440 128) scale(1.3)" />
-        <SceneShip transform="translate(520 168) scale(1.1)" />
+        <ChartShip x={120} y={150} scale={2.2} colour="moi" />
+        <ChartShip x={250} y={112} scale={1.6} />
+        <ChartShip x={330} y={176} scale={1.5} bot />
+        <ChartShip x={440} y={128} scale={1.3} />
+        <ChartShip x={520} y={168} scale={1.1} />
       </svg>
     </SeaChart>
   );

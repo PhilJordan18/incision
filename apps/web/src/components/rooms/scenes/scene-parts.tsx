@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Compass, type NauticalColour, Ship } from "@/components/nautical";
 
 /**
  * Pieces shared by the C1 room-entry scenes (docs/da/v2, card DA2-6): the sea chart frame and
@@ -82,6 +83,32 @@ export function CodeSign({ x, y, width, height, code }: { readonly x: number; re
       {code === undefined
         ? Array.from({ length: 6 }, (_, index) => <circle key={index} cx={centre - 35 + index * 14} cy={y + height / 2} r="2.5" className={`${SOLID} fill-brume`} />)
         : <text x={centre} y={y + height / 2 + 6} textAnchor="middle" className={`${SOLID} fill-ecume font-mono text-[16px] tracking-[0.22em]`}>{code}</text>}
+    </g>
+  );
+}
+
+/** The drawing's own size of the shared ship and compass, to place them in a chart's coordinates. */
+const SHIP_BOX = { size: 54, left: 27, top: 31 };
+const COMPASS_BOX = { width: 150, left: 75, top: 67, glass: 58 };
+
+/**
+ * A shared ship set down in a chart: `x`, `y` is the foot of its mast, `scale` its size against
+ * the drawing's own. A triangle sail is a person, a square one a bot; `moi` is the visitor's own.
+ */
+export function ChartShip({ x, y, scale, colour = "ecume", bot = false }: { readonly x: number; readonly y: number; readonly scale: number; readonly colour?: NauticalColour; readonly bot?: boolean }) {
+  return (
+    <g transform={`translate(${x - SHIP_BOX.left * scale} ${y - SHIP_BOX.top * scale})`}>
+      <Ship kind={bot ? "bot" : "human"} colour={colour} size={SHIP_BOX.size * scale} />
+    </g>
+  );
+}
+
+/** The shared glass compass set down in a chart: `x`, `y` is the centre of its glass, `radius` the glass. */
+export function ChartCompass({ x, y, radius, heading }: { readonly x: number; readonly y: number; readonly radius: number; readonly heading: number }) {
+  const scale = radius / COMPASS_BOX.glass;
+  return (
+    <g transform={`translate(${x - COMPASS_BOX.left * scale} ${y - COMPASS_BOX.top * scale})`}>
+      <Compass heading={heading} size={COMPASS_BOX.width * scale} />
     </g>
   );
 }

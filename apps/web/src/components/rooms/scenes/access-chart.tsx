@@ -1,7 +1,7 @@
 import type { Locale } from "@/i18n/locale";
 import { roomEntryCopy } from "@/i18n/room-entry";
-import { CodeSign, Course, House, Isle, Lighthouse, LINE, SeaChart, SOLID, SURFACE, Tree } from "./scene-parts";
-import { SceneShip, WaveField } from "./sea-marks";
+import { ChartShip, CodeSign, Course, House, Isle, Lighthouse, LINE, SeaChart, SOLID, SURFACE, Tree } from "./scene-parts";
+import { WaveField } from "./wave-field";
 
 const MERIDIANS = [75, 150, 225, 300, 375, 450, 525];
 const PARALLELS = [75, 150, 225, 300, 375, 450];
@@ -38,9 +38,9 @@ export function AccessChart({ locale }: { readonly locale: Locale }) {
         <Tree transform="translate(210 142)" />
         <path d="M214 168 L262 190" strokeWidth="4" strokeLinecap="round" className={`${LINE} stroke-embrun`} />
         <path d="M226 174 v10 M240 180 v10 M254 186 v10" strokeWidth="2" className={`${LINE} stroke-brume`} />
-        <SceneShip transform="translate(276 176) scale(0.75)" />
-        <SceneShip transform="translate(236 208) scale(0.6)" sail="fill-brume" />
-        <SceneShip transform="translate(196 214) scale(0.55)" sail="fill-brume" />
+        <ChartShip x={276} y={176} scale={0.75} />
+        <ChartShip x={236} y={208} scale={0.6} colour="brume" />
+        <ChartShip x={196} y={214} scale={0.55} colour="brume" />
 
         {/* 02 · the fort: its gate opens with the room's code, which does not exist yet. */}
         <Isle transform="translate(340 318) scale(1.05)" halo />
@@ -77,7 +77,7 @@ export function AccessChart({ locale }: { readonly locale: Locale }) {
           <text y="-65" textAnchor="middle" className={`${SOLID} fill-brume font-mono text-[18px]`}>{t.north}</text>
         </g>
 
-        <SceneShip transform="translate(190 420) scale(1.9)" sail="fill-moi" />
+        <ChartShip x={190} y={420} scale={1.9} colour="moi" />
         <text x="120" y="262" textAnchor="middle" className={CAPTION}>{t.public}</text>
         <text x="338" y="376" textAnchor="middle" className={CAPTION}>{t.code}</text>
         <text x="486" y="250" textAnchor="middle" className={CAPTION}>{t.private}</text>

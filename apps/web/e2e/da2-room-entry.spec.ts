@@ -161,7 +161,7 @@ for (const locale of LOCALES) {
     for (const option of THEMES) {
       await setTheme(page, option);
       // Ships, houses and the lighthouse read against the sea in both themes (non-text marks, 3:1).
-      expect(await shapeContrast(chart, ".fill-ecume, .fill-embrun, .fill-moi")).toBeGreaterThanOrEqual(3);
+      expect(await shapeContrast(chart, ".fill-ecume, .fill-embrun, [data-sail-cloth]")).toBeGreaterThanOrEqual(3);
       for (const width of WIDTHS) {
         await page.setViewportSize({ width, height: 900 });
         const [formBox, chartBox] = [await form.boundingBox(), await chart.boundingBox()];
@@ -264,7 +264,7 @@ for (const locale of LOCALES) {
       await page.setViewportSize({ width: 1440, height: 900 });
     };
     await layouts("empty");
-    expect(await shapeContrast(fleet, ".fill-ecume, .fill-moi")).toBeGreaterThanOrEqual(3);
+    expect(await shapeContrast(fleet, ".fill-ecume, [data-sail-cloth]")).toBeGreaterThanOrEqual(3);
 
     // Between 640 and 1023 px the grid has one column: the fleet goes under the card, full width.
     await page.setViewportSize({ width: 768, height: 900 });
@@ -322,7 +322,7 @@ for (const locale of LOCALES) {
     const panel = page.locator("main section").filter({ has: join });
     for (const option of THEMES) {
       await setTheme(page, option);
-      expect(await shapeContrast(chart, ".fill-ecume, .fill-moi")).toBeGreaterThanOrEqual(3);
+      expect(await shapeContrast(chart, ".fill-ecume, [data-sail-cloth]")).toBeGreaterThanOrEqual(3);
       for (const width of WIDTHS) {
         await page.setViewportSize({ width, height: 900 });
         const [panelBox, chartBox] = [await panel.boundingBox(), await chart.boundingBox()];
