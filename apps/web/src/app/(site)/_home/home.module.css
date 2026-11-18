@@ -42,10 +42,11 @@ main:has(> .route) {
 
 /* Forced colours: every scene becomes a line drawing in the text colour the system imposes
    around it (`currentColor`), on the system's own background. The backdrops that pass behind
-   text (sea, chart lines, wave marks, outlined numbers) are removed. */
+   text (sea, chart lines, wave marks, outlined numbers) are removed. The shared ships and the
+   compass (`components/nautical`) bring their own forced colours and are left to them. */
 @media (forced-colors: active) {
   .scene,
-  .scene * {
+  .scene *:not([data-ship], [data-ship] *, [data-compass], [data-compass] *) {
     color: inherit;
     fill: none;
     stroke: currentColor;

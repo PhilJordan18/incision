@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import styles from "./home.module.css";
 import { GlassCompass, HOME_CONTAINER, sceneCaption, SceneShip, type SailTone } from "./scene-parts";
 
-type FleetShip = { readonly x: number; readonly y: number; readonly scale: number; readonly tone: SailTone; readonly bot?: boolean; readonly flag?: boolean };
+type FleetShip = { readonly x: number; readonly y: number; readonly scale: number; readonly tone: SailTone; readonly bot?: boolean };
 
 /** The fleet heading for the coast: the nearer a ship, the larger. Mine is the only coloured sail. */
 const WIDE_FLEET: readonly FleetShip[] = [
@@ -11,12 +11,12 @@ const WIDE_FLEET: readonly FleetShip[] = [
   { x: 905, y: 264, scale: 1.6, tone: "ecume" },
   { x: 1150, y: 252, scale: 1.4, tone: "ecume", bot: true },
   { x: 1345, y: 300, scale: 1.5, tone: "brume" },
-  { x: 990, y: 176, scale: 0.9, tone: "brume", flag: false },
-  { x: 1190, y: 162, scale: 0.8, tone: "brume", flag: false },
-  { x: 850, y: 154, scale: 0.75, tone: "brume", flag: false },
-  { x: 1075, y: 122, scale: 0.55, tone: "brume", flag: false },
-  { x: 1280, y: 126, scale: 0.55, tone: "brume", flag: false },
-  { x: 715, y: 200, scale: 1, tone: "brume", flag: false },
+  { x: 990, y: 176, scale: 0.9, tone: "brume" },
+  { x: 1190, y: 162, scale: 0.8, tone: "brume" },
+  { x: 850, y: 154, scale: 0.75, tone: "brume" },
+  { x: 1075, y: 122, scale: 0.55, tone: "brume" },
+  { x: 1280, y: 126, scale: 0.55, tone: "brume" },
+  { x: 715, y: 200, scale: 1, tone: "brume" },
 ];
 /** The same fleet gathered to the right, for the widths where the title takes more of the frame. */
 const COMPACT_FLEET: readonly FleetShip[] = [
@@ -25,12 +25,12 @@ const COMPACT_FLEET: readonly FleetShip[] = [
   { x: 1135, y: 264, scale: 1.6, tone: "ecume" },
   { x: 1258, y: 252, scale: 1.4, tone: "ecume", bot: true },
   { x: 1355, y: 300, scale: 1.5, tone: "brume" },
-  { x: 1178, y: 176, scale: 0.9, tone: "brume", flag: false },
-  { x: 1278, y: 162, scale: 0.8, tone: "brume", flag: false },
-  { x: 1108, y: 154, scale: 0.75, tone: "brume", flag: false },
-  { x: 1220, y: 122, scale: 0.55, tone: "brume", flag: false },
-  { x: 1322, y: 126, scale: 0.55, tone: "brume", flag: false },
-  { x: 1040, y: 200, scale: 1, tone: "brume", flag: false },
+  { x: 1178, y: 176, scale: 0.9, tone: "brume" },
+  { x: 1278, y: 162, scale: 0.8, tone: "brume" },
+  { x: 1108, y: 154, scale: 0.75, tone: "brume" },
+  { x: 1220, y: 122, scale: 0.55, tone: "brume" },
+  { x: 1322, y: 126, scale: 0.55, tone: "brume" },
+  { x: 1040, y: 200, scale: 1, tone: "brume" },
 ];
 /** Stacked under 1024 px and from 1280 px: the wide fleet. Between the two: the compact one. */
 const WIDE_ONLY = "lg:hidden xl:block";

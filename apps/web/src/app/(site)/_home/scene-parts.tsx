@@ -1,3 +1,4 @@
+import { Compass, type NauticalColour, Ship, SHIP_ANCHOR } from "@/components/nautical";
 import styles from "./home.module.css";
 
 /**
@@ -5,8 +6,7 @@ import styles from "./home.module.css";
  * `aria-hidden` SVG: static, never focusable, colours from the design tokens only.
  */
 
-export type SailTone = "moi" | "ecume" | "brume";
-const SAIL_TONE: Record<SailTone, string> = { moi: "text-moi", ecume: "text-ecume", brume: "text-brume" };
+export type SailTone = Extract<NauticalColour, "moi" | "ecume" | "brume">;
 
 type SceneShipProps = {
   readonly x: number;
@@ -15,43 +15,28 @@ type SceneShipProps = {
   readonly tone: SailTone;
   /** A bot carries a square sail, a human a triangular one: the shape tells them apart, not the colour. */
   readonly bot?: boolean;
-  readonly flag?: boolean;
 };
 
-/** A ship: hull, mast and one sail in the runner's colour. */
-export function SceneShip({ x, y, scale, tone, bot = false, flag = true }: SceneShipProps) {
+/** Side of the shared ship's view box, and where the foot of its mast sits in it. */
+const SHIP_BOX = 54;
+
+/**
+ * The shared ship of the nautical vocabulary, placed in a scene: (`x`, `y`) is the foot of its
+ * mast in the scene's own units, as on the race track.
+ */
+export function SceneShip({ x, y, scale, tone, bot = false }: SceneShipProps) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`} className={SAIL_TONE[tone]} fill="currentColor">
-      <path d="M0-22V3" className="stroke-ecume" strokeWidth="1.5" strokeLinecap="round" />
-      {bot ? (
-        <rect x="-7" y="-15" width="13" height="13" rx="1.5" />
-      ) : (
-        <>
-          <path d="M1-17 10 0H1Z" />
-          <path d="M-1.5-13V0H-8Z" opacity="0.75" />
-        </>
-      )}
-      {flag && <path d="M0-22l7 2.5-7 2.5Z" />}
-      <path d="M-11 3H11L7.5 8.5h-15Z" className="fill-ecume" />
+    <g transform={`translate(${x} ${y}) scale(${scale}) translate(${-SHIP_BOX * SHIP_ANCHOR.x} ${-SHIP_BOX * SHIP_ANCHOR.y})`}>
+      <Ship kind={bot ? "bot" : "human"} colour={tone} size={SHIP_BOX} />
     </g>
   );
 }
 
-/** The glass compass: one static drawing, its red needle pointing at the finish. */
+/** The shared glass compass, placed in a scene by its centre; its red needle points at the finish. */
 export function GlassCompass({ x, y, scale = 1, needle }: { readonly x: number; readonly y: number; readonly scale?: number; readonly needle: number }) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`} className="stroke-ecume" strokeWidth="2" strokeLinejoin="round">
-      <path d="M-72 45H72L61 65H-61Z" className="fill-nuit" />
-      <path d="M-48 32H48V45H-48Z" className="fill-nuit" />
-      <circle r="58" className="fill-mer/60" />
-      <path d="M-36-29A46 46 0 0 1-12-44" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" fill="none" />
-      <path d="M0-58V0" strokeWidth="1.5" strokeLinecap="round" />
-      <rect x="-10" y="-63" width="21" height="6" rx="3" className="fill-ecume" stroke="none" />
-      <g transform={`rotate(${needle})`} stroke="none">
-        <path d="M0-5 36 0 0 5Z" className="fill-ligne" />
-        <path d="M0-5-36 0 0 5Z" className="fill-ecume" />
-      </g>
-      <circle r="3" className="fill-abysse" strokeWidth="1.5" />
+    <g transform={`translate(${x} ${y}) scale(${scale}) translate(-75 -67)`}>
+      <Compass heading={needle} size={150} />
     </g>
   );
 }
