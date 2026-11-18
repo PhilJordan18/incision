@@ -49,7 +49,7 @@ async function backdrop(element: Locator): Promise<string> {
   });
 }
 
-test("room results: each pennant has its runner's shape, the reader's own has its track colour, no other claims one; host and non-host", async ({ browser }) => {
+test("room results: each pennant has its runner's shape, the reader's own has its track colour, no other claims one; host and non-host; then the same pennant on the race page", async ({ browser }) => {
   test.setTimeout(120_000);
   const host = await sailor(browser, "Capitaine"); const guest = await sailor(browser, "Lina", { locale: "en-US" });
   contexts.push(host.context, guest.context);
@@ -347,9 +347,12 @@ test("who may read the results: host, member, guest, spectator, outsider and sig
     await expect(table.locator("svg[data-pennant]")).toHaveCount(4);
     await expect(table.locator('svg[data-pennant="square"]')).toHaveCount(1);
     await expect(page.locator("summary[data-result-entrant] svg[data-pennant]")).toHaveCount(4);
-    // No race entrant id reaches the page with the pennants.
-    const html = await page.content();
-    for (const id of entrantIds) expect(html).not.toContain(id);
+    // The results as the server renders them carry no race entrant id: neither the document a
+    // reload returns, nor the page it builds. (During the race the ids are in the broadcast.)
+    const response = await page.reload();
+    await expectResults(page);
+    const served = `${await response!.text()}${await page.content()}`;
+    for (const id of entrantIds) expect(served).not.toContain(id);
   }
   // A runner sees one pennant in their own colour, on their own row; the arrival scene is theirs.
   for (const page of runners) {
@@ -378,12 +381,19 @@ test("who may read the results: host, member, guest, spectator, outsider and sig
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/introuvable/i);
     await expect(page.locator("svg[data-pennant], [data-coast]")).toHaveCount(0);
   }
+  // An account that is not a member opens the room during the results: the room's own page, no results.
+  await outsider.page.goto(`/rooms/${code}`);
+  await expect(outsider.page).toHaveURL(new RegExp(`/rooms/${code}$`));
+  await expect(outsider.page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(outsider.page.getByRole("heading", { level: 1 })).not.toContainText(/Fin de la/i);
+  await expect(outsider.page.locator("svg[data-pennant], [data-coast]")).toHaveCount(0);
   await guestPage.goto(path);
   await expect(guestPage).toHaveURL(/\/sign-in/);
   const stranger = await signedOut.newPage();
   await stranger.goto(path);
   await expect(stranger).toHaveURL(/\/sign-in/);
   await stranger.goto(`/rooms/${code}`);
+  await expect(stranger).toHaveURL(/\/sign-in/);
   await expect(stranger.locator("svg[data-pennant], [data-coast]")).toHaveCount(0);
 });
 
@@ -408,17 +418,20 @@ for (const theme of ["abysse", "aube"] as const) test(`account: the name and pho
   await page.getByLabel("Photo de profil", { exact: true }).setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: pixel });
   const photoForm = page.locator("form").filter({ has: page.locator("#profile-photo") });
   await photoForm.getByRole("button", { name: "Enregistrer la photo", exact: true }).click();
-  await expect(photoForm).toHaveAttribute("aria-busy", "true");
-  await expect(page.locator("#profile-photo")).toBeDisabled();
-  const savingPhoto = photoForm.getByRole("button", { name: "Enregistrement…", exact: true });
-  await expect(savingPhoto).toHaveAttribute("aria-disabled", "true");
-  // The pending word is the state, not a colour alone; the page keeps its one red action and its title band.
-  await expect(page.getByRole("main").locator(".bg-action")).toHaveCount(1);
-  await expect(page.getByRole("main").locator("svg[data-wave-marks]")).toHaveCount(1);
-  await expectNoAccessibilityViolation(page);
-  await expectNoHorizontalScroll(page);
-  await shoot("account-photo-pending");
-  release();
+  try {
+    await expect(photoForm).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator("#profile-photo")).toBeDisabled();
+    const savingPhoto = photoForm.getByRole("button", { name: "Enregistrement…", exact: true });
+    await expect(savingPhoto).toHaveAttribute("aria-disabled", "true");
+    // The pending word is the state, not a colour alone; the page keeps its one red action and its title band.
+    await expect(page.getByRole("main").locator(".bg-action")).toHaveCount(1);
+    await expect(page.getByRole("main").locator("svg[data-wave-marks]")).toHaveCount(1);
+    await expectNoAccessibilityViolation(page);
+    await expectNoHorizontalScroll(page);
+    await shoot("account-photo-pending");
+  } finally {
+    release();
+  }
   await expect(photoForm).toHaveAttribute("aria-busy", "false");
   await page.unroute("**/api/account/photo");
 
@@ -433,16 +446,19 @@ for (const theme of ["abysse", "aube"] as const) test(`account: the name and pho
   const nameForm = page.locator("form").filter({ has: page.locator("#display-name") });
   await page.locator("#display-name").fill("Capitaine Cap");
   await nameForm.getByRole("button", { name: "Enregistrer le nom", exact: true }).click();
-  await expect(nameForm).toHaveAttribute("aria-busy", "true");
-  await expect(page.locator("#display-name")).toHaveAttribute("readonly", "");
-  const savingName = nameForm.getByRole("button", { name: "Enregistrement…", exact: true });
-  await expect(savingName).toHaveAttribute("aria-disabled", "true");
-  // Still the page's one red action, still readable while it waits.
-  await expect(page.getByRole("main").locator(".bg-action")).toHaveCount(1);
-  await expect(savingName).toHaveClass(/bg-action/);
-  await expectNoAccessibilityViolation(page);
-  await shoot("account-name-pending");
-  releaseName();
+  try {
+    await expect(nameForm).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator("#display-name")).toHaveAttribute("readonly", "");
+    const savingName = nameForm.getByRole("button", { name: "Enregistrement…", exact: true });
+    await expect(savingName).toHaveAttribute("aria-disabled", "true");
+    // Still the page's one red action while it waits.
+    await expect(page.getByRole("main").locator(".bg-action")).toHaveCount(1);
+    await expect(savingName).toHaveClass(/bg-action/);
+    await expectNoAccessibilityViolation(page);
+    await shoot("account-name-pending");
+  } finally {
+    releaseName();
+  }
   await expect(page.getByRole("status").filter({ hasText: "Nom enregistré." })).toBeVisible();
   await expect(nameForm).toHaveAttribute("aria-busy", "false");
 });
@@ -463,7 +479,7 @@ test("forced colours: wave marks, pennants and the coast take system colours on 
     const colours = await system(reader.page);
     const marks = reader.page.getByRole("main").locator("svg[data-wave-marks] path");
     expect(await marks.count()).toBeGreaterThan(3);
-    expect(await marks.first().evaluate((node) => getComputedStyle(node).stroke)).toBe(colours.text);
+    for (const mark of await marks.all()) expect(await mark.evaluate((node) => getComputedStyle(node).stroke)).toBe(colours.text);
     await expectNoHorizontalScroll(reader.page);
   }
   // The results in a real room, as the host and as the other member.
