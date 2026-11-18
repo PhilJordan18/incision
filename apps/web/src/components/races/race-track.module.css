@@ -146,7 +146,8 @@
 .horizontalMore { display: none; }
 
 /* A runner's pennant before its name: the sail's shape, the route's colour and dash. */
-.pennant { margin-right: 4px; }
+/* Smaller than in the standings: a name's line keeps its 12 px height, so five names still fit apart. */
+.pennant { width: 18px; height: 12px; margin-right: 4px; vertical-align: -1px; }
 
 /* In the race's row (≥ 1024 px), the chart fills the row's height instead of its own. */
 @media (min-width: 1024px) {
