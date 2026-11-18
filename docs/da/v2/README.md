@@ -52,6 +52,13 @@ Inchangés : connexion, erreur d'authentification, entrée d'invité, invitation
 - Les noms, les vitesses et les rangs des maquettes sont des exemples. L'application n'affiche que ses vraies données.
 - `maquettes/jetons-lecture.css` est une copie de lecture des jetons pour ouvrir les maquettes hors de l'application. Elle n'est jamais importée par l'application.
 
+## Où en est l'intégration
+
+Les maquettes sont approuvées; leur intégration se fait lot par lot, dans des pull requests vers `dev`. Un écran ne change dans l'application qu'une fois son lot fusionné : d'ici là, c'est l'écran de la version précédente qui est en place.
+
+- [bilan-c1.md](bilan-c1.md) : l'état de chaque lot (branche, SHA, tests, revues, écarts, blocages), les différences classées et les décisions artistiques encore en étude.
+- [recette-c1.md](recette-c1.md) : la recette de l'ensemble, à jouer sur `dev` après les fusions.
+
 ## Suivi
 
 Les cartes `DA2-n` sont des repères de travail. Elles se rattachent aux exigences officielles de [EXIGENCES.md](../../EXIGENCES.md) (surtout DES-04) et n'ajoutent aucune exigence au cours. La recette A–G reste la preuve de la version précédente; chaque livraison y ajoute une qualification ciblée de ce qu'elle change.
