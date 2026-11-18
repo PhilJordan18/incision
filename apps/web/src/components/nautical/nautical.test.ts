@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -78,6 +80,16 @@ describe("decorative drawings", () => {
     expect(html).not.toContain("tabindex");
   });
 
+  it("styles every drawing from the tokens: no colour is written in the stylesheet", () => {
+    const css = readFileSync(path.join(import.meta.dirname, "nautical.module.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(css).not.toMatch(/\b(rgb|rgba|hsl|hsla|oklch|oklab|lab|lch)\(/i);
+    // Every colour is a token, a mix of tokens, `transparent`, `currentColor` or a system colour (forced colours).
+    const values = [...css.matchAll(/(?:fill|stroke|color|background|border-color|border-block)\s*:\s*([^;}]+)/g)].map(match => match[1]!.trim());
+    expect(values.length).toBeGreaterThan(20);
+    for (const value of values) expect(value).toMatch(/var\(--|^(none|currentColor|Canvas|CanvasText|Highlight)$|^1px solid var\(--/);
+  });
+
   it("draws the coast along the top or along the right", () => {
     expect(render(createElement(Coast))).toContain('data-coast="horizontal"');
     expect(render(createElement(Coast))).toContain('d="M0 0 L0 78');
@@ -88,6 +100,8 @@ describe("decorative drawings", () => {
     expect(waveMarkPositions(220, 90)).toEqual(waveMarkPositions(220, 90));
     expect(waveMarkPositions(220, 90).every(([x, y]) => x >= 0 && x <= 220 && y >= 0 && y <= 90)).toBe(true);
     expect(waveMarkPositions(0, 0)).toEqual([]);
+    // A box lower than a mark's band keeps its marks inside.
+    for (const height of [6, 14, 24]) expect(waveMarkPositions(400, height).every(([, y]) => y > 0 && y < height)).toBe(true);
   });
 });
 
