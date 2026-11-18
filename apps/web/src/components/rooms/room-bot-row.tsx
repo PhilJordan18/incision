@@ -17,6 +17,10 @@ type Props = {
   /** The server's refusal of this line's last request; the panel keeps the others. */
   readonly error?: BotActionError;
   readonly reload: () => void;
+  /** The panel's last request was this line's: only then is a new saved level this line's own save. */
+  readonly requested: boolean;
+  /** That request is on its way or awaited in the room: the line cannot be cancelled under it. */
+  readonly saving: boolean;
 };
 
 /** The two actions of a line: 44 px targets, narrower than the page's buttons. */
@@ -28,13 +32,14 @@ const lineButton = `${discreetButton} h-11! px-4!`;
  * the draft: an open line never closes by itself, whatever the room broadcasts or the other lines
  * do; only its own confirmed save or « Annuler » closes it.
  */
-export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload }: Props) {
+export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload, requested, saving }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({ saved: bot.level, level: bot.level });
   // A confirmed remote level replaces a stale draft without remounting the focused control.
   if (draft.saved !== bot.level) {
-    // The level this line asked for is now the saved one: its edit is over.
-    if (open && draft.level === bot.level && draft.saved !== draft.level) setOpen(false);
+    // The level this line asked for is now the saved one: its edit is over. The same level saved
+    // from elsewhere (another tab) leaves the line open, as any other room update does.
+    if (open && requested && draft.level === bot.level && draft.saved !== draft.level) setOpen(false);
     setDraft({ saved: bot.level, level: bot.level });
   }
   const level = draft.saved === bot.level ? draft.level : bot.level;
@@ -87,7 +92,7 @@ export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload
     {host && <>
       {/* Not disabled while open: discarding a draft needs no server, and the button holds the focus. */}
       <button ref={toggle} type="button" className={`${lineButton} col-span-2 sm:col-span-1`} aria-expanded={open} aria-controls={open ? `${id}-editor` : undefined}
-        disabled={!open && !enabled} aria-label={format(open ? t.cancelBot : t.editBot, { bot: name })} onClick={toggleEditor}>{open ? t.cancel : t.edit}</button>
+        disabled={(!open && !enabled) || (open && saving)} aria-label={format(open ? t.cancelBot : t.editBot, { bot: name })} onClick={toggleEditor}>{open ? t.cancel : t.edit}</button>
       <button type="button" disabled={!enabled} className={lineButton} aria-label={`${t.remove} ${name}`} onClick={() => {
         const form = new FormData(); form.set("kind", "remove"); form.set("botId", bot.botId); submit(form);
       }}>{t.remove}</button>

@@ -265,6 +265,14 @@ test("a concurrent level from a second tab replaces that line's stale draft and 
   await expect(line(first, 1).getByRole("status")).toHaveText("Aucune modification en attente.");
   await expect(line(first, 2).getByRole("combobox")).toHaveValue("impossible");
   await expect(line(first, 2).getByText("Non enregistré", { exact: true })).toBeVisible();
+  // The very level this line drafted, saved from the other tab: not this line's save, so it stays open.
+  await line(second, 2).getByRole("button", { name: "Modifier Bot 2", exact: true }).click();
+  await line(second, 2).getByRole("combobox").selectOption("impossible");
+  await line(second, 2).getByRole("button", { name: "Changer le niveau" }).click();
+  await expect(line(first, 2)).toContainText("Niveau enregistré : Roi des pirates — impossible");
+  await expect(line(first, 2).getByRole("combobox")).toHaveValue("impossible");
+  await expect(line(first, 2).getByRole("status")).toHaveText("Aucune modification en attente.");
+  await expect(line(first, 2).getByRole("button", { name: "Annuler : Bot 2", exact: true })).toHaveAttribute("aria-expanded", "true");
 });
 
 test("a lost connection disables the editors, keeps the drafts and still lets a line be cancelled", async ({ browser }) => {
