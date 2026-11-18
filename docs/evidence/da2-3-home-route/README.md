@@ -32,8 +32,8 @@ The references are the approved mock-ups archived by DA2-1 in `docs/da/v2/captur
 |---|---|
 | `npm run check:no-js`, `lint`, `typecheck`, `build` at `e7d865a` | pass |
 | `npm test` at `e7d865a` | pass: 2,687 unit tests (1,139 + 157 + 1,259 + 21 + 111), no skip |
-| `e2e/design.spec.ts` and `e2e/account-journey.spec.ts` (unchanged) | 28 passed before the rebase onto the primitives; rerun inside the full suite |
-| Full `npm run test:e2e -w @incision/web` | see the pull request: the run on `e7d865a` is reported there with its count |
+| `e2e/design.spec.ts` and `e2e/account-journey.spec.ts` (unchanged) | all 28 pass inside the full suite below; `account-journey.spec.ts` is byte-identical to `dev` |
+| Full `npm run test:e2e -w @incision/web` at `e7d865a` | 261 passed, 0 failed, 0 skipped, no retry (16.6 min). The run rewrites older screenshots under `docs/evidence/`; they were restored and are not part of this branch |
 | Horizontal scroll, FR and EN, Abysse and Aube, at 1440 × 800, 1366 × 700, 1280 × 640, 1024 × 768, 390, 360, 320, 1920, 2560 px and 200 % zoom (40 combinations) | none; no clipped text |
 | Entry actions in the first frame | bottom of « Rejoindre la salle » at 660 px (1440 × 800), 580 px (1366 × 700), 558 px (1280 × 640), 616 px (1024 × 768) |
 | Keyboard only, both themes | 13 tab stops in DOM order (7 in the header, 3 in the first frame, 3 on the quay); a 3 px ring on each; smallest target 44 × 44 px |
