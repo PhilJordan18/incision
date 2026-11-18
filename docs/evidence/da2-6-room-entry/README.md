@@ -31,7 +31,7 @@ The references are the approved mock-ups of `docs/da/v2/captures/` (archived by 
 
 Other views in `app/`:
 
-- 1024 px and the low screen for the three pages, both themes (`*-1024.png`, `*-1280x640.png`); the public rooms page at 768 px, where the fleet goes under the card.
+- 1024 px for the three pages in both themes (`*-1024.png`) and the low screen in Abysse (`*-1280x640.png`; `before/` has it in both themes); the public rooms page at 768 px, where the fleet goes under the card.
 - 200 % zoom (`*-zoom200.png`).
 - Forced colours with each theme (`*-forced-colours-abysse-1440.png`, `*-forced-colours-aube-1440.png`).
 - Aube with an error, a busy control and the card's second action: `create-error-*-aube-1440.png` (capacity refused), `create-pending-*-aube-1440.png` (« Ouverture… »), `public-rooms-no-room-*-aube-1440.png` (no room has a place).
@@ -45,7 +45,7 @@ Other views in `app/`:
 - **1024 px split.** The mock-up's fixed 640 px form column leaves a 240 px chart at 1024 px. From 1024 to 1279 px the app shares the row 3 : 2; from 1280 px it uses the mock-up's 640 px column.
 - **Fewer wave marks in the corner.** The mock-up draws six strokes; the panels use the shared `WaveMarks` primitive of `components/nautical`, which draws two on a 220 × 90 box. One drawing for every lot was preferred to a second lattice.
 - **Wave marks on a phone.** Under 640 px the label of a state panel can reach the corner, so a smaller box is drawn and it starts under the label's line. The marks may pass behind the title, never behind text to read.
-- **Seven of the eleven panels.** The marks are on every state panel rendered outside the waiting room. « Expulsion », « Tu as quitté la salle », « Reconnecte-toi » and the « Reconnexion » card are rendered by `rooms/[code]/room-view.tsx`, which belongs to the waiting-room lot. « Avarie » uses the same panel and has the marks, but no capture: the test database cannot be made to fail on demand.
+- **Seven of the eleven panels.** The marks are on the room-entry panels, the error boundary and the 404 (the auth error page and the race page keep their panels as they were). « Expulsion », « Tu as quitté la salle », « Reconnecte-toi » and the « Reconnexion » card are rendered by `rooms/[code]/room-view.tsx`, which belongs to the waiting-room lot. « Avarie » uses the same panel and has the marks, but no capture: the test database cannot be made to fail on demand.
 
 ## Not checked
 

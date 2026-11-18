@@ -224,7 +224,8 @@ for (const locale of LOCALES) {
     const card = page.getByRole("region", { name: fr ? "Une course, tout de suite" : "A race, right now" });
     const find = card.getByRole("button", { name: fr ? "Trouver une salle" : "Find a room" });
     await expect(page.getByText(fr ? "La liste se met à jour en direct." : "The list updates live.")).toBeVisible();
-    await expect(page.getByText(fr ? "Aucune salle publique ouverte pour l’instant." : "No public room is open right now.")).toBeVisible();
+    // The public feed is read at most every few seconds: a room deleted by the fixture reset may still be listed for a moment.
+    await expect(page.getByText(fr ? "Aucune salle publique ouverte pour l’instant." : "No public room is open right now.")).toBeVisible({ timeout: 15_000 });
     await expectSilentDrawing(fleet);
     await expectTokenColoursOnly(fleet);
     expect(await redActions(page)).toBe(1);
@@ -233,6 +234,8 @@ for (const locale of LOCALES) {
     const layouts = async (state: string) => {
       for (const option of THEMES) {
         await setTheme(page, option);
+        await page.setViewportSize({ width: 1440, height: 900 });
+        expect(await shapeContrast(fleet, ".fill-ecume, [data-sail-cloth]")).toBeGreaterThanOrEqual(3);
         for (const width of WIDTHS) {
           await page.setViewportSize({ width, height: 900 });
           if (width < 640) {
@@ -264,7 +267,6 @@ for (const locale of LOCALES) {
       await page.setViewportSize({ width: 1440, height: 900 });
     };
     await layouts("empty");
-    expect(await shapeContrast(fleet, ".fill-ecume, [data-sail-cloth]")).toBeGreaterThanOrEqual(3);
 
     // Between 640 and 1023 px the grid has one column: the fleet goes under the card, full width.
     await page.setViewportSize({ width: 768, height: 900 });
@@ -460,7 +462,7 @@ for (const locale of LOCALES) {
 }
 
 for (const option of THEMES) {
-  test(`forced colours with ${option.theme}: every drawing takes system colours and the forms stay readable`, async ({ browser }) => {
+  test(`forced colours with ${option.theme}: every drawing takes system colours`, async ({ browser }) => {
     test.slow();
     const host = await account(browser, "Hôte", "fr-CA");
     const code = await openRoom(host, "public");
