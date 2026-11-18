@@ -39,6 +39,7 @@ export function waveMarkPositions(width: number, height: number): readonly (read
   const marks: (readonly [number, number])[] = [];
   const band = Math.max(1, Math.floor(height) - 22);
   const count = Math.max(0, Math.floor((width - 40) / 97) + 1);
-  for (let i = 0; i < count; i++) marks.push([20 + 97 * i, 8 + ((i * 61 + 17) % band)]);
+  // A mark is 12 px high around its line: in a box too low for the band, it sits at mid-height.
+  for (let i = 0; i < count; i++) marks.push([20 + 97 * i, height < 30 ? height / 2 : 8 + ((i * 61 + 17) % band)]);
   return marks;
 }
