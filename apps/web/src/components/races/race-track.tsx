@@ -16,7 +16,8 @@ import styles from "./race-track.module.css";
  * track is decorative for assistive technology: the standings panel beside it lists every runner.
  *
  * Art direction C1 « Cap »: a named runner is a ship (triangle sail for a human, square for a bot)
- * whose sail, route and pennant share one colour and one dash; the others stay dots. The finish
+ * whose sail, route and pennant share one colour and one dash; the others stay dots, grey on a
+ * faint route, so that the named ones stand out in a large crew. The finish
  * is the red coast, with its word; a glass compass sits in the corner furthest from the text.
  */
 export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t, locale }: {
@@ -68,16 +69,16 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
         const leader = point.tone === "leader";
         const position = { "--point-x": `${point.x}%`, "--point-y": `${point.y}%`, "--label-y": `${point.labelY}%`,
           "--horizontal-x": `${point.horizontalX}%`, "--horizontal-y": `${point.horizontalY}%`,
-          "--horizontal-label-x": `${Math.max(2, Math.min(60, point.horizontalX - 5))}%` } as CSSProperties;
+          "--horizontal-label-x": `${Math.max(2, Math.min(60, point.horizontalX - 5))}%`, "--ship-shift": point.shipShift } as CSSProperties;
         return <div key={runner.entrantId}>
           {/* The marker is the runner's real position: a dot, or the foot of a named runner's ship. */}
           <span data-runner={runner.entrantId} data-self={point.self || undefined} data-kind={runner.kind} data-position={runner.position}
             data-route-colour={point.route.colour} data-route-dash={point.route.dash} style={position}
-            className={`${styles.point} ${point.labelled ? styles.named : ""} ${styles[point.route.colour]} ${point.self ? styles.self : ""} ${leader ? styles.leader : ""} ${runner.kind === "bot" ? styles.bot : ""}`}>
+            className={`${styles.point} ${point.labelled ? `${styles.named} ${styles[point.route.colour]}` : styles.anon} ${point.self ? styles.self : ""} ${leader ? styles.leader : ""} ${runner.kind === "bot" ? styles.bot : ""}`}>
             {point.labelled && <Ship kind={runner.kind} colour={point.route.colour} self={point.self} leader={leader} className={styles.ship} />}
           </span>
           {point.labelled && <span data-track-label style={position} className={`${styles.label} ${point.self ? styles.selfLabel : ""} ${leader ? styles.leaderLabel : ""}`}>
-            <span className={styles.labelName}><Pennant kind={runner.kind} colour={point.route.colour} dash={point.route.dash} className={styles.pennant} /><span className={styles.rank}>{rank}</span>{name}{point.self ? ` (${t.you})` : ""}</span>
+            <span className={styles.labelName}><Pennant kind={runner.kind} colour={point.route.colour} dash={point.route.dash} className={styles.pennant} /><span className={styles.rank}>{rank}</span><span className={styles.nameText}>{name}</span>{point.self && <span data-track-you className={styles.you}> ({t.you})</span>}</span>
             {/* Two lines at most; the standings say the rest in full. */}
             <span className={styles.labelName}>
               {formatProgress(runner.position, runner.length, locale)} · {formatWpm(runner.netWpm, locale)} {t.wpm}
@@ -95,5 +96,8 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
 });
 
 function routeClass(point: TrackPoint): string {
-  return `${styles[point.route.colour]} ${styles[point.route.dash]} ${point.self ? styles.selfRoute : point.labelled ? styles.namedRoute : ""}`;
+  // A runner without a name on the chart sails a faint grey dotted route; its own colour and dash
+  // show as soon as it is named, and always on its pennant in the standings.
+  if (!point.labelled) return styles.anonRoute ?? "";
+  return `${styles[point.route.colour]} ${styles[point.route.dash]} ${point.self ? styles.selfRoute : styles.namedRoute}`;
 }

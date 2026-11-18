@@ -1,8 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { LABEL_BOTTOM, LABEL_GAP, LABEL_TOP, ROUTE_COLOURS, routeStyles, standingsOrder, trackLayout } from "./track-layout";
+import { LABEL_BOTTOM, LABEL_GAP, LABEL_TOP, ROUTE_COLOURS, routeStyles, SHIP_CLEAR_X, SHIP_CLEAR_Y, standingsOrder, trackLayout } from "./track-layout";
 
 const runners = (count: number) => Array.from({ length: count }, (_, i) => ({ entrantId: `runner-${String(i).padStart(2, "0")}`, kind: i % 4 === 0 ? "bot" as const : "human" as const,
   status: "racing" as const, position: i * 2, length: 100, netWpm: 40 + i, inactive: false }));
+
+describe("named ships", () => {
+  it.each([2, 6, 30, 50])("never draws a ship under another among %i runners at the same progress, and never moves mine", count => {
+    for (const position of [0, 40, 100]) {
+      for (const self of [0, Math.floor(count / 2), count - 1]) {
+        const input = runners(count).map(r => ({ ...r, position }));
+        const points = trackLayout(input, input[self]!.entrantId);
+        const ships = points.filter(p => p.labelled).map(p => ({ x: p.x + p.shipShift, y: p.y, self: p.self, shift: p.shipShift }));
+        expect(ships.find(ship => ship.self)!.shift).toBe(0);
+        for (const [i, ship] of ships.entries()) {
+          expect(ship.x).toBeGreaterThanOrEqual(0); expect(ship.x).toBeLessThanOrEqual(62);
+          for (const other of ships.slice(i + 1)) expect(Math.abs(ship.x - other.x) >= SHIP_CLEAR_X - 0.01 || Math.abs(ship.y - other.y) >= SHIP_CLEAR_Y).toBe(true);
+        }
+        // The drawing alone shifts: every marker stays at the end of its own route.
+        for (const point of points) expect(Number(point.path.split(" ").at(-1)!.split(",")[0])).toBeCloseTo(point.x, 1);
+        expect(trackLayout([...input].reverse(), input[self]!.entrantId)).toEqual(points);
+      }
+    }
+  });
+  it("leaves a ship on its marker when nothing is near", () => {
+    const [a, b] = runners(2);
+    expect(trackLayout([{ ...a!, position: 10 }, { ...b!, position: 80 }], a!.entrantId).map(p => p.shipShift)).toEqual([0, 0]);
+  });
+});
 
 describe("track presentation layout", () => {
   it.each([2, 6, 30, 50])("keeps all %i runners, bounded positions and at most five non-overlapping labels", count => {

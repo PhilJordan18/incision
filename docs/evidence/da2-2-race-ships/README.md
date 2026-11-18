@@ -32,6 +32,12 @@ File names: `course-<width>x<height>-<theme>-<language>-<runners>[-forced-colour
   it, as in the mock-up. The standings keep « · □ Bot » in words.
 - **Tablet chart**: only the two runners it names (me and the leader) sail a ship; the three
   other named runners are dots there, as its « + N autres coureurs » counts them.
+- **Unnamed runners** (my request of 18 November): on the chart they are grey dots on one faint
+  dotted route, as the mock-up draws them; their colour and dash stay on their standings pennant
+  and show on the chart as soon as they are named. `before-dev-*` shows them coloured.
+- **A ship that would sail under another** is drawn beside its marker (mine never moves); the
+  marker, the route and the connector keep the real position.
+- **« (toi) »** is never cut: a long name is shortened before it.
 - **Ships** are drawn at 85 % of the mock-up's size, so that they fit the shortest chart (12 rem).
 
 ## Contrast measured on the app (`race ships contrast`, 1440 × 900, 30 runners)
@@ -41,6 +47,7 @@ File names: `course-<width>x<height>-<theme>-<language>-<runners>[-forced-colour
 | Pennants on the standings panel (`embrun`, `juste`, `arcade`, `brume`, `moi`) | 12.17, 11.38, 7.13, 6.52, 10.96 | 12.87, 5.53, 6.65, 7.00, 5.00 |
 | Routes and sails on the sea (same five) | 11.53, 10.78, 6.75, 6.17, 10.38 | 10.75, 4.62, 5.55, 5.84, 4.17 |
 | Hull and compass line on the sea | 15.51 | 15.82 |
+| Unnamed dot (grey, 75 %) on the sea | 3.99 | 3.43 |
 | Coast edge on the sea | 4.35 | 4.78 |
 | Finish word on the land | 7.26 | 4.95 |
 | « + N autres coureurs » on the land | 10.85 | 9.20 |

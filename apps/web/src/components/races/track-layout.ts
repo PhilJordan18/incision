@@ -11,6 +11,11 @@ export type TrackPoint = {
   readonly horizontalX: number;
   readonly horizontalY: number;
   readonly labelY: number;
+  /**
+   * Sideways offset of a named runner's ship, in % of the chart's width (vertical chart only): 0
+   * unless it would sail under another ship. Drawing only: the marker stays on the real position.
+   */
+  readonly shipShift: number;
   /** The runner's stable sea route, the same on every refresh of the round (see `routeStyle`). */
   readonly route: RouteStyle;
   /** The route from the start to the runner's real progress, in the track's 0–100 boxes. */
@@ -95,6 +100,35 @@ export const LABEL_TOP = 25;
 export const LABEL_BOTTOM = 90;
 export const LABEL_GAP = 16.25;
 
+/** Two ships closer than this (in % of the chart's width and height) would cover one another. */
+export const SHIP_CLEAR_X = 7.5;
+export const SHIP_CLEAR_Y = 16;
+
+/**
+ * My neighbours ahead and behind are named because they are at my progress: their ships would
+ * often sail under mine. Mine never moves; each other named ship takes the nearest free berth
+ * beside its real position (its own side first), in a stable id order. Only the drawing shifts:
+ * the marker, the route and the connector keep the broadcast's position.
+ */
+function shipShifts(named: readonly { readonly runner: Runner; readonly self: boolean; readonly x: number; readonly y: number }[]): ReadonlyMap<string, number> {
+  const order = [...named].sort((a, b) => Number(b.self) - Number(a.self) || (a.runner.entrantId < b.runner.entrantId ? -1 : a.runner.entrantId > b.runner.entrantId ? 1 : 0));
+  const placed: { x: number; y: number }[] = [];
+  const shifts = new Map<string, number>();
+  for (const ship of order) {
+    const covered = (x: number) => placed.some((other) => Math.abs(other.x - x) < SHIP_CLEAR_X && Math.abs(other.y - ship.y) < SHIP_CLEAR_Y);
+    const blocker = placed.find((other) => Math.abs(other.x - ship.x) < SHIP_CLEAR_X && Math.abs(other.y - ship.y) < SHIP_CLEAR_Y);
+    let x = ship.x;
+    if (blocker) {
+      const side = ship.x >= blocker.x ? 1 : -1;
+      const berths = [1, -1, 2, -2, 3, -3].map((step) => blocker.x + side * step * SHIP_CLEAR_X).filter((berth) => berth >= 4 && berth <= 60);
+      x = berths.find((berth) => !covered(berth)) ?? ship.x;
+    }
+    placed.push({ x, y: ship.y });
+    shifts.set(ship.runner.entrantId, round(x - ship.x));
+  }
+  return shifts;
+}
+
 /** Presentation only: progress proximity is NOT the engine's official finish ranking. */
 export function trackLayout(entrants: readonly Runner[], selfId: string | null): readonly TrackPoint[] {
   const ratio = (runner: Runner) => Number.isFinite(runner.position / runner.length) ? Math.max(0, Math.min(1, runner.position / runner.length)) : 0;
@@ -127,7 +161,7 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
       runner, self: id === selfId, labelled: labelled.has(id),
       tone: id === selfId ? "self" as const : id === leader ? "leader" as const :
         id === ahead ? "nearAhead" as const : id === behind ? "nearBehind" as const : "neutral" as const,
-      x, y, horizontalX, horizontalY, labelY: 0,
+      x, y, horizontalX, horizontalY, labelY: 0, shipShift: 0,
       route: routes.get(id)!,
       path: routePath(progress, vertical), horizontalPath: routePath(progress, horizontal),
     };
@@ -142,7 +176,8 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
   }
   const labelPositions = new Map(labels.map((point, i) => [point.runner.entrantId, positions[i]!]));
   // Markers stay at the end of their own route: never moved aside for a label.
-  return raw.map((point) => ({ ...point, labelY: labelPositions.get(point.runner.entrantId) ?? point.y }));
+  const shifts = shipShifts(raw.filter((point) => point.labelled));
+  return raw.map((point) => ({ ...point, labelY: labelPositions.get(point.runner.entrantId) ?? point.y, shipShift: shifts.get(point.runner.entrantId) ?? 0 }));
 }
 
 /**

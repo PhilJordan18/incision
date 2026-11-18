@@ -77,12 +77,21 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     const colours = await track.locator("[data-runner]").evaluateAll(markers => markers.map(marker => {
       const id = marker.getAttribute("data-runner")!;
       const route = marker.closest("[data-testid=race-track]")!.querySelector(`polyline[data-route="${id}"]`)!;
-      return { marker: getComputedStyle(marker).backgroundColor, route: getComputedStyle(route).stroke, self: marker.hasAttribute("data-self") };
+      return { marker: getComputedStyle(marker).backgroundColor, route: getComputedStyle(route).stroke, self: marker.hasAttribute("data-self"),
+        named: marker.querySelector("[data-ship]") !== null, dash: getComputedStyle(route).strokeDasharray,
+        pennant: getComputedStyle(document.querySelector(`[data-standing="${id}"] [data-pennant-cloth]`)!).fill };
     }));
     for (const colour of colours) expect(colour.route).toBe(colour.marker);
-    expect(new Set(colours.map(colour => colour.route)).size).toBe(5);
+    // The five runner colours: on every pennant of the standings (Philippe, 18 November: a runner
+    // without a name on the chart is drawn grey there, on one faint dotted route).
+    expect(new Set(colours.map(colour => colour.pennant)).size).toBe(5);
+    const unnamed = colours.filter(colour => !colour.named);
+    expect(unnamed.length).toBe(count - colours.filter(colour => colour.named).length);
+    expect(new Set(unnamed.map(colour => `${colour.route}/${colour.dash}`)).size).toBe(1);
     const mine = colours.find(colour => colour.self)!;
+    expect(mine.named).toBe(true);
     expect(colours.filter(colour => colour.route === mine.route)).toHaveLength(1);
+    expect(colours.filter(colour => colour.pennant === mine.pennant)).toHaveLength(1);
     // Three-way match (DA2-2): a runner's sail, route and pennant share one colour and one dash,
     // and the sail and the pennant share the shape of its kind (triangle: human, square: bot).
     const crew = await page.evaluate(() => [...document.querySelectorAll("[data-testid=race-track] [data-runner]")].map(marker => {
@@ -101,10 +110,13 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     expect(crew).toHaveLength(count);
     for (const runner of crew) {
       const shape = runner.kind === "bot" ? "square" : "triangle";
-      // Every runner has a pennant in the standings: its route's colour and dash, its kind's shape.
-      expect(runner.standing, runner.id).toEqual({ shape, cloth: runner.route.stroke, wake: runner.route.stroke, dash: runner.route.dash });
-      // A named runner sails a ship: the same colour on the sail, the same pennant beside the name.
+      // Every runner has a pennant in the standings: one colour for cloth and line, its kind's shape.
+      expect(runner.standing!.shape, runner.id).toBe(shape);
+      expect(runner.standing!.wake, runner.id).toBe(runner.standing!.cloth);
+      // A named runner sails a ship: sail, route and pennant in one colour and one dash, and the
+      // same pennant beside its name on the chart.
       if (runner.ship) {
+        expect(runner.standing, runner.id).toEqual({ shape, cloth: runner.route.stroke, wake: runner.route.stroke, dash: runner.route.dash });
         expect(runner.ship.sail, runner.id).toBe(runner.route.stroke);
         expect(runner.ship.shape, runner.id).toBe(shape);
         expect(runner.label, runner.id).toEqual(runner.standing);
@@ -121,8 +133,8 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     expect(otherRings.every(rings => rings === 0 || rings === 1)).toBe(true);
     expect(otherRings.filter(rings => rings === 1).length).toBeLessThanOrEqual(1);
     // Colour is never alone: the four shared colours each come solid, dashed and dotted.
-    expect(new Set(crew.map(runner => `${runner.route.stroke}/${runner.route.dash}`)).size).toBe(13);
-    expect(new Set(crew.map(runner => runner.route.dash)).size).toBe(3);
+    expect(new Set(crew.map(runner => `${runner.standing!.cloth}/${runner.standing!.dash}`)).size).toBe(13);
+    expect(new Set(crew.map(runner => runner.standing!.dash)).size).toBe(3);
     // The finish is the coast, with its word; the compass sits on the track, under the text sheet.
     await expect(track.locator("[data-coast]:visible")).toHaveCount(1);
     await expect(track.locator("[data-coast]:visible")).toHaveAttribute("data-coast", "horizontal");

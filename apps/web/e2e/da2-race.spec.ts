@@ -115,6 +115,12 @@ for (const item of cases) {
     // Along the top, the coastline never crosses the finish word or the others' count.
     if (!horizontal) expect(await track.evaluate(el => { const edge = el.querySelector("[data-coast]:not([data-coast=vertical]) [data-coast-edge]")!.getBoundingClientRect();
       return [...el.querySelectorAll(":scope > span")].filter(word => getComputedStyle(word).top === "6px").every(word => word.getBoundingClientRect().bottom <= edge.top + 1); })).toBe(true);
+    // No ship under another ship on the vertical chart: a covered one is drawn beside its marker.
+    if (!horizontal) for (const [i, hull] of boxes.ships.entries()) for (const other of boxes.ships.slice(i + 1)) expect(overlap(hull, other), "a hull over a hull").toBe(false);
+    // « (toi) » is never cut by a long name's ellipsis.
+    const you = await track.locator("[data-track-you]:visible").evaluateAll(marks => marks.map(mark => { const row = mark.parentElement!.getBoundingClientRect(); const at = mark.getBoundingClientRect();
+      return at.width > 0 && at.right <= row.right + 0.5; }));
+    expect(you).toEqual([true]);
     for (const [i, label] of boxes.labels.entries()) {
       for (const other of boxes.labels.slice(i + 1)) expect(overlap(label, other), "two names overlap").toBe(false);
       for (const compass of boxes.compass) expect(overlap(label, compass), "a name over the compass").toBe(false);
@@ -165,8 +171,10 @@ for (const theme of ["abysse", "aube"] as const) {
         marks[`pennant ${pennant.getAttribute("data-colour")} / panel`] = ratio(style("[data-pennant-cloth]", pennant).fill, list);
       }
       for (const route of track.querySelectorAll<SVGElement>("polyline[data-route]")) {
-        const colour = track.querySelector(`[data-runner="${route.dataset.route}"]`)!.getAttribute("data-route-colour");
-        marks[`route ${colour} / sea`] = ratio(getComputedStyle(route).stroke, sea);
+        const marker = track.querySelector(`[data-runner="${route.dataset.route}"]`)!;
+        // A named runner's route in its colour; an unnamed runner's dot in grey, at its own opacity.
+        if (marker.querySelector("[data-ship]")) marks[`route ${marker.getAttribute("data-route-colour")} / sea`] = ratio(getComputedStyle(route).stroke, sea);
+        else { const dot = getComputedStyle(marker); marks["unnamed dot / sea"] = ratio(dot.backgroundColor.replace(")", ` / ${dot.opacity})`).replace(/, /g, " "), sea); }
       }
       for (const ship of track.querySelectorAll("[data-ship]")) marks[`sail ${ship.getAttribute("data-colour")} / sea`] = ratio(style("[data-sail-cloth]", ship).fill, sea);
       marks["hull / sea"] = ratio(style("[data-ship] > path:last-of-type", track).fill, sea);
