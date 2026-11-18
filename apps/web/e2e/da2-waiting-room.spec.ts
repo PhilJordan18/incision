@@ -264,6 +264,12 @@ for (const locale of ["fr-CA", "en-US"] as const) for (const theme of ["abysse",
     const code = await openRoom(host);
     await occupy(host, code, { participants: 5, spectators: 2, bots: 10, capacity: 20 });
     await expect(host.locator("html")).toHaveAttribute("data-theme", theme);
+    // As the mock-up: one line with an unsaved draft, one open and clean (DA2-5b).
+    const bots = region(host, /^Bots$/).getByRole("listitem");
+    await bots.nth(1).getByRole("button", { name: /^(Modifier|Edit) Bot 2$/ }).click();
+    await bots.nth(1).getByRole("combobox").selectOption("expert");
+    await bots.nth(6).getByRole("button", { name: /^(Modifier|Edit) Bot 7$/ }).click();
+    await expect(bots.nth(1).getByText(/^(Non enregistré|Unsaved)$/)).toBeVisible();
     for (const width of [1440, 1024, 390, 360]) {
       await host.setViewportSize({ width, height: 900 });
       await expectNoHorizontalScroll(host);
@@ -297,6 +303,10 @@ test("forced colours and a 200 % zoom keep every state readable", async ({ brows
   const forced = await account(browser, "Capitaine", { forcedColors: true });
   const code = await openRoom(forced);
   await occupy(forced, code, { participants: 5, spectators: 2, bots: 10, capacity: 20 });
+  const lines = region(forced, /^Bots$/).getByRole("listitem");
+  await lines.nth(1).getByRole("button", { name: "Modifier Bot 2" }).click();
+  await lines.nth(1).getByRole("combobox").selectOption("expert");
+  await lines.nth(6).getByRole("button", { name: "Modifier Bot 7" }).click();
   await expectNoHorizontalScroll(forced);
   await capture(forced, "couleurs-forcees-fr-1440");
   // 200 % on a 1440 px screen is a 720 px layout.

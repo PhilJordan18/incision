@@ -9,6 +9,8 @@ const fr = {
   savedLevel: "Niveau enregistré :", unsaved: "Modification non enregistrée :", saveHint: "Choisis « Changer le niveau » pour enregistrer.", noChanges: "Aucune modification en attente.",
   added: "Bot ajouté à la salle.", saved: "Niveau du bot enregistré.", removed: "Bot retiré de la salle.",
   disconnected: "Attends la reconnexion avant de modifier les bots.",
+  // DA2-5b: one line per bot, edited on demand. `{bot}` is the line's name (« Bot 2 »).
+  edit: "Modifier", cancel: "Annuler", editBot: "Modifier {bot}", cancelBot: "Annuler : {bot}", unsavedTag: "Non enregistré",
   levels: { noob: "Mousse — novice", beginner: "Quartier-maître — débutant", intermediate: "Capitaine — intermédiaire", expert: "Empereur des mers — expert", impossible: "Roi des pirates — impossible" } satisfies Record<BotLevel, string>,
   errors: {
     INVALID_BOT: "Choisis un niveau de bot valide.", NOT_IN_A_ROOM: "Tu ne fais plus partie de cette salle. Recharge-la.",
@@ -25,6 +27,7 @@ const en: typeof fr = {
   savedLevel: "Saved level:", unsaved: "Unsaved change:", saveHint: "Choose “Change level” to save.", noChanges: "No unsaved changes.",
   added: "Bot added to the room.", saved: "Bot level saved.", removed: "Bot removed from the room.",
   disconnected: "Wait for reconnection before changing bots.",
+  edit: "Edit", cancel: "Cancel", editBot: "Edit {bot}", cancelBot: "Cancel: {bot}", unsavedTag: "Unsaved",
   levels: { noob: "Cabin boy — novice", beginner: "Quartermaster — beginner", intermediate: "Captain — intermediate", expert: "Emperor of the seas — expert", impossible: "King of the pirates — impossible" },
   errors: {
     INVALID_BOT: "Choose a valid bot level.", NOT_IN_A_ROOM: "You are no longer in this room. Reload it.",
