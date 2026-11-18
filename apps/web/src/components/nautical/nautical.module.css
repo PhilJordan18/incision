@@ -24,6 +24,8 @@
 .jib { fill: var(--nautical-colour); opacity: 0.75; }
 .selfRing { fill: none; stroke: var(--color-moi); stroke-width: 1.6px; opacity: 0.6; }
 .selfRingOuter { fill: none; stroke: var(--color-moi); stroke-width: 0.8px; opacity: 0.25; }
+/* In Aube `moi` at 60 % falls under 3:1 on the sea: the inner ring is drawn in full. */
+:global([data-theme="aube"]) .selfRing { opacity: 1; }
 .leaderRing { fill: none; stroke: var(--color-or); stroke-width: 3px; }
 
 /* Pennant: a staff, a cloth in the runner's colour, and the route's own line under it. */
