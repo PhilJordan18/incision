@@ -26,7 +26,9 @@ export function config(env: NodeJS.ProcessEnv) {
   if (env.LOAD_CONFIRM !== "local-only") throw new Error("Set LOAD_CONFIRM=local-only");
   if (env.LOAD_URL !== undefined) throw new Error("External load targets are not supported");
   if (env.LOAD_BROWSER !== undefined && env.LOAD_BROWSER !== "1") throw new Error("LOAD_BROWSER must be 1 or absent");
+  if (env.LOAD_GUEST_ARCADE !== undefined && env.LOAD_GUEST_ARCADE !== "1") throw new Error("LOAD_GUEST_ARCADE must be 1 or absent");
   return {
+    guestArcade: env.LOAD_GUEST_ARCADE === "1",
     admin: localAdminUrl(env.LOAD_DATABASE_URL ?? "postgresql://incision_test:incision_test_only@127.0.0.1:5433/postgres"),
     port: portOf(env.LOAD_PORT),
     runners: 30,
