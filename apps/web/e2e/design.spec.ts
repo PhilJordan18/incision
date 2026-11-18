@@ -139,7 +139,7 @@ test.describe("home route map and quay (C1 « Cap », DES-04, A11Y-02)", () => {
     await page.goto("/");
     const first = page.getByRole("region", { name: "Les repères de ta traversée" }).getByRole("listitem").first();
     const accesses = first.locator("dl");
-    await expect(accesses.locator("dt")).toHaveText(["01Salle publique", "02Sur code", "03Privée"]);
+    await expect(accesses.locator("dt")).toHaveText(["01 Salle publique", "02 Sur code", "03 Privée"]);
     await expect(accesses.locator("dd")).toHaveText([
       "Visible dans la liste, ouverte à tous.",
       "Cachée de la liste : on entre avec son code de 6 caractères.",
@@ -155,7 +155,13 @@ test.describe("home route map and quay (C1 « Cap », DES-04, A11Y-02)", () => {
     const scenes = page.locator("main svg");
     expect(await scenes.count()).toBeGreaterThanOrEqual(6);
     expect(await scenes.evaluateAll((all) => all.every((scene) => scene.getAttribute("aria-hidden") === "true" && scene.getAttribute("focusable") === "false"))).toBe(true);
-    expect(await page.locator("main svg").evaluateAll((all) => all.filter((scene) => scene.querySelector("animate, animateTransform, animateMotion") !== null).length)).toBe(0);
+    // Static: no SMIL element, and no CSS animation or transition running on a scene.
+    expect(await scenes.evaluateAll((all) => all.filter((scene) => scene.querySelector("animate, animateTransform, animateMotion") !== null).length)).toBe(0);
+    expect(await scenes.evaluateAll((all) => all.reduce((count, scene) => count + scene.getAnimations({ subtree: true }).length, 0))).toBe(0);
+    // The text sheet of escale 03 is a picture of the race text, not a text to read twice.
+    await expect(page.locator("main .course-texte").locator("xpath=..")).toHaveAttribute("aria-hidden", "true");
+    // The Arcade drawing names the three bonuses but ties none to a milestone: the draw is random.
+    expect(await page.locator('main svg[data-scene="modes"] text').allTextContents()).not.toContainEqual(expect.stringMatching(/\d/));
     // A logbook of shapes: no speed, rank, percentage or name is invented for a visitor without data.
     const logbook = page.locator('main svg[data-scene="logbook"]');
     await expect(logbook).toBeVisible();
@@ -187,6 +193,37 @@ test.describe("home route map and quay (C1 « Cap », DES-04, A11Y-02)", () => {
     await code.fill("b7k4pq");
     await code.press("Enter");
     await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Frooms%2FB7K4PQ$/);
+  });
+
+  test("runs its bands from one edge of the window to the other, with the red coast in both themes", async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    for (const theme of ["abysse", "aube"] as const) {
+      await context.addCookies([{ name: "theme", value: theme, url: baseURL ?? "" }]);
+      await page.goto("/");
+      // Wider than the page container: the home lifts the shell's width limit for its bands only.
+      const quay = await page.getByRole("region", { name: "Prêt à lever l’ancre ?" }).boundingBox();
+      expect(quay?.x).toBe(0);
+      expect(quay?.width).toBe(await page.evaluate(() => document.documentElement.clientWidth));
+      const container = await page.getByRole("heading", { level: 1 }).boundingBox();
+      expect(container?.x).toBeGreaterThanOrEqual(48);
+      // The coast is a land, not the sea: on Aube it is the 20 % mix, never the pale error surface.
+      const colours = await page.locator("main svg").first().evaluate((sea) => {
+        const land = sea.querySelector("path[class*='land']");
+        const probe = document.createElement("i");
+        probe.style.color = "var(--color-erreur-fond)";
+        sea.parentElement?.append(probe);
+        const paleSurface = getComputedStyle(probe).color;
+        probe.remove();
+        return { land: land === null ? "" : getComputedStyle(land).fill, paleSurface };
+      });
+      expect(colours.land).not.toBe("");
+      if (theme === "aube") {
+        expect(colours.land).not.toBe(colours.paleSurface);
+      } else {
+        expect(colours.land).toBe(colours.paleSurface);
+      }
+      await expectNoHorizontalScroll(page);
+    }
   });
 
   test("translates the route map and the quay", async ({ page, context, baseURL }) => {

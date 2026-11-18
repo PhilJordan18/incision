@@ -69,9 +69,8 @@ main:has(> .route) {
     background: none;
     border-block: 1px solid;
   }
-}
 
-@media (forced-colors: active) {
+  /* After the Aube rule above, which has the same weight. */
   .scene .land {
     fill: none;
   }

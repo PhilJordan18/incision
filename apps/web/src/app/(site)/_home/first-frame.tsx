@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 import styles from "./home.module.css";
-import { GlassCompass, sceneCaption, SceneShip, type SailTone } from "./scene-parts";
-
-export const HOME_CONTAINER = "mx-auto w-full max-w-page px-4 sm:px-8 lg:px-12";
+import { GlassCompass, HOME_CONTAINER, sceneCaption, SceneShip, type SailTone } from "./scene-parts";
 
 type FleetShip = { readonly x: number; readonly y: number; readonly scale: number; readonly tone: SailTone; readonly bot?: boolean; readonly flag?: boolean };
 

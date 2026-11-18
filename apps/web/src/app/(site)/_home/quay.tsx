@@ -4,8 +4,8 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { homeRouteCopy } from "@/i18n/home-route";
 import type { Locale } from "@/i18n/locale";
 import { QuayScene } from "./escale-scenes";
-import { HOME_CONTAINER } from "./first-frame";
 import { QuayJoinForm } from "./quay-join-form";
+import { HOME_CONTAINER } from "./scene-parts";
 
 /**
  * The departure quay that ends the home: the code field once more, for who read the whole map.

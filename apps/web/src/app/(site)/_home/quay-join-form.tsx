@@ -22,6 +22,9 @@ type QuayJoinFormProps = {
  * The code field repeated on the departure quay. Same action and same answers as the first
  * frame's form, but its button is secondary (one red action per screen) and the field, the
  * button and the error carry their own id and name, so the two forms never answer for each other.
+ *
+ * Mirrors `components/rooms/join-code-form.tsx`, which belongs to another lot of the C1 work:
+ * the two stay aligned by hand until that form takes an id prefix, a label and a button style.
  */
 export function QuayJoinForm({ t, codeContext, joinLabel, besideAction }: QuayJoinFormProps) {
   const [state, formAction] = useActionState<JoinFormState, FormData>(joinRoomAction, {});

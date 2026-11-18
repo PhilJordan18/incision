@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { bonusJournalLabels } from "@/i18n/bonus-journal";
 import type { Dictionary } from "@/i18n/dictionaries";
-import { format } from "@/i18n/format";
 import { homeRouteCopy } from "@/i18n/home-route";
 import { journeyCopy } from "@/i18n/journey";
 import type { Locale } from "@/i18n/locale";
@@ -9,9 +7,8 @@ import { publicRoomsCopy } from "@/i18n/public-rooms";
 import { raceCharts } from "@/i18n/race-charts";
 import { resultsDetails } from "@/i18n/results-details";
 import { AccessScene, LogbookScene, ModesScene, TypingScene } from "./escale-scenes";
-import { HOME_CONTAINER } from "./first-frame";
 import styles from "./home.module.css";
-import { SeaDecor } from "./scene-parts";
+import { HOME_CONTAINER, SeaDecor } from "./scene-parts";
 
 const VISIBILITIES = ["public", "code", "private"] as const;
 const etiquette = "font-mono text-xs font-medium tracking-[0.2em] text-brume uppercase";
@@ -35,7 +32,6 @@ export function RouteMap({ locale, t }: RouteMapProps) {
   const route = homeRouteCopy(locale);
   const title = splitLastWord(guide.guide);
   const modes = publicRoomsCopy(locale);
-  const milestone = (value: number): string => format(bonusJournalLabels[locale].milestone, { value });
   const { kinds } = t.races.bonuses;
 
   const scenes: readonly ReactNode[] = [
@@ -56,18 +52,14 @@ export function RouteMap({ locale, t }: RouteMapProps) {
         noBonuses: resultsDetails[locale].noBonuses,
         arcade: modes.arcade,
         bonusesAtMilestones: route.scenes.bonusesAtMilestones,
-        bonuses: [
-          { name: kinds.fogLeader, milestone: milestone(75) },
-          { name: kinds.extendLeader, milestone: milestone(50) },
-          { name: kinds.shortenSelf, milestone: milestone(25) },
-        ],
+        bonuses: [kinds.fogLeader, kinds.extendLeader, kinds.shortenSelf],
       }}
     />,
     <div key="typing">
       {/* A still picture of the race's text sheet: nothing here is typed or moves. */}
       <div aria-hidden="true" className="rounded-carte border border-moi bg-nuit px-3.5 pt-3 pb-1.5 md:px-5 md:pt-3.5 md:pb-2">
         <p className="font-mono text-[11px] font-medium tracking-[0.2em] text-brume uppercase">{t.races.textLabel}</p>
-        <p className="course-texte !text-sm md:!text-[15px] lg:!text-lg">
+        <p className="course-texte text-sm! md:text-[15px]! lg:text-lg!">
           <span className="course-juste">{route.scenes.sample.typed}</span>
           <span className="course-erreur">{route.scenes.sample.wrong}</span>
           <span className="course-juste">{route.scenes.sample.typedAfter}</span>
@@ -99,8 +91,13 @@ export function RouteMap({ locale, t }: RouteMapProps) {
         <div className={HOME_CONTAINER}>
           <p className={etiquette}>{`[.${route.mapLabel}]`}</p>
           <h2 id="journey-heading" className="mt-3.5 mb-3 font-display text-[44px] leading-[0.9] font-black uppercase md:text-[64px] lg:text-[88px]">
-            {title.bold}{" "}
-            <em className="font-serif font-normal normal-case italic">{title.serif}</em>
+            {title.bold}
+            {title.serif !== "" && (
+              <>
+                {" "}
+                <em className="font-serif font-normal normal-case italic">{title.serif}</em>
+              </>
+            )}
           </h2>
           <p className="text-base text-embrun md:text-lg">{guide.intro}</p>
         </div>
@@ -141,17 +138,18 @@ export function RouteMap({ locale, t }: RouteMapProps) {
 }
 
 /**
- * The three ways into a room, numbered in the text itself. A description list: each access is a
- * name and what it means, and the escales stay the only list items of the guide.
+ * The three ways into a room, numbered in the text itself (the numbers are read, not hidden).
+ * A description list rather than an ordered one: each access is a name and what it means, and
+ * the four escales stay the only list items of the guide.
  */
 function AccessList({ t }: { readonly t: Dictionary }) {
   return (
-    <dl aria-label={t.home.visibilityHeading} className="mt-5 grid max-w-[520px] gap-2.5">
+    <dl className="mt-5 grid max-w-[520px] gap-2.5">
       {VISIBILITIES.map((visibility, index) => (
         <div key={visibility} className="grid grid-cols-[44px_1fr] gap-x-2.5 gap-y-1 border-t border-houle pt-2.5">
           <dt className="col-span-2 grid grid-cols-subgrid items-baseline font-semibold">
-            <span className="font-display text-[26px] leading-[0.9] font-black text-moi">{twoDigits(index + 1)}</span>
-            {t.home.visibilities[visibility].title}
+            <span className="font-display text-[26px] leading-[0.9] font-black text-moi">{twoDigits(index + 1)} </span>
+            <span>{t.home.visibilities[visibility].title}</span>
           </dt>
           <dd className="col-start-2 text-sm text-brume">{t.home.visibilities[visibility].body}</dd>
         </div>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import styles from "./home.module.css";
-import { GlassCompass, Isle, Lighthouse, sceneCaption, sceneCaptionTight, SceneShip } from "./scene-parts";
+import { GlassCompass, Isle, Lighthouse, sceneCaption, SceneShip } from "./scene-parts";
 
 /**
  * The four drawings of the route map (C1 « Cap »). Each one is decorative: `aria-hidden`, static,
@@ -116,10 +116,12 @@ export type ModesSceneWords = {
   readonly noBonuses: string;
   readonly arcade: string;
   readonly bonusesAtMilestones: string;
-  /** From the finish down to the start: fog, extension, shortcut. */
-  readonly bonuses: readonly [BonusWords, BonusWords, BonusWords];
+  /**
+   * The three bonus kinds. A milestone draws its bonus at random, so no buoy names a milestone:
+   * the caption above the lane says where bonuses come from.
+   */
+  readonly bonuses: readonly [string, string, string];
 };
-type BonusWords = { readonly name: string; readonly milestone: string };
 
 const BONUS_ICONS = [
   <path key="fog" d="M3 8c3-3 6 3 9 0s6 3 9 0M3 14c3-3 6 3 9 0s6 3 9 0" />,
@@ -177,8 +179,7 @@ export function ModesScene({ words }: { readonly words: ModesSceneWords }) {
             <g className="stroke-arcade" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" transform="translate(-12 -12)">
               {BONUS_ICONS[index]}
             </g>
-            <text x="36" y="-2" className={LABEL}>{words.bonuses[index]?.name}</text>
-            <text x="36" y="15" className={sceneCaptionTight}>{words.bonuses[index]?.milestone}</text>
+            <text x="36" y="5" className={LABEL}>{words.bonuses[index]}</text>
           </g>
         </g>
       ))}
@@ -187,7 +188,7 @@ export function ModesScene({ words }: { readonly words: ModesSceneWords }) {
       <path d="M296 0q-14 40 0 80t0 80 0 80 0 80 0 80 0 80" className="stroke-houle" strokeWidth="2" strokeDasharray="2 8" />
       <text x="150" y="28" textAnchor="middle" className={sceneCaption}>{words.training}</text>
       <text x="150" y="46" textAnchor="middle" className={sceneCaption}>{words.noBonuses}</text>
-      <text x="450" y="28" textAnchor="middle" className={`${sceneCaption} !fill-arcade`}>{words.arcade}</text>
+      <text x="450" y="28" textAnchor="middle" className={`${sceneCaption} fill-arcade!`}>{words.arcade}</text>
       <text x="450" y="46" textAnchor="middle" className={sceneCaption}>{words.bonusesAtMilestones}</text>
     </Figure>
   );
@@ -206,7 +207,7 @@ const TRACK_ROUTES = [
 
 /** Escale 03: a small track under the text sheet, and the keyboard that moves my ship. */
 export function TypingScene({ words }: { readonly words: TypingSceneWords }) {
-  const nextKeyX = (() => {
+  const nextKeyPlace = (() => {
     for (const [row, letters] of words.rows.entries()) {
       const column = letters.indexOf(words.nextKey);
       if (column >= 0) {
@@ -271,9 +272,9 @@ export function TypingScene({ words }: { readonly words: TypingSceneWords }) {
         }),
       )}
       <rect x="188" y="310" width="224" height="30" rx="6" className="fill-nuit stroke-houle" />
-      {nextKeyX !== undefined && (
+      {nextKeyPlace !== undefined && (
         <path
-          d={`M${nextKeyX.x} ${nextKeyX.y}C${nextKeyX.x} ${nextKeyX.y - 20} 318 180 310 116`}
+          d={`M${nextKeyPlace.x} ${nextKeyPlace.y}C${nextKeyPlace.x} ${nextKeyPlace.y - 20} 318 180 310 116`}
           className="stroke-moi"
           strokeWidth="2.4"
           strokeLinecap="round"
