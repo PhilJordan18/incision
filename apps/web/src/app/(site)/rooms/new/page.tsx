@@ -1,6 +1,7 @@
 import { findActiveMembership } from "@incision/database";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AccessChart } from "@/components/rooms/scenes/access-chart";
 import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatePanel } from "@/components/ui/state-panel";
@@ -23,6 +24,7 @@ export default async function NewRoomPage() {
   if (current !== undefined) {
     return (
       <StatePanel
+        waves
         tone="warning"
         label={format(t.rooms.roomTitle, { code: current.code })}
         heading={{ bold: t.rooms.alreadyInRoomLabel }}
@@ -46,10 +48,14 @@ export default async function NewRoomPage() {
   return (
     <>
       <PageHeading bold={t.rooms.newHeadingBold} serif={t.rooms.newHeadingSerif} />
-      <section className={`${card} flex max-w-xl flex-col gap-5`}>
-        <p className="text-embrun">{t.rooms.newIntro}</p>
-        <CreateRoomForm t={t.rooms} locale={locale} />
-      </section>
+      {/* C1 (docs/da/v2, DA2-6): the chart of the three accesses beside the form from 1024 px, under it below. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)] xl:gap-12">
+        <section className={`${card} flex flex-col gap-5`}>
+          <p className="text-embrun">{t.rooms.newIntro}</p>
+          <CreateRoomForm t={t.rooms} locale={locale} />
+        </section>
+        <AccessChart locale={locale} />
+      </div>
     </>
   );
 }
