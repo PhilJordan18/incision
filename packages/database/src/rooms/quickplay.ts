@@ -48,7 +48,7 @@ const LOCK_TIMEOUT = "55P03";
 const QUICKPLAY_MAX_BUSY = 2;
 
 /** Refusals that only concern one candidate: the next one is tried (D-05). */
-const NEXT_CANDIDATE = new Set(["ROOM_NOT_FOUND", "ROOM_FULL", "ROOM_NOT_ADMITTING", "NICKNAME_TAKEN"]);
+const NEXT_CANDIDATE = new Set(["ROOM_BANNED", "ROOM_NOT_FOUND", "ROOM_FULL", "ROOM_NOT_ADMITTING", "NICKNAME_TAKEN"]);
 
 type QuickplayAdmission<R> = (R & { readonly ok: true; readonly code: string }) | Exclude<R, { readonly ok: true }>;
 

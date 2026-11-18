@@ -55,7 +55,17 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await member.reload();
       const join = member.getByRole("button", { name: /^(Rejoindre la salle|Join the room)$/ });
       if (await join.isVisible()) await join.click();
+      await expect(member.getByText(/L’hôte t’a expulsé de cette salle\. Tu ne peux plus la rejoindre|The host expelled you from this room\. You cannot rejoin it/)).toBeVisible();
       await expect(member.getByText(/^\[\.(En direct|Live)\]$/)).toHaveCount(0);
+      for (const colorScheme of ["light", "dark"] as const) {
+        await member.emulateMedia({ colorScheme });
+        for (const width of [1440, 1024, 390]) {
+          await member.setViewportSize({ width, height: 1000 });
+          await expectNoHorizontalScroll(member);
+          await expectNoAccessibilityViolation(member);
+          await member.screenshot({ path: test.info().outputPath(`ban-${locale}-${colorScheme}-${width}.png`), fullPage: true });
+        }
+      }
       expect((await query("select id from lobby_members where account_id=$1 and left_at is null", [targetId]))).toHaveLength(0);
       // A fresh valid invitation must not bypass the identity ban (SQL coverage alone
       // cannot prove that the browser action keeps the same authenticated identity).
@@ -65,7 +75,7 @@ for (const locale of ["fr-CA", "en-CA"]) {
       await expect(invitation).toHaveValue(/\/invite#[A-Za-z0-9_-]{43}$/);
       await member.goto(await invitation.inputValue());
       await member.getByRole("button", { name: /^(Rejoindre avec mon compte|Join with my account)$/ }).click();
-      await expect(member.locator('p[role="alert"]')).toBeVisible();
+      await expect(member.locator('p[role="alert"]')).toContainText(/L’hôte t’a expulsé|The host expelled you/);
       await expect(member.locator('p[role="alert"]')).toBeFocused();
       expect((await query("select id from lobby_members where account_id=$1 and left_at is null", [targetId]))).toHaveLength(0);
       await expect(page.getByText(/^\[\.(En direct|Live)\]$/)).toBeVisible();
@@ -123,7 +133,7 @@ for (const phase of ["waiting", "racing", "results"] as const) {
       await member.goto(`/guest?code=${code}`);
       await member.getByLabel("Nickname for this room").fill("New nickname");
       await member.getByRole("button", { name: "Enter the room", exact: true }).click();
-      await expect(member.locator("#guest-entry-error")).toBeVisible();
+      await expect(member.locator("#guest-entry-error")).toContainText("The host expelled you from this room. You cannot rejoin it, even with an invitation.");
       expect((await guest.cookies()).find((entry) => entry.name === "incision.guest")?.value).toBe(cookie.value);
     } finally { await host.close(); await guest.close(); }
   });

@@ -106,7 +106,7 @@ describe("atomic room moderation", () => {
     expect(await expelRoomMember(db, input)).toMatchObject({ ok: true, subject: { kind: "account", accountId: victim.accountId } });
     expect(await expelRoomMember(db, input)).toEqual({ ok: false, error: "STALE_REVISION" });
     expect((await pool.query("select revoked_at from lobby_invitations")).rows[0].revoked_at).not.toBeNull();
-    expect(await joinRoomByCode(db, { accountId: victim.accountId, code, role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
+    expect(await joinRoomByCode(db, { accountId: victim.accountId, code, role: "participant" })).toEqual({ ok: false, error: "ROOM_BANNED" });
     expect(await joinRoomByCode(db, { accountId: await account("Classmate"), code, role: "participant" })).toMatchObject({ ok: true });
     expect((await pool.query("select count(*)::int as n from lobby_bans")).rows[0].n).toBe(1);
   });
@@ -129,7 +129,7 @@ describe("atomic room moderation", () => {
     expect(await expelRoomMember(db, { accountId: host, code, memberId: joined.memberId, revision: await revision(lobbyId) })).toMatchObject({ ok: true });
     expect((await pool.query("select * from guest_sessions where id=$1", [proof.id])).rows).toEqual(before);
     expect((await pool.query("select * from lobby_members where guest_session_id=$1", [proof.id])).rows).toEqual([]);
-    expect(await joinRoomByCodeAsGuest(db, { proof, nickname: "Renamed", code, role: "spectator" })).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
+    expect(await joinRoomByCodeAsGuest(db, { proof, nickname: "Renamed", code, role: "spectator" })).toEqual({ ok: false, error: "ROOM_BANNED" });
     expect(await purgeUnusedGuestSessions(db)).toBe(0);
     await pool.query(`update guest_sessions set created_at=now()-interval '2 days', last_seen_at=now()-interval '25 hours', expires_at=now()-interval '1 hour' where id=$1`, [proof.id]);
     expect(await purgeUnusedGuestSessions(db)).toBe(1);
@@ -141,7 +141,7 @@ describe("atomic room moderation", () => {
     const results = await Promise.all([expelRoomMember(db, input), expelRoomMember(db, input),
       joinRoomByCode(db, { accountId: victim.accountId, code, role: "participant" })]);
     expect(results.slice(0, 2).filter((result) => result.ok)).toHaveLength(1);
-    expect(await joinRoomByCode(db, { accountId: victim.accountId, code, role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
+    expect(await joinRoomByCode(db, { accountId: victim.accountId, code, role: "participant" })).toEqual({ ok: false, error: "ROOM_BANNED" });
     expect((await pool.query("select * from lobby_members where id=$1 and left_at is null", [victim.memberId])).rows).toEqual([]);
   });
 });

@@ -49,7 +49,7 @@ export async function admitGuestToLockedRoom(tx: Transaction, input: Omit<GuestA
     const [session] = await tx.select({ id: guestSessions.id }).from(guestSessions)
       .where(and(eq(guestSessions.id, input.proof.id), eq(guestSessions.secretDigest, input.proof.secretDigest))).for("update");
     if (session === undefined || !await sessionIsActive(tx, session.id)) return { ok: false, error: "INVALID_GUEST_SESSION" };
-    if (await isBannedFromRoom(tx, room.id, { kind: "guest", guestSessionId: session.id })) return { ok: false, error: "ROOM_NOT_FOUND" };
+    if (await isBannedFromRoom(tx, room.id, { kind: "guest", guestSessionId: session.id })) return { ok: false, error: "ROOM_BANNED" };
     const current = await findActiveHumanMembership(tx, { kind: "guest", guestSessionId: session.id });
     if (current !== undefined) {
       return current.lobbyId === room.id

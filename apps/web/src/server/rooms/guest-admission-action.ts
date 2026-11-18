@@ -16,7 +16,7 @@ import { allowRoomChange } from "./room-change-limiter";
 import { notifyRoomChanged } from "./room-events";
 
 export type GuestAdmissionError = "UNAVAILABLE" | "UNAUTHORIZED" | "INVALID_GUEST_NICKNAME" | "INVALID_CODE" |
-  "ROOM_NOT_FOUND" | "ROOM_NOT_ADMITTING" | "ROOM_FULL" | "SPECTATORS_FULL" | "ALREADY_IN_ANOTHER_ROOM" |
+  "ROOM_BANNED" | "ROOM_NOT_FOUND" | "ROOM_NOT_ADMITTING" | "ROOM_FULL" | "SPECTATORS_FULL" | "ALREADY_IN_ANOTHER_ROOM" |
   "NICKNAME_TAKEN" | "RATE_LIMITED" | "CODE_RATE_LIMITED" | "CODE_BUSY" | "NO_ROOM";
 export type GuestAdmissionState = { readonly error: GuestAdmissionError } | { readonly code: string };
 
