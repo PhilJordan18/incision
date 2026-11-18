@@ -3,7 +3,7 @@
 import { GuestActivityRefresh, withGuestCookieLock } from "@/identity/guest-browser";
 import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
-import { Quay, type QuayHull, quayBerths } from "@/components/nautical";
+import { Quay, type QuayHull, quayBerths, WaveMarks } from "@/components/nautical";
 import { RoomCrewPanel } from "@/components/rooms/room-crew-panel";
 import { RoomCapacityPanel } from "@/components/rooms/room-capacity-panel";
 import { RoomVisibilityPanel } from "@/components/rooms/room-visibility-panel";
@@ -591,9 +591,13 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
   return (
     <div className="flex flex-col gap-6">
       {/* Decorative and bounded: hidden from assistive technology by the primitive, removed on a low screen. */}
-      <Quay hulls={moored} more={beyond > 0 ? format(roomCrewCopy(locale).moored, { count: formatNumber(beyond, locale) }) : undefined} className="hidden rounded-carte lg:block short:hidden" />
+      <div data-room-quay="wide" className="contents">
+        <Quay hulls={moored} more={beyond > 0 ? format(roomCrewCopy(locale).moored, { count: formatNumber(beyond, locale) }) : undefined} className="hidden rounded-carte lg:block short:hidden" />
+      </div>
       {/* Under 1024 px the strip is too narrow for eight hulls and their count: three hulls, no clipped words. The crew counters say the numbers. */}
-      <Quay hulls={moored.slice(0, 3)} className="h-[110px]! rounded-carte lg:hidden" />
+      <div data-room-quay="narrow" className="contents">
+        <Quay hulls={moored.slice(0, 3)} className="h-[110px]! rounded-carte lg:hidden" />
+      </div>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex flex-col gap-3">
           <p className={monoLabel}>
@@ -695,8 +699,23 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
   );
 }
 
+/**
+ * The four states that replace the room (closed, expelled, no longer a member, signed out), with
+ * the C1 wave marks in the panel's corner (DA2-6's rule for every room state panel). The marks are
+ * decorative, clear of the label and the heading, and left out on a phone, where the label can
+ * reach the corner. Tone border, sign, texts and actions are those of screen 15, unchanged.
+ */
+function RoomEnding(props: Parameters<typeof RoomEndingPanel>[0]) {
+  return (
+    <div data-room-ending={props.ending} className="relative max-w-xl overflow-hidden rounded-carte">
+      <RoomEndingPanel {...props} />
+      <WaveMarks width={220} height={90} className="pointer-events-none absolute top-0 right-0 h-[90px] w-[220px] opacity-70 max-sm:hidden!" />
+    </div>
+  );
+}
+
 /** What replaces the waiting room once it no longer applies (screen 15). */
-function RoomEnding({
+function RoomEndingPanel({
   ending,
   code,
   hosted,

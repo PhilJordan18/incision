@@ -12,6 +12,7 @@ Captures taken from the running app (production build, isolated local database) 
 | `non-hote-…`, `spectateur-…` | a participant and a spectator who are not the host |
 | `ecran-bas-1280x640-fr-abysse.jpg` | low screen: no quay, code and start in view |
 | `couleurs-forcees-fr-1440.jpg`, `zoom-200-fr-abysse-720.jpg` | forced colours; 200 % zoom of a 1440 px screen |
+| `etat-{expulse,quittee,session-terminee-aube,fermee}-fr-*-1440.jpg` | the four states that replace the room, with wave marks in the corner |
 | `arbre-accessibilite-{hote,non-hote}-fr.txt` | accessibility tree of `main` (names, roles, states) |
 | `arbre-accessibilite-bots-{fr,en}.txt` | accessibility tree of the bots panel with an open, unsaved line (DA2-5b) |
 
