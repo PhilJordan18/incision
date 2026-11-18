@@ -52,10 +52,21 @@
   height: max(15%, 36px);
   pointer-events: none;
 }
-.finishText {
+/*
+ * The chart's two words sit on the land, on a plate of the land's own colour and above the ships:
+ * a ship reaching the coast passes behind them, never over them.
+ */
+.finishText, .more {
   position: absolute;
+  z-index: 4;
   top: 6px;
-  left: 12px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--color-erreur-fond);
+}
+:global([data-theme="aube"]) .finishText, :global([data-theme="aube"]) .more { background: color-mix(in srgb, var(--color-ligne) 20%, var(--color-nuit)); }
+.finishText {
+  left: 8px;
   color: var(--color-erreur);
   font-weight: 700;
 }
@@ -98,6 +109,12 @@
 .dashed { stroke-dasharray: 7 4; }
 .dotted { stroke-dasharray: 1 4; }
 .anonRoute { --route: var(--color-brume); stroke-width: 1px; opacity: 0.45; stroke-dasharray: 1 4; }
+.tether {
+  stroke: var(--route);
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
 .connector {
   stroke: var(--color-brume);
   stroke-width: 1px;
@@ -121,9 +138,6 @@
 /* A named runner: the marker is the foot of its ship, which carries the colour on its sail. */
 .named { z-index: 2; width: 0; height: 0; box-shadow: none; }
 .self { z-index: 3; }
-/* The front runner: its ship has the `or` ring; on the tablet's chart it keeps its ship. */
-.leader { z-index: 2; }
-.bot { border-radius: 6px; }
 .ship {
   --ship-size: 46px;
   position: absolute;
@@ -133,6 +147,8 @@
   top: calc(var(--ship-size) * -0.574);
   width: var(--ship-size);
   height: var(--ship-size);
+  /* A change of berth is carried across like the marker's own move, never a jump. */
+  transition: left var(--duration-court) var(--ease-incision), top var(--duration-court) var(--ease-incision);
 }
 .self .ship { --ship-size: 58px; }
 .label {
@@ -154,7 +170,7 @@
 .rank { margin-right: 4px; font-family: var(--font-mono); font-weight: 700; }
 .rank::after { content: "."; }
 .selfLabel { font-weight: 700; }
-.more { position: absolute; top: 6px; right: 12px; color: var(--color-embrun); }
+.more { right: 8px; color: var(--color-embrun); }
 .horizontalMore { display: none; }
 
 /* A runner's pennant before its name: the sail's shape, the route's colour and dash. */
@@ -166,6 +182,12 @@
   .section { display: flex; height: 100%; flex-direction: column; }
   .track { flex: 1 1 auto; height: auto; min-height: 12rem; }
 }
+/* A narrow chart (the three-column row at 1024 px, a phone): the name's line is the name's, the
+   pennant stays in the standings. */
+@container (max-width: 400px) {
+  .track .pennant { display: none; }
+  .label { left: 63%; width: 36.5%; }
+}
 /* Tablet: the same chart turned on its side, the start on the left and the coast on the right. */
 @media (min-width: 640px) and (max-width: 1023px) {
   .verticalMore, .verticalRoutes, .track .verticalOnly { display: none; }
@@ -173,32 +195,37 @@
   .horizontalRoutes, .track .horizontalOnly { display: block; }
   .track { height: 180px; }
   .point { left: var(--horizontal-x); top: var(--horizontal-y); }
-  .ship { --ship-size: 36px; left: calc(var(--ship-size) / -2); }
+  /* Lanes run down this chart (180 px high): a ship beside its marker is above or below it. */
+  .ship { --ship-size: 36px; left: calc(var(--ship-size) / -2); top: calc(var(--ship-size) * -0.574 + var(--horizontal-ship-shift, 0) * 1.8px); }
   /* Only the two runners named on this chart sail a ship; the other named ones are dots again,
      as « + N » counts them. */
-  .named:not(.self):not(.leader) { width: 8px; height: 8px; box-shadow: 0 0 0 1px var(--color-mer); }
+  .named:not(.self):not(.leader) { --route: var(--color-brume); width: 8px; height: 8px; opacity: 0.75; box-shadow: 0 0 0 1px var(--color-mer); }
   .named:not(.self):not(.leader) .ship { display: none; }
   .self .ship { --ship-size: 46px; }
   .milestone { top: 0; left: var(--at-x); width: 1px; height: 100%;
     background: repeating-linear-gradient(180deg, var(--color-houle) 0 2px, transparent 2px 8px); }
   .milestoneLabel { left: 5px; bottom: auto; top: 6px; }
   .coast { top: 0; left: auto; right: 0; width: 8%; height: 100%; }
+  /* Here the two words are on the sea. */
+  .finishText, :global([data-theme="aube"]) .finishText, .more, :global([data-theme="aube"]) .more { background: var(--color-mer); }
   .finishText { left: auto; right: 9%; top: 6px; }
   .compass { left: auto; right: 9%; bottom: 6px; width: 38px; }
   .label { display: none; }
   .selfLabel, .leaderLabel { display: block; left: var(--horizontal-label-x); width: 24%; top: 91%; }
   .leaderLabel { top: 74%; }
-  .more { top: auto; right: auto; bottom: 4px; left: 16px; font-size: 10px; }
+  .more { top: auto; right: auto; bottom: 4px; left: 12px; font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .point, .label { transition: none !important; }
+  .point, .label, .ship { transition: none !important; }
 }
 @media (forced-colors: active) {
   .point { background: CanvasText; forced-color-adjust: none; box-shadow: none; }
-  .route { stroke: CanvasText; }
+  .route, .tether { stroke: CanvasText; }
+  .connector { stroke: CanvasText; opacity: 1; }
   .selfRoute { stroke: Highlight; }
   .milestone { background: none; border-top: 1px dotted CanvasText; }
   .finishText, .milestoneLabel, .more { color: CanvasText; }
+  .finishText, .more { background: Canvas !important; }
   /* A milestone's dotted line must not strike a name through. */
   .label { background: Canvas; }
 }

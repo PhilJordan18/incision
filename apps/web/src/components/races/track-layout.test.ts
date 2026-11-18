@@ -1,30 +1,99 @@
 import { describe, expect, it } from "vitest";
-import { LABEL_BOTTOM, LABEL_GAP, LABEL_TOP, ROUTE_COLOURS, routeStyles, SHIP_CLEAR_X, SHIP_CLEAR_Y, standingsOrder, trackLayout } from "./track-layout";
+import { LABEL_BOTTOM, LABEL_GAP, LABEL_TOP, ROUTE_COLOURS, routeStyles, SHIP_BERTHS, HORIZONTAL_SHIP_BERTHS, standingsOrder, trackLayout } from "./track-layout";
 
 const runners = (count: number) => Array.from({ length: count }, (_, i) => ({ entrantId: `runner-${String(i).padStart(2, "0")}`, kind: i % 4 === 0 ? "bot" as const : "human" as const,
   status: "racing" as const, position: i * 2, length: 100, netWpm: 40 + i, inactive: false }));
 
+/** The clearance two ships must keep, as `shipShifts` defines it. */
+const clearance = (dy: number) => SHIP_BERTHS.clear * Math.max(0, Math.min(1, (SHIP_BERTHS.level - Math.abs(dy)) / SHIP_BERTHS.ease));
+const drawnShips = (points: ReturnType<typeof trackLayout>) => points.filter(p => p.labelled).map(p => ({ id: p.runner.entrantId, x: p.x + p.shipShift, y: p.y, self: p.self, shift: p.shipShift }));
+/** A small deterministic generator, so that a failure can be replayed. */
+const sequence = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
+
 describe("named ships", () => {
-  it.each([2, 6, 30, 50])("never draws a ship under another among %i runners at the same progress, and never moves mine", count => {
-    for (const position of [0, 40, 100]) {
-      for (const self of [0, Math.floor(count / 2), count - 1]) {
-        const input = runners(count).map(r => ({ ...r, position }));
-        const points = trackLayout(input, input[self]!.entrantId);
-        const ships = points.filter(p => p.labelled).map(p => ({ x: p.x + p.shipShift, y: p.y, self: p.self, shift: p.shipShift }));
-        expect(ships.find(ship => ship.self)!.shift).toBe(0);
-        for (const [i, ship] of ships.entries()) {
-          expect(ship.x).toBeGreaterThanOrEqual(0); expect(ship.x).toBeLessThanOrEqual(62);
-          for (const other of ships.slice(i + 1)) expect(Math.abs(ship.x - other.x) >= SHIP_CLEAR_X - 0.01 || Math.abs(ship.y - other.y) >= SHIP_CLEAR_Y).toBe(true);
-        }
-        // The drawing alone shifts: every marker stays at the end of its own route.
-        for (const point of points) expect(Number(point.path.split(" ").at(-1)!.split(",")[0])).toBeCloseTo(point.x, 1);
-        expect(trackLayout([...input].reverse(), input[self]!.entrantId)).toEqual(points);
+  it.each([2, 6, 12, 30, 50])("keeps my ship clear among %i runners, level or nearly, and never draws a ship far from its marker", count => {
+    const random = sequence(count);
+    let stopped = 0;
+    let pairs = 0;
+    for (let round = 0; round < 400; round++) {
+      // Level (ties at the start and the finish) or within a few percent of one another.
+      const base = round < 3 ? [0, 40, 100][round]! : Math.floor(random() * 90);
+      const spread = round < 3 ? 0 : Math.floor(random() * 12);
+      const input = runners(count).map(r => ({ ...r, position: Math.min(100, base + Math.floor(random() * (spread + 1))) }));
+      const selfId = input[Math.floor(random() * count)]!.entrantId;
+      const points = trackLayout(input, selfId);
+      const ships = drawnShips(points);
+      const mine = ships.find(ship => ship.self)!;
+      expect(mine.shift).toBe(0);
+      for (const ship of ships) {
+        // Never further from its marker than the tether's reach, never over the names' column.
+        expect(Math.abs(ship.shift)).toBeLessThanOrEqual(SHIP_BERTHS.reach + 0.01);
+        expect(ship.x).toBeGreaterThanOrEqual(SHIP_BERTHS.min - 0.01); expect(ship.x).toBeLessThanOrEqual(SHIP_BERTHS.max + 0.01);
+        if (ship.self) continue;
+        pairs++;
+        // My ship is kept clear, unless the reach or the chart's edge stops the other one.
+        const clear = Math.abs(ship.x - mine.x) >= clearance(ship.y - mine.y) - 0.02;
+        const held = Math.abs(ship.shift) >= SHIP_BERTHS.reach - 0.01 || ship.x <= SHIP_BERTHS.min + 0.01 || ship.x >= SHIP_BERTHS.max - 0.01;
+        if (!clear && held) stopped++; else expect(clear).toBe(true);
+      }
+      // The drawing alone shifts: every marker stays at the end of its own route.
+      for (const point of points) expect(Number(point.path.split(" ").at(-1)!.split(",")[0])).toBeCloseTo(point.x, 1);
+      expect(trackLayout([...input].reverse(), selfId)).toEqual(points);
+    }
+    // Held short of a full clearance by the reach or an edge: possible in a crew bunched on purpose, as
+    // here, never the common case (under 3 % of the ships beside mine).
+    expect(stopped).toBeLessThanOrEqual(pairs * 0.03);
+  });
+
+  it.each([6, 30, 50])("slides a ship between two broadcasts, never jumps, among %i runners", count => {
+    const random = sequence(count + 7);
+    const speeds = runners(count).map(() => 0.5 + random());
+    let previous: ReturnType<typeof drawnShips> | undefined;
+    let largest = 0;
+    let compared = 0;
+    for (let tick = 0; tick <= 400; tick++) {
+      // Finer than a broadcast: every runner advances by at most 0.375 % of the text per step.
+      const input = runners(count).map((r, i) => ({ ...r, position: Math.min(1000, tick * 2.5 * speeds[i]!), length: 1000 }));
+      const ships = drawnShips(trackLayout(input, "runner-03"));
+      // While the same runners are named, a ship's sideways offset changes by little, as its marker
+      // does. (When a name appears or goes, the stylesheet's transition carries the ship across.)
+      if (previous !== undefined && previous.map(other => other.id).join() === ships.map(other => other.id).join()) {
+        for (const ship of ships) { compared++; largest = Math.max(largest, Math.abs(ship.shift - previous.find(other => other.id === ship.id)!.shift)); }
+      }
+      previous = ships;
+    }
+    expect(compared).toBeGreaterThan(500);
+    expect(largest).toBeLessThan(2.5);
+  });
+
+  it("keeps a ship on the side of its own lane, whatever the routes' swing", () => {
+    for (let position = 0; position <= 100; position += 1) {
+      const points = trackLayout(runners(6).map(r => ({ ...r, position })), "runner-03");
+      const mine = points.find(p => p.self)!;
+      for (const [lane, point] of points.entries()) {
+        if (!point.labelled || point.self) continue;
+        expect(Math.sign(point.x + point.shipShift - mine.x)).toBe(lane < 3 ? -1 : 1);
       }
     }
   });
-  it("leaves a ship on its marker when nothing is near", () => {
+
+  it("leaves a ship on its marker when nothing is near, and berths a spectator's chart around its first lane", () => {
     const [a, b] = runners(2);
     expect(trackLayout([{ ...a!, position: 10 }, { ...b!, position: 80 }], a!.entrantId).map(p => p.shipShift)).toEqual([0, 0]);
+    const watched = trackLayout(runners(12).map(r => ({ ...r, position: 50 })), null).filter(p => p.labelled);
+    expect(watched).toHaveLength(2);
+    expect(watched[0]!.shipShift).toBe(0);
+    expect(watched[1]!.x + watched[1]!.shipShift - watched[0]!.x).toBeGreaterThanOrEqual(SHIP_BERTHS.clear - 0.02);
+  });
+
+  it("separates my ship and the leader's on the tablet's chart, and moves no other", () => {
+    const input = runners(12).map(r => ({ ...r, position: r.entrantId === "runner-05" ? 61 : r.entrantId === "runner-06" ? 60 : 10 }));
+    const points = trackLayout(input, "runner-06");
+    const mine = points.find(p => p.self)!; const leader = points.find(p => p.tone === "leader")!;
+    expect(mine.horizontalShipShift).toBe(0);
+    expect(Math.abs(leader.horizontalY + leader.horizontalShipShift - mine.horizontalY)).toBeGreaterThanOrEqual(HORIZONTAL_SHIP_BERTHS.clear - 0.02);
+    expect(Math.abs(leader.horizontalShipShift)).toBeLessThanOrEqual(HORIZONTAL_SHIP_BERTHS.reach);
+    expect(points.filter(p => !p.self && p.tone !== "leader").every(p => p.horizontalShipShift === 0)).toBe(true);
   });
 });
 

@@ -18,9 +18,13 @@ test.afterEach(async () => {
 });
 
 type Case = { readonly locale: "fr-CA" | "en-US"; readonly theme: "aube" | "abysse"; readonly width: number; readonly height: number;
-  readonly count: 30 | 50; readonly forcedColors?: boolean; readonly scale?: number };
+  readonly count: 30 | 50; readonly forcedColors?: boolean; readonly scale?: number;
+  /** Broadcasts sent before looking: 4 spreads the crew mid-race; 45 brings everyone to the fixture's last position, 95 %, by the coast. */
+  readonly steps?: number };
+/** My own position after `steps` broadcasts of track-fixture.ts (it starts at 20 % and stops at 95 %). */
+const selfPosition = (steps: number) => String(Math.min(95, 20 + 2 * steps));
 
-async function openRace(browser: Browser, { locale, theme, width, height, count, forcedColors = false, scale = 1 }: Case): Promise<Page> {
+async function openRace(browser: Browser, { locale, theme, width, height, count, forcedColors = false, scale = 1, steps = 4 }: Case): Promise<Page> {
   const [account] = await query<{ id: string; session_version: number }>("insert into accounts(display_name) values ('Capitaine') returning id,session_version");
   const context = await browser.newContext({ locale, viewport: { width, height }, deviceScaleFactor: scale, reducedMotion: "no-preference",
     forcedColors: forcedColors ? "active" : "none" }); contexts.push(context);
@@ -39,8 +43,8 @@ async function openRace(browser: Browser, { locale, theme, width, height, count,
   await page.reload();
   await expect(page.getByTestId("race-track").locator("[data-runner]")).toHaveCount(count);
   // A few broadcasts, so the crew is spread along the chart as in the middle of a race.
-  for (let step = 0; step < 4; step++) fixture.advance();
-  await expect(page.getByTestId("race-track").locator('[data-self="true"]')).toHaveAttribute("data-position", "28");
+  for (let step = 0; step < steps; step++) fixture.advance();
+  await expect(page.getByTestId("race-track").locator('[data-self="true"]')).toHaveAttribute("data-position", selfPosition(steps));
   return page;
 }
 
@@ -61,6 +65,10 @@ async function chartBoxes(page: Page) {
     return { track: box(track), labels: [...track.querySelectorAll("[data-track-label]")].filter(visible).map(box),
       compass: [...track.querySelectorAll("[data-compass]")].filter(visible).map(box),
       ships: [...track.querySelectorAll("[data-ship]")].filter(visible).map(el => box(el.querySelector("path:last-of-type")!)),
+      mine: [...track.querySelectorAll("[data-self] [data-ship]")].filter(visible).map(el => box(el.querySelector("path:last-of-type")!)),
+      sails: [...track.querySelectorAll("[data-ship]")].filter(visible).map(el => box(el.querySelector("[data-sail-cloth]")!)),
+      words: [...track.querySelectorAll("[data-track-word]")].map(el => ({ ...box(el), layer: Number(getComputedStyle(el).zIndex), plate: getComputedStyle(el).backgroundColor,
+        above: Math.max(...[...track.querySelectorAll("[data-runner]")].map(marker => Number(getComputedStyle(marker).zIndex) || 0)) })),
       markers: [...track.querySelectorAll("[data-runner]")].map(box) };
   });
 }
@@ -89,11 +97,16 @@ const cases: readonly Case[] = [
   // 200 % zoom of a 1536 × 960 window: 768 × 480 CSS px, the narrowest that still types.
   { locale: "fr-CA", theme: "abysse", width: 768, height: 480, count: 30, scale: 2 },
   { locale: "en-US", theme: "aube", width: 768, height: 480, count: 50, scale: 2 },
+  // By the coast: every runner at the fixture's last position (95 %, still racing), on the two
+  // shortest charts and the tablet's. Not a finished race: the fixture never sends 100 % or « finished ».
+  { locale: "fr-CA", theme: "abysse", width: 1024, height: 768, count: 30, steps: 45 },
+  { locale: "fr-CA", theme: "aube", width: 1280, height: 640, count: 50, steps: 45 },
+  { locale: "fr-CA", theme: "abysse", width: 800, height: 1000, count: 30, steps: 45 },
 ];
 
 for (const item of cases) {
-  const { locale, theme, width, height, count, forcedColors, scale } = item;
-  const name = `course-${width}x${height}-${theme}-${locale.slice(0, 2)}-${count}${forcedColors ? "-forced-colours" : ""}${scale === 2 ? "-zoom-200" : ""}`;
+  const { locale, theme, width, height, count, forcedColors, scale, steps = 4 } = item;
+  const name = `course-${width}x${height}-${theme}-${locale.slice(0, 2)}-${count}${forcedColors ? "-forced-colours" : ""}${scale === 2 ? "-zoom-200" : ""}${steps > 4 ? "-by-the-coast" : ""}`;
   test(`race ships ${name}`, async ({ browser }) => {
     test.setTimeout(60_000);
     const page = await openRace(browser, item);
@@ -112,11 +125,35 @@ for (const item of cases) {
     }
     // Five named runners sail on the vertical chart; on the tablet's, only the two it names (me and a sole leader).
     if (horizontal) expect(boxes.ships.length).toBe(boxes.labels.length); else expect(boxes.ships.length).toBeGreaterThanOrEqual(3);
-    // Along the top, the coastline never crosses the finish word or the others' count.
-    if (!horizontal) expect(await track.evaluate(el => { const edge = el.querySelector("[data-coast]:not([data-coast=vertical]) [data-coast-edge]")!.getBoundingClientRect();
-      return [...el.querySelectorAll(":scope > span")].filter(word => getComputedStyle(word).top === "6px").every(word => word.getBoundingClientRect().bottom <= edge.top + 1); })).toBe(true);
-    // No ship under another ship on the vertical chart: a covered one is drawn beside its marker.
-    if (!horizontal) for (const [i, hull] of boxes.ships.entries()) for (const other of boxes.ships.slice(i + 1)) expect(overlap(hull, other), "a hull over a hull").toBe(false);
+    // The chart's two words (the finish, the others' count): along the top, the coastline never crosses them.
+    expect(boxes.words).toHaveLength(2);
+    if (!horizontal) {
+      const edge = (await track.locator('[data-coast="horizontal"] [data-coast-edge]').boundingBox())!;
+      for (const word of boxes.words) expect(word.bottom, "the coastline through a word").toBeLessThanOrEqual(edge.y + 1);
+    }
+    // No ship is ever painted over a word: each word has an opaque plate, above every marker.
+    for (const word of boxes.words) {
+      expect(word.layer, "a word under the ships").toBeGreaterThan(word.above);
+      expect(word.plate).toMatch(/^(rgb\(|color\(srgb [\d. ]+\)$)/);
+    }
+    // No ship over mine: one that would cover it is drawn beside its marker (two others may touch).
+    for (const hull of boxes.ships) for (const mine of boxes.mine) if (hull.left !== mine.left) expect(overlap(hull, mine), "a hull over mine").toBe(false);
+    // A ship drawn beside its marker is tied to it; the others have no tether.
+    expect(await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].filter(marker => marker.querySelector("[data-ship]"))
+      .every(marker => (Number(marker.style.getPropertyValue("--ship-shift")) !== 0) === (el.querySelector(`[data-tether="${marker.dataset.runner}"]`) !== null)))).toBe(true);
+    // On the tablet's chart, every runner it does not name is grey, dot and route alike, as « + N » counts them.
+    if (horizontal) {
+      const crew = await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].map(marker => ({ ship: marker.querySelector("[data-ship]")?.getBoundingClientRect().width ?? 0,
+        dot: getComputedStyle(marker).backgroundColor, route: getComputedStyle(el.querySelector(`[data-horizontal-route="${marker.dataset.runner}"]`)!).stroke,
+        dash: getComputedStyle(el.querySelector(`[data-horizontal-route="${marker.dataset.runner}"]`)!).strokeDasharray })));
+      const unnamed = crew.filter(runner => runner.ship === 0);
+      expect(unnamed).toHaveLength(count - boxes.ships.length);
+      expect(new Set(unnamed.map(runner => `${runner.dot}/${runner.route}/${runner.dash}`)).size).toBe(1);
+      expect(unnamed[0]!.dot).toBe(unnamed[0]!.route);
+    }
+    // My own short name is whole (« Capitaine »), and so is the « (toi) » after it.
+    expect(await track.locator("[data-track-label]:visible").filter({ has: page.locator("[data-track-you]") }).evaluate(label => {
+      const name = label.querySelector("[data-track-you]")!.previousElementSibling as HTMLElement; return name.scrollWidth <= name.clientWidth; })).toBe(true);
     // « (toi) » is never cut by a long name's ellipsis.
     const you = await track.locator("[data-track-you]:visible").evaluateAll(marks => marks.map(mark => { const row = mark.parentElement!.getBoundingClientRect(); const at = mark.getBoundingClientRect();
       return at.width > 0 && at.right <= row.right + 0.5; }));
@@ -137,7 +174,8 @@ for (const item of cases) {
       await expect(field).toBeFocused();
       const before = await field.boundingBox();
       fixture!.advance();
-      await expect(track.locator('[data-self="true"]')).toHaveAttribute("data-position", "30");
+      await expect(track.locator('[data-self="true"]')).toHaveAttribute("data-position", selfPosition(steps + 1));
+      if (steps > 4) await expect(track.locator('[data-self="true"]')).toHaveAttribute("data-position", "95");
       expect(await field.boundingBox()).toEqual(before);
       await expect(field).toBeFocused();
       // Keyboard only: the chart adds no tab stop (it is decorative and takes no pointer).
@@ -167,14 +205,23 @@ for (const theme of ["abysse", "aube"] as const) {
       const land = style("[data-coast=horizontal] [data-coast-land]", track).fill;
       const list = getComputedStyle(document.querySelector("[data-standing]")!.closest("section")!).backgroundColor;
       const marks: Record<string, number> = {};
+      // Measured for the record, not held to 3:1: an unnamed runner's route is a faint ornament, its dot is the mark.
+      const faint: Record<string, number> = {};
       for (const pennant of document.querySelectorAll("[data-standing] [data-pennant]")) {
         marks[`pennant ${pennant.getAttribute("data-colour")} / panel`] = ratio(style("[data-pennant-cloth]", pennant).fill, list);
+        // The same five colours as a named runner's sail and route on the sea, whoever is named now.
+        marks[`runner colour ${pennant.getAttribute("data-colour")} / sea`] = ratio(style("[data-pennant-cloth]", pennant).fill, sea);
       }
       for (const route of track.querySelectorAll<SVGElement>("polyline[data-route]")) {
         const marker = track.querySelector(`[data-runner="${route.dataset.route}"]`)!;
         // A named runner's route in its colour; an unnamed runner's dot in grey, at its own opacity.
         if (marker.querySelector("[data-ship]")) marks[`route ${marker.getAttribute("data-route-colour")} / sea`] = ratio(getComputedStyle(route).stroke, sea);
-        else { const dot = getComputedStyle(marker); marks["unnamed dot / sea"] = ratio(dot.backgroundColor.replace(")", ` / ${dot.opacity})`).replace(/, /g, " "), sea); }
+        else {
+          const dot = getComputedStyle(marker); const line = getComputedStyle(route);
+          const faded = (colour: string, opacity: string) => colour.replace(")", ` / ${opacity})`).replace(/, /g, " ");
+          marks["unnamed dot / sea"] = ratio(faded(dot.backgroundColor, dot.opacity), sea);
+          faint["unnamed route (decorative) / sea"] = ratio(faded(line.stroke, line.opacity), sea);
+        }
       }
       for (const ship of track.querySelectorAll("[data-ship]")) marks[`sail ${ship.getAttribute("data-colour")} / sea`] = ratio(style("[data-sail-cloth]", ship).fill, sea);
       marks["hull / sea"] = ratio(style("[data-ship] > path:last-of-type", track).fill, sea);
@@ -185,9 +232,10 @@ for (const theme of ["abysse", "aube"] as const) {
       words["finish word / land"] = ratio(getComputedStyle(finish).color, land);
       words["others count / land"] = ratio(getComputedStyle(finish.parentElement!.querySelector(":scope > span:last-of-type")!).color, land);
       words["name / sea"] = ratio(getComputedStyle(track.querySelector("[data-track-label]")!).color, sea);
-      return { marks, words, land: rgb(land).join(","), sea: rgb(sea).join(",") };
+      return { marks, faint, words, land: rgb(land).join(","), sea: rgb(sea).join(",") };
     });
     console.info("[da2-race contrast]", theme, JSON.stringify(ratios));
+    for (const colour of ["moi", "juste", "arcade", "embrun", "brume"]) expect(Object.keys(ratios.marks)).toContain(`runner colour ${colour} / sea`);
     for (const [mark, value] of Object.entries(ratios.marks)) expect(value, mark).toBeGreaterThanOrEqual(3);
     for (const [word, value] of Object.entries(ratios.words)) expect(value, word).toBeGreaterThanOrEqual(4.5);
     // The coast reads as land: it is not the sea's colour, in Aube included.

@@ -46,8 +46,10 @@ describe("semantic track", () => {
     expect(marker("a").match(/<circle/g)).toHaveLength(2);
     expect(marker("b")).toContain('data-sail="square"'); expect(marker("b").match(/<circle/g)).toHaveLength(1);
     expect(marker("b")).toContain(`data-colour="${marker("b").match(/data-route-colour="(\w+)"/)![1]}"`);
-    // At most five ships; every other runner stays a dot.
-    expect(html.match(/data-ship=/g)!.length).toBeLessThanOrEqual(5);
+    // Three named here (the leader, me, the runner behind me); every other runner stays a dot.
+    expect(html.match(/data-ship=/g)).toHaveLength(3);
+    // The chart's two words are marked, and no tether is drawn while no ship is beside its marker.
+    expect(html.match(/data-track-word=/g)).toHaveLength(2);
     expect(html.match(/data-runner=/g)).toHaveLength(12);
     // One pennant per name on the track, cut and coloured like its ship.
     expect(html.match(/data-pennant=/g)).toHaveLength(html.match(/data-ship=/g)!.length);
@@ -55,6 +57,16 @@ describe("semantic track", () => {
     // The coast is the finish, and the finish word stays.
     expect(html).toContain('data-coast="horizontal"'); expect(html).toContain('data-coast="vertical"');
     expect(html).toContain(raceTrackMessages.fr.finish); expect(html).toContain("data-compass");
+  });
+  it("ties a ship drawn beside its marker to it, in the runner's colour", () => {
+    const level: NonNullable<RaceClientState["progress"]> = { ...progress, entrants: Array.from({ length: 12 }, (_, i) => ({ entrantId: `r${String(i).padStart(2, "0")}`,
+      kind: "human" as const, status: "racing" as const, position: 5, length: 10, netWpm: 40, inactive: false })) };
+    const html = renderToStaticMarkup(createElement(RaceTrack, { progress: level, entrants: [], selfId: "r05", t: getDictionary("fr").races, locale: "fr" }));
+    const shifted = [...html.matchAll(/data-runner="(r\d+)"[^>]*style="[^"]*--ship-shift:(-?[\d.]+)/g)].filter(match => Number(match[2]) !== 0).map(match => match[1]!);
+    expect(shifted.length).toBeGreaterThan(0);
+    expect(shifted).not.toContain("r05");
+    for (const id of shifted) expect(html).toContain(`data-tether="${id}"`);
+    expect(html.match(/data-tether=/g)).toHaveLength(shifted.length);
   });
   it("gives every runner of the standings the pennant of its kind and route", () => {
     const html = renderToStaticMarkup(createElement(RaceStandings, { progress, entrants: [], selfId: "a", t: getDictionary("fr").races, locale: "fr" }));

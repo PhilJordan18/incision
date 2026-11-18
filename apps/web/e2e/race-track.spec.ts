@@ -77,8 +77,10 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     const colours = await track.locator("[data-runner]").evaluateAll(markers => markers.map(marker => {
       const id = marker.getAttribute("data-runner")!;
       const route = marker.closest("[data-testid=race-track]")!.querySelector(`polyline[data-route="${id}"]`)!;
-      return { marker: getComputedStyle(marker).backgroundColor, route: getComputedStyle(route).stroke, self: marker.hasAttribute("data-self"),
-        named: marker.querySelector("[data-ship]") !== null, dash: getComputedStyle(route).strokeDasharray,
+      // What is painted at the marker: a named runner's sail, an unnamed runner's dot.
+      const sail = marker.querySelector("[data-sail-cloth]");
+      return { marker: sail ? getComputedStyle(sail).fill : getComputedStyle(marker).backgroundColor, route: getComputedStyle(route).stroke, self: marker.hasAttribute("data-self"),
+        named: sail !== null, dash: getComputedStyle(route).strokeDasharray,
         pennant: getComputedStyle(document.querySelector(`[data-standing="${id}"] [data-pennant-cloth]`)!).fill };
     }));
     for (const colour of colours) expect(colour.route).toBe(colour.marker);
@@ -86,7 +88,8 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     // without a name on the chart is drawn grey there, on one faint dotted route).
     expect(new Set(colours.map(colour => colour.pennant)).size).toBe(5);
     const unnamed = colours.filter(colour => !colour.named);
-    expect(unnamed.length).toBe(count - colours.filter(colour => colour.named).length);
+    expect(colours).toHaveLength(count);
+    expect(unnamed.length).toBeGreaterThanOrEqual(count - 5); expect(unnamed.length).toBeLessThanOrEqual(count - 3);
     expect(new Set(unnamed.map(colour => `${colour.route}/${colour.dash}`)).size).toBe(1);
     const mine = colours.find(colour => colour.self)!;
     expect(mine.named).toBe(true);
@@ -186,7 +189,8 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     expect(systemColors.sail).toBe(systemColors.background);
     expect(systemColors.sail).not.toBe(systemColors.hull);
     expect(systemColors.edge).toBe(systemColors.sail);
-    expect(systemColors.background).not.toBe("rgba(0, 0, 0, 0)");
+    expect(systemColors.sail).not.toBe("rgba(0, 0, 0, 0)");
+    expect(systemColors.sail).not.toBe("none");
     await page.screenshot({ animations: "disabled", path: test.info().outputPath(`track-${theme}-forced-colors.png`), fullPage: true });
     await page.emulateMedia({ forcedColors: "none" });
     await context.unrouteAll({ behavior: "ignoreErrors" }); await fixture.route(context, true); await page.reload();

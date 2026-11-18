@@ -5,8 +5,13 @@ for the broadcast), written by `apps/web/e2e/da2-race.spec.ts` with `DA2_EVIDENC
 Names, speeds and ranks are the fixture's.
 
 File names: `course-<width>x<height>-<theme>-<language>-<runners>[-forced-colours|-zoom-200].jpg`.
+`*-by-the-coast.jpg`: every runner at the fixture's last position, 95 %, still racing.
 `before-dev-*.jpg` are the same race on `dev` at `e899596`, before this card (from
 `e2e/race-track.spec.ts`, cropped).
+
+**Simulated runners.** The 30 and 50 runners of these captures come from one browser and a
+rendering fixture that sends the broadcast; they are not 30 or 50 connected players. No real race
+with that many clients was run for this card. The fixture never sends 100 % or « finished ».
 
 | App capture | Reference (`docs/da/v2/captures/`, PR #208) | Before |
 |---|---|---|
@@ -18,6 +23,7 @@ File names: `course-<width>x<height>-<theme>-<language>-<runners>[-forced-colour
 | `course-1280x640-abysse-fr-30.jpg`, `course-1280x640-aube-fr-50.jpg` (low screen) | none | — |
 | `course-1440x900-abysse-fr-30-forced-colours.jpg`, `course-800x1000-aube-fr-30-forced-colours.jpg` | none | — |
 | `course-768x480-abysse-fr-30-zoom-200.jpg`, `course-768x480-aube-en-50-zoom-200.jpg` (200 % zoom) | none | — |
+| `course-1024x768-abysse-fr-30-by-the-coast.jpg`, `course-1280x640-aube-fr-50-by-the-coast.jpg`, `course-800x1000-abysse-fr-30-by-the-coast.jpg` | none | — |
 | `vocabulaire-pavillons.jpg` is the reference for the shapes | `vocabulaire-pavillons.jpg` | — |
 
 ## Pennant: mock-up and app, side by side
@@ -44,9 +50,16 @@ and dotted lines under the cloth are hard to tell apart.
 - **Unnamed runners** (my request of 18 November): on the chart they are grey dots on one faint
   dotted route, as the mock-up draws them; their colour and dash stay on their standings pennant
   and show on the chart as soon as they are named. `before-dev-*` shows them coloured.
-- **A ship that would sail under another** is drawn beside its marker (mine never moves); the
-  marker, the route and the connector keep the real position.
-- **« (toi) »** is never cut: a long name is shortened before it.
+- **A ship that would sail under mine** is drawn beside its marker, on the side of its own lane,
+  at most 10 % of the chart's width away, with a short tether in its colour (mine never moves);
+  the marker, the route and the connector keep the real position, and only the sideways drawing
+  shifts, never the progress. Two other ships may still touch one another.
+- **« (toi) »** is never cut, and on a chart narrower than 400 px (the 1024 px row, a phone) the
+  label drops its pennant and takes a wider column so that a short name is whole; the standings
+  keep every pennant.
+- **The two words on the land** (« ARRIVÉE », « + N autres coureurs ») sit on a plate of the land's
+  colour, above the ships: a ship reaching the coast passes behind them.
+- **Tablet chart**: a runner it does not name is grey there too, dot and route.
 - **Ships** are drawn at 85 % of the mock-up's size, so that they fit the shortest chart (12 rem).
 
 ## Contrast measured on the app (`race ships contrast`, 1440 × 900, 30 runners)
@@ -54,9 +67,10 @@ and dotted lines under the cloth are hard to tell apart.
 | Mark, against what is behind it | Abysse | Aube |
 |---|---|---|
 | Pennants on the standings panel (`embrun`, `juste`, `arcade`, `brume`, `moi`) | 12.17, 11.38, 7.13, 6.52, 10.96 | 12.87, 5.53, 6.65, 7.00, 5.00 |
-| Routes and sails on the sea (same five) | 11.53, 10.78, 6.75, 6.17, 10.38 | 10.75, 4.62, 5.55, 5.84, 4.17 |
+| A named runner's route and sail on the sea (same five) | 11.53, 10.78, 6.75, 6.17, 10.38 | 10.75, 4.62, 5.55, 5.84, 4.17 |
 | Hull and compass line on the sea | 15.51 | 15.82 |
 | Unnamed dot (grey, 75 %) on the sea | 3.99 | 3.43 |
+| Unnamed route (grey, 45 %, dotted): a faint ornament, measured, not held to 3:1 | 2.27 | 1.96 |
 | Coast edge on the sea | 4.35 | 4.78 |
 | Finish word on the land | 7.26 | 4.95 |
 | « + N autres coureurs » on the land | 10.85 | 9.20 |

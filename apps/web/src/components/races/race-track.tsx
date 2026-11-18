@@ -47,7 +47,7 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
       {/* The finish is a coast: one drawing, along the top (vertical chart) or the right (horizontal). */}
       <div className={`${styles.coast} ${styles.verticalOnly}`}><Coast orientation="horizontal" /></div>
       <div className={`${styles.coast} ${styles.horizontalOnly}`}><Coast orientation="vertical" /></div>
-      <span className={`${styles.finishText} font-mono text-xs uppercase tracking-widest`}>{text.finish}</span>
+      <span data-track-word="finish" className={`${styles.finishText} font-mono text-xs uppercase tracking-widest`}>{text.finish}</span>
       {/* Away from the text sheet, under the routes: it measures nothing and never moves. */}
       <Compass heading={-90} className={`${styles.compass} ${styles.verticalOnly}`} />
       <Compass heading={0} className={`${styles.compass} ${styles.horizontalOnly}`} />
@@ -57,10 +57,16 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
           className={`${styles.route} ${routeClass(point)}`} />)}
         {points.filter((point) => point.labelled).map((point) => <line key={point.runner.entrantId} className={styles.connector}
           x1={point.x} y1={point.y} x2="63" y2={point.labelY} />)}
+        {/* A ship drawn beside its marker stays tied to it, in its own colour. */}
+        {points.filter((point) => point.labelled && point.shipShift !== 0).map((point) => <line key={point.runner.entrantId} data-tether={point.runner.entrantId}
+          className={`${styles.tether} ${styles[point.route.colour]}`} x1={point.x} y1={point.y} x2={point.x + point.shipShift} y2={point.y} />)}
       </svg>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={`${styles.routes} ${styles.horizontalRoutes}`}>
-        {points.map((point) => <polyline key={point.runner.entrantId} points={point.horizontalPath}
-          className={`${styles.route} ${routeClass(point)}`} />)}
+        {/* This chart names two runners only (me and the leader): every other route is an unnamed one. */}
+        {points.map((point) => <polyline key={point.runner.entrantId} points={point.horizontalPath} data-horizontal-route={point.runner.entrantId}
+          className={`${styles.route} ${routeClass(point, point.self || point.tone === "leader")}`} />)}
+        {points.filter((point) => (point.self || point.tone === "leader") && point.horizontalShipShift !== 0).map((point) => <line key={point.runner.entrantId}
+          className={`${styles.tether} ${styles[point.route.colour]}`} x1={point.horizontalX} y1={point.horizontalY} x2={point.horizontalX} y2={point.horizontalY + point.horizontalShipShift} />)}
       </svg>
       {points.map((point) => {
         const { runner } = point;
@@ -69,12 +75,12 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
         const leader = point.tone === "leader";
         const position = { "--point-x": `${point.x}%`, "--point-y": `${point.y}%`, "--label-y": `${point.labelY}%`,
           "--horizontal-x": `${point.horizontalX}%`, "--horizontal-y": `${point.horizontalY}%`,
-          "--horizontal-label-x": `${Math.max(2, Math.min(60, point.horizontalX - 5))}%`, "--ship-shift": point.shipShift } as CSSProperties;
+          "--horizontal-label-x": `${Math.max(2, Math.min(60, point.horizontalX - 5))}%`, "--ship-shift": point.shipShift, "--horizontal-ship-shift": point.horizontalShipShift } as CSSProperties;
         return <div key={runner.entrantId}>
           {/* The marker is the runner's real position: a dot, or the foot of a named runner's ship. */}
           <span data-runner={runner.entrantId} data-self={point.self || undefined} data-kind={runner.kind} data-position={runner.position}
             data-route-colour={point.route.colour} data-route-dash={point.route.dash} style={position}
-            className={`${styles.point} ${point.labelled ? `${styles.named} ${styles[point.route.colour]}` : styles.anon} ${point.self ? styles.self : ""} ${leader ? styles.leader : ""} ${runner.kind === "bot" ? styles.bot : ""}`}>
+            className={`${styles.point} ${point.labelled ? `${styles.named} ${styles[point.route.colour]}` : styles.anon} ${point.self ? styles.self : ""} ${leader ? styles.leader : ""}`}>
             {point.labelled && <Ship kind={runner.kind} colour={point.route.colour} self={point.self} leader={leader} className={styles.ship} />}
           </span>
           {point.labelled && <span data-track-label style={position} className={`${styles.label} ${point.self ? styles.selfLabel : ""} ${leader ? styles.leaderLabel : ""}`}>
@@ -87,7 +93,7 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
           </span>}
         </div>;
       })}
-      <span className={`${styles.more} font-mono text-xs`}>
+      <span data-track-word="others" className={`${styles.more} font-mono text-xs`}>
         <span className={styles.verticalMore}>{points.length === 0 ? text.empty : others > 0 ? `+ ${formatNumber(others, locale)} ${text.others}` : ""}</span>
         <span className={styles.horizontalMore}>{points.length === 0 ? text.empty : horizontalOthers > 0 ? `+ ${formatNumber(horizontalOthers, locale)} ${text.others}` : ""}</span>
       </span>
@@ -95,9 +101,9 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
   </section>;
 });
 
-function routeClass(point: TrackPoint): string {
+function routeClass(point: TrackPoint, named = point.labelled): string {
   // A runner without a name on the chart sails a faint grey dotted route; its own colour and dash
   // show as soon as it is named, and always on its pennant in the standings.
-  if (!point.labelled) return styles.anonRoute ?? "";
+  if (!named) return styles.anonRoute ?? "";
   return `${styles[point.route.colour]} ${styles[point.route.dash]} ${point.self ? styles.selfRoute : styles.namedRoute}`;
 }
