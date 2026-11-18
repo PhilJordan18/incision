@@ -480,6 +480,8 @@ for (const option of THEMES) {
       // The theme a person chose (here through the system scheme) must not bring token colours back.
       await setTheme(page, option);
       await expect(scene(page, name)).toBeVisible();
+      // What the colour check leaves aside (the chart's grid) is really not drawn.
+      for (const left of await scene(page, name).locator(".forced-colors\\:hidden").all()) await expect(left).toBeHidden();
       expect(await authoredColours(scene(page, name)), `${name} uses system colours only`).toEqual([]);
       // A viewport capture: headless Chromium drops the forced rendering in a full-page one.
       await capture(page, `${shot}-fr-forced-colours-${option.theme}-1440`, false);
