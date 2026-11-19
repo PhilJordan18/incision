@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isLocalDatabase } from "@incision/database";
 import { asDuration, computeMeasures } from "@incision/domain";
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { forgeSessionCookie, query, SESSION_COOKIE } from "./support";
@@ -117,4 +118,38 @@ export async function giveUp(page: Page): Promise<void> {
 
 export async function expectResults(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/Fin de la|End of the/i, { timeout: 30_000 });
+}
+
+/** The only databases a table may be set aside on: the ones `prepare-database.ts` drops and rebuilds at every run. */
+const DISPOSABLE_DATABASE = /^incision_e2e\w*$/;
+
+/** True for a database on this machine named `incision_e2e*`: never a shared, acceptance or production one. */
+export function isDisposableDatabase(connectionString: string): boolean {
+  try {
+    return isLocalDatabase(connectionString) && DISPOSABLE_DATABASE.test(new URL(connectionString).pathname.slice(1));
+  } catch {
+    return false;
+  }
+}
+
+function requireDisposableDatabase(): void {
+  if (!isDisposableDatabase(process.env.E2E_DATABASE_URL ?? "")) {
+    throw new Error("The results table is only ever set aside on a local incision_e2e* database");
+  }
+}
+
+/**
+ * Puts the results table out of reach, so the pages show their "unavailable" cards. Checked here,
+ * before the statement, and not only when the run starts: it can reach nothing but the disposable
+ * E2E database. Always paired with `restoreResultsTable` in a `finally`.
+ */
+export async function setResultsTableAside(): Promise<void> {
+  requireDisposableDatabase();
+  await query("alter table race_results rename to race_results_away");
+}
+
+/** Puts the table back; also run before a spec, in case an earlier run was cut short. No effect when nothing was set aside. */
+export async function restoreResultsTable(): Promise<void> {
+  requireDisposableDatabase();
+  await query("alter table if exists race_results_away rename to race_results");
 }

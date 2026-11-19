@@ -1,8 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { crew, expectResults, giveUp, roomResults, sailor, seedRace, setLocale, setTheme } from "./da2-results-fixture";
-import { query } from "./support";
+import { crew, expectResults, giveUp, restoreResultsTable, roomResults, sailor, seedRace, setLocale, setResultsTableAside, setTheme } from "./da2-results-fixture";
 
 /**
  * Evidence captures of the screens after the race (DA2-7), from the running app. Not a check:
@@ -14,7 +13,7 @@ test.skip(out === undefined, "DA2_CAPTURES is not set");
 
 const contexts: BrowserContext[] = [];
 // A run cut short while the results table was set aside must not break the next one. Disposable test database only.
-test.beforeAll(async () => { await query("alter table if exists race_results_away rename to race_results"); });
+test.beforeAll(restoreResultsTable);
 test.afterEach(async () => { await Promise.all(contexts.splice(0).map((context) => context.close())); });
 
 const SIZES = {
@@ -28,10 +27,10 @@ type Size = keyof typeof SIZES;
 type Theme = "abysse" | "aube";
 type Shot = readonly [locale: "fr" | "en", theme: Theme, size: Size];
 
-/** French in Abysse at every width, in Aube at three; English once per theme. */
+/** French in Abysse at every size, in Aube at 1440, 1024, 390 and the low screen; English once per theme. */
 const MATRIX: readonly Shot[] = [
   ["fr", "abysse", "1440"], ["fr", "abysse", "1024"], ["fr", "abysse", "390"], ["fr", "abysse", "360"], ["fr", "abysse", "1280x640"],
-  ["fr", "aube", "1440"], ["fr", "aube", "390"], ["fr", "aube", "1280x640"],
+  ["fr", "aube", "1440"], ["fr", "aube", "1024"], ["fr", "aube", "390"], ["fr", "aube", "1280x640"],
   ["en", "abysse", "1440"], ["en", "aube", "1440"],
 ];
 
@@ -131,13 +130,13 @@ test("captures: history and account", async ({ browser }) => {
     await expect(page.locator("#display-name-error")).toBeVisible();
   }, [["fr", "abysse", "1440"], ["fr", "aube", "1440"], ["fr", "aube", "390"]]);
   // The unavailable cards: the results table is out of reach on this disposable database only.
-  await query("alter table race_results rename to race_results_away");
+  await setResultsTableAside();
   try {
     await matrix(page, "history-unavailable", async () => { await page.goto("/history"); },
       [["fr", "abysse", "1440"], ["fr", "aube", "1440"], ["fr", "aube", "390"]]);
     await matrix(page, "account-statistics-unavailable", async () => { await page.goto("/account"); },
       [["fr", "abysse", "1440"], ["fr", "aube", "1440"], ["fr", "aube", "390"]]);
   } finally {
-    await query("alter table race_results_away rename to race_results");
+    await restoreResultsTable();
   }
 });

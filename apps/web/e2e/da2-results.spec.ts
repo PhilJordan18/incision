@@ -1,5 +1,5 @@
 import { type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
-import { crew, expectResults, giveUp, roomResults, sailor, seedRace, setLocale, setTheme } from "./da2-results-fixture";
+import { crew, expectResults, giveUp, isDisposableDatabase, restoreResultsTable, roomResults, sailor, seedRace, setLocale, setResultsTableAside, setTheme } from "./da2-results-fixture";
 import { expectNoAccessibilityViolation, expectNoHorizontalScroll, query } from "./support";
 
 /**
@@ -8,7 +8,7 @@ import { expectNoAccessibilityViolation, expectNoHorizontalScroll, query } from 
  */
 const contexts: BrowserContext[] = [];
 // A run cut short while the results table was set aside must not break the next one. Disposable test database only.
-test.beforeAll(async () => { await query("alter table if exists race_results_away rename to race_results"); });
+test.beforeAll(restoreResultsTable);
 test.afterEach(async () => { await Promise.all(contexts.splice(0).map((context) => context.close())); });
 
 type Drawn = { readonly shape: string | null; readonly colour: string | null; readonly dash: string | null };
@@ -290,7 +290,7 @@ for (const locale of ["fr", "en"] as const) test(`history and account: wave mark
     await expect(page.locator('[data-stat="races"]')).toHaveText("3");
   });
   // Unavailable cards: the results table is out of reach, on this disposable database only.
-  await query("alter table race_results rename to race_results_away");
+  await setResultsTableAside();
   try {
     await check("/history", async () => {
       await expect(page.getByRole("main").getByRole("alert")).toHaveText(fr ? "Ton historique est indisponible pour le moment." : "Your history is unavailable right now.");
@@ -300,7 +300,7 @@ for (const locale of ["fr", "en"] as const) test(`history and account: wave mark
       await expect(page.locator("[data-stat]")).toHaveCount(0);
     });
   } finally {
-    await query("alter table race_results_away rename to race_results");
+    await restoreResultsTable();
   }
 });
 
@@ -501,4 +501,24 @@ test("forced colours: wave marks, pennants and the coast take system colours on 
     await expect(page.getByRole("table").first().getByText(/\((toi|you)\)/)).toHaveCount(1);
     await expectNoHorizontalScroll(page);
   }
+});
+
+test("the results table is only ever set aside on a disposable local database", () => {
+  // The database of this run is one.
+  expect(isDisposableDatabase(process.env.E2E_DATABASE_URL ?? "")).toBe(true);
+  expect(isDisposableDatabase("postgresql://u:p@localhost:5433/incision_e2e")).toBe(true);
+  expect(isDisposableDatabase("postgresql://u:p@127.0.0.1:5432/incision_e2e_integration")).toBe(true);
+  // Never the development, acceptance or production databases, wherever they are.
+  for (const refused of [
+    "",
+    "not a url",
+    "postgresql://u:p@localhost:5432/incision",
+    "postgresql://u:p@localhost:5432/postgres",
+    "postgresql://u:p@localhost:5432/incision_recette",
+    "postgresql://u:p@localhost:5432/xincision_e2e",
+    "postgresql://u:p@db.example.com:5432/incision_e2e",
+    "postgresql://u:p@db.example.com:5432/incision_e2e?sslmode=require",
+    // A `host` parameter must not make a remote server look local.
+    "postgresql://u:p@localhost:5432/incision_e2e?host=db.example.com",
+  ]) expect(isDisposableDatabase(refused), refused).toBe(false);
 });
