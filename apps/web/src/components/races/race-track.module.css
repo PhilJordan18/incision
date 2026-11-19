@@ -213,7 +213,8 @@
   .label { display: none; }
   .selfLabel, .leaderLabel { display: block; left: var(--horizontal-label-x); width: 24%; top: 91%; }
   .leaderLabel { top: 74%; }
-  .more { top: auto; right: auto; bottom: 4px; left: 12px; font-size: 10px; }
+  /* Top left, clear of the two names along the bottom. */
+  .more { top: 6px; right: auto; left: 12px; font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .point, .label, .ship { transition: none !important; }

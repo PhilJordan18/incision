@@ -66,6 +66,7 @@ async function chartBoxes(page: Page) {
       compass: [...track.querySelectorAll("[data-compass]")].filter(visible).map(box),
       ships: [...track.querySelectorAll("[data-ship]")].filter(visible).map(el => box(el.querySelector("path:last-of-type")!)),
       mine: [...track.querySelectorAll("[data-self] [data-ship]")].filter(visible).map(el => box(el.querySelector("path:last-of-type")!)),
+      others: [...track.querySelectorAll("[data-runner]:not([data-self]) [data-ship]")].filter(visible).map(el => box(el.querySelector("path:last-of-type")!)),
       sails: [...track.querySelectorAll("[data-ship]")].filter(visible).map(el => box(el.querySelector("[data-sail-cloth]")!)),
       words: [...track.querySelectorAll("[data-track-word]")].map(el => ({ ...box(el), layer: Number(getComputedStyle(el).zIndex), plate: getComputedStyle(el).backgroundColor,
         above: Math.max(...[...track.querySelectorAll("[data-runner]")].map(marker => Number(getComputedStyle(marker).zIndex) || 0)) })),
@@ -137,10 +138,12 @@ for (const item of cases) {
       expect(word.plate).toMatch(/^(rgb\(|color\(srgb [\d. ]+\)$)/);
     }
     // No ship over mine: one that would cover it is drawn beside its marker (two others may touch).
-    for (const hull of boxes.ships) for (const mine of boxes.mine) if (hull.left !== mine.left) expect(overlap(hull, mine), "a hull over mine").toBe(false);
-    // A ship drawn beside its marker is tied to it; the others have no tether.
-    expect(await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].filter(marker => marker.querySelector("[data-ship]"))
-      .every(marker => (Number(marker.style.getPropertyValue("--ship-shift")) !== 0) === (el.querySelector(`[data-tether="${marker.dataset.runner}"]`) !== null)))).toBe(true);
+    expect(boxes.mine).toHaveLength(1);
+    for (const hull of boxes.others) expect(overlap(hull, boxes.mine[0]!), "a hull over mine").toBe(false);
+    // A ship drawn beside its marker is tied to it; the others have no tether (each chart has its own).
+    expect(await track.evaluate((el, tablet) => [...el.querySelectorAll<HTMLElement>("[data-runner]")].filter(marker => marker.querySelector("[data-ship]"))
+      .every(marker => (Number(marker.style.getPropertyValue(tablet ? "--horizontal-ship-shift" : "--ship-shift")) !== 0)
+        === (el.querySelector(`[${tablet ? "data-horizontal-tether" : "data-tether"}="${marker.dataset.runner}"]`) !== null)), horizontal)).toBe(true);
     // On the tablet's chart, every runner it does not name is grey, dot and route alike, as « + N » counts them.
     if (horizontal) {
       const crew = await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].map(marker => ({ ship: marker.querySelector("[data-ship]")?.getBoundingClientRect().width ?? 0,

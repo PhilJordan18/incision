@@ -50,10 +50,12 @@ and dotted lines under the cloth are hard to tell apart.
 - **Unnamed runners** (my request of 18 November): on the chart they are grey dots on one faint
   dotted route, as the mock-up draws them; their colour and dash stay on their standings pennant
   and show on the chart as soon as they are named. `before-dev-*` shows them coloured.
-- **A ship that would sail under mine** is drawn beside its marker, on the side of its own lane,
+- **A ship that would sail under mine** is, nearly always, drawn beside its marker, on the side of its own lane,
   at most 10 % of the chart's width away, with a short tether in its colour (mine never moves);
   the marker, the route and the connector keep the real position, and only the sideways drawing
-  shifts, never the progress. Two other ships may still touch one another.
+  shifts, never the progress. Two other ships may still touch one another, and a ship held by
+  the 10 % reach or the chart's edge can still touch mine (measured by simulation: under 0.5 % of
+  neighbours mid-race, about 3.6 % when everyone is exactly level, as on the start line).
 - **« (toi) »** is never cut, and on a chart narrower than 400 px (the 1024 px row, a phone) the
   label drops its pennant and takes a wider column so that a short name is whole; the standings
   keep every pennant.

@@ -119,7 +119,7 @@ export const SHIP_BERTHS: ShipBerths = { clear: 7.5, level: 16, ease: 4, min: 4,
 export const HORIZONTAL_SHIP_BERTHS: ShipBerths = { clear: 18, level: 4, ease: 1.5, min: 14, max: 62, reach: 20 };
 
 /** A ship to place: its fixed lane's rank, its marker across the lanes (`across`) and along the course (`along`). */
-type Berthing = { readonly id: string; readonly self: boolean; readonly lane: number; readonly across: number; readonly along: number };
+type Berthing = { readonly id: string; readonly self: boolean; readonly lane: number; /** The fixed lane's own place across the chart, without the route's swing. */ readonly berth: number; readonly across: number; readonly along: number };
 
 /**
  * My neighbours ahead and behind are named because they are at my progress: their ships would
@@ -144,6 +144,11 @@ function shipShifts(ships: readonly Berthing[], berths: ShipBerths): ReadonlyMap
   // Nearest lane first on each side; the lower side first, so the upper side also clears it.
   const lower = others.filter((ship) => ship.lane < anchor.lane).sort((a, b) => b.lane - a.lane);
   const upper = others.filter((ship) => ship.lane > anchor.lane).sort((a, b) => a.lane - b.lane);
+  // A side without room for one ship beside the fixed one (it sails by an edge) sends its ships to
+  // the other side. Decided from the lanes, fixed for the round, never from a position.
+  const room = berths.clear + SWING;
+  if (anchor.berth - berths.min < room && berths.max - anchor.berth >= room) upper.unshift(...lower.splice(0).reverse());
+  else if (berths.max - anchor.berth < room && anchor.berth - berths.min >= room) lower.unshift(...upper.splice(0).reverse());
   for (const [side, group] of [[-1, lower], [1, upper]] as const) {
     for (const ship of group) {
       let across = ship.across;
@@ -173,13 +178,16 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
   // A tie is not a win: no gold leader at the start or among tied finishers.
   const leader = first && ratio(first) > 0 && (active[1] === undefined || ratio(first) > ratio(active[1])) ? first.entrantId : undefined;
   const routes = routeStyles(stable, selfId);
+  const share = (index: number) => stable.length <= 1 ? 0.5 : index / (stable.length - 1);
+  const laneOf = (index: number) => 16 + 39 * share(index);
+  const horizontalLaneOf = (index: number) => 16 + 40 * share(index);
   const raw = stable.map((runner, index) => {
     const id = runner.entrantId;
     // A fixed lane per runner (its place in the crew by id), so that a route never jumps sideways.
     // The lanes leave the chart's bottom-left corner (vertical) and bottom edge (horizontal) to the
     // compass and the names: a ship never starts or sails over them.
-    const lane = 16 + 39 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
-    const horizontalLane = 16 + 40 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
+    const lane = laneOf(index);
+    const horizontalLane = horizontalLaneOf(index);
     const vertical = (t: number) => [lane + swing(t, id), trackY(t)] as const;
     const horizontal = (t: number) => [trackX(t), horizontalLane + swing(t, id)] as const;
     const progress = ratio(runner);
@@ -205,9 +213,9 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
   const labelPositions = new Map(labels.map((point, i) => [point.runner.entrantId, positions[i]!]));
   // Markers stay at the end of their own route: never moved aside for a label.
   const berthing = raw.map((point, lane) => ({ point, id: point.runner.entrantId, self: point.self, lane }));
-  const shifts = shipShifts(berthing.filter(({ point }) => point.labelled).map(({ point, ...ship }) => ({ ...ship, across: point.x, along: point.y })), SHIP_BERTHS);
+  const shifts = shipShifts(berthing.filter(({ point }) => point.labelled).map(({ point, ...ship }) => ({ ...ship, berth: laneOf(ship.lane), across: point.x, along: point.y })), SHIP_BERTHS);
   const horizontalShifts = shipShifts(berthing.filter(({ point }) => point.self || point.tone === "leader")
-    .map(({ point, ...ship }) => ({ ...ship, across: point.horizontalY, along: point.horizontalX })), HORIZONTAL_SHIP_BERTHS);
+    .map(({ point, ...ship }) => ({ ...ship, berth: horizontalLaneOf(ship.lane), across: point.horizontalY, along: point.horizontalX })), HORIZONTAL_SHIP_BERTHS);
   return raw.map((point) => ({ ...point, labelY: labelPositions.get(point.runner.entrantId) ?? point.y,
     shipShift: shifts.get(point.runner.entrantId) ?? 0, horizontalShipShift: horizontalShifts.get(point.runner.entrantId) ?? 0 }));
 }

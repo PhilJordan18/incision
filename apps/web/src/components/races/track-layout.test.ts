@@ -45,7 +45,7 @@ describe("named ships", () => {
     expect(stopped).toBeLessThanOrEqual(pairs * 0.03);
   });
 
-  it.each([6, 30, 50])("slides a ship between two broadcasts, never jumps, among %i runners", count => {
+  it.each([6, 30, 50])("slides a ship by little between two small advances while the same runners are named, among %i runners", count => {
     const random = sequence(count + 7);
     const speeds = runners(count).map(() => 0.5 + random());
     let previous: ReturnType<typeof drawnShips> | undefined;
@@ -84,6 +84,15 @@ describe("named ships", () => {
     expect(watched).toHaveLength(2);
     expect(watched[0]!.shipShift).toBe(0);
     expect(watched[1]!.x + watched[1]!.shipShift - watched[0]!.x).toBeGreaterThanOrEqual(SHIP_BERTHS.clear - 0.02);
+  });
+
+  it("berths the leader on the side that has room when I sail by an edge of the tablet's chart", () => {
+    for (const mineId of ["runner-00", "runner-11"]) {
+      const leaderId = mineId === "runner-00" ? "runner-01" : "runner-10";
+      const points = trackLayout(runners(12).map(r => ({ ...r, position: r.entrantId === leaderId ? 61 : r.entrantId === mineId ? 60 : 10 })), mineId);
+      const mine = points.find(p => p.self)!; const leader = points.find(p => p.tone === "leader")!;
+      expect(Math.abs(leader.horizontalY + leader.horizontalShipShift - mine.horizontalY)).toBeGreaterThanOrEqual(HORIZONTAL_SHIP_BERTHS.clear - 0.02);
+    }
   });
 
   it("separates my ship and the leader's on the tablet's chart, and moves no other", () => {

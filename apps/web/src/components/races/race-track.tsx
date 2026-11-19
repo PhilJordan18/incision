@@ -65,7 +65,7 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
         {/* This chart names two runners only (me and the leader): every other route is an unnamed one. */}
         {points.map((point) => <polyline key={point.runner.entrantId} points={point.horizontalPath} data-horizontal-route={point.runner.entrantId}
           className={`${styles.route} ${routeClass(point, point.self || point.tone === "leader")}`} />)}
-        {points.filter((point) => (point.self || point.tone === "leader") && point.horizontalShipShift !== 0).map((point) => <line key={point.runner.entrantId}
+        {points.filter((point) => (point.self || point.tone === "leader") && point.horizontalShipShift !== 0).map((point) => <line key={point.runner.entrantId} data-horizontal-tether={point.runner.entrantId}
           className={`${styles.tether} ${styles[point.route.colour]}`} x1={point.horizontalX} y1={point.horizontalY} x2={point.horizontalX} y2={point.horizontalY + point.horizontalShipShift} />)}
       </svg>
       {points.map((point) => {
