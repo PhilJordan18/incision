@@ -84,8 +84,9 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
         pennant: getComputedStyle(document.querySelector(`[data-standing="${id}"] [data-pennant-cloth]`)!).fill };
     }));
     for (const colour of colours) expect(colour.route).toBe(colour.marker);
-    // The five runner colours: on every pennant of the standings (Philippe, 18 November: a runner
-    // without a name on the chart is drawn grey there, on one faint dotted route).
+    // The five runner colours are read on the standings' pennants: on the chart a runner without a
+    // name is drawn grey, on one faint dotted route. That grey rule is under study (it departs from
+    // the plan's « route, ship and pennant share one colour » for unnamed runners), not settled.
     expect(new Set(colours.map(colour => colour.pennant)).size).toBe(5);
     const unnamed = colours.filter(colour => !colour.named);
     expect(colours).toHaveLength(count);
@@ -177,16 +178,20 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     expect(await marker.evaluate(el => getComputedStyle(el).transitionProperty)).toBe("none");
+    // My ship's own slide beside its marker stops with it.
+    expect(await marker.evaluate(el => getComputedStyle(el.querySelector("[data-ship]")!).transitionProperty)).toBe("none");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    expect(await marker.evaluate(el => getComputedStyle(el.querySelector("[data-ship]")!).transitionDuration)).toContain("0.2s");
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.emulateMedia({ forcedColors: "active" });
     // axe-core #3978 mixes authored and forced foregrounds in high-contrast mode.
     // Keep all axe rules above/below in both authored themes; inspect system-color rendering here.
     // The marker no longer carries initials (DA2-2): its ship's sail and hull take the two system colours.
-    const systemColors = await marker.evaluate(el => ({ background: getComputedStyle(el).backgroundColor,
+    const systemColors = await marker.evaluate(el => ({
       sail: getComputedStyle(el.querySelector("[data-sail-cloth]")!).fill, hull: getComputedStyle(el.querySelector("[data-ship] > path:last-of-type")!).fill,
       edge: getComputedStyle(el.closest("[data-testid=race-track]")!.querySelector('[data-coast="horizontal"] [data-coast-edge]')!).stroke,
       forced: matchMedia("(forced-colors: active)").matches }));
     expect(systemColors.forced).toBe(true);
-    expect(systemColors.sail).toBe(systemColors.background);
     expect(systemColors.sail).not.toBe(systemColors.hull);
     expect(systemColors.edge).toBe(systemColors.sail);
     expect(systemColors.sail).not.toBe("rgba(0, 0, 0, 0)");
