@@ -38,7 +38,8 @@ const copy: Record<Locale, HomeRouteCopy> = {
     stops: ["Escale 01", "Escale 02", "Escale 03", "Escale 04"],
     departureLabel: "Départ",
     quayTitleBold: "Prêt à lever",
-    quayTitleSerif: "l’ancre ?",
+    // A narrow no-break space keeps the question mark with its word (French typography).
+    quayTitleSerif: "l’ancre\u202f?",
     quayCodeContext: "au quai de départ",
     quayJoin: "Embarquer avec ce code",
     scenes: {

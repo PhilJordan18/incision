@@ -57,7 +57,7 @@ export function QuayJoinForm({ t, codeContext, joinLabel, besideAction }: QuayJo
           aria-describedby={state.error !== undefined ? "quay-room-code-error" : undefined}
           className={`${textFieldBase} h-14 w-48 font-mono text-xl tracking-[0.2em] uppercase`}
         />
-        <SubmitButton label={joinLabel} pendingLabel={t.joining} className={`${secondaryButton} h-14`} />
+        <SubmitButton label={joinLabel} pendingLabel={t.joining} className={`${secondaryButton} h-14!`} />
         {besideAction}
       </div>
       {state.error !== undefined && (

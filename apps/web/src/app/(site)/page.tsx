@@ -31,7 +31,7 @@ export default async function Home() {
           <JoinCodeForm
             t={t.home}
             besideAction={
-              <Link href="/rooms/new" className={`${secondaryButton} h-14`}>
+              <Link href="/rooms/new" className={`${secondaryButton} h-14!`}>
                 {t.home.createRoom}
               </Link>
             }

@@ -27,7 +27,7 @@ export function Quay({ locale, t }: { readonly locale: Locale; readonly t: Dicti
             codeContext={route.quayCodeContext}
             joinLabel={route.quayJoin}
             besideAction={
-              <Link href="/rooms/new" className={`${discreetButton} h-14`}>
+              <Link href="/rooms/new" className={`${discreetButton} h-14!`}>
                 {t.home.createRoom}
               </Link>
             }
