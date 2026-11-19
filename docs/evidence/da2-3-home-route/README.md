@@ -1,6 +1,6 @@
 # DA2-3 and DA2-4 — Home: first frame, route map, quay
 
-Evidence for the long home page of the second art direction, C1 « Cap ». Branch `feat/da2-3-home-route`, started from `feat/da2-0-nautical-primitives`. Application code measured at `e7d865a`; the commits after it only add this folder.
+Evidence for the long home page of the second art direction, C1 « Cap ». Branch `feat/da2-3-home-route`, started from `feat/da2-0-nautical-primitives`. Application code delivered at `397f486`; the commits after it only add this folder. The full end-to-end run was made on `e7d865a`; the one code commit after it (`397f486`) was checked with the repository commands and the two home specs, as detailed below.
 
 Official requirements concerned: DES-04, JOIN-01, I18N-01, DES-05, DES-06, A11Y-01, A11Y-02 (choice D-15). The cards `DA2-n` are working labels and add no requirement. `docs/EXIGENCES.md` is not edited here.
 
@@ -30,12 +30,12 @@ The references are the approved mock-ups archived by DA2-1 in `docs/da/v2/captur
 
 | Check | Result |
 |---|---|
-| `npm run check:no-js`, `lint`, `typecheck`, `build` at `e7d865a` | pass |
-| `npm test` at `e7d865a` | pass: 2,687 unit tests (1,139 + 157 + 1,259 + 21 + 111), no skip |
-| `e2e/design.spec.ts` and `e2e/account-journey.spec.ts` (unchanged) | all 28 pass inside the full suite below; `account-journey.spec.ts` is byte-identical to `dev` |
+| `npm run check:no-js`, `lint`, `typecheck`, `build` at `e7d865a` and at `397f486` | pass |
+| `npm test` at `e7d865a` and at `397f486` | pass: 2,687 unit tests (1,139 + 157 + 1,259 + 21 + 111), no skip |
+| `e2e/design.spec.ts` and `e2e/account-journey.spec.ts` (unchanged) | 28 pass inside the full suite below; 30 passed at `397f486` (two tests added); `account-journey.spec.ts` is byte-identical to its version on `dev` when this branch started |
 | Full `npm run test:e2e -w @incision/web` at `e7d865a` | 261 passed, 0 failed, 0 skipped, no retry (16.6 min). The run rewrites older screenshots under `docs/evidence/`; they were restored and are not part of this branch |
 | Horizontal scroll, FR and EN, Abysse and Aube, at 1440 × 800, 1366 × 700, 1280 × 640, 1024 × 768, 390, 360, 320, 1920, 2560 px and 200 % zoom (40 combinations) | none; no clipped text |
-| Entry actions in the first frame | bottom of « Rejoindre la salle » at 660 px (1440 × 800), 580 px (1366 × 700), 558 px (1280 × 640), 616 px (1024 × 768) |
+| Entry actions in the first frame | bottom of « Rejoindre la salle » at 660 px (1440 × 800), 580 px (1366 × 700), 558 px (1280 × 640), 616 px (1024 × 768). At 390 × 844 it ends at 955 px: on a phone the scene comes first, as the mock-up draws, and the actions need one short scroll |
 | Keyboard only, both themes | 13 tab stops in DOM order (7 in the header, 3 in the first frame, 3 on the quay); a 3 px ring on each; smallest target 44 × 44 px |
 | Accessibility tree | `h1`, `h2` « Les repères de ta traversée », four `h3`, `h2` « Prêt à lever l'ancre ? »; text boxes named « Code de salle » and « Code de salle — au quai de départ »; the guide region holds four list items |
 | axe, WCAG 2.1 A and AA, Abysse and Aube, at 360, 390, 1024 and 1440 px | no violation (`design.spec.ts`, `account-journey.spec.ts`) |
@@ -45,6 +45,8 @@ The references are the approved mock-ups archived by DA2-1 in `docs/da/v2/captur
 Contrast in Aube, computed from the tokens: body text 11.8:1; `brume` labels 5.8:1 on `mer` and 6.4:1 on `abysse`; the finish word on the coast 4.95:1; the coast's edge 4.78:1 against the sea and 4.09:1 against the land; my route and the dotted spine 4.17:1 on `mer`; `brume` sails 5.8:1; field border 3.54:1 on `mer`; focus ring 4.17:1 on `mer`, 4.57:1 on `abysse`. In Abysse the lowest pair is the coast's edge against the land, 4.09:1. Two pairs are below 3:1 on purpose and carry no information: the `houle` wave marks behind the bands (1.3:1) and the land's fill against the sea (1.2:1), which the 4 px `ligne` edge delimits.
 
 ## Reviews
+
+A third, independent static review of the pull request at `b755b3a` found nothing blocking. Applied in `397f486`: the logbook's three pennants and the rings of my ship and of the leader now come from the shared primitives (the hand-drawn swallow-tail pennant is gone), and the first frame is also tested at 1024 × 768 and, for its order, at 390 px. The captures in this folder were taken again on `397f486`.
 
 Two read-only reviews ran on `fef09be`, before the last fixes: code and UI/UX. Fixed since: the Arcade drawing no longer ties a bonus to a milestone (the rules draw it at random), the route map keeps the mock-up's medium sizes between 1024 and 1279 px, scene labels no longer cross a drawing, the chart grid and wave marks leave the scenes in forced colours. Kept and listed below: the copy of the join form, the `:has()` rule on the shell.
 
