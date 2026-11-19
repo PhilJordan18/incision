@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Pennant } from "@/components/nautical";
 import styles from "./home.module.css";
 import { GlassCompass, Isle, Lighthouse, sceneCaption, SceneShip } from "./scene-parts";
 
@@ -162,8 +163,7 @@ export function ModesScene({ words }: { readonly words: ModesSceneWords }) {
         strokeLinecap="round"
       />
       <path d="M530 440C514 340 546 220 530 96" className="stroke-arcade" strokeWidth="2.6" strokeLinecap="round" strokeDasharray="0.1 11" />
-      <circle cx="532" cy="86" r="26" className="stroke-or" strokeWidth="3" />
-      <SceneShip x={532} y={96} scale={1.3} tone="ecume" />
+      <SceneShip x={532} y={96} scale={1.3} tone="ecume" leader />
       <g className="fill-brume" opacity="0.3">
         <rect x="430" y="54" width="170" height="15" rx="7.5" />
         <rect x="462" y="76" width="150" height="15" rx="7.5" />
@@ -183,8 +183,7 @@ export function ModesScene({ words }: { readonly words: ModesSceneWords }) {
           </g>
         </g>
       ))}
-      <circle cx="530" cy="350" r="34" className="stroke-moi" strokeWidth="2" opacity="0.6" />
-      <SceneShip x={530} y={362} scale={1.9} tone="moi" />
+      <SceneShip x={530} y={362} scale={1.9} tone="moi" self />
       <path d="M296 0q-14 40 0 80t0 80 0 80 0 80 0 80 0 80" className="stroke-houle" strokeWidth="2" strokeDasharray="2 8" />
       <text x="150" y="28" textAnchor="middle" className={sceneCaption}>{words.training}</text>
       <text x="150" y="46" textAnchor="middle" className={sceneCaption}>{words.noBonuses}</text>
@@ -236,11 +235,10 @@ export function TypingScene({ words }: { readonly words: TypingSceneWords }) {
                 strokeLinecap="round"
                 strokeDasharray={"dash" in route ? route.dash : undefined}
               />
-              <SceneShip x={route.to} y={route.y} scale={route.scale} tone={route.tone} bot={"bot" in route} />
+              <SceneShip x={route.to} y={route.y} scale={route.scale} tone={route.tone} bot={"bot" in route} self={route.tone === "moi"} />
             </g>
           );
         })}
-        <circle cx="300" cy="90" r="30" className="stroke-moi" strokeWidth="2" opacity="0.6" />
       </g>
       <text x="24" y="150" className="font-display text-[30px] font-black">
         <tspan className="fill-voile">3 · 2 · </tspan>
@@ -297,12 +295,15 @@ export type LogbookSceneWords = {
 
 const PAGE_LINES = range(11).map((line) => 104 + line * 28);
 const SMALL_CAPTION = "font-mono text-[8.5px] tracking-[0.14em] uppercase max-xl:text-[10px] max-xl:tracking-[0.02em]";
-/** The three pennant shapes of the vocabulary: human, bot, me. No name beside them: the home has no runner. */
+/**
+ * Three rows of the shared pennant: a human (triangle), a bot (square) and me (triangle, `moi`).
+ * No name beside them: the home has no runner.
+ */
 const PENNANTS = [
-  <path key="human" d="M2-11 22-3 2 5Z" className="fill-or" />,
-  <rect key="bot" x="2" y="-11" width="18" height="15" rx="1.5" className="fill-ecume" />,
-  <path key="me" d="M2-11H24L17-3 24 5H2Z" className="fill-moi" />,
-];
+  { key: "human", kind: "human", colour: "embrun" },
+  { key: "bot", kind: "bot", colour: "ecume" },
+  { key: "me", kind: "human", colour: "moi" },
+] as const;
 
 /** Escale 04: an open logbook. It shows shapes only, never a figure. */
 export function LogbookScene({ words }: { readonly words: LogbookSceneWords }) {
@@ -319,10 +320,11 @@ export function LogbookScene({ words }: { readonly words: LogbookSceneWords }) {
       <path d="M64 150V262" className="stroke-ecume" strokeWidth="4" strokeLinecap="round" />
       <path d="M68 154 214 194 68 234Z" className="fill-moi" />
       {PENNANTS.map((pennant, index) => (
-        <g key={pennant.key} transform={`translate(62 ${306 + index * 32})`}>
-          <path d="M0-12V8" className="stroke-ecume" strokeWidth="1.5" strokeLinecap="round" />
-          {pennant}
-          <path d="M34-2H214" className="stroke-houle" strokeWidth="6" strokeLinecap="round" />
+        <g key={pennant.key} transform={`translate(60 ${294 + index * 32})`}>
+          <g transform="scale(1.3)">
+            <Pennant kind={pennant.kind} colour={pennant.colour} />
+          </g>
+          <path d="M46 10H216" className="stroke-houle" strokeWidth="6" strokeLinecap="round" />
         </g>
       ))}
       <path d="M304 46 566 62V426L304 410Z" className="fill-nuit stroke-houle" strokeWidth="1.5" />

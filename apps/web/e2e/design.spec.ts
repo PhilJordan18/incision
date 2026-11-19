@@ -85,11 +85,14 @@ test.describe("home (screen 01, JOIN-01)", () => {
   });
 
   // The home now scrolls (C1 « Cap »), but joining and creating stay in the first frame,
-  // without scrolling, at the original viewport, on a 1366 × 700 laptop and on a low screen.
+  // without scrolling, at the original viewport, on a 1366 × 700 laptop, on a low screen and on
+  // a 1024 px tablet. Under 1024 px the scene sits above the title, as the 390 px mock-up draws:
+  // the actions then follow the first screen, and the next test only checks their order.
   for (const viewport of [
     { width: 1440, height: 800 },
     { width: 1366, height: 700 },
     { width: 1280, height: 640 },
+    { width: 1024, height: 768 },
   ]) {
     test(`keeps the entry actions in the first frame at ${viewport.width} × ${viewport.height}`, async ({ page }) => {
       await page.setViewportSize(viewport);
@@ -101,6 +104,25 @@ test.describe("home (screen 01, JOIN-01)", () => {
       await expectNoHorizontalScroll(page);
     });
   }
+
+  test("keeps the title and the entry actions before the route map on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    const bottomOf = async (name: string, locator: ReturnType<typeof page.locator>) => {
+      const box = await locator.boundingBox();
+      if (box === null) {
+        throw new Error(`${name} is not rendered`);
+      }
+      return box.y + box.height;
+    };
+    const title = await bottomOf("title", page.getByRole("heading", { level: 1 }));
+    const join = await bottomOf("join", page.getByRole("button", { name: "Rejoindre la salle", exact: true }));
+    const map = await page.getByRole("heading", { level: 2 }).first().boundingBox();
+    expect(title).toBeLessThan(join);
+    expect(join).toBeLessThan(map?.y ?? 0);
+    // One short scroll at most: the red action ends within a screen and a half.
+    expect(join).toBeLessThanOrEqual(844 * 1.5);
+  });
 
   test("shows my logo, the favicon and a single red action", async ({ page }) => {
     await page.goto("/");

@@ -15,6 +15,9 @@ type SceneShipProps = {
   readonly tone: SailTone;
   /** A bot carries a square sail, a human a triangular one: the shape tells them apart, not the colour. */
   readonly bot?: boolean;
+  /** The shared ship's own rings: the player's two `moi` rings, the front runner's `or` ring. */
+  readonly self?: boolean;
+  readonly leader?: boolean;
 };
 
 /** Side of the shared ship's view box, and where the foot of its mast sits in it. */
@@ -24,10 +27,10 @@ const SHIP_BOX = 54;
  * The shared ship of the nautical vocabulary, placed in a scene: (`x`, `y`) is the foot of its
  * mast in the scene's own units, as on the race track.
  */
-export function SceneShip({ x, y, scale, tone, bot = false }: SceneShipProps) {
+export function SceneShip({ x, y, scale, tone, bot = false, self = false, leader = false }: SceneShipProps) {
   return (
     <g transform={`translate(${x} ${y}) scale(${scale}) translate(${-SHIP_BOX * SHIP_ANCHOR.x} ${-SHIP_BOX * SHIP_ANCHOR.y})`}>
-      <Ship kind={bot ? "bot" : "human"} colour={tone} size={SHIP_BOX} />
+      <Ship kind={bot ? "bot" : "human"} colour={tone} self={self} leader={leader} size={SHIP_BOX} />
     </g>
   );
 }
