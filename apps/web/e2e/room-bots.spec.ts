@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page, test, type WebSocketRoute } from "@playwright/test";
 import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
 
 const contexts: BrowserContext[] = [];
@@ -89,9 +89,13 @@ test("bot controls are accessible in both languages and themes at reference widt
         expect(remove.height).toBeCloseTo(cancel.height, 0);
         expect(Math.abs(remove.y - cancel.y)).toBeLessThan(1);
         expect(select.y).toBeGreaterThanOrEqual(remove.y + remove.height);
-        if (width >= 1024) {
+        // Beside the select where the panel has the room (the bots column is narrow from 1024 to 1279 px:
+        // there the button goes under the select, so the chosen level is never cut).
+        if (width >= 1280) {
           expect(Math.abs(change.y + change.height - select.y - select.height)).toBeLessThan(1);
           expect(change.x).toBeGreaterThanOrEqual(select.x + select.width);
+        } else {
+          expect(change.y).toBeGreaterThanOrEqual(select.y + select.height);
         }
         // The F-05.2 captures stay as delivered (docs/evidence/f05-2-bot-controls-alignment); the second layout has its own.
         await page.screenshot({ path: test.info().outputPath(`${locale}-${theme}-${width}.png`), fullPage: true });
@@ -231,6 +235,8 @@ test("a server refusal shows on the line it concerns and keeps the draft", async
   await line(page, 2).getByRole("button", { name: "Changer le niveau" }).click();
   await expect(line(page, 2).getByRole("alert")).toHaveText("⚠ La salle a changé. Recharge-la avant de réessayer.");
   await expect(panel(page).getByRole("alert")).toHaveCount(1);
+  // The refused button is disabled under the focus: the line's way out takes it.
+  await expect(line(page, 2).getByRole("button", { name: "Recharger la salle" })).toBeFocused();
   await expect(line(page, 2).getByRole("combobox")).toHaveValue("impossible");
   await expect(line(page, 2).getByText("Non enregistré", { exact: true })).toBeVisible();
   await expect(line(page, 3).getByRole("combobox")).toHaveValue("beginner");
@@ -273,14 +279,36 @@ test("a concurrent level from a second tab replaces that line's stale draft and 
   await expect(line(first, 2).getByRole("combobox")).toHaveValue("impossible");
   await expect(line(first, 2).getByRole("status")).toHaveText("Aucune modification en attente.");
   await expect(line(first, 2).getByRole("button", { name: "Annuler : Bot 2", exact: true })).toHaveAttribute("aria-expanded", "true");
+  // Even on the line whose last request was this tab's own save: saved here, reopened, then the
+  // level drafted here is saved from the other tab. Only this line's own confirmation closes it.
+  await line(first, 1).getByRole("combobox").selectOption("expert");
+  await line(first, 1).getByRole("button", { name: "Changer le niveau" }).click();
+  await expect(line(first, 1).getByRole("combobox")).toHaveCount(0);
+  await expect(line(first, 1)).toContainText("Niveau enregistré : Empereur des mers — expert");
+  await line(first, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
+  await line(first, 1).getByRole("combobox").selectOption("noob");
+  await line(second, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
+  await line(second, 1).getByRole("combobox").selectOption("noob");
+  await line(second, 1).getByRole("button", { name: "Changer le niveau" }).click();
+  await expect(line(first, 1)).toContainText("Niveau enregistré : Mousse — novice");
+  await expect(line(first, 1).getByRole("combobox")).toHaveValue("noob");
+  await expect(line(first, 1).getByRole("button", { name: "Annuler : Bot 1", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await expect(line(first, 1).getByRole("status")).toHaveText("Aucune modification en attente.");
 });
 
 test("a lost connection disables the editors, keeps the drafts and still lets a line be cancelled", async ({ browser }) => {
-  const { page, context } = await account(browser); await roomWithBots(page, 2);
+  const { page, context } = await account(browser);
+  // The emulated network loss does not close an open WebSocket: the page would only notice at a
+  // missed heartbeat, many seconds later. The room's socket goes through the test, which cuts it.
+  const sockets: WebSocketRoute[] = [];
+  await page.routeWebSocket(/\/socket\.io\//, (socket) => { socket.connectToServer(); sockets.push(socket); });
+  const dropSocket = () => Promise.all(sockets.splice(0).map((socket) => socket.close()));
+  await roomWithBots(page, 2);
   await line(page, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
   await line(page, 1).getByRole("combobox").selectOption("expert");
   await line(page, 2).getByRole("button", { name: "Modifier Bot 2", exact: true }).click();
   await context.setOffline(true);
+  await dropSocket();
   await expect(panel(page).getByText("Attends la reconnexion avant de modifier les bots.")).toBeVisible({ timeout: 30_000 });
   await expect(line(page, 1).getByRole("combobox")).toBeDisabled();
   await expect(line(page, 1).getByRole("combobox")).toHaveValue("expert");
@@ -314,4 +342,115 @@ for (const locale of ["fr-CA", "en-US"]) test(`ten bots stay one line each and a
       if (width === 1440) expect(box.height).toBeLessThanOrEqual(72);
     }
   }
+});
+
+test("removing a bot keeps the drafts of the other lines on their own bots", async ({ browser }) => {
+  const { page } = await account(browser); const code = await roomWithBots(page, 4);
+  await line(page, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
+  await line(page, 1).getByRole("combobox").selectOption("impossible");
+  await line(page, 3).getByRole("button", { name: "Modifier Bot 3", exact: true }).click();
+  await line(page, 3).getByRole("combobox").selectOption("noob");
+  await line(page, 4).getByRole("button", { name: "Modifier Bot 4", exact: true }).click();
+  // Bot 2 goes: the lines after it are renumbered, their state follows the bot, not the position.
+  await line(page, 2).getByRole("button", { name: "Retirer Bot 2", exact: true }).click();
+  await expect(panel(page).getByRole("listitem")).toHaveCount(3);
+  await expect(panel(page).getByRole("status").filter({ hasText: /^Bot retiré de la salle\.$/ })).toBeVisible();
+  await expect(line(page, 1).getByRole("combobox", { name: "Niveau du bot 1", exact: true })).toHaveValue("impossible");
+  await expect(line(page, 1)).toContainText("Niveau enregistré : Capitaine — intermédiaire");
+  // The former Bot 3 (expert, drafted to novice) is now Bot 2, still open and unsaved.
+  await expect(line(page, 2)).toContainText("Niveau enregistré : Empereur des mers — expert");
+  await expect(line(page, 2).getByRole("combobox", { name: "Niveau du bot 2", exact: true })).toHaveValue("noob");
+  await expect(line(page, 2).getByText("Non enregistré", { exact: true })).toBeVisible();
+  // The former Bot 4, open and clean, is now Bot 3.
+  await expect(line(page, 3).getByRole("combobox", { name: "Niveau du bot 3", exact: true })).toHaveValue("beginner");
+  await expect(line(page, 3).getByRole("status")).toHaveText("Aucune modification en attente.");
+  expect((await savedLevels(code)).map((bot) => bot.level)).toEqual(["intermediate", "expert", "beginner"]);
+  // Each draft still saves to its own bot.
+  await line(page, 2).getByRole("button", { name: "Changer le niveau" }).click();
+  await expect(line(page, 2)).toContainText("Niveau enregistré : Mousse — novice");
+  expect((await savedLevels(code)).map((bot) => bot.level)).toEqual(["intermediate", "noob", "beginner"]);
+  await expect(line(page, 1).getByRole("combobox")).toHaveValue("impossible");
+});
+
+test("a refusal about a bot that has just disappeared is read on its line, then in the panel once the line is gone", async ({ browser }) => {
+  const { page: first, context } = await account(browser); const code = await roomWithBots(first, 3);
+  const second = await context.newPage(); await second.goto(`/rooms/${code}`);
+  await expect(second.getByText("[.En direct]", { exact: true })).toBeVisible();
+  await line(first, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
+  await line(first, 1).getByRole("combobox").selectOption("expert");
+  await line(first, 2).getByRole("button", { name: "Modifier Bot 2", exact: true }).click();
+  await line(first, 2).getByRole("combobox").selectOption("impossible");
+  // Fixture: Bot 2 is deleted without a broadcast, so this page still lists it.
+  await query("delete from lobby_bots where id = (select b.id from lobby_bots b join lobbies l on b.lobby_id = l.id where l.code = $1 order by b.created_at, b.id offset 1 limit 1)", [code]);
+  await line(first, 2).getByRole("button", { name: "Changer le niveau" }).click();
+  await expect(line(first, 2).getByRole("alert")).toHaveText("⚠ Ce bot ne fait plus partie de cette salle. Recharge-la.");
+  await expect(line(first, 2).getByRole("button", { name: "Recharger la salle" })).toBeFocused();
+  await expect(line(first, 2).getByRole("combobox")).toHaveValue("impossible");
+  await expect(line(first, 1).getByRole("combobox")).toHaveValue("expert");
+  // The room now tells every page (a change from the other tab): the line is gone, its refusal is
+  // still read, under the add block, with the way out focused; the other draft is untouched.
+  await panel(second).getByRole("button", { name: "Ajouter un bot" }).click();
+  await expect(panel(first).getByRole("listitem")).toHaveCount(3);
+  await expect(panel(first).getByRole("listitem").getByRole("alert")).toHaveCount(0);
+  await expect(panel(first).getByRole("alert")).toHaveText("⚠ Ce bot ne fait plus partie de cette salle. Recharge-la.");
+  await expect(panel(first).getByRole("button", { name: "Recharger la salle" })).toBeFocused();
+  await expect(line(first, 1).getByRole("combobox")).toHaveValue("expert");
+  await panel(first).getByRole("button", { name: "Recharger la salle" }).click();
+  await expect(panel(first).getByRole("alert")).toHaveCount(0);
+  await expect(line(first, 1).getByRole("combobox")).toBeEnabled();
+  await line(first, 1).getByRole("button", { name: "Changer le niveau" }).click();
+  await expect(line(first, 1)).toContainText("Niveau enregistré : Empereur des mers — expert");
+});
+
+test("a refused « Retirer » is read on its line and removes nothing", async ({ browser }) => {
+  const { page } = await account(browser); const code = await roomWithBots(page, 2);
+  await line(page, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
+  await line(page, 1).getByRole("combobox").selectOption("expert");
+  await query("update lobbies set revision = revision + 1 where code = $1", [code]);
+  await line(page, 2).getByRole("button", { name: "Retirer Bot 2", exact: true }).click();
+  await expect(line(page, 2).getByRole("alert")).toHaveText("⚠ La salle a changé. Recharge-la avant de réessayer.");
+  await expect(line(page, 2).getByRole("button", { name: "Recharger la salle" })).toBeFocused();
+  await expect(panel(page).getByRole("listitem")).toHaveCount(2);
+  expect(await savedLevels(code)).toHaveLength(2);
+  await expect(line(page, 1).getByRole("combobox")).toHaveValue("expert");
+  await line(page, 2).getByRole("button", { name: "Recharger la salle" }).click();
+  await line(page, 2).getByRole("button", { name: "Retirer Bot 2", exact: true }).click();
+  await expect(panel(page).getByRole("listitem")).toHaveCount(1);
+  await expect(line(page, 1).getByRole("combobox")).toHaveValue("expert");
+});
+
+test("losing the host role removes every bot control, and a draft can no longer be saved", async ({ browser }) => {
+  const { page: host } = await account(browser); const { page: member } = await account(browser);
+  const code = await roomWithBots(host, 2);
+  await member.goto(`/rooms/${code}`); await member.getByRole("button", { name: "Rejoindre la salle", exact: true }).click();
+  await expect(member.getByText("[.En direct]", { exact: true })).toBeVisible();
+  await line(host, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
+  await line(host, 1).getByRole("combobox").selectOption("expert");
+  // Fixture: the role moves to the other member in the database; the next room update tells both pages.
+  await query("update lobbies set host_member_id = (select m.id from lobby_members m where m.lobby_id = lobbies.id and m.id <> lobbies.host_member_id limit 1), revision = revision + 1 where code = $1", [code]);
+  await member.reload(); await expect(member.getByText("[.En direct]", { exact: true })).toBeVisible();
+  await panel(member).getByRole("button", { name: "Ajouter un bot" }).click();
+  await expect(panel(host).getByRole("listitem")).toHaveCount(3);
+  await expect(panel(host).getByRole("button")).toHaveCount(0);
+  await expect(panel(host).getByRole("combobox")).toHaveCount(0);
+  await expect(host.getByRole("button", { name: "Lancer la course" })).toHaveCount(0);
+  await expect(line(host, 1)).toContainText("Niveau enregistré : Capitaine — intermédiaire");
+  expect((await savedLevels(code)).map((bot) => bot.level)).toEqual(["intermediate", "noob", "beginner"]);
+  // The new host has the controls, closed.
+  await expect(line(member, 1).getByRole("button", { name: "Modifier Bot 1", exact: true })).toHaveAttribute("aria-expanded", "false");
+});
+
+test("the start locks the bots: an open draft is not saved and the roster comes back closed", async ({ browser }) => {
+  const { page: first, context } = await account(browser); const code = await roomWithBots(first, 2);
+  const second = await context.newPage(); await second.goto(`/rooms/${code}`);
+  await expect(second.getByText("[.En direct]", { exact: true })).toBeVisible();
+  await line(first, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
+  await line(first, 1).getByRole("combobox").selectOption("expert");
+  await second.getByRole("button", { name: "Lancer la course", exact: true }).click();
+  // From the countdown the waiting room, and with it every bot control, is replaced by the race.
+  await expect(first.locator(".course-texte")).toBeVisible({ timeout: 10_000 });
+  await expect(panel(first)).toHaveCount(0);
+  expect((await savedLevels(code)).map((bot) => bot.level)).toEqual(["intermediate", "noob"]);
+  const [race] = await query<{ id: string }>("select r.id from races r join lobbies l on l.current_race_id = r.id where l.code = $1", [code]);
+  expect(race).toBeDefined();
 });
