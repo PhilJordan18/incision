@@ -60,7 +60,9 @@ and dotted lines under the cloth are hard to tell apart.
   label drops its pennant and takes a wider column so that a short name is whole; the standings
   keep every pennant.
 - **The two words on the land** (« ARRIVÉE », « + N autres coureurs ») sit on a plate of the land's
-  colour, above the ships: a ship reaching the coast passes behind them.
+  colour, above the other ships: a ship reaching the coast passes behind them. My own ship alone
+  passes in front, so that I never lose sight of it; whether the leader's should too, or the
+  lanes should keep clear of the word, is an open choice.
 - **Tablet chart**: a runner it does not name is grey there too, dot and route.
 - **Ships** are drawn at 85 % of the mock-up's size, so that they fit the shortest chart (12 rem).
 

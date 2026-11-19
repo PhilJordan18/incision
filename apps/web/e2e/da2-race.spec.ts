@@ -69,7 +69,8 @@ async function chartBoxes(page: Page) {
       others: [...track.querySelectorAll("[data-runner]:not([data-self]) [data-ship]")].filter(visible).map(el => box(el.querySelector("path:last-of-type")!)),
       sails: [...track.querySelectorAll("[data-ship]")].filter(visible).map(el => box(el.querySelector("[data-sail-cloth]")!)),
       words: [...track.querySelectorAll("[data-track-word]")].map(el => ({ ...box(el), layer: Number(getComputedStyle(el).zIndex), plate: getComputedStyle(el).backgroundColor,
-        above: Math.max(...[...track.querySelectorAll("[data-runner]")].map(marker => Number(getComputedStyle(marker).zIndex) || 0)) })),
+        above: Math.max(...[...track.querySelectorAll("[data-runner]:not([data-self])")].map(marker => Number(getComputedStyle(marker).zIndex) || 0)),
+        mine: Math.max(...[...track.querySelectorAll("[data-runner][data-self]")].map(marker => Number(getComputedStyle(marker).zIndex) || 0)) })),
       markers: [...track.querySelectorAll("[data-runner]")].map(box) };
   });
 }
@@ -132,9 +133,11 @@ for (const item of cases) {
       const edge = (await track.locator('[data-coast="horizontal"] [data-coast-edge]').boundingBox())!;
       for (const word of boxes.words) expect(word.bottom, "the coastline through a word").toBeLessThanOrEqual(edge.y + 1);
     }
-    // No ship is ever painted over a word: each word has an opaque plate, above every marker.
+    // No other ship is ever painted over a word: each word has an opaque plate, above every other
+    // marker. My own ship alone passes in front, so that I never lose sight of it at the finish.
     for (const word of boxes.words) {
       expect(word.layer, "a word under the ships").toBeGreaterThan(word.above);
+      expect(word.mine, "my ship behind a word").toBeGreaterThan(word.layer);
       expect(word.plate).toMatch(/^(rgb\(|color\(srgb [\d. ]+\)$)/);
     }
     // No ship over mine: one that would cover it is drawn beside its marker (two others may touch).

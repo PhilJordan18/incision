@@ -53,8 +53,8 @@
   pointer-events: none;
 }
 /*
- * The chart's two words sit on the land, on a plate of the land's own colour and above the ships:
- * a ship reaching the coast passes behind them, never over them.
+ * The chart's two words sit on the land, on a plate of the land's own colour and above the other
+ * ships: a ship reaching the coast passes behind them. Only my own ship passes in front.
  */
 .finishText, .more {
   position: absolute;
@@ -137,7 +137,8 @@
 }
 /* A named runner: the marker is the foot of its ship, which carries the colour on its sail. */
 .named { z-index: 2; width: 0; height: 0; box-shadow: none; }
-.self { z-index: 3; }
+/* Mine is above everything on the chart, the two words' plates included: I never lose sight of it. */
+.self { z-index: 5; }
 .ship {
   --ship-size: 46px;
   position: absolute;
