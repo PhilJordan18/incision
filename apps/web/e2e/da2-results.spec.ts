@@ -486,7 +486,7 @@ for (const theme of ["abysse", "aube"] as const) test(`account: the name and pho
   await expect(nameForm).toHaveAttribute("aria-busy", "false");
 });
 
-test("forced colours: wave marks, pennants and the coast take system colours on every screen of the card", async ({ browser }) => {
+test("forced colours: pennants and the coast take system colours, the title's wave marks are not drawn", async ({ browser }) => {
   test.setTimeout(120_000);
   const reader = await sailor(browser, "Capitaine", { forcedColors: "active", colorScheme: "light" });
   const other = await sailor(browser, "Lina", { forcedColors: "active", colorScheme: "light" });
@@ -499,10 +499,12 @@ test("forced colours: wave marks, pennants and the coast take system colours on 
   for (const path of ["/history", "/account"]) {
     await reader.page.goto(path);
     expect(await reader.page.evaluate(() => matchMedia("(forced-colors: active)").matches)).toBe(true);
-    const colours = await system(reader.page);
-    const marks = reader.page.getByRole("main").locator("svg[data-wave-marks] path");
-    expect(await marks.count()).toBeGreaterThan(3);
-    for (const mark of await marks.all()) expect(await mark.evaluate((node) => getComputedStyle(node).stroke)).toBe(colours.text);
+    // Behind a title, a mark at full system contrast would read as a dash through the letters:
+    // the band's marks are not drawn at all in forced colours, and the title stays.
+    const marks = reader.page.getByRole("main").locator("svg[data-wave-marks]");
+    await expect(marks).toHaveCount(1);
+    await expect(marks).toBeHidden();
+    await expect(reader.page.getByRole("heading", { level: 1 })).toBeVisible();
     await expectNoHorizontalScroll(reader.page);
   }
   // The results in a real room, as the host and as the other member.

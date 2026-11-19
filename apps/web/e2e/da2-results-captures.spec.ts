@@ -96,6 +96,7 @@ test("captures: race page", async ({ browser }) => {
   const zoomed = await browser.newContext({ viewport: { width: 720, height: 450 }, deviceScaleFactor: 2, locale: "fr-CA", reducedMotion: "reduce" });
   contexts.push(zoomed);
   await zoomed.addCookies(await reader.context.cookies());
+  await setLocale(zoomed, "fr");
   const page = await zoomed.newPage();
   for (const theme of ["abysse", "aube"] as const) {
     await setTheme(zoomed, theme);

@@ -19,7 +19,7 @@ disposable local test database listening on port 5433:
 DA2_CAPTURES=../../docs/evidence/da2-7-results-pages/after npx playwright test e2e/da2-results-captures.spec.ts --trace off
 ```
 
-Result of the run that wrote these files: `3 passed (25.6s)`, 70 captures.
+Result of the run that wrote these files: `3 passed (27.8s)`, 70 captures.
 
 The four `*-pending-*` captures (a save held in flight) come from the checks themselves:
 
@@ -27,7 +27,7 @@ The four `*-pending-*` captures (a save held in flight) come from the checks the
 DA2_CAPTURES=../../docs/evidence/da2-7-results-pages/after npx playwright test e2e/da2-results.spec.ts -g "pending" --trace off
 ```
 
-Result: `2 passed (5.7s)`, 4 captures.
+Result: `2 passed (6.0s)`, 4 captures.
 
 Both commands rebuild their own `incision_e2e` database and refuse any database that is not
 local and named `incision_e2e*`.
@@ -48,6 +48,11 @@ local and named `incision_e2e*`.
 
 Not captured: English at widths other than 1440; the non-host results and the state cards at
 every width; forced colours with a dark palette (headless Chromium does not paint it faithfully).
+
+The room of the captures has three runners (the host, a second account, one bot), so a room
+capture shows at most two other runners' pennants, one of each shape; the race page's fixture has
+five. In forced colours the wave marks behind a title are not drawn (a full-contrast stroke read
+as a dash through the letters): `account-forced-colors-light.jpg` shows the title without them.
 
 File names: `<screen>[-<state>]-<language>-<theme>-<width or 1280x640>.jpg`;
 `-forced-colors-light` and `-zoom-200-<theme>` are named apart.
@@ -84,7 +89,9 @@ below and the pull request; the card is not complete while this stands.
   only the reader's own pennant has its track colour (`moi`, as on the track); the others keep
   their sail's shape and take no runner colour (`ecume`, with the primitive's solid line under
   it; `ecume` is close to the runner colour `embrun`). This is a gap, not a choice: closing it
-  needs a change outside this lot, proposed in the pull request.
+  needs a change outside this lot, proposed in the pull request. One visible consequence in the
+  chart legend: a neutral pennant's line sample is solid `ecume`, while that runner's curve is
+  `or` or `embrun` and dashed, so only the number links a name to its curve.
 - **Pennant of a dashed runner.** As in DA2-2: the cloth keeps the kind's shape (triangle for a
   human, square for a bot) and the dash is a sample of the route under it, not a swallowtail.
 - **Rank.** The app's typography is kept (« sur 5 » in the display face); the mock-up writes it in
