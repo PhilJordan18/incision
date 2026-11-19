@@ -11,7 +11,56 @@
 
 Les revues indépendantes sont des lectures statiques (diff, tests, captures déposées dans la branche) faites par des agents de revue en lecture seule, distincts de la session qui a écrit le code. Elles n'ont rien exécuté. L'**auto-vérification** désigne les tests et les revues lancés par la session du lot elle-même. Je n'ai pas encore joué la [recette de l'ensemble](recette-c1.md) : elle attend l'état combiné.
 
-## État par lot
+## Relevé du 19 novembre, 14 h 30
+
+`dev` est à `4564778` (#213 fusionnée). Toujours aucun lot C1 intégré. Ce relevé remplace, pour les SHA et les verdicts, le tableau du 18 novembre gardé plus bas comme historique. Chaque branche se fusionne sans conflit avec `dev` et avec les autres (fusions d'essai, sans exécution).
+
+| Lot | PR | SHA proposé | CI sur ce SHA (push / PR) | Revue indépendante sur ce SHA | Verdict |
+|---|---|---|---|---|---|
+| DA2-1 Références | #208 | `1838d44` | verte / verte | lecture d'architecte | prêt à fusionner |
+| DA2-0 Primitives | #211 | `fcc8af8` | en cours / verte | code : OK, deux mineurs du 18 corrigés | prêt à fusionner dès la CI push verte |
+| DA2-2 Course | #212 | `5b9dd53` | verte / en cours | code : OK, les trois majeures du 18 traitées | prêt côté code; décision 2 ouverte; assertions affaiblies à déclarer dans la PR |
+| DA2-3/4 Accueil | #217 | `1d79eb5` | en cours / en cours | code @ `7b8da57` : OK; `1d79eb5` non relu | prêt après relecture du dernier commit et CI verte |
+| DA2-6 Entrée de salle | #220 | `0ddfad7` | en cours / en cours | interface : OK pour les trois scènes; code : corrections nécessaires (deux majeures dans la spec de tests) | corrections nécessaires |
+| DA2-5a Salle d'attente | #214 | `1345e32` | en cours / en cours | code : OK | prêt à fusionner avec #215 et #216, CI verte attendue |
+| DA2-5b Bots | #215 | `7e8c47e` | en cours / en cours | code : OK, majeures du 18 corrigées; QA fonctionnelle non rejouée sur ce SHA | prêt côté code; assertions remplacées à déclarer dans la PR |
+| DA2-8 Réglages | #216 | `1c85fac` (inchangé) | verte / **échec** | celle du 18 : corrections nécessaires | corrections nécessaires; ne contient pas la tête de #215 |
+| DA2-7 Résultats | #218 (brouillon) | `0f05d3c` | en cours / en cours | code : corrections nécessaires pour le seul critère du fanion | décision 3 |
+
+### Ce que la revérification a établi
+
+- **#212 Course.** Les contrôles de `race-track.spec.ts` ont de nouveau une cible réelle pour les coureurs nommés. Sur tablette, les coureurs sans nom sont maintenant gris comme sur ordinateur : la décision 2 s'étend donc à la tablette. « ARRIVÉE » et « + N autres coureurs » ont une plaque opaque au-dessus des navires : un navire près de la côte, le mien compris, passe derrière. Assertions affaiblies par le correctif, à dire telles quelles : « aucune coque sur une autre » devenu « aucune coque sur la mienne » (`da2-race.spec.ts:139-140`), et jusqu'à 3 % des paires sous la marge dans `track-layout.test.ts:42-44`. Le commentaire « Philippe, 18 November » de `race-track.spec.ts:87-88` n'est pas une approbation.
+- **#215 Bots.** Une ligne ne se referme plus que sur sa propre confirmation; un refus prend le focus sur « Recharger la salle ». La règle existante (un niveau reçu en direct remplace le brouillon) est inchangée. Le contrôle « enregistrer à côté du select » ne tourne plus qu'à 1440 px.
+- **#217 Accueil.** Fanions et anneaux viennent des primitives partagées : la queue d'aronde de l'escale 04 a disparu. Première vue testée à 1024 × 768; à 390 px le test vérifie l'ordre (titre, actions, carte), pas la première vue, et le dit.
+- **#218 Résultats.** Les tests ne se lisent plus comme une preuve du critère; le README de preuves dit « critère partiellement rempli ». `packages/` reste intact.
+- **#220 Entrée de salle.** Code produit sans constat bloquant; aucune spec existante modifiée. Majeures : l'étape « trop d'essais » de `da2-room-entry.spec.ts:410, 458-460` dépend d'une fenêtre de 60 s et peut échouer sur une machine lente; la spec est lourde (environ 132 analyses d'accessibilité et 136 captures, écrites même hors mode preuves). Trois fichiers sans propriétaire sont modifiés (`components/ui/state-panel.tsx`, `components/errors/error-state.tsx`, `not-found-panel.tsx`) : décision 14.
+
+### Blocage d'intégration : la durée de la CI
+
+L'étape Playwright est coupée à 25 minutes. Sur `dev` elle dure 17 min 42 s. Sur #216 @ `1c85fac`, les 289 tests réussissent mais l'exécution PR a été coupée à 25 min 05 s (échec) et l'exécution push est passée à 24 min 52 s. L'état combiné ajoute encore les specs de la course, de l'accueil, de l'entrée de salle et des résultats : il dépassera la limite. Ce n'est pas un test en échec, mais la CI de `dev` sera rouge après les fusions si rien ne change. Voir la décision 15.
+
+### Décisions ajoutées le 19 novembre
+
+| # | Référence | Capture réelle | Différence | Recommandation | Conséquence |
+|---|---|---|---|---|---|
+| 12 | `captures/etats-salle-1440.jpg` : six traits de vagues bien visibles dans le coin des panneaux | `docs/evidence/da2-6-room-entry/app/state-unknown-fr-abysse-1440.png` (#220), `docs/evidence/da2-5-waiting-room/etat-fermee-fr-abysse-1440.jpg` (#214) | deux traits pâles (un seul sur téléphone) | accepter pour la remise : la primitive partagée est celle de la course, et la densifier touche `components/nautical` la veille de la remise | si je veux les six traits : option de densité dans le lot course, puis captures des onze panneaux à refaire |
+| 13 | `captures/etats-salle-390.jpg` | #220 et #214 | sous 640 px, #220 dessine une petite marque sous l'étiquette, #214 n'en dessine aucune | un seul comportement : celui de #220 (la propriété `waves`), que #214 reprend après la fusion de #220 | petite reprise dans `room-view.tsx`, lot salle d'attente |
+| 14 | Plan : un lot nomme un changement hors de ses fichiers au lieu de le faire | #220 | `state-panel.tsx`, `error-state.tsx` et `not-found-panel.tsx` modifiés (propriété `waves`, désactivée par défaut); la page 404 et l'erreur générale reçoivent aussi les marques | accepter : le changement est optionnel, déclaré et sans effet par défaut | sinon, #220 retire ces trois fichiers et sept panneaux perdent leurs marques |
+| 15 | `.github/workflows/ci.yml`, limite de 25 min | exécutions `44380501100` (coupée) et `44380264989` (24 min 52 s) | la suite combinée dépasse la limite | alléger d'abord les specs C1 (captures seulement en mode preuves, moins d'analyses répétées), puis relever la limite dans une PR à part, avec les revues déploiement et sécurité | sans cela, CI rouge sur `dev` après les fusions, sans test en échec |
+
+La décision 1 (découpe du fanion) n'a plus d'écart dans le code : triangle et rectangle partout, accueil compris. Elle reste à moi.
+
+### Risque pour la coupure de ce soir
+
+| Lot | Risque | Pourquoi |
+|---|---|---|
+| DA2-8 Réglages (#216) | élevé | aucun correctif poussé, CI PR en échec, à refusionner avec #215; bloque la pile #214 → #216 |
+| DA2-7 Résultats (#218) | élevé | brouillon; critère du fanion partiel tant que la décision 3 n'est pas prise |
+| DA2-6 Entrée de salle (#220) | moyen | deux majeures de test à corriger, puis CI |
+| DA2-2 Course (#212) | faible à moyen | code prêt; il manque ma décision 2 |
+| DA2-0, DA2-1, DA2-3/4, DA2-5a, DA2-5b | faible | relus; CI en cours |
+
+## État par lot (relevé du 18 novembre, historique)
 
 L'ordre est celui du [plan](plan.md) : références → primitives → course → accueil → entrée de salle → salle d'attente → bots → réglages → résultats.
 
