@@ -12,6 +12,7 @@ import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
 import { roomSettingsCopy } from "@/i18n/room-settings";
 import { configureRoomAction, type ConfigureRoomState } from "@/server/rooms/actions";
+import { UnsavedTag } from "./unsaved-tag";
 import {
   awaitingSettings,
   draftConflict,
@@ -19,6 +20,7 @@ import {
   editableSettings,
   MAX_CHARACTERS_INPUT,
   pendingFields,
+  refusalApplies,
   refusalConcernsOptions,
   refusalFields,
   requiresSettingsRefresh,
@@ -51,6 +53,8 @@ const CONTROL: Record<SettingsField, string> = {
   include: "include", exclude: "exclude", seconds: "seconds", errorMode: "mode", bonusesEnabled: "game",
 };
 
+/** A field of the form: a disabled one (conflict, disconnection, « Aucune limite ») reads as disabled. */
+const formField = `${textField} disabled:cursor-not-allowed disabled:border-transparent disabled:bg-sillage disabled:text-voile`;
 const group = "min-w-0 rounded-carte border border-houle px-4 pt-2 pb-4";
 const legend = "px-2 font-mono text-[11px] font-medium tracking-[0.2em] text-embrun uppercase";
 
@@ -102,9 +106,10 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
   const canEdit = host && live && supported && !pending && !awaiting && !needsRefresh;
   const draftRefusal = draft === null ? undefined : draftTextRefusal(draft);
   // The server's refusal of this very draft about its text (random words): shown where the browser's own would be.
-  const serverRefusal = draft !== null && draft === answered && answer.error === "TEXT_SETTINGS_REFUSED" ? answer.textProblem : undefined;
-  // A refusal about the draft's text belongs beside its field while the form is open: once that
-  // draft changes it no longer applies, and it does not come back as a panel message.
+  const serverRefusal = draft !== null && answered !== null && answer.error === "TEXT_SETTINGS_REFUSED" && answer.textProblem !== undefined
+    && refusalApplies(answer.textProblem, answered, draft) ? answer.textProblem : undefined;
+  // A refusal about the draft's text belongs beside its field while the form is open: once a field
+  // it names changes it no longer applies, and it does not come back as a panel message.
   const fieldRefusal = draft !== null && answer.error === "TEXT_SETTINGS_REFUSED" && answer.textProblem !== undefined;
   const refusal = draftRefusal ?? serverRefusal;
   const refused = refusal === undefined ? [] : refusalFields(refusal);
@@ -125,6 +130,12 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
     const target = firstRefused === undefined ? saveButton.current : document.getElementById(`${id}-${CONTROL[firstRefused]}`);
     target?.focus();
   }, [refusedAttempt, pending, firstRefused, id]);
+
+  // A refusal that asks to read the settings again disables the form under the focus: the way out takes it.
+  const reloadButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (needsRefresh && !pending) reloadButton.current?.focus();
+  }, [needsRefresh, pending]);
 
   function cancel() {
     if (submitting.current) return;
@@ -152,12 +163,13 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
       try {
         const result = await guestAwareAction(guest, () => guest ? guestConfigureRoomAction(form) : configureRoomAction(form));
         // A malformed/empty reply is not evidence of success.
-        setAnswer(result.error !== undefined || result.revision !== undefined ? result : { error: "UNAVAILABLE" });
+        const outcome: ConfigureRoomState = result.error !== undefined || result.revision !== undefined ? result : { error: "UNAVAILABLE" };
+        setAnswer(outcome);
         setAnswered(sent);
-        if (result.error === undefined && result.revision !== undefined) {
+        if (outcome.error === undefined) {
           setDraft(null);
           editButton.current?.focus();
-        } else if (!requiresSettingsRefresh(result.error)) {
+        } else if (!requiresSettingsRefresh(outcome.error)) {
           setRefusedAttempt((attempt) => attempt + 1);
         }
       } catch (error) {
@@ -174,9 +186,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
     if (settings === undefined || !changes.includes(field)) return null;
     return (
       <p id={`${id}-${field}-pending`} data-pending={field} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-normal text-embrun">
-        <span className="inline-flex items-center gap-1.5 rounded-puce border border-or px-1.5 py-0.5 font-mono text-[10px] tracking-[0.14em] whitespace-nowrap text-ecume uppercase">
-          <span aria-hidden="true">⚠</span><span>{t.unsavedTag}</span>
-        </span>
+        <UnsavedTag label={t.unsavedTag} />
         <span>{format(t.savedValue, { value: savedWords(field, settings, t) })}</span>
       </p>
     );
@@ -196,7 +206,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
     <section aria-labelledby={`${id}-heading`} className={`${card} flex flex-col gap-4`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id={`${id}-heading`} className={panelTitle}>{t.title}</h2>
-        {host && <button ref={editButton} type="button" className={discreetButton} aria-disabled={!canEdit || draft !== null} aria-expanded={draft !== null}
+        {host && <button ref={editButton} type="button" className={`${discreetButton} aria-disabled:cursor-not-allowed aria-disabled:border-transparent aria-disabled:bg-sillage aria-disabled:text-voile`} aria-disabled={!canEdit || draft !== null} aria-expanded={draft !== null}
           onClick={() => { if (canEdit && draft === null && editableSettings(settings)) { setDraft(settingsDraft(settings)); setAnswer({}); } }}>
           {t.edit}
         </button>}
@@ -237,7 +247,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                 <label className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-language`}>{t.language}
-                  <select ref={focusLanguage} id={`${id}-language`} className={textField} value={draft.textLanguage} aria-describedby={ids(pendingId("textLanguage"))}
+                  <select ref={focusLanguage} id={`${id}-language`} className={formField} value={draft.textLanguage} aria-describedby={ids(pendingId("textLanguage"))}
                     onChange={(event) => setDraft({ ...draft, textLanguage: event.target.value === "en" ? "en" : "fr" })}>
                     <option value="fr">{t.french}</option><option value="en">{t.english}</option>
                   </select>
@@ -246,7 +256,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className={fieldLabel} htmlFor={`${id}-kind`}>{t.textKind}</label>
-                  <select id={`${id}-kind`} className={textField} value={draft.textKind} aria-invalid={refused.includes("textKind") || undefined}
+                  <select id={`${id}-kind`} className={formField} value={draft.textKind} aria-invalid={refused.includes("textKind") || undefined}
                     aria-describedby={ids(`${id}-kind-hint`, refusalId("textKind"), pendingId("textKind"))}
                     onChange={(event) => setDraft({ ...draft, textKind: event.target.value === "random" ? "random" : "coherent" })}>
                     <option value="coherent">{t.coherent}</option><option value="random">{t.random}</option>
@@ -257,7 +267,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className={fieldLabel} htmlFor={`${id}-complexity`}>{t.complexity}</label>
-                  <select id={`${id}-complexity`} className={textField} value={draft.complexity} aria-invalid={refused.includes("complexity") || undefined}
+                  <select id={`${id}-complexity`} className={formField} value={draft.complexity} aria-invalid={refused.includes("complexity") || undefined}
                     aria-describedby={ids(`${id}-complexity-hint`, refusalId("complexity"), pendingId("complexity"))}
                     onChange={(event) => { const complexity = COMPLEXITIES.find((level) => level === event.target.value); if (complexity !== undefined) setDraft({ ...draft, complexity }); }}>
                     {COMPLEXITIES.map((level) => <option key={level} value={level}>{t[level]}</option>)}
@@ -268,7 +278,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                 </div>
                 <div className="flex flex-col gap-2">
                 <label className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-words`}>{t.wordCount}
-                  <input id={`${id}-words`} className={textField} type="number" min={MIN_TEXT_WORDS} max={MAX_TEXT_WORDS}
+                  <input id={`${id}-words`} className={formField} type="number" min={MIN_TEXT_WORDS} max={MAX_TEXT_WORDS}
                     step="1" required value={draft.wordCount} aria-invalid={wordsInvalid || refused.includes("wordCount") || undefined}
                     aria-describedby={ids(`${id}-words-hint`, refusalId("wordCount"), wordsInvalid && refusal === undefined && `${id}-words-error`, pendingId("wordCount"))}
                     onChange={(event) => setDraft({ ...draft, wordCount: event.target.value })} />
@@ -296,7 +306,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                 {(["include", "exclude"] as const).map((field) => (
                   <div key={field} className="flex flex-col gap-2">
                   <label className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-${field}`}>{t[field]}
-                    <input id={`${id}-${field}`} className={`${textField} font-mono disabled:cursor-not-allowed disabled:border-transparent disabled:bg-sillage disabled:text-voile`} type="text" autoComplete="off" spellCheck={false}
+                    <input id={`${id}-${field}`} className={`${formField} font-mono`} type="text" autoComplete="off" spellCheck={false}
                       maxLength={MAX_CHARACTERS_INPUT} disabled={draft.textKind !== "random"} value={draft.textKind === "random" ? draft[field] : ""}
                       aria-invalid={draft.textKind === "random" && refused.includes(field)}
                       aria-describedby={ids(`${id}-characters-hint`, draft.textKind === "random" && refusalId(field), pendingId(field))}
@@ -319,9 +329,9 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                   {t.unlimited}
                 </label>
                 <label className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-seconds`}>{t.duration}
-                  <input id={`${id}-seconds`} className={textField} type="number" min={TIME_LIMIT_MIN_MS / 1000}
+                  <input id={`${id}-seconds`} className={formField} type="number" min={TIME_LIMIT_MIN_MS / 1000}
                     max={TIME_LIMIT_MAX_MS / 1000} step="1" required={draft.seconds !== "none"} disabled={draft.seconds === "none"} value={draft.seconds === "none" ? "" : draft.seconds}
-                    aria-invalid={secondsInvalid || undefined} aria-describedby={ids(secondsInvalid && `${id}-seconds-error`, pendingId("seconds"))}
+                    aria-invalid={secondsInvalid || undefined} aria-describedby={ids(`${id}-hint`, secondsInvalid && `${id}-seconds-error`, pendingId("seconds"))}
                     onChange={(event) => setDraft({ ...draft, seconds: event.target.value })} />
                 </label>
                 {secondsInvalid && <FieldError id={`${id}-seconds-error`} message={t.durationInvalid} />}
@@ -333,7 +343,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
               <legend className={legend}>{t.groupTyping}</legend>
               <div className="flex flex-col gap-2">
                 <label className={fieldLabel} htmlFor={`${id}-mode`}>{t.mode}</label>
-                <select id={`${id}-mode`} className={textField} value={draft.errorMode}
+                <select id={`${id}-mode`} className={formField} value={draft.errorMode}
                   aria-describedby={ids(`${id}-mode-hint`, pendingId("errorMode"))}
                   onChange={(event) => {
                     const errorMode = event.target.value;
@@ -350,7 +360,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
               <legend className={legend}>{t.groupGame}</legend>
               <div className="flex flex-col gap-2">
                 <label className={fieldLabel} htmlFor={`${id}-game`}>{t.gameMode}</label>
-                <select id={`${id}-game`} className={textField} value={draft.bonusesEnabled ? "arcade" : "training"} aria-describedby={ids(`${id}-game-hint`, pendingId("bonusesEnabled"))}
+                <select id={`${id}-game`} className={formField} value={draft.bonusesEnabled ? "arcade" : "training"} aria-describedby={ids(`${id}-game-hint`, pendingId("bonusesEnabled"))}
                   onChange={(event) => setDraft({ ...draft, bonusesEnabled: event.target.value === "arcade" })}>
                   <option value="training">{t.training}</option><option value="arcade">{t.arcade}</option>
                 </select>
@@ -370,7 +380,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
       {/* A refusal that concerns no single field stays here; one about the draft's text is beside its field. */}
       {answer.error !== undefined && !fieldRefusal && <p role="alert" className="text-sm text-erreur">⚠ {t.errors[answer.error]}{answer.textProblem === undefined ? "" : ` ${t.textRefusals[answer.textProblem]}`}</p>}
       {answer.revision !== undefined && <p role="status" className="text-sm text-embrun">{awaiting ? t.waiting : t.saved}</p>}
-      {(conflict || needsRefresh || awaiting || settings === undefined) && <button type="button" disabled={pending} onClick={reload} className={`${discreetButton} self-start`}>{t.reload}</button>}
+      {(conflict || needsRefresh || awaiting || settings === undefined) && <button ref={reloadButton} type="button" disabled={pending} onClick={reload} className={`${discreetButton} self-start`}>{t.reload}</button>}
     </section>
   );
 }

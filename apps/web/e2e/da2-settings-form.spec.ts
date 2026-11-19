@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Locator, type Page, test, type WebSocketRoute } from "@playwright/test";
 import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
 
 // DA2-8 (CONF-01 to CONF-09, CONF-12, A11Y-03, A11Y-04): the race settings edit form in four
@@ -13,15 +13,29 @@ const contexts: BrowserContext[] = [];
 test.beforeEach(async () => { await query("update lobbies set host_member_id = null"); await query("delete from lobbies"); });
 test.afterEach(async () => { await Promise.all(contexts.splice(0).map((context) => context.close())); });
 
-async function account(browser: Browser, name: string, options: { locale?: string; theme?: Theme } = {}) {
+/**
+ * The emulated network loss does not close an open WebSocket: a page would only notice at a missed
+ * heartbeat, many seconds later. Each page's room socket goes through the test, which can cut it.
+ */
+const sockets = new WeakMap<Page, WebSocketRoute[]>();
+async function goOffline(context: BrowserContext, page: Page): Promise<void> {
+  await context.setOffline(true);
+  await Promise.all((sockets.get(page) ?? []).splice(0).map((socket) => socket.close()));
+}
+
+async function account(browser: Browser, name: string, options: { locale?: string; theme?: Theme; forcedColors?: boolean } = {}) {
   const [row] = await query<{ id: string; session_version: number }>("insert into accounts(display_name) values ($1) returning id, session_version", [name]);
   if (!row) throw new Error("fixture account");
-  const context = await browser.newContext({ locale: options.locale ?? "fr-CA", reducedMotion: "reduce", viewport: { width: 1440, height: 900 } });
+  const context = await browser.newContext({ locale: options.locale ?? "fr-CA", reducedMotion: "reduce", viewport: { width: 1440, height: 900 }, forcedColors: options.forcedColors === true ? "active" : "none" });
   contexts.push(context);
   const url = test.info().project.use.baseURL ?? "";
   const cookie = await forgeSessionCookie({ sub: row.id, sessionVersion: row.session_version, authTime: Math.floor(Date.now() / 1000) });
   await context.addCookies([{ name: SESSION_COOKIE, value: cookie, url }, { name: "theme", value: options.theme ?? "abysse", url }]);
-  return { context, page: await context.newPage() };
+  const page = await context.newPage();
+  const routed: WebSocketRoute[] = [];
+  sockets.set(page, routed);
+  await page.routeWebSocket(/\/socket\.io\//, (socket) => { socket.connectToServer(); routed.push(socket); });
+  return { context, page };
 }
 async function openRoom(host: Page): Promise<string> {
   await host.goto("/rooms/new");
@@ -243,10 +257,22 @@ test("a refused save shows beside the field it concerns, keeps the draft and mov
   expect((await savedRow(code))?.text_kind).toBe("coherent");
   await expect(saveButton(page)).toBeEnabled();
   await expectNoAccessibilityViolation(page);
-  // The refusal was about that draft: changing it removes the message, the pending marks stay.
+  // The refusal speaks of the fields it names. Another field can change under it…
+  await panel(page).getByRole("combobox", { name: "Mode de jeu", exact: true }).selectOption("arcade");
+  await expect(alert).toContainText("Ces réglages de texte ne peuvent pas produire de texte.");
+  if (!unavailable) {
+    // …a field it names removes it, and the refused value brings it back.
+    await panel(page).getByRole("combobox", { name: "Complexité", exact: true }).selectOption("hard");
+    await expect(panel(page).getByRole("alert")).toHaveCount(0);
+    await expect(panel(page).getByRole("combobox", { name: "Complexité", exact: true })).not.toHaveAttribute("aria-invalid", "true");
+    await panel(page).getByRole("combobox", { name: "Complexité", exact: true }).selectOption("easy");
+    await expect(alert).toContainText("Ces réglages de texte ne peuvent pas produire de texte.");
+  }
+  // It never comes back as a panel message once the draft no longer matches.
   await panel(page).getByRole("combobox", { name: "Type de texte", exact: true }).selectOption("coherent");
+  await panel(page).getByRole("combobox", { name: "Complexité", exact: true }).selectOption("medium");
   await expect(panel(page).getByRole("alert")).toHaveCount(0);
-  await expect(mark(page, "complexity")).toBeVisible();
+  await expect(mark(page, "bonusesEnabled")).toBeVisible();
 });
 
 test("a refusal that concerns no single field stays in the form's alert and the focus stays on the save", async ({ browser }) => {
@@ -259,8 +285,12 @@ test("a refusal that concerns no single field stays in the form's alert and the 
     await editButton(page).click();
     await words(page).fill(String(20 + attempt));
     await saveButton(page).click();
-    await expect(panel(page).getByRole("status").or(panel(page).getByRole("alert"))).toBeVisible();
-    refused = await panel(page).getByRole("alert").count() > 0;
+    // Either the save is confirmed in the room (the form closed and « Modifier » works again), or it was refused.
+    const confirmed = panel(page).getByText("Réglages enregistrés.", { exact: true });
+    const alert = panel(page).getByRole("alert");
+    await expect(confirmed.or(alert)).toBeVisible();
+    refused = await alert.isVisible();
+    if (!refused) await expect(editButton(page)).toHaveAttribute("aria-disabled", "false");
   }
   expect(refused).toBe(true);
   await expect(panel(page).getByRole("alert")).toHaveText("⚠ Trop de modifications. Attends une minute avant de réessayer.");
@@ -332,7 +362,7 @@ test("a disconnected host keeps the draft and cannot edit until the room is live
   await openRoom(page);
   await editButton(page).click();
   await words(page).fill("70");
-  await context.setOffline(true);
+  await goOffline(context, page);
   await expect(panel(page).getByText("Attends la reconnexion avant de modifier les réglages.")).toBeVisible({ timeout: 30_000 });
   await expect(words(page)).toBeDisabled();
   await expect(words(page)).toHaveValue("70");
@@ -376,6 +406,8 @@ async function capture(page: Page, name: string): Promise<void> {
 
 for (const locale of ["fr-CA", "en-US"] as const) for (const theme of ["abysse", "aube"] as const) {
   test(`every state of the settings panel, accessible at 1440 and 390 px (${locale}, ${theme})`, async ({ browser }) => {
+    // Two combinations always run (each language, each theme); the two others only add captures.
+    test.skip(EVIDENCE === undefined && (locale === "fr-CA") !== (theme === "abysse"), "capture-only combination: run with DA2_EVIDENCE=1");
     test.setTimeout(120_000);
     const fr = locale === "fr-CA";
     const tag = `${fr ? "fr" : "en"}-${theme}`;
@@ -430,9 +462,117 @@ for (const locale of ["fr-CA", "en-US"] as const) for (const theme of ["abysse",
     // Disconnected, with a draft open.
     await editButton(host).click();
     await words(host).fill("70");
-    await context.setOffline(true);
+    await goOffline(context, host);
     await expect(panel(host).getByText(fr ? "Attends la reconnexion avant de modifier les réglages." : "Wait for reconnection before editing settings.")).toBeVisible({ timeout: 30_000 });
     await check(host, "7-deconnecte");
     await context.setOffline(false);
   });
 }
+
+test("a refusal that asks to read the settings again gives the focus to « Recharger les réglages »", async ({ browser }) => {
+  const { page } = await account(browser, "Capitaine");
+  const code = await openRoom(page);
+  await editButton(page).click();
+  await words(page).fill("70");
+  // Fixture: the settings moved on without telling this page, so its revision is stale.
+  await query("update lobby_settings set revision = revision + 1 where lobby_id = (select id from lobbies where code = $1)", [code]);
+  await saveButton(page).click();
+  await expect(panel(page).getByRole("alert").filter({ hasText: "Les réglages ont changé." })).toBeVisible();
+  const reload = panel(page).getByRole("button", { name: "Recharger les réglages" });
+  await expect(reload).toBeFocused();
+  // The draft is kept and nothing more can be sent until the read.
+  await expect(words(page)).toHaveValue("70");
+  await expect(words(page)).toBeDisabled();
+  await expect(saveButton(page)).toBeDisabled();
+  expect((await savedRow(code))?.word_count).toBe(50);
+  await page.keyboard.press("Enter");
+  await expect(panel(page).locator("form")).toHaveCount(0);
+  await expect(editButton(page)).toBeFocused();
+});
+
+test("the start of the race ends the edit without saving the draft", async ({ browser }) => {
+  const { page: host, context } = await account(browser, "Capitaine");
+  const { page: member } = await account(browser, "Lina");
+  const code = await openRoom(host);
+  await join(member, code);
+  await editButton(host).click();
+  await words(host).fill("70");
+  await expect(mark(host, "wordCount")).toBeVisible();
+  // The start, from another tab of the host: the settings are locked from the countdown.
+  const second = await context.newPage();
+  await second.goto(`/rooms/${code}`);
+  await expect(second.getByText(LIVE)).toBeVisible();
+  await second.getByRole("button", { name: "Lancer la course", exact: true }).click();
+  await expect(host.locator(".course-texte")).toBeVisible({ timeout: 10_000 });
+  await expect(panel(host)).toHaveCount(0);
+  // The race froze the saved settings, not the draft; the draft was never sent.
+  const [race] = await query<{ config: Record<string, unknown> }>("select config_snapshot as config from races r join lobbies l on l.current_race_id = r.id where l.code = $1", [code]);
+  expect(race?.config.wordCount).toBe(50);
+  expect((await savedRow(code))?.word_count).toBe(50);
+});
+
+test("losing the host role ends the edit without saving the draft", async ({ browser }) => {
+  const { page: host } = await account(browser, "Capitaine");
+  const { page: member } = await account(browser, "Lina");
+  const code = await openRoom(host);
+  await join(member, code);
+  await editButton(host).click();
+  await words(host).fill("80");
+  await expect(mark(host, "wordCount")).toBeVisible();
+  // Fixture: the role moves to the member in the database; the next room update tells both pages.
+  await query("update lobbies set host_member_id = (select m.id from lobby_members m where m.lobby_id = lobbies.id and m.id <> lobbies.host_member_id and m.left_at is null limit 1), revision = revision + 1 where code = $1", [code]);
+  await member.reload();
+  await expect(member.getByText(LIVE)).toBeVisible();
+  await member.getByRole("region", { name: "Bots", exact: true }).getByRole("button", { name: "Ajouter un bot" }).click();
+  await expect(host.getByRole("region", { name: "Bots", exact: true }).getByRole("listitem")).toHaveCount(1);
+  await expect(panel(host).locator("form")).toHaveCount(0);
+  await expect(panel(host).getByRole("button")).toHaveCount(0);
+  await expect(summary(host, /^Nombre de mots$/)).toHaveText("50");
+  expect((await savedRow(code))?.word_count).toBe(50);
+  await expect(editButton(member)).toHaveAttribute("aria-expanded", "false");
+});
+
+test("the open form stays usable at 200 % zoom, in forced colours and at 1024 and 360 px", async ({ browser }) => {
+  const fill = async (page: Page) => {
+    await editButton(page).click();
+    await language(page).selectOption(await language(page).inputValue() === "fr" ? "en" : "fr");
+    await panel(page).getByRole("button", { name: "Chiffres" }).click();
+    await words(page).fill("9");
+    await unlimited(page).uncheck();
+    await seconds(page).fill("29");
+    await expect(seconds(page)).toHaveAttribute("aria-invalid", "true");
+  };
+  const shot = (page: Page, name: string) => panel(page).screenshot({ path: EVIDENCE === undefined ? test.info().outputPath(`${name}.jpg`) : `${EVIDENCE}/${name}.jpg`, type: "jpeg", quality: 72 });
+  const { page } = await account(browser, "Capitaine");
+  await openRoom(page);
+  await fill(page);
+  // 200 % on a 1440 px screen is a 720 px layout; then the tablet and the smallest phone.
+  for (const [width, name] of [[720, "9-zoom-200-fr-abysse-720"], [1024, "9-ouvert-fr-abysse-1024"], [360, "9-ouvert-fr-abysse-360"]] as const) {
+    await page.setViewportSize({ width, height: width === 720 ? 450 : 900 });
+    await expectNoHorizontalScroll(page);
+    await expectNoAccessibilityViolation(page);
+    // Every control keeps its 44 px target and stays inside the panel.
+    const frame = await panel(page).boundingBox();
+    if (!frame) throw new Error("panel");
+    const boxes = await panel(page).locator("form").locator("select, input:not([type=checkbox]), button").evaluateAll((controls) => controls.map((control) => { const box = control.getBoundingClientRect(); return { height: box.height, left: box.left, right: box.right, what: control.outerHTML.slice(0, 90) }; }));
+    for (const box of boxes) {
+      expect(box.height, `width ${width}: ${box.what}`).toBeGreaterThanOrEqual(44);
+      expect(box.left).toBeGreaterThanOrEqual(frame.x);
+      expect(box.right).toBeLessThanOrEqual(frame.x + frame.width + 0.5);
+    }
+    for (const legend of ["Texte", "Durée", "Mode de frappe", "Mode de jeu"]) await expect(groupOf(page, new RegExp(`^${legend}$`))).toBeVisible();
+    await shot(page, name);
+  }
+  // Forced colours: the pending and invalid states still have a sign and words, and a border.
+  const { page: forced } = await account(browser, "Contraste", { forcedColors: true });
+  await openRoom(forced);
+  await fill(forced);
+  await expectNoHorizontalScroll(forced);
+  await expect(mark(forced, "textLanguage")).toContainText("⚠");
+  await expect(panel(forced).getByText(/Choisis « Aucune limite » ou une durée entière/).locator("..")).toContainText("⚠");
+  await expect(seconds(forced)).toHaveCSS("border-top-width", "2px");
+  const tagBorder = await mark(forced, "textLanguage").locator("span").first().evaluate((tag) => getComputedStyle(tag).borderTopWidth);
+  expect(tagBorder).toBe("1px");
+  for (const legend of ["Texte", "Durée", "Mode de frappe", "Mode de jeu"]) await expect(groupOf(forced, new RegExp(`^${legend}$`))).toBeVisible();
+  await shot(forced, "9-couleurs-forcees-fr-1440");
+});

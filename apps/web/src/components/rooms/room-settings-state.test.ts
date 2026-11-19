@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { awaitingSettings, draftConflict, draftTextRefusal, editableSettings, pendingFields, refusalConcernsOptions, refusalFields, requiresSettingsRefresh, SETTINGS_FIELDS, settingsDraft, settingsForm, validDraft, validSeconds, validWordCount, type SavedRoomSettings } from "./room-settings-state";
+import { awaitingSettings, draftConflict, draftTextRefusal, editableSettings, pendingFields, refusalApplies, refusalConcernsOptions, refusalFields, requiresSettingsRefresh, SETTINGS_FIELDS, settingsDraft, settingsForm, validDraft, validSeconds, validWordCount, type SavedRoomSettings } from "./room-settings-state";
 import { roomSettingsCopy, roomStartNote } from "@/i18n/room-settings";
 import { parseConfigureRoomForm } from "@/server/rooms/room-settings";
 
@@ -186,5 +186,25 @@ describe("waiting-room settings state", () => {
     expect(refusalConcernsOptions("INCLUDED_CHARACTER_DISABLED")).toBe(true);
     expect(refusalConcernsOptions("OPTION_FULLY_EXCLUDED")).toBe(true);
     expect(refusalConcernsOptions("CHARACTER_INCLUDED_AND_EXCLUDED")).toBe(false);
+  });
+  it("reads a number however it is written: « 060 » is not a change from 60", () => {
+    const draft = settingsDraft({ ...saved, wordCount: 60, timeLimitMs: 60_000 });
+    const sixty = { ...saved, wordCount: 60, timeLimitMs: 60_000 };
+    expect(pendingFields({ ...draft, wordCount: "060", seconds: "060" }, sixty)).toEqual([]);
+    expect(pendingFields({ ...draft, wordCount: "61", seconds: "061" }, sixty)).toEqual(["wordCount", "seconds"]);
+    expect(pendingFields({ ...draft, wordCount: "6e1", seconds: "none" }, sixty)).toEqual(["wordCount", "seconds"]);
+    expect(pendingFields({ ...draft, seconds: "60" }, { ...sixty, timeLimitMs: null })).toEqual(["seconds"]);
+  });
+  it("keeps a server refusal while the fields it names are as refused, whatever else changes", () => {
+    const refused = { ...settingsDraft(saved), textKind: "random" as const, complexity: "easy" as const, exclude: "aeiou" };
+    // NO_COMPATIBLE_WORDS names the complexity and the excluded characters.
+    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, refused)).toBe(true);
+    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, seconds: "60", bonusesEnabled: true, textLanguage: "en" })).toBe(true);
+    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, complexity: "hard" })).toBe(false);
+    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, exclude: "aei" })).toBe(false);
+    // Back to the refused value: the refusal speaks of the draft again.
+    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...{ ...refused, exclude: "aei" }, exclude: "aeiou" })).toBe(true);
+    expect(refusalApplies("WORDS_UNAVAILABLE", refused, { ...refused, exclude: "" })).toBe(true);
+    expect(refusalApplies("WORDS_UNAVAILABLE", refused, { ...refused, textKind: "coherent" })).toBe(false);
   });
 });

@@ -109,6 +109,25 @@ export function validDraft(draft: SettingsDraft): boolean {
 export const SETTINGS_FIELDS = ["textLanguage", "textKind", "complexity", "wordCount", "options", "include", "exclude", "seconds", "errorMode", "bonusesEnabled"] as const;
 export type SettingsField = (typeof SETTINGS_FIELDS)[number];
 
+/** A typed number equal to the saved one however it is written (« 060 » is 60); anything else differs. */
+function sameNumber(typed: string, saved: number): boolean {
+  return /^\d{1,3}$/.test(typed) && Number(typed) === saved;
+}
+
+/** What a field holds in a draft, as one comparable value (the four options are one field). */
+function fieldValue(draft: SettingsDraft, field: SettingsField): string {
+  return field === "options" ? TEXT_OPTIONS.map((option) => String(draft[option])).join(",") : String(draft[field]);
+}
+
+/**
+ * Whether the server's refusal of `refused` still speaks of `draft`: as long as none of the fields
+ * it names changed. Editing another field keeps the message beside its field; changing a named
+ * field removes it, and typing the refused value back shows it again.
+ */
+export function refusalApplies(problem: TextSettingsProblem, refused: SettingsDraft, draft: SettingsDraft): boolean {
+  return refusalFields(problem).every((field) => fieldValue(refused, field) === fieldValue(draft, field));
+}
+
 /**
  * The fields whose draft differs from the saved settings, in the form's order: what a save would
  * change. Compared as the request would carry them, so characters typed twice, or kept in a draft
@@ -124,11 +143,11 @@ export function pendingFields(draft: SettingsDraft, settings: SavedRoomSettings)
     textLanguage: draft.textLanguage !== settings.textLanguage,
     textKind: draft.textKind !== settings.textKind,
     complexity: draft.complexity !== settings.complexity,
-    wordCount: draft.wordCount !== String(settings.wordCount),
+    wordCount: !sameNumber(draft.wordCount, settings.wordCount),
     options: TEXT_OPTIONS.some((option) => draft[option] !== settings[option]),
     include: characters("include", settings.includeCharacters),
     exclude: characters("exclude", settings.excludeCharacters),
-    seconds: draft.seconds !== savedSeconds,
+    seconds: settings.timeLimitMs === null || draft.seconds === "none" ? draft.seconds !== savedSeconds : !sameNumber(draft.seconds, settings.timeLimitMs / 1000),
     errorMode: draft.errorMode !== settings.errorMode,
     bonusesEnabled: draft.bonusesEnabled !== settings.bonusesEnabled,
   };

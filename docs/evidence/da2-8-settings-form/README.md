@@ -16,3 +16,4 @@ Files are `<state>-{fr,en}-{abysse,aube}-{1440,390}.jpg`:
 | `6-conflit` | the settings changed in another tab: summary updated, draft kept, conflict message |
 | `7-deconnecte` | connection lost with a draft open: fields disabled, draft kept |
 | `8-non-hote` | a member who is not the host: the summary only |
+| `9-zoom-200-fr-abysse-720`, `9-ouvert-fr-abysse-{1024,360}`, `9-couleurs-forcees-fr-1440` | the open form with pending changes and two field errors at a 200 % zoom (720 px layout), 1024 px, 360 px, and under Chromium's forced-colours emulation (which keeps the page's own colours here: it shows the signs, words and borders, not a real high-contrast theme) |
