@@ -11,7 +11,7 @@ import type { resultRoutes } from "./result-routes";
 /** Native disclosure works with the keyboard and without client JavaScript. */
 export function ResultsBonusJournal({ race, locale, t, routes }: {
   readonly race: RaceResultView; readonly locale: Locale; readonly t: Dictionary["races"];
-  /** Each runner's route style by ordinal, as on the track. */
+  /** The track's route style by ordinal, for the runners it is known for (`resultRoutes` of the race's whole crew). */
   readonly routes: ReturnType<typeof resultRoutes>;
 }) {
   const labels = bonusJournalLabels[locale];

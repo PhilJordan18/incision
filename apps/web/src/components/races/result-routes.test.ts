@@ -100,7 +100,7 @@ describe("result pennants", () => {
     expect(resultRoutes(entrants(false).map((entrant) => ({ ...entrant, isSelf: false }))).size).toBe(0);
   });
 
-  it("keeps every drawing out of the accessibility tree and adds no text", () => {
+  it("keeps every drawing out of the accessibility tree, with one coast and the table's headers intact", () => {
     const t = getDictionary("en").races;
     const html = renderToStaticMarkup(createElement(RaceResults, { race: race(true), locale: "en", t }));
     for (const svg of html.match(/<svg[^>]*>/g) ?? []) expect(svg).toContain('aria-hidden="true"');

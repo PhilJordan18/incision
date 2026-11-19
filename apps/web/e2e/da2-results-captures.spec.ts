@@ -14,6 +14,7 @@ test.skip(out === undefined, "DA2_CAPTURES is not set");
 const contexts: BrowserContext[] = [];
 // A run cut short while the results table was set aside must not break the next one. Disposable test database only.
 test.beforeAll(restoreResultsTable);
+test.afterAll(restoreResultsTable);
 test.afterEach(async () => { await Promise.all(contexts.splice(0).map((context) => context.close())); });
 
 const SIZES = {

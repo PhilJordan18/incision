@@ -37,7 +37,8 @@ export function RaceResults({ race, t, locale, linkToRace = false, headingId, ac
   const self = race.entrants.find((entrant) => entrant.isSelf);
   const details = resultsDetails[locale];
   const record = self?.result?.outcome === "finished" ? race.personalRecord : undefined;
-  // Each runner's pennant: the colour and dash of its route on the track, the shape of its sail.
+  // Each runner's pennant: the shape of its sail, and the track's route style where it is known
+  // (today the reader's own only; the others take no runner colour, see `resultRoutes`).
   const routes = resultRoutes(race.entrants);
   const finishers = ranked.filter((entrant) => entrant.result?.outcome === "finished").length;
   // The race page is its entrants' history (HIST-02): the link is shown to them only.

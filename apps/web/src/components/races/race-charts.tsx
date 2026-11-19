@@ -17,7 +17,8 @@ const cell = "px-4 py-3 font-mono text-right whitespace-nowrap";
 export function RaceCharts({ race, locale }: { readonly race: RaceResultView; readonly locale: Locale }) {
   if (race.state !== "finished") return null;
   const t = raceCharts[locale];
-  // The legend's pennants: each runner's route on the track (colour, dash) and its sail's shape.
+  // The legend's pennants: each runner's sail shape, and the track's route style where it is known
+  // (today the reader's own only, see `resultRoutes`).
   const routes = resultRoutes(race.entrants);
   return <div className="flex min-w-0 flex-col gap-8">
     <section aria-labelledby="race-speed-heading" className={`${card} min-w-0 space-y-4`}>

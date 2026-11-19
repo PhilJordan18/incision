@@ -9,6 +9,7 @@ import { expectNoAccessibilityViolation, expectNoHorizontalScroll, query } from 
 const contexts: BrowserContext[] = [];
 // A run cut short while the results table was set aside must not break the next one. Disposable test database only.
 test.beforeAll(restoreResultsTable);
+test.afterAll(restoreResultsTable);
 test.afterEach(async () => { await Promise.all(contexts.splice(0).map((context) => context.close())); });
 
 type Drawn = { readonly shape: string | null; readonly colour: string | null; readonly dash: string | null };
@@ -85,7 +86,9 @@ test("room results: each pennant has its runner's shape, the reader's own has it
       expect(entrant.kind === "bot").toBe(track.kind === "bot");
       if (entrant.account_id === reader.accountId) {
         expect(track.self).toBe(true);
-        expect(row).toEqual({ shape: "triangle", colour: "moi", dash: "solid" });
+        // The reader's marker on the track and their pennant here carry the same colour.
+        expect(row).toEqual({ shape: "triangle", colour: track.colour, dash: "solid" });
+        expect(row.colour).toBe("moi");
       } else {
         // The stored results do not carry the race entrant id the track assigns colours by
         // (reported with DA2-7): another runner's pennant claims no runner colour and no dash.
@@ -178,6 +181,8 @@ for (const locale of ["fr", "en"] as const) test(`race page: pennants, coast and
     expect(await contrast(page, edge, sea), `${theme} edge on sea`).toBeGreaterThanOrEqual(3);
     expect(await contrast(page, edge, land), `${theme} edge on land`).toBeGreaterThanOrEqual(3);
     expect(land).not.toBe(sea);
+    // The crew of five is all there: the loops below never pass on an empty scene.
+    await expect(shore.locator("[data-ship]")).toHaveCount(5);
     for (const sail of await shore.locator("[data-sail-cloth]").all()) {
       expect(await contrast(page, await sail.evaluate((node) => getComputedStyle(node).fill), sea), `${theme} sail on sea`).toBeGreaterThanOrEqual(3);
     }
@@ -261,8 +266,24 @@ for (const locale of ["fr", "en"] as const) test(`history and account: wave mark
       await expect(marks).toHaveCount(1);
       await expect(marks).toHaveAttribute("aria-hidden", "true");
       expect(await marks.evaluate((node) => getComputedStyle(node).pointerEvents)).toBe("none");
+      // The marks are drawn before the title in its own band: the band holds the title, is clipped,
+      // and ends before whatever comes next, so no mark can sit behind other text.
       const heading = page.getByRole("heading", { level: 1 });
-      expect(await heading.evaluate((node) => document.elementFromPoint(node.getBoundingClientRect().left + 4, node.getBoundingClientRect().top + 12) === node || node.contains(document.elementFromPoint(node.getBoundingClientRect().left + 4, node.getBoundingClientRect().top + 12)))).toBe(true);
+      const band = await marks.evaluate((node) => {
+        const wrapper = node.parentElement!; const title = wrapper.querySelector("h1")!;
+        const box = wrapper.getBoundingClientRect(); const titleBox = title.getBoundingClientRect(); const next = wrapper.nextElementSibling?.getBoundingClientRect();
+        const svg = node.getBoundingClientRect();
+        return {
+          marksFirst: Boolean(node.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING),
+          clipped: getComputedStyle(wrapper).overflow === "hidden",
+          holdsTitle: titleBox.top >= box.top && titleBox.bottom <= box.bottom && titleBox.left >= box.left && titleBox.right <= box.right,
+          marksInBand: Math.abs(svg.top - box.top) <= 1 && Math.abs(svg.bottom - box.bottom) <= 1,
+          endsBeforeNext: next === undefined || next.top >= box.bottom - 16,
+          textInBand: [...wrapper.querySelectorAll("*")].filter((element) => element.children.length === 0 && element.textContent?.trim() && !title.contains(element)).length,
+        };
+      });
+      expect(band).toEqual({ marksFirst: true, clipped: true, holdsTitle: true, marksInBand: true, endsBeforeNext: true, textInBand: 0 });
+      await expect(heading).toBeVisible();
       await expect(page.locator("[data-coast], .red-mist")).toHaveCount(0);
       for (const size of sizes) { await page.setViewportSize(size); await expectNoHorizontalScroll(page); }
       await expectNoAccessibilityViolation(page);
