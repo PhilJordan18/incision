@@ -5,6 +5,7 @@ import { roomBotsCopy } from "@/i18n/room-bots";
 import type { BotActionError } from "@/server/rooms/bot-actions";
 import { discreetButton, fieldLabel, secondaryButton, textField } from "@/components/ui/styles";
 import { BotInsignia } from "./bot-insignia";
+import { UnsavedTag } from "./unsaved-tag";
 
 type Props = {
   readonly bot: { readonly botId: string; readonly level: BotLevel };
@@ -17,8 +18,11 @@ type Props = {
   /** The server's refusal of this line's last request; the panel keeps the others. */
   readonly error?: BotActionError;
   readonly reload: () => void;
-  /** The panel's last request was this line's: only then is a new saved level this line's own save. */
-  readonly requested: boolean;
+  /**
+   * The room revision at which this line's own level save was confirmed (ack and snapshot both in),
+   * or undefined. Each confirmation closes the line once; a level saved from elsewhere never does.
+   */
+  readonly confirmed: number | undefined;
   /** That request is on its way or awaited in the room: the line cannot be cancelled under it. */
   readonly saving: boolean;
 };
@@ -32,15 +36,18 @@ const lineButton = `${discreetButton} h-11! px-4!`;
  * the draft: an open line never closes by itself, whatever the room broadcasts or the other lines
  * do; only its own confirmed save or « Annuler » closes it.
  */
-export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload, requested, saving }: Props) {
+export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload, confirmed, saving }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({ saved: bot.level, level: bot.level });
   // A confirmed remote level replaces a stale draft without remounting the focused control.
-  if (draft.saved !== bot.level) {
-    // The level this line asked for is now the saved one: its edit is over. The same level saved
-    // from elsewhere (another tab) leaves the line open, as any other room update does.
-    if (open && requested && draft.level === bot.level && draft.saved !== draft.level) setOpen(false);
-    setDraft({ saved: bot.level, level: bot.level });
+  if (draft.saved !== bot.level) setDraft({ saved: bot.level, level: bot.level });
+  // This line's own save is confirmed: its edit is over, once per confirmation. Reopened later, the
+  // line is no longer tied to that save, so a level saved from elsewhere (another tab), even the
+  // one drafted here, leaves it open as any other room update does.
+  const [closedFor, setClosedFor] = useState<number>();
+  if (confirmed !== undefined && confirmed !== closedFor) {
+    setClosedFor(confirmed);
+    if (open) setOpen(false);
   }
   const level = draft.saved === bot.level ? draft.level : bot.level;
   const id = useId();
@@ -50,6 +57,12 @@ export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload
   const wasOpen = useRef(false);
   const dirty = level !== bot.level;
   const name = `${t.label} ${index + 1}`;
+
+  const reloadButton = useRef<HTMLButtonElement>(null);
+  // A refusal disables the control that had the focus: the way out of it, on this line, takes it.
+  useEffect(() => {
+    if (error !== undefined) reloadButton.current?.focus();
+  }, [error]);
 
   const giveFocusBack = useRef(false);
   useEffect(() => {
@@ -78,43 +91,41 @@ export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload
   }
 
   return <li ref={line} data-open={open || undefined} data-unsaved={dirty || undefined}
-    className={`grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-3 gap-y-2 py-2 pr-4 sm:grid-cols-[3rem_minmax(4.5rem,auto)_minmax(0,1fr)_auto_auto] ${open
+    className={`grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-3 gap-y-2 py-2 pr-4 sm:max-lg:grid-cols-[3rem_minmax(4.5rem,auto)_minmax(0,1fr)_auto_auto] xl:grid-cols-[3rem_minmax(4.5rem,auto)_minmax(0,1fr)_auto_auto] ${open
       ? `border-l-[3px] bg-nuit pl-[13px] ${dirty ? "border-l-or forced-colors:border-l-8 forced-colors:border-double forced-colors:pl-2" : "border-l-voile"}`
       : "pl-4"}`}>
-    <span className="row-span-2 self-start sm:row-span-1 sm:self-center"><BotInsignia level={bot.level} /></span>
-    <p className="col-span-2 font-semibold sm:col-span-1 sm:whitespace-nowrap">
+    <span className="row-span-2 self-start sm:max-lg:row-span-1 sm:max-lg:self-center xl:row-span-1 xl:self-center"><BotInsignia level={bot.level} /></span>
+    <p className="col-span-2 font-semibold sm:max-lg:col-span-1 sm:max-lg:whitespace-nowrap xl:col-span-1 xl:whitespace-nowrap">
       {name}
-      {dirty && <span className="ml-2 inline-flex items-center gap-1.5 rounded-puce border border-or px-1.5 py-0.5 align-middle font-mono text-[10px] font-normal tracking-[0.14em] whitespace-nowrap text-ecume uppercase">
-        <span aria-hidden="true">⚠</span><span>{t.unsavedTag}</span>
-      </span>}
+      {dirty && <UnsavedTag label={t.unsavedTag} className="ml-2 align-middle" />}
     </p>
-    <p className="col-span-2 min-w-0 text-sm text-embrun sm:col-span-1">{t.savedLevel} {t.levels[bot.level]}</p>
+    <p className="col-span-2 min-w-0 text-sm text-embrun sm:max-lg:col-span-1 xl:col-span-1">{t.savedLevel} {t.levels[bot.level]}</p>
     {host && <>
       {/* Not disabled while open: discarding a draft needs no server, and the button holds the focus. */}
-      <button ref={toggle} type="button" className={`${lineButton} col-span-2 sm:col-span-1`} aria-expanded={open} aria-controls={open ? `${id}-editor` : undefined}
+      <button ref={toggle} type="button" className={`${lineButton} col-span-2 sm:max-lg:col-span-1 xl:col-span-1`} aria-expanded={open} aria-controls={open ? `${id}-editor` : undefined}
         disabled={(!open && !enabled) || (open && saving)} aria-label={format(open ? t.cancelBot : t.editBot, { bot: name })} onClick={toggleEditor}>{open ? t.cancel : t.edit}</button>
       <button type="button" disabled={!enabled} className={lineButton} aria-label={`${t.remove} ${name}`} onClick={() => {
         const form = new FormData(); form.set("kind", "remove"); form.set("botId", bot.botId); submit(form);
       }}>{t.remove}</button>
       {open && <>
         <form id={`${id}-editor`} onSubmit={(event) => { event.preventDefault(); if (dirty) submit(new FormData(event.currentTarget)); }}
-          className="col-span-full flex min-w-0 flex-wrap items-end gap-x-3 gap-y-2.5 sm:col-start-2 sm:flex-nowrap">
+          className="col-span-full flex min-w-0 flex-wrap items-end gap-x-3 gap-y-2.5 sm:max-lg:col-start-2 sm:max-lg:flex-nowrap xl:col-start-2 xl:flex-nowrap">
           <input type="hidden" name="kind" value="level" /><input type="hidden" name="botId" value={bot.botId} />
-          <label className={`${fieldLabel} flex min-w-0 flex-[1_1_12rem] flex-col gap-2`}>{t.level} {index + 1}<select ref={select} name="level" value={level} aria-describedby={`${id}-draft`} onChange={event => {
+          <label className={`${fieldLabel} flex min-w-0 flex-[1_1_12rem] flex-col gap-2 lg:max-xl:basis-full`}>{t.level} {index + 1}<select ref={select} name="level" value={level} aria-describedby={`${id}-draft`} onChange={event => {
             const value = BOT_LEVELS.find(candidate => candidate === event.target.value);
             if (value) setDraft({ saved: bot.level, level: value });
           }} disabled={!enabled} className={`${textField} block max-w-full`}>
             {BOT_LEVELS.map(value => <option key={value} value={value}>{t.levels[value]}</option>)}
           </select></label>
-          <button disabled={!enabled} aria-disabled={!dirty || !enabled} className={`${dirty ? secondaryButton : discreetButton} flex-[1_1_8rem] px-4! sm:flex-none sm:shrink-0`}>{t.save}</button>
+          <button disabled={!enabled} aria-disabled={!dirty || !enabled} className={`${dirty ? secondaryButton : discreetButton} flex-[1_1_8rem] px-4! sm:max-lg:flex-none sm:max-lg:shrink-0 xl:flex-none xl:shrink-0`}>{t.save}</button>
         </form>
-        <p id={`${id}-draft`} role="status" className="col-span-full text-sm text-embrun sm:col-start-2">
+        <p id={`${id}-draft`} role="status" className="col-span-full text-sm text-embrun sm:max-lg:col-start-2 xl:col-start-2">
           {dirty ? <><span aria-hidden="true" className="text-or">⚠ </span>{t.unsaved} {t.levels[level]}. {t.saveHint}</> : t.noChanges}
         </p>
       </>}
-      {error !== undefined && <div className="col-span-full flex flex-col items-start gap-2 border-l-[3px] border-erreur pl-2.5 sm:col-start-2">
+      {error !== undefined && <div className="col-span-full flex flex-col items-start gap-2 border-l-[3px] border-erreur pl-2.5 sm:max-lg:col-start-2 xl:col-start-2">
         <p role="alert" className="text-sm text-erreur"><span aria-hidden="true">⚠ </span>{t.errors[error]}</p>
-        <button type="button" className={lineButton} onClick={reload}>{t.reload}</button>
+        <button ref={reloadButton} type="button" className={lineButton} onClick={reload}>{t.reload}</button>
       </div>}
     </>}
   </li>;
