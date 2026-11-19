@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page, test, type WebSocketRoute } from "@playwright/test";
 import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
 
 const contexts: BrowserContext[] = [];
@@ -297,11 +297,18 @@ test("a concurrent level from a second tab replaces that line's stale draft and 
 });
 
 test("a lost connection disables the editors, keeps the drafts and still lets a line be cancelled", async ({ browser }) => {
-  const { page, context } = await account(browser); await roomWithBots(page, 2);
+  const { page, context } = await account(browser);
+  // The emulated network loss does not close an open WebSocket: the page would only notice at a
+  // missed heartbeat, many seconds later. The room's socket goes through the test, which cuts it.
+  const sockets: WebSocketRoute[] = [];
+  await page.routeWebSocket(/\/socket\.io\//, (socket) => { socket.connectToServer(); sockets.push(socket); });
+  const dropSocket = () => Promise.all(sockets.splice(0).map((socket) => socket.close()));
+  await roomWithBots(page, 2);
   await line(page, 1).getByRole("button", { name: "Modifier Bot 1", exact: true }).click();
   await line(page, 1).getByRole("combobox").selectOption("expert");
   await line(page, 2).getByRole("button", { name: "Modifier Bot 2", exact: true }).click();
   await context.setOffline(true);
+  await dropSocket();
   await expect(panel(page).getByText("Attends la reconnexion avant de modifier les bots.")).toBeVisible({ timeout: 30_000 });
   await expect(line(page, 1).getByRole("combobox")).toBeDisabled();
   await expect(line(page, 1).getByRole("combobox")).toHaveValue("expert");
