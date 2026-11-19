@@ -5,20 +5,17 @@ import type { Locale } from "@/i18n/locale";
 import { resultsPodiumLabels } from "@/i18n/results-podium";
 import { formatWpm, ordinal } from "@/races/format";
 import { BotIdentityLabel } from "./bot-identity-label";
-import { type ResultEntrant, resultRoutes } from "./result-routes";
+import type { ResultEntrant, resultRoutes } from "./result-routes";
 
 const STATUS = { finished: "finished", timed_out: "timedOut", abandoned: "abandoned" } as const;
 
 /** Display the persisted rank, never a new WPM-based ranking or a victory calculation. */
-export function ResultsPodium({ entrants, locale, t, routes = resultRoutes(entrants) }: {
+export function ResultsPodium({ entrants, locale, t, routes }: {
   readonly entrants: readonly ResultEntrant[];
   readonly locale: Locale;
   readonly t: Dictionary["races"];
-  /**
-   * Each runner's route style by ordinal, as on the track. Pass the race's own (`resultRoutes` of
-   * the whole crew, as the track counts it); the default suits a list that is the whole crew.
-   */
-  readonly routes?: ReturnType<typeof resultRoutes>;
+  /** Each runner's route style by ordinal, as on the track: `resultRoutes` of the race's whole crew, never of this filtered list. */
+  readonly routes: ReturnType<typeof resultRoutes>;
 }) {
   const places = entrants.filter((entrant) => entrant.result !== undefined && entrant.result.rank <= 3)
     .toSorted((a, b) => a.result!.rank - b.result!.rank);

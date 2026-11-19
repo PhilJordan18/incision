@@ -51,8 +51,13 @@ function pennants(html: string): Map<number, { shape: string; colour: string; da
   return found;
 }
 
+/**
+ * The stored results do not carry the race entrant id yet, so in the running app only the last
+ * of these paths runs: the first two prove the match the day the projection carries it, they are
+ * not evidence that the criterion "same pennant as on the track" is met.
+ */
 describe("result pennants", () => {
-  it.each(["fr", "en"] as const)("a results row's pennant has that entrant's colour, dash and shape on the track (%s)", (locale) => {
+  it.each(["fr", "en"] as const)("when the projection carries the entrant id: a results row's pennant has that entrant's colour, dash and shape on the track (%s)", (locale) => {
     const t = getDictionary(locale).races;
     const html = renderToStaticMarkup(createElement(RaceResults, { race: race(true), locale, t }))
       + renderToStaticMarkup(createElement(RaceCharts, { race: race(true), locale }));
@@ -73,13 +78,13 @@ describe("result pennants", () => {
     expect(new Set([...drawn.values()].map((list) => JSON.stringify(list[0]))).size).toBe(CREW.length);
   });
 
-  it("takes the styles from the track's own assignment, whatever the result order", () => {
+  it("when the projection carries the entrant id: takes the styles from the track's own assignment, whatever the result order", () => {
     const points = track();
     const routes = resultRoutes([...entrants(true)].reverse());
     for (const [index, member] of CREW.entries()) expect(routes.get(index + 1)).toEqual(points.get(member.entrantId)!.route);
   });
 
-  it("claims no colour for a runner whose track identity the projection does not carry", () => {
+  it("as delivered today (no entrant id in the projection): only the reader has a track colour, no other runner claims one", () => {
     const routes = resultRoutes(entrants(false));
     expect([...routes.keys()]).toEqual([2]);
     expect(routes.get(2)).toEqual({ colour: "moi", dash: "solid" });

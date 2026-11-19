@@ -6,13 +6,13 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
 import { BotIdentityLabel } from "./bot-identity-label";
-import { resultRoutes } from "./result-routes";
+import type { resultRoutes } from "./result-routes";
 
 /** Native disclosure works with the keyboard and without client JavaScript. */
-export function ResultsBonusJournal({ race, locale, t, routes = resultRoutes(race.entrants) }: {
+export function ResultsBonusJournal({ race, locale, t, routes }: {
   readonly race: RaceResultView; readonly locale: Locale; readonly t: Dictionary["races"];
   /** Each runner's route style by ordinal, as on the track. */
-  readonly routes?: ReturnType<typeof resultRoutes>;
+  readonly routes: ReturnType<typeof resultRoutes>;
 }) {
   const labels = bonusJournalLabels[locale];
   const seconds = new Intl.NumberFormat(locale, { maximumFractionDigits: 3 });

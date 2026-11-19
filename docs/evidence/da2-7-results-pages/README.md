@@ -31,13 +31,20 @@ File names: `<screen>[-<state>]-<language>-<theme>-<width or 1280x640>.jpg`;
 | `account-empty-*`, `account-name-invalid-*`, `account-statistics-unavailable-*` (Abysse and Aube) | none | — |
 | `account-photo-pending-fr-<theme>-1440.jpg`, `account-name-pending-fr-<theme>-1440.jpg` (a save held in flight, written by `e2e/da2-results.spec.ts`) | none | — |
 
-## Where the app differs from the mock-up, on purpose
+## Criterion only partly met
+
+"A pennant's colour and shape equal the track's for the same entrant" is **partial** in these
+captures: the shape matches for every runner, the colour for the reader only. See the first point
+below and the pull request; the card is not complete while this stands.
+
+## Where the app differs from the mock-up
 
 - **Other runners' colours.** The track gives each runner its colour and dash from its race
   entrant id (`routeStyles`). The stored results expose a runner's ordinal, not that id, so here
   only the reader's own pennant has its track colour (`moi`, as on the track); the others keep
-  their sail's shape and take no runner colour (`ecume`). The pennants take the track's colours
-  as soon as the result views carry the entrant id; the two files are listed in the pull request.
+  their sail's shape and take no runner colour (`ecume`, with the primitive's solid line under
+  it; `ecume` is close to the runner colour `embrun`). This is a gap, not a choice: closing it
+  needs a change outside this lot, proposed in the pull request.
 - **Pennant of a dashed runner.** As in DA2-2: the cloth keeps the kind's shape (triangle for a
   human, square for a bot) and the dash is a sample of the route under it, not a swallowtail.
 - **Rank.** The app's typography is kept (« sur 5 » in the display face); the mock-up writes it in

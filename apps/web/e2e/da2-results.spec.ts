@@ -7,6 +7,8 @@ import { expectNoAccessibilityViolation, expectNoHorizontalScroll, query } from 
  * checked on the running app. The functional assertions of these screens stay in their own specs.
  */
 const contexts: BrowserContext[] = [];
+// A run cut short while the results table was set aside must not break the next one. Disposable test database only.
+test.beforeAll(async () => { await query("alter table if exists race_results_away rename to race_results"); });
 test.afterEach(async () => { await Promise.all(contexts.splice(0).map((context) => context.close())); });
 
 type Drawn = { readonly shape: string | null; readonly colour: string | null; readonly dash: string | null };

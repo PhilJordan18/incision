@@ -5,6 +5,7 @@ import type { EntrantResultView, RaceResultView } from "@incision/database";
 import { getDictionary } from "@/i18n/dictionaries";
 import { ResultsPodium } from "./results-podium";
 import { RaceResults } from "./race-results";
+import { resultRoutes } from "./result-routes";
 
 function entrant(rank: number, outcome: "finished" | "timed_out" | "abandoned" = "finished"): EntrantResultView {
   return { ordinal: rank, displayName: `Sailor-${rank}`, isSelf: rank === 2,
@@ -12,7 +13,7 @@ function entrant(rank: number, outcome: "finished" | "timed_out" | "abandoned" =
       elapsedMs: 1000, position: 3, length: 3, netWpm: rank * 10, rawWpm: 12.5, accuracy: 90, errors: 1 } };
 }
 function podium(entrants: readonly EntrantResultView[], locale: "en" | "fr" = "en") {
-  return renderToStaticMarkup(createElement(ResultsPodium, { entrants, locale, t: getDictionary(locale).races }));
+  return renderToStaticMarkup(createElement(ResultsPodium, { entrants, locale, t: getDictionary(locale).races, routes: resultRoutes(entrants) }));
 }
 describe("persisted results podium", () => {
   it("shows only existing places, including zero, one and two-result races", () => {
