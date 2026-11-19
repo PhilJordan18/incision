@@ -35,6 +35,7 @@ import { notifyMemberLeft, notifyRoomChanged } from "./room-events";
 
 export type JoinError =
   | RoomCodeError
+  | "ROOM_BANNED"
   | "ROOM_NOT_FOUND"
   | "ROOM_NOT_ADMITTING"
   | "ROOM_FULL"

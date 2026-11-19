@@ -19,8 +19,10 @@ export const bonusSelfSchema = z.object({
   enabled: z.boolean(),
   grants: z.array(z.object({ milestone, kind: z.enum(BONUS_KINDS) }).strict()).max(3),
   fog: z.object({ startsAt: instant, expiresAt: instant }).strict().nullable(),
-}).strict().refine(self => self.grants.every((grant, index) =>
-  index === 0 || grant.milestone > self.grants[index - 1].milestone), "Grants must be unique and ordered")
+}).strict().refine(self => self.grants.every((grant, index) => {
+  const previous = self.grants[index - 1];
+  return previous === undefined || grant.milestone > previous.milestone;
+}), "Grants must be unique and ordered")
   .refine(self => self.fog === null || self.fog.expiresAt > self.fog.startsAt, "Invalid fog interval");
 export type BonusSelf = z.infer<typeof bonusSelfSchema>;
 export type BonusActivationAck =

@@ -87,6 +87,14 @@ Il ne remplace pas des données existantes en conflit. Ces courses ne collectent
 pas de journal Arcade : elles servent aussi à vérifier l’état « journal indisponible »,
 jamais un faux « aucun bonus ». Voir les [limites du seed](evidence/f07-7-demo-history/README.md).
 
+Pour une même recette locale réutilisée, conserver les valeurs de
+`AUTH_SECRET`, `GUEST_SESSION_SECRET` et `INVITATION_IP_SECRET` entre les
+redémarrages dans la configuration privée de cet environnement. Les générer à
+la création de l'environnement. Si la clé Auth.js change, les cookies existants
+sont refusés et une nouvelle connexion émet une session chiffrée avec la clé
+courante. Les suites à base et navigateur jetables peuvent générer leurs
+propres clés par exécution.
+
 ## 3 ter. Activer explicitement le parcours invité (#31)
 
 La copie de `.env.example` laisse `GUEST_ENTRY_ENABLED=false` et

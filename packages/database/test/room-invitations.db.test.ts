@@ -159,6 +159,24 @@ describe("room invitations", () => {
     expect((await pool.query("select count(*)::int as count from lobby_members where account_id=$1 and left_at is null", [bob])).rows[0].count).toBe(1);
   });
 
+  it("discloses a ban only after a valid invitation, for accounts and guests", async () => {
+    const { lobbyId, invitationId } = await fixture();
+    const bob = await account("Banned account");
+    await pool.query("insert into lobby_bans(lobby_id, account_id) values($1,$2)", [lobbyId, bob]);
+    expect(await joinRoomByCode(db, { accountId: bob, code, role: "participant" })).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
+    expect(await join(bob)).toEqual({ ok: false, error: "ROOM_BANNED" });
+    expect((await binding()).bound_member_id).toBeNull();
+    await pool.query("update lobby_invitations set revoked_at=now() where id=$1", [invitationId]);
+    expect(await join(bob)).toEqual(unavailable);
+    await pool.query("update lobby_invitations set revoked_at=null where id=$1", [invitationId]);
+    const proof = { id: randomUUID(), secretDigest: "c".repeat(64) };
+    await createGuestSession(db, proof);
+    await pool.query("insert into lobby_bans(lobby_id, guest_session_id) values($1,$2)", [lobbyId, proof.id]);
+    expect(await joinRoomByInvitation(db, { tokenDigest, actor: { kind: "guest", proof, nickname: "Banned guest" },
+      role: "participant", addressDigestForRoom: () => address })).toEqual({ ok: false, error: "ROOM_BANNED" });
+    expect((await binding()).bound_member_id).toBeNull();
+  });
+
   it("admits a private room only through its token, then reuses the same presence", async () => {
     const { lobbyId } = await fixture();
     const bob = await account("Bob");

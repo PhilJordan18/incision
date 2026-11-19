@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { config, databaseName, localAdminUrl, portOf } from "../src/config";
+import { sqlDelta } from "../src/sql-counters";
 import { assertCoverage, Samples, summary } from "../src/metrics";
 
 describe("local load guard", () => {
@@ -9,6 +10,8 @@ describe("local load guard", () => {
     expect(() => config({ LOAD_CONFIRM: "local-only", LOAD_URL: "http://example.org" })).toThrow();
     expect(config({ LOAD_CONFIRM: "local-only", LOAD_BROWSER: "1" }).browser).toBe(true);
     expect(() => config({ LOAD_CONFIRM: "local-only", LOAD_BROWSER: "yes" })).toThrow();
+    expect(config({ LOAD_CONFIRM: "local-only", LOAD_GUEST_ARCADE: "1" }).guestArcade).toBe(true);
+    expect(() => config({ LOAD_CONFIRM: "local-only", LOAD_GUEST_ARCADE: "yes" })).toThrow();
   });
   it.each([
     "postgresql://x@localhost:5433/postgres",
@@ -32,6 +35,13 @@ describe("local load guard", () => {
 });
 
 describe("measurement integrity", () => {
+  it("uses SQL counter deltas and refuses reset or invalid counters", () => {
+    const before = { total: 20, guestSessionLocks: 2, guestActivityWrites: 1 };
+    expect(sqlDelta(before, { total: 50, guestSessionLocks: 5, guestActivityWrites: 4 }))
+      .toEqual({ total: 30, guestSessionLocks: 3, guestActivityWrites: 3 });
+    expect(() => sqlDelta(before, { ...before, guestSessionLocks: 1 })).toThrow();
+    expect(() => sqlDelta(before, { ...before, total: NaN })).toThrow();
+  });
   it("uses nearest rank percentiles without mutating samples", () => {
     const values = [5, 1, 4, 2, 3];
     expect(summary(values)).toEqual({ count: 5, median: 3, p95: 5, p99: 5, max: 5 });
