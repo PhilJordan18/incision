@@ -63,7 +63,10 @@ describe("private race charts", () => {
   it("identifies bots by persisted kind and level with a square marker", () => {
     const html = render({ ...race, entrants: [...race.entrants, { ...race.entrants[0]!, ordinal: 2, displayName: "Bot", isSelf: false, kind: "bot", botLevel: "expert" }] });
     expect(html).toContain("Bot · Emperor of the seas — expert");
-    expect(html.match(/<rect /g)).toHaveLength(2);
+    // The bot's square markers on the two plots; its square pennant in the legend is counted apart.
+    expect(html.match(/<rect [^>]*width="6"/g)).toHaveLength(2);
+    expect(html.match(/<rect /g)).toHaveLength(3);
+    expect(html.match(/data-pennant="square"/g)).toHaveLength(1);
     expect(html.match(/aria-label="é — 1 errors"/g)).toHaveLength(1);
   });
   it("includes all thirty runners and gives each a readable individual view", () => {

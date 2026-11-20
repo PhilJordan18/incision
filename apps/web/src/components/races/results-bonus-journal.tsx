@@ -1,14 +1,18 @@
 import type { RaceResultView } from "@incision/database";
+import { Pennant } from "@/components/nautical";
 import { card } from "@/components/ui/styles";
 import { bonusJournalLabels } from "@/i18n/bonus-journal";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import type { Locale } from "@/i18n/locale";
 import { BotIdentityLabel } from "./bot-identity-label";
+import type { resultRoutes } from "./result-routes";
 
 /** Native disclosure works with the keyboard and without client JavaScript. */
-export function ResultsBonusJournal({ race, locale, t }: {
+export function ResultsBonusJournal({ race, locale, t, routes }: {
   readonly race: RaceResultView; readonly locale: Locale; readonly t: Dictionary["races"];
+  /** The track's route style by ordinal, for the runners it is known for (`resultRoutes` of the race's whole crew). */
+  readonly routes: ReturnType<typeof resultRoutes>;
 }) {
   const labels = bonusJournalLabels[locale];
   const seconds = new Intl.NumberFormat(locale, { maximumFractionDigits: 3 });
@@ -18,7 +22,8 @@ export function ResultsBonusJournal({ race, locale, t }: {
     {race.entrants.filter((entrant) => entrant.result !== undefined).map((entrant) => {
       const journal = entrant.result?.bonusJournal;
       return <details key={entrant.ordinal} className={`${card} min-w-0 p-4`}>
-        <summary className="min-h-11 cursor-pointer content-center break-words font-semibold">
+        <summary data-result-entrant={entrant.ordinal} className="min-h-11 cursor-pointer content-center break-words font-semibold">
+          <Pennant kind={entrant.kind ?? "human"} {...routes.get(entrant.ordinal)} className="mr-2" />
           {entrant.displayName}<BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
           {entrant.isSelf ? ` (${t.you})` : ""}
         </summary>

@@ -2,6 +2,7 @@ import { describeDatabaseError, parseHistoryCursor, readAccountHistory, type His
 import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
+import { WaveMarks } from "@/components/nautical";
 import { PageHeading } from "@/components/ui/page-heading";
 import { card, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { getHistoryDictionary } from "@/i18n/dictionaries/history";
@@ -37,7 +38,12 @@ export default async function History({ searchParams }: PageProps<"/history">) {
   }
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <PageHeading bold={t.bold} serif={t.serif} />
+      {/* The title's band, with the wave marks behind it only (art direction C1): decoration, clipped to the band. */}
+      <div className="relative -my-4 min-w-0 overflow-hidden py-4">
+        {/* Hidden in forced colours, where a full-contrast stroke would read as a dash through the title. */}
+        <WaveMarks className="absolute inset-0 size-full opacity-80 forced-colors:invisible" />
+        <div className="relative"><PageHeading bold={t.bold} serif={t.serif} /></div>
+      </div>
       <p className="text-embrun">{t.intro}</p>
       <Link href="/account" className={`${discreetButton} self-start`}>{t.account}</Link>
       {invalid || unavailable ? (

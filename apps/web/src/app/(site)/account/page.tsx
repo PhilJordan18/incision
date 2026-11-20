@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { WaveMarks } from "@/components/nautical";
 import { PageHeading } from "@/components/ui/page-heading";
 import { card, monoLabel, secondaryButton } from "@/components/ui/styles";
 import { getHistoryDictionary } from "@/i18n/dictionaries/history";
@@ -37,7 +38,12 @@ export default async function AccountPage({ searchParams }: { readonly searchPar
   const statistics = await readAccountStatistics(authDatabase(), accountId).catch(() => null);
   return (
     <>
-      <PageHeading bold={t.account.headingBold} serif={t.account.headingSerif} />
+      {/* The title's band, with the wave marks behind it only (art direction C1): decoration, clipped to the band. */}
+      <div className="relative -my-4 min-w-0 overflow-hidden py-4">
+        {/* Hidden in forced colours, where a full-contrast stroke would read as a dash through the title. */}
+        <WaveMarks className="absolute inset-0 size-full opacity-80 forced-colors:invisible" />
+        <div className="relative"><PageHeading bold={t.account.headingBold} serif={t.account.headingSerif} /></div>
+      </div>
       <AccountJourney accountId={accountId} locale={locale} />
       <section className={`${card} flex max-w-xl flex-col gap-5`}>
         {photoRevision ? <Image src={`/api/account/photo?v=${photoRevision}`} width={180} height={180}

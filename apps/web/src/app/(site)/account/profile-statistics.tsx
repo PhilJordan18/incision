@@ -1,5 +1,5 @@
 import type { AccountStatistics } from "@incision/database";
-import { card, monoLabel } from "@/components/ui/styles";
+import { card, monoLabel, panelTitle } from "@/components/ui/styles";
 import type { Locale } from "@/i18n/locale";
 import { profileStatisticsLabels } from "@/i18n/profile-statistics";
 import { formatDate, formatNumber } from "@/i18n/value-format";
@@ -24,7 +24,7 @@ export function ProfileStatisticsPanel({ data, locale }: { readonly data: Accoun
   ] : [];
   return (
     <section aria-labelledby="profile-statistics-heading" className="mt-8 flex min-w-0 flex-col gap-5">
-      <h2 id="profile-statistics-heading" className="font-display text-4xl font-extrabold uppercase">{t.title}</h2>
+      <h2 id="profile-statistics-heading" className={panelTitle}>{t.title}</h2>
       {!data ? <p role="alert" className={`${card} text-erreur`}>{t.unavailable}</p> : <>
         <p className="text-embrun">{t.scope}</p>
         <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -35,7 +35,7 @@ export function ProfileStatisticsPanel({ data, locale }: { readonly data: Accoun
         </dl>
         <p className="text-sm text-embrun">{t.rules} {t.missing}</p>
         {trend.length === 0 ? <p className={card}>{t.empty}</p> : <section aria-labelledby="profile-progression" className={`${card} min-w-0`}>
-          <h3 id="profile-progression" className="font-display text-3xl font-extrabold uppercase">{t.progression}</h3>
+          <h3 id="profile-progression" className={panelTitle}>{t.progression}</h3>
           <p className="mt-2 text-sm text-embrun">{t.window}</p>
           <svg viewBox="0 0 720 260" role="img" aria-labelledby="profile-chart-title" className="mt-4 w-full">
             <title id="profile-chart-title">{t.chart}</title>
