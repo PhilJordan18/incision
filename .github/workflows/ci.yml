@@ -20,9 +20,8 @@ jobs:
   checks:
     name: Lint, type check, test, build
     runs-on: ubuntu-latest
-    # The end-to-end suite alone takes 15 to 18 minutes on a hosted runner (one worker, about 200
-    # tests), after about 8 minutes of earlier steps: 25 minutes cut green runs short.
-    timeout-minutes: 40
+    # Allow the combined C1 suite its 45-minute step budget plus setup, earlier checks and reports.
+    timeout-minutes: 60
     env:
       NEXT_TELEMETRY_DISABLED: 1
     services:
@@ -124,8 +123,8 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: End-to-end tests (Playwright, production build)
-        # Bounds a hung suite: a green run takes 15 to 18 minutes.
-        timeout-minutes: 25
+        # The combined C1 suite has 365 tests; the previous 25-minute limit stopped at test 310.
+        timeout-minutes: 45
         # Its own database on the service container, rebuilt and seeded with the demo
         # accounts by the test run; throwaway AUTH_SECRET and placeholder OAuth ids.
         env:
