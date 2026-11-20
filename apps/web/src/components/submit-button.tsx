@@ -43,7 +43,7 @@ export function SubmitButton({ label, pendingLabel, className, name, value, aria
     >
       {pending ? (
         <span className="inline-flex items-center gap-2">
-          <HourglassIcon data-pending-icon="" />
+          <HourglassIcon data-pending-icon="" width="1.2em" height="1.2em" />
           {pendingLabel}
         </span>
       ) : label}

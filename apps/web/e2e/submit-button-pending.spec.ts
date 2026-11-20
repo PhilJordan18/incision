@@ -42,17 +42,20 @@ async function labelContrast(button: Locator): Promise<{ readonly ratio: number;
   });
 }
 
-/** Clicks `button`, holds its form's POST in flight, and checks the pending label; then lets the request go. */
+/** Clicks `button`, holds its form's POST in flight, and checks the pending label; then aborts the request, never answered. */
 async function expectReadableWhilePending(page: Page, { path, button, pending, label }: {
   readonly path: string; readonly button: Locator; readonly pending: string; readonly label: string;
 }): Promise<void> {
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => { release = resolve; });
+  let aborted: () => void = () => {};
+  const done = new Promise<void>((resolve) => { aborted = resolve; });
   await page.route(`**${path}`, async (route) => {
     if (route.request().method() !== "POST") { await route.continue(); return; }
     await held;
     // Never answered: nothing leaves the test, not even a provider redirect.
     await route.abort("aborted").catch(() => undefined);
+    aborted();
   });
   try {
     const idle = await labelContrast(button);
@@ -80,8 +83,10 @@ async function expectReadableWhilePending(page: Page, { path, button, pending, l
     expect(drawn.moving, `${label}: the hourglass never moves`).toBe(0);
     await expectNoAccessibilityViolation(page);
   } finally {
+    // The route stays until the page closes, and the held POST is aborted before the test moves
+    // on: unrouting while the handler still waits let the request reach the server.
     release();
-    await page.unroute(`**${path}`);
+    await done;
   }
 }
 
@@ -105,6 +110,9 @@ for (const theme of THEMES) {
     await leaving.goto("/account");
     await expectReadableWhilePending(leaving, { path: "/account", label: `${theme} secondary`,
       button: leaving.getByRole("button", { name: "Se déconnecter", exact: true }), pending: "Déconnexion…" });
+    // Nothing reached the server: the name is not saved, nobody was signed out.
+    const [after] = await query<{ display_name: string; session_version: number }>("select display_name, session_version from accounts where id=$1", [account!.id]);
+    expect(after).toEqual({ display_name: "Pending sailor", session_version: account!.session_version });
   });
 
   test(`pending submit labels stay readable on sign-in (primary, provider), ${theme}`, async ({ browser }) => {
