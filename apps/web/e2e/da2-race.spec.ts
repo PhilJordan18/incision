@@ -152,22 +152,22 @@ for (const item of cases) {
       const left = Math.min(...[...el.querySelectorAll("[data-track-label]")].map(label => label.getBoundingClientRect().left));
       return lines.filter(line => line.getAttribute("y1") !== line.getAttribute("y2") || Number(line.getAttribute("x2")) > 60).map(line => left - line.getBoundingClientRect().right);
     })) expect(Math.abs(link), "a connector short of its name").toBeLessThanOrEqual(0.01 * (boxes.track.right - boxes.track.left) + 1);
-    // No ship over mine: one that would cover it is drawn beside its marker (two others may touch).
-    expect(boxes.mine).toHaveLength(1);
-    for (const hull of boxes.others) expect(overlap(hull, boxes.mine[0]!), "a hull over mine").toBe(false);
-    // A ship drawn beside its marker is tied to it, the tether running from the marker to the ship's
-    // foot; a ship on its marker has none. Measured as drawn, whatever the chart's mapping.
-    if (horizontal) expect(await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].filter(marker => marker.querySelector("[data-ship]"))
-      .every(marker => (Number(marker.style.getPropertyValue("--horizontal-ship-shift")) !== 0)
-        === (el.querySelector(`[data-horizontal-tether="${marker.dataset.runner}"]`) !== null)))).toBe(true);
-    else for (const tie of await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].filter(marker => marker.querySelector("[data-ship]")).map(marker => {
-      const foot = marker.getBoundingClientRect().left; const hull = marker.querySelector("[data-ship] > path:last-of-type")!.getBoundingClientRect();
-      const tether = marker.querySelector("[data-tether]")!.getBoundingClientRect();
-      return { offset: hull.left + hull.width / 2 - foot, tether: tether.width, from: Math.min(Math.abs(tether.left - foot), Math.abs(tether.right - foot)) };
+    // Every ship sits on its own marker (decided on 20 November 2026: no berth beside it), on every
+    // chart: its box centred on the marker across, its foot (SHIP_ANCHOR, 31 / 54) on it lengthwise.
+    for (const ship of await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].filter(marker => {
+      const ship = marker.querySelector("[data-ship]"); return ship !== null && ship.getBoundingClientRect().width > 0; }).map(marker => {
+      const foot = marker.getBoundingClientRect(); const box = marker.querySelector("[data-ship]")!.getBoundingClientRect();
+      return { across: box.left + box.width / 2 - (foot.left + foot.width / 2), along: (foot.top + foot.height / 2 - box.top) / box.height };
     }))) {
-      expect(tie.tether).toBeCloseTo(Math.abs(tie.offset), 0);
-      if (tie.tether > 0.5) expect(tie.from).toBeLessThan(1);
+      expect(Math.abs(ship.across), "a ship beside its marker").toBeLessThanOrEqual(1);
+      expect(ship.along).toBeCloseTo(31 / 54, 1);
     }
+    // Where hulls overlap, mine is painted above every other ship and stays fully visible: a higher
+    // layer than any other marker, last in the paint order, under nothing but the two words' plates,
+    // which it never reaches (below). It replaces « no hull over mine », as the berths are gone.
+    expect(boxes.mine).toHaveLength(1);
+    for (const word of boxes.words) expect(word.mine, "my ship under another").toBeGreaterThan(word.above);
+    expect(await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].at(-1)!.dataset.self)).toBe("true");
     // On the vertical chart no ship, mine included, reaches the finish word: the lanes start right of it.
     if (!horizontal) {
       const finish = boxes.words.find(word => word.word === "finish")!;

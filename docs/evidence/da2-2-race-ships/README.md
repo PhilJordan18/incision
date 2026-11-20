@@ -31,9 +31,10 @@ with that many clients was run for this card. The fixture never sends 100 % or �
 `fanions-comparaison.jpg` puts the mock-up's pennants beside the app's, for a human and a bot
 with a solid, dashed and dotted route, in Abysse and Aube, enlarged and at real size. It is built
 from the app's own components and from the mock-up's drawings copied as they are; cases the
-mock-up never drew are marked « non dessiné ». The difference is **under study, not decided**
-(`docs/da/v2/README.md`). What the board shows against the app's solution: at real size the dashed
-and dotted lines under the cloth are hard to tell apart.
+mock-up never drew are marked « non dessiné ». **Decided on 20 November 2026: the app's pennant
+stays** (the kind's shape, the route's dash as a line under the cloth; no return to the
+swallowtail). What the board showed before that choice: at real size the dashed and dotted lines
+under the cloth are hard to tell apart.
 
 ## Where the app differs from the mock-up, on purpose
 
@@ -41,7 +42,8 @@ and dotted lines under the cloth are hard to tell apart.
   connector to the ship, so that 30 and 50 runners never overlap; the mock-up writes them beside
   each ship.
 - **Pennant of a dashed runner**: the mock-up cuts it as a swallowtail. Here the cloth keeps the
-  kind's shape (triangle: human, square: bot) and the dash is a sample of the route under it.
+  kind's shape (triangle: human, square: bot) and the dash is a sample of the route under it
+  (my decision of 20 November 2026).
 - **Compass**: bottom-left of the chart instead of bottom-right, where the names' column is.
 - **A bot's name on the chart** no longer starts with « □ »: its square sail and square pennant say
   it, as in the mock-up. The standings keep « · □ Bot » in words.
@@ -50,12 +52,10 @@ and dotted lines under the cloth are hard to tell apart.
 - **Unnamed runners** (my request of 18 November): on the chart they are grey dots on one faint
   dotted route, as the mock-up draws them; their colour and dash stay on their standings pennant
   and show on the chart as soon as they are named. `before-dev-*` shows them coloured.
-- **A ship that would sail under mine** is, nearly always, drawn beside its marker, on the side of its own lane,
-  at most 10 % of the chart's width away, with a short tether in its colour (mine never moves);
-  the marker, the route and the connector keep the real position, and only the sideways drawing
-  shifts, never the progress. Two other ships may still touch one another, and a ship held by
-  the 10 % reach or the chart's edge can still touch mine (measured by simulation: under 0.5 % of
-  neighbours mid-race, about 3.6 % when everyone is exactly level, as on the start line).
+- **Every ship sits on its own marker** (my decision of 20 November 2026), on every chart and
+  whatever the crew's size: no berth beside it, no tether, no slide when the named neighbours
+  change. Where hulls overlap, mine is painted above the others (a higher layer and last in the
+  paint order, forced colours included); other ships may overlap one another.
 - **« (toi) »** is never cut, and on a chart narrower than 400 px (the 1024 px row, a phone) the
   label drops its pennant and takes a wider column so that a short name is whole; the standings
   keep every pennant.
@@ -63,7 +63,7 @@ and dotted lines under the cloth are hard to tell apart.
   colour above every ship, and the lanes keep clear of them on every chart: no ship, mine included,
   reaches them (checked on every capture). On the tablet the lanes run between 30 and 58 % of the
   chart's height, below the two words; on a chart of 400 px or less the count is set at 10 px and
-  ships stop at 58 %, short of it.
+  the lanes stop short of it.
 - **On the vertical chart the lanes start right of « ARRIVÉE »** (my choice of 20 November, option C
   of the comparison): on a chart of 900 px or less, which is every vertical chart the page draws
   today (the widest, the row without Arcade on a large screen, is about 830 px), they are drawn
@@ -71,14 +71,10 @@ and dotted lines under the cloth are hard to tell apart.
   Arcade row, the low screen, the phone) the ships are also a little smaller (38 px, mine 48 px).
   No ship reaches the word any more; the e2e checks it on every vertical capture, the row without
   Arcade included. The tablet's chart is unchanged.
-  The cost: a narrower band, so more ships drawn beside their marker. Measured on crews bunched on
-  purpose (`track-layout.test.ts`): a neighbour held short of the full clearance from mine in up to
-  8.9 % of cases with 50 runners, its hull touching mine in up to 2.7 %. A side keeps its ships as
-  long as one berth fits there, so a crew exactly level (the by-the-coast captures) leaves mine clear.
+  The cost: a narrower band, so level ships overlap more often (mine stays on top).
 - **Tablet chart**: a runner it does not name is grey there too, dot and route.
-  My ship and the leader's are drawn at least 18 % of its height apart (32 px); the leader's ship
-  stays between 24 % (below the words) and 61 % (above its name). In a close duel its hull can still
-  enter my outer ring, never my hull.
+  My ship and the leader's are each drawn on their marker: in a close duel they may overlap, mine
+  on top.
 - **Ships** are drawn at 85 % of the mock-up's size, so that they fit the shortest chart (12 rem).
 
 ## Assertions of `race-track.spec.ts` changed against `dev`

@@ -109,24 +109,6 @@
 .dashed { stroke-dasharray: 7 4; }
 .dotted { stroke-dasharray: 1 4; }
 .anonRoute { --route: var(--color-brume); stroke-width: 1px; opacity: 0.45; stroke-dasharray: 1 4; }
-/* The horizontal chart's tether, in its routes' drawing. */
-.routeTether {
-  stroke: var(--route);
-  stroke-width: 1.5px;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-}
-/* The vertical chart's tether: from the marker to its ship's foot, the length of the drawn shift. */
-.tether {
-  position: absolute;
-  top: -0.75px;
-  left: min(0px, calc(var(--drawn-shift) * 1cqw));
-  width: max(calc(var(--drawn-shift) * 1cqw), calc(var(--drawn-shift) * -1cqw));
-  height: 1.5px;
-  background: var(--route);
-  pointer-events: none;
-  transition: left var(--duration-court) var(--ease-incision), width var(--duration-court) var(--ease-incision);
-}
 .narrowLink { display: none; }
 .connector {
   stroke: var(--color-brume);
@@ -136,8 +118,6 @@
 }
 
 .point {
-  /* The ship's sideways offset as drawn, in % of the chart's width (narrow charts scale it). */
-  --drawn-shift: var(--ship-shift, 0);
   position: absolute;
   z-index: 1;
   left: var(--point-x);
@@ -152,19 +132,18 @@
 }
 /* A named runner: the marker is the foot of its ship, which carries the colour on its sail. */
 .named { z-index: 2; width: 0; height: 0; box-shadow: none; }
-/* Mine above every other ship, below the two words' plates (the lanes keep clear of them). */
+/* Every ship sits on its marker: where hulls overlap, mine is above the others (and last in the
+   paint order), below the two words' plates (the lanes keep clear of them). */
 .self { z-index: 3; }
 .ship {
   --ship-size: 46px;
   position: absolute;
-  /* Beside its marker when it would sail under another ship (track-layout's `shipShift`). */
-  left: calc(var(--ship-size) / -2 + var(--drawn-shift) * 1cqw);
+  /* Centred on its marker, always. */
+  left: calc(var(--ship-size) / -2);
   /* The ship's foot (SHIP_ANCHOR: 31 / 54 of its box) on the marker. */
   top: calc(var(--ship-size) * -0.574);
   width: var(--ship-size);
   height: var(--ship-size);
-  /* A change of berth is carried across like the marker's own move, never a jump. */
-  transition: left var(--duration-court) var(--ease-incision), top var(--duration-court) var(--ease-incision);
 }
 .self .ship { --ship-size: 58px; }
 .label {
@@ -204,18 +183,18 @@
  * A vertical chart of 900 px or less (every one the page draws today; the widest is about 830 px):
  * the lanes are drawn between 30 and 55 % of the width,
  * right of the finish word, instead of 16 to 55 %; x' = 19.744 % + 0.641 x (track-layout's
- * NARROW_LANES). Markers, routes, connectors, ships and tethers move together; progress does not.
+ * NARROW_LANES). Markers, routes, connectors and ships move together; progress does not.
  */
 @media not ((min-width: 640px) and (max-width: 1023px)) {
   @container (max-width: 900px) {
-    .point { left: calc(19.744% + var(--point-x) * 0.641); --drawn-shift: calc(var(--narrow-ship-shift, 0) * 0.641); }
+    .point { left: calc(19.744% + var(--point-x) * 0.641); }
 
     /* In the drawing's own units (0–100): an outer CSS transform would thin the strokes. */
     .verticalLanes { transform: translateX(19.744px) scaleX(0.641); transform-origin: 0 0; }
     .wideLink { display: none; }
     .narrowLink { display: inline; }
   }
-  /* Smaller ships in a narrow band, as on the tablet's chart: neighbours level with me stay clear of mine. */
+  /* Smaller ships in a narrow band, as on the tablet's chart. */
   @container (max-width: 600px) {
     .ship { --ship-size: 38px; }
     .self .ship { --ship-size: 48px; }
@@ -223,7 +202,7 @@
 }
 @container (max-width: 400px) {
   .track .pennant { display: none; }
-  /* The others' count stays right of the furthest a ship can reach (58 %). */
+  /* The others' count stays right of the ships. */
   .more { font-size: 10px; }
   .label { left: 63%; width: 36.5%; }
 }
@@ -234,9 +213,7 @@
   .horizontalRoutes, .track .horizontalOnly { display: block; }
   .track { height: 180px; }
   .point { left: var(--horizontal-x); top: var(--horizontal-y); }
-  .track .tether { display: none; }
-  /* Lanes run down this chart (180 px high): a ship beside its marker is above or below it. */
-  .ship { --ship-size: 36px; left: calc(var(--ship-size) / -2); top: calc(var(--ship-size) * -0.574 + var(--horizontal-ship-shift, 0) * 1.8px); }
+  .ship { --ship-size: 36px; }
   /* Only the two runners named on this chart sail a ship; the other named ones are dots again,
      as « + N » counts them. */
   .named:not(.self):not(.leader) { --route: var(--color-brume); width: 8px; height: 8px; opacity: 0.75; box-shadow: 0 0 0 1px var(--color-mer); }
@@ -257,12 +234,11 @@
   .more { top: 6px; right: auto; left: 12px; font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .point, .label, .ship, .tether { transition: none !important; }
+  .point, .label { transition: none !important; }
 }
 @media (forced-colors: active) {
   .point { background: CanvasText; forced-color-adjust: none; box-shadow: none; }
-  .route, .routeTether { stroke: CanvasText; }
-  .tether { background: CanvasText; forced-color-adjust: none; }
+  .route { stroke: CanvasText; }
   .connector { stroke: CanvasText; opacity: 1; }
   .selfRoute { stroke: Highlight; }
   .milestone { background: none; border-top: 1px dotted CanvasText; }

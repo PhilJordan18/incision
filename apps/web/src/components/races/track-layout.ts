@@ -11,15 +11,10 @@ export type TrackPoint = {
   readonly horizontalX: number;
   readonly horizontalY: number;
   readonly labelY: number;
-  /**
-   * Sideways offset of a named runner's ship, in % of the chart's width (vertical chart only): 0
-   * unless it would sail under another ship. Drawing only: the marker stays on the real position.
+  /*
+   * A named runner's ship is drawn on its own marker, on every chart and whatever the crew's
+   * size: where hulls overlap, mine is painted on top (race-track's paint order and z-index).
    */
-  readonly shipShift: number;
-  /** The same on a narrow vertical chart, in lane space (see `NARROW_LANES`): the stylesheet scales it with the lanes. */
-  readonly narrowShipShift: number;
-  /** The same on the tablet's horizontal chart, in % of its height, for the two ships it draws (me and the leader). */
-  readonly horizontalShipShift: number;
   /** The runner's stable sea route, the same on every refresh of the round (see `routeStyle`). */
   readonly route: RouteStyle;
   /** The route from the start to the runner's real progress, in the track's 0–100 boxes. */
@@ -105,91 +100,14 @@ export const LABEL_BOTTOM = 90;
 export const LABEL_GAP = 16.25;
 
 /**
- * How ships are kept from covering one another, in % of the chart, across the lanes (`clear`,
- * `min`, `max`, `reach`) and along the course (`level`, `ease`).
- * - `clear`: two ships whose feet are closer than this across the lanes would cover one another
- *   when they are level.
- * - `level`, `ease`: the clearance asked for eases to nothing as they move apart along the course,
- *   from `level - ease` to `level`.
- * - `min`, `max`: a ship is never drawn outside these (the chart's edge, the names).
- * - `reach`: a ship is never drawn further than this from its marker, so that it still reads as
- *   the end of its own route (a tether joins the two).
- */
-export type ShipBerths = { readonly clear: number; readonly level: number; readonly ease: number; readonly min: number; readonly max: number; readonly reach: number };
-export const SHIP_BERTHS: ShipBerths = { clear: 7.5, level: 16, ease: 4, min: 4, max: 60, reach: 10 };
-/**
  * On a vertical chart of 900 px or less the first lanes would sail under the finish word: that
  * is every vertical chart the page draws today (the widest, the race row without Arcade on a large
  * screen, is about 830 px). The stylesheet then draws the lanes, 16 to 55 % of the
  * width, between 30 and 55 %: x' = offset + scale × x (race-track.module.css, same numbers).
- * Ships there are berthed in lane space with a clearance and a reach divided by the scale, so that
- * once drawn they keep the same 7.5 % and 10 %, and a ship never starts left of 30 % unless its
- * own marker does (the first lane swings down to about 28.5 %).
  */
 export const NARROW_LANES = { offset: 30 - 16 * (25 / 39), scale: 25 / 39 } as const;
 /** The lane-space value drawn at 63 % on a narrow chart: where a name's connector ends. */
 export const NARROW_LINK_END = Math.round((63 - NARROW_LANES.offset) / NARROW_LANES.scale * 100) / 100;
-/** On a narrow chart a ship's mast stops at 58 %, short of the others' count on the right (`.more`). */
-const NARROW_SHIP_MAX = 58;
-export const NARROW_SHIP_BERTHS: ShipBerths = { ...SHIP_BERTHS, clear: SHIP_BERTHS.clear / NARROW_LANES.scale, reach: SHIP_BERTHS.reach / NARROW_LANES.scale,
-  min: (30 - NARROW_LANES.offset) / NARROW_LANES.scale, max: (NARROW_SHIP_MAX - NARROW_LANES.offset) / NARROW_LANES.scale };
-/**
- * The tablet's chart: lanes down its 180 px, the course along its width. Only two ships sail there.
- * The lanes run at 30–58 %; a ship drawn beside its marker may go from 24 % (its box still below the
- * two words along the top) to 61 % (its hull still above the leader's name), 18 % (32 px) apart.
- */
-export const HORIZONTAL_SHIP_BERTHS: ShipBerths = { clear: 18, level: 4, ease: 1.5, min: 24, max: 61, reach: 20 };
-
-/** A ship to place: its fixed lane's rank, its marker across the lanes (`across`) and along the course (`along`). */
-type Berthing = { readonly id: string; readonly self: boolean; readonly lane: number; /** The fixed lane's own place across the chart, without the route's swing. */ readonly berth: number; readonly across: number; readonly along: number };
-
-/**
- * My neighbours ahead and behind are named because they are at my progress: their ships would
- * often sail under mine. Mine never moves (without me, the ship of the first lane). Every other
- * ship keeps to its own side of it, the side of its fixed lane, and is pushed outwards just far
- * enough to clear the ships already placed, never further than `reach` from its marker: mine is
- * kept clear first, two others may still touch. The side never depends on the route's swing and
- * the push grows smoothly as two ships draw level, so between two broadcasts a ship slides by a
- * little and never jumps. Only the drawing shifts: the marker, the route and the connector keep
- * the broadcast's position.
- */
-function shipShifts(ships: readonly Berthing[], berths: ShipBerths): ReadonlyMap<string, number> {
-  const anchor = ships.find((ship) => ship.self) ?? [...ships].sort((a, b) => a.lane - b.lane)[0];
-  const shifts = new Map<string, number>();
-  if (!anchor) return shifts;
-  const clearance = (a: Berthing | Placed, b: Berthing | Placed) =>
-    berths.clear * Math.max(0, Math.min(1, (berths.level - Math.abs(a.along - b.along)) / berths.ease));
-  type Placed = { readonly across: number; readonly along: number };
-  const placed: Placed[] = [{ across: anchor.across, along: anchor.along }];
-  shifts.set(anchor.id, 0);
-  const others = ships.filter((ship) => ship !== anchor);
-  // Nearest lane first on each side; the lower side first, so the upper side also clears it.
-  const lower = others.filter((ship) => ship.lane < anchor.lane).sort((a, b) => b.lane - a.lane);
-  const upper = others.filter((ship) => ship.lane > anchor.lane).sort((a, b) => a.lane - b.lane);
-  // A side without room for one ship beside the fixed one (it sails by an edge) sends to the other
-  // side the ships that would cover it; a ship already clear of it stays where it is. Decided from
-  // the lanes, fixed for the round, never from a position.
-  const room = berths.clear;
-  const covers = (ship: Berthing) => Math.abs(ship.across - anchor.across) < clearance(ship, anchor);
-  const cross = (from: Berthing[], to: Berthing[]) => {
-    const moving = from.filter(covers);
-    from.splice(0, from.length, ...from.filter((ship) => !covers(ship)));
-    to.unshift(...moving.reverse());
-  };
-  if (anchor.berth - berths.min < room && berths.max - anchor.berth >= room) cross(lower, upper);
-  else if (berths.max - anchor.berth < room && anchor.berth - berths.min >= room) cross(upper, lower);
-  for (const [side, group] of [[-1, lower], [1, upper]] as const) {
-    for (const ship of group) {
-      let across = ship.across;
-      for (const other of placed) across = side < 0 ? Math.min(across, other.across - clearance(ship, other)) : Math.max(across, other.across + clearance(ship, other));
-      across = Math.max(ship.across - berths.reach, Math.min(ship.across + berths.reach, across));
-      across = Math.max(Math.min(berths.min, ship.across), Math.min(Math.max(berths.max, ship.across), across));
-      placed.push({ across, along: ship.along });
-      shifts.set(ship.id, round(across - ship.across));
-    }
-  }
-  return shifts;
-}
 
 /** Presentation only: progress proximity is NOT the engine's official finish ranking. */
 export function trackLayout(entrants: readonly Runner[], selfId: string | null): readonly TrackPoint[] {
@@ -227,7 +145,7 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
       runner, self: id === selfId, labelled: labelled.has(id),
       tone: id === selfId ? "self" as const : id === leader ? "leader" as const :
         id === ahead ? "nearAhead" as const : id === behind ? "nearBehind" as const : "neutral" as const,
-      x, y, horizontalX, horizontalY, labelY: 0, shipShift: 0, narrowShipShift: 0, horizontalShipShift: 0,
+      x, y, horizontalX, horizontalY, labelY: 0,
       route: routes.get(id)!,
       path: routePath(progress, vertical), horizontalPath: routePath(progress, horizontal),
     };
@@ -241,15 +159,7 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
     for (let i = positions.length - 2; i >= 0; i--) positions[i] = Math.min(positions[i]!, positions[i + 1]! - LABEL_GAP);
   }
   const labelPositions = new Map(labels.map((point, i) => [point.runner.entrantId, positions[i]!]));
-  // Markers stay at the end of their own route: never moved aside for a label.
-  const berthing = raw.map((point, lane) => ({ point, id: point.runner.entrantId, self: point.self, lane }));
-  const named = berthing.filter(({ point }) => point.labelled).map(({ point, ...ship }) => ({ ...ship, berth: laneOf(ship.lane), across: point.x, along: point.y }));
-  const shifts = shipShifts(named, SHIP_BERTHS);
-  const narrowShifts = shipShifts(named, NARROW_SHIP_BERTHS);
-  const horizontalShifts = shipShifts(berthing.filter(({ point }) => point.self || point.tone === "leader")
-    .map(({ point, ...ship }) => ({ ...ship, berth: horizontalLaneOf(ship.lane), across: point.horizontalY, along: point.horizontalX })), HORIZONTAL_SHIP_BERTHS);
-  return raw.map((point) => ({ ...point, labelY: labelPositions.get(point.runner.entrantId) ?? point.y,
-    shipShift: shifts.get(point.runner.entrantId) ?? 0, narrowShipShift: narrowShifts.get(point.runner.entrantId) ?? 0, horizontalShipShift: horizontalShifts.get(point.runner.entrantId) ?? 0 }));
+  return raw.map((point) => ({ ...point, labelY: labelPositions.get(point.runner.entrantId) ?? point.y }));
 }
 
 /**

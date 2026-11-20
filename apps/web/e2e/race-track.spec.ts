@@ -178,10 +178,13 @@ for (const [locale, theme] of [["fr-CA", "aube"], ["fr-CA", "abysse"], ["en-US",
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     expect(await marker.evaluate(el => getComputedStyle(el).transitionProperty)).toBe("none");
-    // My ship's own slide beside its marker stops with it.
-    expect(await marker.evaluate(el => getComputedStyle(el.querySelector("[data-ship]")!).transitionProperty)).toBe("none");
+    // My ship has no slide of its own: it sits on its marker and moves with it, in either preference
+    // (no transition of its position; the tokens' reduced-motion rule may still fade an opacity).
+    const shipSlides = () => marker.evaluate(el => { const style = getComputedStyle(el.querySelector("[data-ship]")!);
+      return style.transitionDuration.split(",").some(duration => parseFloat(duration) > 0) && /\b(all|left|top|transform)\b/.test(style.transitionProperty); });
+    expect(await shipSlides()).toBe(false);
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    expect(await marker.evaluate(el => getComputedStyle(el.querySelector("[data-ship]")!).transitionDuration)).toContain("0.2s");
+    expect(await shipSlides()).toBe(false);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.emulateMedia({ forcedColors: "active" });
     // axe-core #3978 mixes authored and forced foregrounds in high-contrast mode.
