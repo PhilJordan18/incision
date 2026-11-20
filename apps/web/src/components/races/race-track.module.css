@@ -201,20 +201,24 @@
 /* A narrow chart (the three-column row at 1024 px, a phone): the name's line is the name's, the
    pennant stays in the standings. */
 /*
- * A narrow vertical chart (600 px or less): the lanes are drawn between 30 and 55 % of the width,
+ * A vertical chart of 900 px or less (every one the page draws today; the widest is about 830 px):
+ * the lanes are drawn between 30 and 55 % of the width,
  * right of the finish word, instead of 16 to 55 %; x' = 19.744 % + 0.641 x (track-layout's
  * NARROW_LANES). Markers, routes, connectors, ships and tethers move together; progress does not.
  */
 @media not ((min-width: 640px) and (max-width: 1023px)) {
-  @container (max-width: 600px) {
+  @container (max-width: 900px) {
     .point { left: calc(19.744% + var(--point-x) * 0.641); --drawn-shift: calc(var(--narrow-ship-shift, 0) * 0.641); }
-    /* Smaller ships in the narrower band, as on the tablet's chart: neighbours level with me stay clear of mine. */
-    .ship { --ship-size: 38px; }
-    .self .ship { --ship-size: 48px; }
+
     /* In the drawing's own units (0–100): an outer CSS transform would thin the strokes. */
     .verticalLanes { transform: translateX(19.744px) scaleX(0.641); transform-origin: 0 0; }
     .wideLink { display: none; }
     .narrowLink { display: inline; }
+  }
+  /* Smaller ships in a narrow band, as on the tablet's chart: neighbours level with me stay clear of mine. */
+  @container (max-width: 600px) {
+    .ship { --ship-size: 38px; }
+    .self .ship { --ship-size: 48px; }
   }
 }
 @container (max-width: 400px) {

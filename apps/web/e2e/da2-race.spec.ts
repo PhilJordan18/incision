@@ -19,12 +19,14 @@ test.afterEach(async () => {
 
 type Case = { readonly locale: "fr-CA" | "en-US"; readonly theme: "aube" | "abysse"; readonly width: number; readonly height: number;
   readonly count: 30 | 50; readonly forcedColors?: boolean; readonly scale?: number;
+  /** Arcade (the default) puts the chart in a three-column row; without it the chart is wider. */
+  readonly bonuses?: boolean;
   /** Broadcasts sent before looking: 4 spreads the crew mid-race; 45 brings everyone to the fixture's last position, 95 %, by the coast. */
   readonly steps?: number };
 /** My own position after `steps` broadcasts of track-fixture.ts (it starts at 20 % and stops at 95 %). */
 const selfPosition = (steps: number) => String(Math.min(95, 20 + 2 * steps));
 
-async function openRace(browser: Browser, { locale, theme, width, height, count, forcedColors = false, scale = 1, steps = 4 }: Case): Promise<Page> {
+async function openRace(browser: Browser, { locale, theme, width, height, count, forcedColors = false, scale = 1, steps = 4, bonuses = true }: Case): Promise<Page> {
   const [account] = await query<{ id: string; session_version: number }>("insert into accounts(display_name) values ('Capitaine') returning id,session_version");
   const context = await browser.newContext({ locale, viewport: { width, height }, deviceScaleFactor: scale, reducedMotion: "no-preference",
     forcedColors: forcedColors ? "active" : "none" }); contexts.push(context);
@@ -38,7 +40,7 @@ async function openRace(browser: Browser, { locale, theme, width, height, count,
   const code = page.url().split("/").at(-1)!;
   const [member] = await query<{ id: string }>("select m.id from lobby_members m join lobbies l on l.id=m.lobby_id where l.code=$1", [code]);
   fixture = await trackFixture({ code, phase: "waiting", capacity: 30, revision: 1000,
-    members: [{ memberId: member!.id, displayName: "Capitaine", role: "participant", isHost: true, online: true }] }, count, { bonuses: true });
+    members: [{ memberId: member!.id, displayName: "Capitaine", role: "participant", isHost: true, online: true }] }, count, { bonuses });
   await fixture.route(context);
   await page.reload();
   await expect(page.getByTestId("race-track").locator("[data-runner]")).toHaveCount(count);
@@ -104,11 +106,13 @@ const cases: readonly Case[] = [
   { locale: "fr-CA", theme: "abysse", width: 1024, height: 768, count: 30, steps: 45 },
   { locale: "fr-CA", theme: "aube", width: 1280, height: 640, count: 50, steps: 45 },
   { locale: "fr-CA", theme: "abysse", width: 800, height: 1000, count: 30, steps: 45 },
+  // The widest vertical chart: the race row without Arcade on a large screen, by the coast.
+  { locale: "fr-CA", theme: "abysse", width: 1440, height: 900, count: 30, steps: 45, bonuses: false },
 ];
 
 for (const item of cases) {
-  const { locale, theme, width, height, count, forcedColors, scale, steps = 4 } = item;
-  const name = `course-${width}x${height}-${theme}-${locale.slice(0, 2)}-${count}${forcedColors ? "-forced-colours" : ""}${scale === 2 ? "-zoom-200" : ""}${steps > 4 ? "-by-the-coast" : ""}`;
+  const { locale, theme, width, height, count, forcedColors, scale, steps = 4, bonuses = true } = item;
+  const name = `course-${width}x${height}-${theme}-${locale.slice(0, 2)}-${count}${forcedColors ? "-forced-colours" : ""}${scale === 2 ? "-zoom-200" : ""}${steps > 4 ? "-by-the-coast" : ""}${bonuses ? "" : "-no-arcade"}`;
   test(`race ships ${name}`, async ({ browser }) => {
     test.setTimeout(60_000);
     const page = await openRace(browser, item);
@@ -141,6 +145,12 @@ for (const item of cases) {
       for (const ship of [...boxes.ships, ...boxes.sails]) expect(overlap(ship, word), `a ship on « ${word.word} »`).toBe(false);
       expect(word.plate).toMatch(/^(rgb\(|color\(srgb [\d. ]+\)$)/);
     }
+    // Each name's connector ends where its name starts, whatever the chart's mapping.
+    if (!horizontal) for (const link of await track.evaluate(el => {
+      const lines = [...el.querySelectorAll<SVGLineElement>("svg line")].filter(line => getComputedStyle(line).display !== "none" && line.getBoundingClientRect().width > 0);
+      const left = Math.min(...[...el.querySelectorAll("[data-track-label]")].map(label => label.getBoundingClientRect().left));
+      return lines.filter(line => line.getAttribute("y1") !== line.getAttribute("y2") || Number(line.getAttribute("x2")) > 60).map(line => left - line.getBoundingClientRect().right);
+    })) expect(Math.abs(link), "a connector short of its name").toBeLessThanOrEqual(6);
     // No ship over mine: one that would cover it is drawn beside its marker (two others may touch).
     expect(boxes.mine).toHaveLength(1);
     for (const hull of boxes.others) expect(overlap(hull, boxes.mine[0]!), "a hull over mine").toBe(false);

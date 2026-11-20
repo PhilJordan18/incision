@@ -60,7 +60,7 @@ describe("named ships", () => {
       const mine = ships.find(ship => ship.self)!;
       expect(mine.shift).toBe(0);
       for (const ship of ships) {
-        expect(ship.x).toBeGreaterThanOrEqual(28); expect(ship.x).toBeLessThanOrEqual(SHIP_BERTHS.max + 0.01);
+        expect(ship.x).toBeGreaterThanOrEqual(28); expect(ship.x).toBeLessThanOrEqual(58 + 0.01);
         expect(Math.abs(ship.shift)).toBeLessThanOrEqual(SHIP_BERTHS.reach + 0.01);
         if (ship.self) continue;
         pairs++;

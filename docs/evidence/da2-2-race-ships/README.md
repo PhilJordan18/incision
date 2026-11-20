@@ -64,11 +64,13 @@ and dotted lines under the cloth are hard to tell apart.
   reaches them (checked on every capture). On the tablet the lanes run between 30 and 58 % of the
   chart's height, below the two words; on a chart of 400 px or less the count is set at 10 px and
   ships stop at 58 %, short of it.
-- **On a narrow vertical chart (600 px or less: the Arcade row from 1024 to 1440 px, the low
-  screen, the phone) the lanes start right of « ARRIVÉE »** (my choice of 20 November, option C of
-  the comparison): they are drawn between 30 and 55 % of the chart's width instead of 16 to 55 %,
-  and the ships are a little smaller there (38 px, mine 48 px). No ship reaches the word any more;
-  the e2e checks it on every vertical capture. Wider charts and the tablet's are unchanged.
+- **On the vertical chart the lanes start right of « ARRIVÉE »** (my choice of 20 November, option C
+  of the comparison): on a chart of 900 px or less, which is every vertical chart the page draws
+  today (the widest, the row without Arcade on a large screen, is about 830 px), they are drawn
+  between 30 and 55 % of the chart's width instead of 16 to 55 %. On a chart of 600 px or less (the
+  Arcade row, the low screen, the phone) the ships are also a little smaller (38 px, mine 48 px).
+  No ship reaches the word any more; the e2e checks it on every vertical capture, the row without
+  Arcade included. The tablet's chart is unchanged.
   The cost: a narrower band, so more ships drawn beside their marker. Measured on crews bunched on
   purpose (`track-layout.test.ts`): a neighbour held short of the full clearance from mine in up to
   8.9 % of cases with 50 runners, its hull touching mine in up to 2.7 %. A side keeps its ships as

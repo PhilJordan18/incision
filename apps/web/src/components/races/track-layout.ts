@@ -118,8 +118,9 @@ export const LABEL_GAP = 16.25;
 export type ShipBerths = { readonly clear: number; readonly level: number; readonly ease: number; readonly min: number; readonly max: number; readonly reach: number };
 export const SHIP_BERTHS: ShipBerths = { clear: 7.5, level: 16, ease: 4, min: 4, max: 60, reach: 10 };
 /**
- * On a narrow vertical chart (600 px or less: the Arcade row, a low screen, a phone) the first
- * lanes would sail under the finish word. The stylesheet then draws the lanes, 16 to 55 % of the
+ * On a vertical chart of 900 px or less the first lanes would sail under the finish word: that
+ * is every vertical chart the page draws today (the widest, the race row without Arcade on a large
+ * screen, is about 830 px). The stylesheet then draws the lanes, 16 to 55 % of the
  * width, between 30 and 55 %: x' = offset + scale × x (race-track.module.css, same numbers).
  * Ships there are berthed in lane space with a clearance and a reach divided by the scale, so that
  * once drawn they keep the same 7.5 % and 10 %, and a ship never starts left of 30 % unless its
@@ -161,11 +162,18 @@ function shipShifts(ships: readonly Berthing[], berths: ShipBerths): ReadonlyMap
   // Nearest lane first on each side; the lower side first, so the upper side also clears it.
   const lower = others.filter((ship) => ship.lane < anchor.lane).sort((a, b) => b.lane - a.lane);
   const upper = others.filter((ship) => ship.lane > anchor.lane).sort((a, b) => a.lane - b.lane);
-  // A side without room for one ship beside the fixed one (it sails by an edge) sends its ships to
-  // the other side. Decided from the lanes, fixed for the round, never from a position.
+  // A side without room for one ship beside the fixed one (it sails by an edge) sends to the other
+  // side the ships that would cover it; a ship already clear of it stays where it is. Decided from
+  // the lanes, fixed for the round, never from a position.
   const room = berths.clear;
-  if (anchor.berth - berths.min < room && berths.max - anchor.berth >= room) upper.unshift(...lower.splice(0).reverse());
-  else if (berths.max - anchor.berth < room && anchor.berth - berths.min >= room) lower.unshift(...upper.splice(0).reverse());
+  const covers = (ship: Berthing) => Math.abs(ship.across - anchor.across) < clearance(ship, anchor);
+  const cross = (from: Berthing[], to: Berthing[]) => {
+    const moving = from.filter(covers);
+    from.splice(0, from.length, ...from.filter((ship) => !covers(ship)));
+    to.unshift(...moving.reverse());
+  };
+  if (anchor.berth - berths.min < room && berths.max - anchor.berth >= room) cross(lower, upper);
+  else if (berths.max - anchor.berth < room && anchor.berth - berths.min >= room) cross(upper, lower);
   for (const [side, group] of [[-1, lower], [1, upper]] as const) {
     for (const ship of group) {
       let across = ship.across;
