@@ -461,9 +461,22 @@ test("the four states that replace the room keep their tone, texts and actions, 
 test("the reconnection card keeps its tone, texts and action, with the same wave marks in the corner", async ({ browser }) => {
   const host = await account(browser, "Capitaine");
   // The emulated network loss does not close an open WebSocket: the room's socket goes through the test, which cuts it.
+  // A routed socket ignores the emulated network loss: while offline, new ones are refused here.
   const sockets: WebSocketRoute[] = [];
-  await host.routeWebSocket(/\/socket\.io\//, (socket) => { socket.connectToServer(); sockets.push(socket); });
+  let offline = false;
+  let upgraded = 0;
+  await host.routeWebSocket(/\/socket\.io\//, async (socket) => {
+    if (offline) { await socket.close(); return; }
+    const server = socket.connectToServer();
+    socket.onMessage((message) => { if (message === "5") upgraded += 1; server.send(message); });
+    server.onMessage((message) => socket.send(message));
+    sockets.push(socket);
+  });
   await openRoom(host);
+  // Socket.IO starts on HTTP polling and upgrades: a long poll still open when the network goes would
+  // keep the page « live » until its timeout. Cut only once the upgrade packet ("5") went over the WebSocket.
+  await expect.poll(() => upgraded, { timeout: 10_000 }).toBeGreaterThan(0);
+  offline = true;
   await host.context().setOffline(true);
   await Promise.all(sockets.splice(0).map((socket) => socket.close()));
   const card = host.locator("[data-room-reconnect]");
@@ -480,7 +493,9 @@ test("the reconnection card keeps its tone, texts and action, with the same wave
   await expect(card.locator("[data-wave-marks]")).toBeHidden();
   await expectNoHorizontalScroll(host);
   // Back online, the card goes and the room is live again.
+  offline = false;
   await host.context().setOffline(false);
+  await host.locator("[data-room-reconnect]").getByRole("button", { name: "Réessayer maintenant" }).click();
   await expect(host.getByText(LIVE)).toBeVisible({ timeout: 30_000 });
   await expect(card).toHaveCount(0);
 });
