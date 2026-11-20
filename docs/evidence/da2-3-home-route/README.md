@@ -54,7 +54,9 @@ Two read-only reviews ran on `fef09be`, before the last fixes: code and UI/UX. F
 
 ## Differences from the mock-ups
 
-- **Quay button.** The mock-up repeats « Rejoindre la salle ». The app's button reads « Embarquer avec ce code »: eleven existing specs look for the one « Rejoindre la salle » button, and the card asks for the quay's own label. This French string is new and not yet approved.
+Approved by Philippe on 20 November 2026, as built at `1d79eb5`: every difference below, the phone first view (the sea above the title, as the mock-up draws), the wave marks behind the text of the escales, and keeping `_home/quay-join-form.tsx` as a copy of the join form until it is merged after DA2-6.
+
+- **Quay button.** The mock-up repeats « Rejoindre la salle ». The app's button reads « Embarquer avec ce code »: eleven existing specs look for the one « Rejoindre la salle » button, and the card asks for the quay's own label. This French string is new.
 - **Escale 01.** The three accesses are a description list (name, then meaning) with the numbers 01 to 03 in the text. An ordered list would add three list items to the guide, and `account-journey.spec.ts`, which must pass unchanged, counts exactly four.
 - **Escale 02.** The mock-up writes « Jalon 75 % » under Brouillard, « 50 % » under Rallonge and « 25 % » under Raccourci. The rules draw the bonus at random at each milestone, so the app names the three bonuses without a milestone.
 - **Escale 04.** The mock-up's three names are replaced by plain lines beside the three pennant shapes: the home has no runner to show.
@@ -70,14 +72,16 @@ Two read-only reviews ran on `fef09be`, before the last fixes: code and UI/UX. F
 - Lighthouse ran on this machine, not on the production site where PERF-01 is measured. `dev` was not measured the same way for comparison.
 - Firefox and Safari were not run. The full-width bands rely on `:has()`; without it the page keeps the site's usual margins.
 - The home shows no live data, so realtime, rooms and bots are not concerned.
-- The mock-ups' English was never drawn for the home: the strings below are proposals.
+- The mock-ups' English was never drawn for the home: the strings below were proposed in this lot and approved on 20 November 2026.
 
-## Proposed English, to approve
+## English, approved on 20 November 2026
 
-| French | English proposed |
+Approved as shipped. The alternatives mentioned during review (« Route map », « Stop 01 ») were not taken.
+
+| French | English |
 |---|---|
 | Carte de route | Route chart |
-| Escale 01 … Escale 04 | Port of call 01 … Port of call 04 (shorter alternative: Stop 01) |
+| Escale 01 … Escale 04 | Port of call 01 … Port of call 04 |
 | Départ | Departure |
 | Prêt à lever l'ancre ? | Ready to cast off? |
 | Embarquer avec ce code (new) | Board with this code |
