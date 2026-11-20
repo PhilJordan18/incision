@@ -23,7 +23,7 @@ with that many clients was run for this card. The fixture never sends 100 % or �
 | `course-1280x640-abysse-fr-30.jpg`, `course-1280x640-aube-fr-50.jpg` (low screen) | none | — |
 | `course-1440x900-abysse-fr-30-forced-colours.jpg`, `course-800x1000-aube-fr-30-forced-colours.jpg` | none | — |
 | `course-768x480-abysse-fr-30-zoom-200.jpg`, `course-768x480-aube-en-50-zoom-200.jpg` (200 % zoom) | none | — |
-| `course-1024x768-abysse-fr-30-by-the-coast.jpg`, `course-1280x640-aube-fr-50-by-the-coast.jpg`, `course-800x1000-abysse-fr-30-by-the-coast.jpg` | none | — |
+| `course-1024x768-abysse-fr-30-by-the-coast.jpg`, `course-1280x640-aube-fr-50-by-the-coast.jpg`, `course-800x1000-abysse-fr-30-by-the-coast.jpg`, `course-1440x900-abysse-fr-30-by-the-coast-no-arcade.jpg` | none | — |
 | `vocabulaire-pavillons.jpg` is the reference for the shapes | `vocabulaire-pavillons.jpg` | — |
 
 ## Pennant: mock-up and app, side by side
@@ -76,6 +76,9 @@ and dotted lines under the cloth are hard to tell apart.
   8.9 % of cases with 50 runners, its hull touching mine in up to 2.7 %. A side keeps its ships as
   long as one berth fits there, so a crew exactly level (the by-the-coast captures) leaves mine clear.
 - **Tablet chart**: a runner it does not name is grey there too, dot and route.
+  My ship and the leader's are drawn at least 18 % of its height apart (32 px); the leader's ship
+  stays between 24 % (below the words) and 61 % (above its name). In a close duel its hull can still
+  enter my outer ring, never my hull.
 - **Ships** are drawn at 85 % of the mock-up's size, so that they fit the shortest chart (12 rem).
 
 ## Assertions of `race-track.spec.ts` changed against `dev`

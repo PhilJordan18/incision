@@ -145,12 +145,13 @@ for (const item of cases) {
       for (const ship of [...boxes.ships, ...boxes.sails]) expect(overlap(ship, word), `a ship on « ${word.word} »`).toBe(false);
       expect(word.plate).toMatch(/^(rgb\(|color\(srgb [\d. ]+\)$)/);
     }
-    // Each name's connector ends where its name starts, whatever the chart's mapping.
+    // Each name's connector ends where its name starts, whatever the chart's mapping (within the 1 %
+    // between the connector's end, 63 %, and the names' column, 64 %, as on `dev`).
     if (!horizontal) for (const link of await track.evaluate(el => {
       const lines = [...el.querySelectorAll<SVGLineElement>("svg line")].filter(line => getComputedStyle(line).display !== "none" && line.getBoundingClientRect().width > 0);
       const left = Math.min(...[...el.querySelectorAll("[data-track-label]")].map(label => label.getBoundingClientRect().left));
       return lines.filter(line => line.getAttribute("y1") !== line.getAttribute("y2") || Number(line.getAttribute("x2")) > 60).map(line => left - line.getBoundingClientRect().right);
-    })) expect(Math.abs(link), "a connector short of its name").toBeLessThanOrEqual(6);
+    })) expect(Math.abs(link), "a connector short of its name").toBeLessThanOrEqual(0.01 * (boxes.track.right - boxes.track.left) + 1);
     // No ship over mine: one that would cover it is drawn beside its marker (two others may touch).
     expect(boxes.mine).toHaveLength(1);
     for (const hull of boxes.others) expect(overlap(hull, boxes.mine[0]!), "a hull over mine").toBe(false);

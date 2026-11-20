@@ -133,8 +133,12 @@ export const NARROW_LINK_END = Math.round((63 - NARROW_LANES.offset) / NARROW_LA
 const NARROW_SHIP_MAX = 58;
 export const NARROW_SHIP_BERTHS: ShipBerths = { ...SHIP_BERTHS, clear: SHIP_BERTHS.clear / NARROW_LANES.scale, reach: SHIP_BERTHS.reach / NARROW_LANES.scale,
   min: (30 - NARROW_LANES.offset) / NARROW_LANES.scale, max: (NARROW_SHIP_MAX - NARROW_LANES.offset) / NARROW_LANES.scale };
-/** The tablet's chart: lanes down its 180 px, the course along its width. Only two ships sail there. */
-export const HORIZONTAL_SHIP_BERTHS: ShipBerths = { clear: 14, level: 4, ease: 1.5, min: 30, max: 58, reach: 20 };
+/**
+ * The tablet's chart: lanes down its 180 px, the course along its width. Only two ships sail there.
+ * The lanes run at 30–58 %; a ship drawn beside its marker may go from 24 % (its box still below the
+ * two words along the top) to 61 % (its hull still above the leader's name), 18 % (32 px) apart.
+ */
+export const HORIZONTAL_SHIP_BERTHS: ShipBerths = { clear: 18, level: 4, ease: 1.5, min: 24, max: 61, reach: 20 };
 
 /** A ship to place: its fixed lane's rank, its marker across the lanes (`across`) and along the course (`along`). */
 type Berthing = { readonly id: string; readonly self: boolean; readonly lane: number; /** The fixed lane's own place across the chart, without the route's swing. */ readonly berth: number; readonly across: number; readonly along: number };
