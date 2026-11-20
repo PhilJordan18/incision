@@ -38,3 +38,8 @@ export const fieldLabel = "text-sm font-medium text-ecume";
 export const monoLabel = "font-mono text-[11px] font-medium tracking-[0.2em] text-brume uppercase";
 export const inlineLink = "text-moi underline underline-offset-4 hover:text-ecume";
 export const card = "rounded-carte border border-houle bg-nuit p-6";
+/**
+ * The one title style of every panel (art direction C1 « Cap », docs/da/v2): on the panel's
+ * `<h2>`, as drawn in the waiting room. 24 px on a phone, 30 px from 640 px.
+ */
+export const panelTitle = "font-display text-2xl leading-none font-extrabold uppercase sm:text-[30px]";
