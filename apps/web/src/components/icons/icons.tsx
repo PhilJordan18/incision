@@ -73,3 +73,12 @@ export function SunIcon() {
     </Icon>
   );
 }
+
+/** A submit button waiting for its action: fixed, never animated (nothing moves near the text to type). */
+export function HourglassIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon width="18" height="18" {...props}>
+      <path d="M6 2h12M6 22h12M7 2v4l5 6 5-6V2M7 22v-4l5-6 5 6v4" />
+    </Icon>
+  );
+}
