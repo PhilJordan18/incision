@@ -31,7 +31,7 @@ Technical guidance, in English. Revision 4, 17 November 2026, scoped on `dev` at
 
 - Race layout: text on top; standings left, track centre, bonus right; « Ta frappe » below. The field is never replaced by typing inside the text.
 - The app's layout heights govern, not the mock-up's. `race-layout.spec.ts` keeps passing.
-- A ship's sail, its route and its standings pennant share one colour and one dash. Position comes from the broadcast only.
+- A named runner's sail, route and standings pennant share one colour and one dash. A runner not named on the chart is drawn as a grey dot with a faint grey dotted route, and keeps its own colour and dash on its standings pennant (amended 19 November 2026, my decision after comparing both renderings). Position comes from the broadcast only.
 - Focus, explicit errors, shortcuts, bonuses and the current activity reminder are unchanged. No new modal. No decorative motion near the text.
 - No change to rules, speeds, scores, bonuses, persistence, defaults or corpus constraints. No schema change, no migration.
 - Name and logo untouched; no generated image; colours from tokens only (Tailwind classes, `color-mix()` of two tokens where the mock-up does it).
@@ -65,7 +65,7 @@ IDs: DES-04, BOT-04, A11Y-01 · Branch `feat/da2-0-nautical-primitives` · First
 IDs: DES-04, COURSE-05, BOT-04, PERF-03, A11Y-01, DES-05, DES-06 · Branch `feat/da2-2-race-ships`
 
 - [ ] Named markers render a ship in the runner's colour; unnamed runners stay dots; my ship keeps its two rings, the leader its `or` ring.
-- [ ] Route, ship and standings pennant of one runner share one colour and one dash, in both themes (three-way assertion in `race-track.spec.ts`).
+- [ ] Route, ship and standings pennant of one named runner share one colour and one dash, in both themes (three-way assertion in `race-track.spec.ts`). Unnamed runners: grey dot and grey dotted route on the chart, desktop and tablet; their pennant in the standings keeps their colour and dash (amended 19 November 2026).
 - [ ] A bot differs from a human by the sail's shape, without colour.
 - [ ] The finish is the coast; the finish word stays. The compass sits on the track, away from the text.
 - [ ] Markers follow the broadcast with the existing transition; nothing moves on its own; reduced motion unchanged.
@@ -143,7 +143,7 @@ IDs: DES-04, SALLE-01, SALLE-03, JOIN-01, JOIN-02, JOIN-03, I18N-01 · Branch `f
 
 IDs: DES-04, RES-01, RES-02, RES-03, HIST-01, HIST-02, AUTH-05, AUTH-06, COURSE-11 · Branch `feat/da2-7-results-pages`
 
-- [ ] A pennant per runner in the podium, the results table, the bonus journal and the chart legend; colour and shape equal to the track's for the same entrant.
+- [ ] A pennant per runner in the podium, the results table, the bonus journal and the chart legend; shape equal to the track's for the same entrant; colour equal to the track's for the reader, neutral for the other runners until the result views carry the entrant id (limit accepted on 19 November 2026).
 - [ ] The coast beside the rank replaces the red mist.
 - [ ] Wave marks behind the titles of `/history` and `/account`; the shared panel title style.
 - [ ] No text, column, action or state changes. The red action stays « Prochaine manche » (host) and « Enregistrer le nom » (account).
@@ -153,7 +153,7 @@ IDs: DES-04, RES-01, RES-02, RES-03, HIST-01, HIST-02, AUTH-05, AUTH-06, COURSE-
 
 Aube is a real variant, not inverted backgrounds. Each card delivers Aube for its pages, including empty states, errors, disabled controls and unsaved changes, with authorised tokens only. Checked on the app, by measure and by capture:
 
-- text ≥ 4.5:1 (3:1 for large text); pennants, routes, insignias, the coast's edge and field borders ≥ 3:1 against what is behind them;
+- text ≥ 4.5:1 (3:1 for large text); pennants, named runners' routes, insignias, the coast's edge and field borders ≥ 3:1 against what is behind them (the faint grey route of an unnamed runner is decorative and not held to 3:1, amended 19 November 2026);
 - two runners' routes remain distinguishable by dash, not only by colour;
 - the red coast reads as land (the 20 % mix), the finish word keeps ≥ 4.5:1;
 - the focus ring is visible on every surface used (`abysse`, `nuit`, `mer`, the coast);
