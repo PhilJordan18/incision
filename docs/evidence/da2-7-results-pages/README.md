@@ -78,9 +78,10 @@ File names: `<screen>[-<state>]-<language>-<theme>-<width or 1280x640>.jpg`;
 
 ## Criterion only partly met
 
-"A pennant's colour and shape equal the track's for the same entrant" is **partial** in these
-captures: the shape matches for every runner, the colour for the reader only. See the first point
-below and the pull request; the card is not complete while this stands.
+"A pennant's colour and shape equal the track's for the same entrant" is **partial, limit
+accepted by Philippe on 19 November 2026: neutral pennants for the other runners.** The shape
+matches for every runner (triangle for a human, square for a bot); the colour matches for the
+reader only. The criterion is not met in full; the limit is accepted, not resolved.
 
 ## Where the app differs from the mock-up
 
@@ -88,8 +89,8 @@ below and the pull request; the card is not complete while this stands.
   entrant id (`routeStyles`). The stored results expose a runner's ordinal, not that id, so here
   only the reader's own pennant has its track colour (`moi`, as on the track); the others keep
   their sail's shape and take no runner colour (`ecume`, with the primitive's solid line under
-  it; `ecume` is close to the runner colour `embrun`). This is a gap, not a choice: closing it
-  needs a change outside this lot, proposed in the pull request. One visible consequence in the
+  it; `ecume` is close to the runner colour `embrun`). Closing it would need a change outside
+  this lot (proposed in the pull request, not requested); the limit is accepted as is. One visible consequence in the
   chart legend: a neutral pennant's line sample is solid `ecume`, while that runner's curve is
   `or` or `embrun` and dashed, so only the number links a name to its curve.
 - **Pennant of a dashed runner.** As in DA2-2: the cloth keeps the kind's shape (triangle for a
