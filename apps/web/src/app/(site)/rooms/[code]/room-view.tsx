@@ -665,7 +665,8 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
             {copy === "copied" ? `✓ ${t.codeCopied}` : copy === "failed" ? `⚠ ${t.copyFailed}` : ""}
           </p>
         </div>
-        {self.isHost ? (
+        {/* As on dev, the start note sits beside the start button: only the host reads it. */}
+        {self.isHost && (
           <>
             <div aria-hidden="true" className="hidden border-t-2 border-dotted border-houle xl:block" />
             <div className="flex min-w-0 flex-col gap-2">
@@ -676,8 +677,6 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
               </div>
             </div>
           </>
-        ) : (
-          <p className="text-sm text-brume">{roomStartNote(snapshot.settings, locale)}</p>
         )}
       </section>
 
