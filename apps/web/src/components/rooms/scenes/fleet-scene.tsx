@@ -3,12 +3,13 @@ import { WaveField } from "./wave-field";
 
 /**
  * The fleet heading for the public harbour, in the two columns beside the matchmaking card
- * (mock-up `salles-publiques`). Hidden under 640 px. The ships are a drawing, not the rooms
+ * (mock-up `salles-publiques`). Drawn only beside the card, from 1024 px: below, the grid has one
+ * column and the fleet would push the list down (Philippe's choice, 20 November 2026). The ships are a drawing, not the rooms
  * of the list: the list below is the only place that says what is open.
  */
 export function FleetScene({ className = "" }: { readonly className?: string }) {
   return (
-    <SeaChart scene="fleet" className={`hidden sm:flex ${className}`}>
+    <SeaChart scene="fleet" className={`hidden lg:flex ${className}`}>
       {/* The whole fleet always fits (no cropping); the waves run past the drawing to fill a taller or wider box. */}
       <svg viewBox="0 0 860 240" fill="none" focusable="false" className="size-full min-h-[200px]">
         <g transform="translate(-430 -240)"><WaveField width={1720} height={720} count={150} start={[238, 136]} step={[1268, 399]} /></g>

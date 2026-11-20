@@ -31,11 +31,19 @@ The references are the approved mock-ups of `docs/da/v2/captures/` (archived by 
 
 Other views in `app/`:
 
-- 1024 px for the three pages in both themes (`*-1024.png`) and the low screen in Abysse (`*-1280x640.png`; `before/` has it in both themes); the public rooms page at 768 px, where the fleet goes under the card.
+- 1024 px for the three pages in both themes (`*-1024.png`) and the low screen in Abysse (`*-1280x640.png`; `before/` has it in both themes); the public rooms page at 768 px, where the fleet is not drawn and the list follows the card
 - 200 % zoom (`*-zoom200.png`).
 - Forced colours with each theme (`*-forced-colours-abysse-1440.png`, `*-forced-colours-aube-1440.png`).
 - Aube with an error, a busy control and the card's second action: `create-error-*-aube-1440.png` (capacity refused), `create-pending-*-aube-1440.png` (« Ouverture… »), `public-rooms-no-room-*-aube-1440.png` (no room has a place).
 - English: `*-en-abysse-1440.png` and `*-en-aube-390.png`.
+
+## Decisions of 20 November 2026
+
+Philippe validated these screens and decided the three open adaptations:
+
+- **Ships under the code** (join chart): kept, as in `rejoindre-1440`.
+- **Wave marks** on « Avarie », « Cap perdu » and under 640 px: kept everywhere.
+- **Fleet between 640 and 1023 px**: hidden. It is drawn only beside the matchmaking card, from 1024 px; below, the list follows the card.
 
 ## What differs from the mock-ups, on purpose
 

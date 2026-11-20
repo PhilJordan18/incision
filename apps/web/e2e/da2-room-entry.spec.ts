@@ -222,7 +222,7 @@ for (const locale of LOCALES) {
     await expect(page).toHaveURL(/\/rooms\/[2-9A-HJKMNP-Z]{6}$/);
   });
 
-  test(`public rooms: the fleet fills the two free columns and leaves under 640 px (${locale})`, async ({ browser }) => {
+  test(`public rooms: the fleet fills the two free columns and is drawn only from 1024 px (${locale})`, async ({ browser }) => {
     test.slow();
     const page = await account(browser, "Vigie", locale);
     await page.goto("/rooms");
@@ -244,7 +244,7 @@ for (const locale of LOCALES) {
         expect(await shapeContrast(fleet, ".fill-ecume, [data-sail-cloth]")).toBeGreaterThanOrEqual(3);
         for (const width of WIDTHS) {
           await page.setViewportSize({ width, height: 900 });
-          if (width < 640) {
+          if (width < 1024) {
             await expect(fleet).toBeHidden();
           } else {
             await expect(fleet).toBeVisible();
@@ -274,10 +274,12 @@ for (const locale of LOCALES) {
     };
     await layouts("empty");
 
-    // Between 640 and 1023 px the grid has one column: the fleet goes under the card, full width.
+    // Between 640 and 1023 px the grid has one column: the fleet is not drawn, so the list follows the card.
     await page.setViewportSize({ width: 768, height: 900 });
-    const [cardBox, fleetBox] = [await card.boundingBox(), await fleet.boundingBox()];
-    expect(fleetBox?.y ?? 0).toBeGreaterThanOrEqual((cardBox?.y ?? 0) + (cardBox?.height ?? 0));
+    await expect(fleet).toBeHidden();
+    const listTitle = page.getByRole("heading", { level: 2, name: fr ? /^Salles publiques/ : /^Public rooms/ });
+    const [cardBox, titleBox] = [await card.boundingBox(), await listTitle.boundingBox()];
+    expect((titleBox?.y ?? 0) - ((cardBox?.y ?? 0) + (cardBox?.height ?? 0))).toBeLessThanOrEqual(48);
     await expectNoHorizontalScroll(page);
     await capture(page, `public-rooms-empty-${tag}-abysse-768`);
     await page.setViewportSize({ width: 1280, height: 640 });
