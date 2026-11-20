@@ -11,6 +11,21 @@
 
 Les revues indépendantes sont des lectures statiques (diff, tests, captures déposées dans la branche) faites par des agents de revue en lecture seule, distincts de la session qui a écrit le code. Elles n'ont rien exécuté. L'**auto-vérification** désigne les tests et les revues lancés par la session du lot elle-même. Je n'ai pas encore joué la [recette de l'ensemble](recette-c1.md) : elle attend l'état combiné.
 
+## Relevé du 20 novembre, matin
+
+`dev` est toujours à `4564778`; aucun lot C1 intégré. Les têtes proposées : #211 `fcc8af8`, #212 `e25a147`, #217 `64313be`, #220 `f922db4`, #214 `67056d3`, #215 `14765dd`, #216 `924f09d`, #218 `889d640`, et #222 `3b728c3` (bouton d'envoi en attente, hors C1). La CI est verte sur chacune. Une fusion d'essai locale des onze pull requests dans l'ordre du plan (#208, #211, #212, #217, #220, #214, #215, #216, #218, #219, #222) passe sans conflit; elle n'a rien exécuté.
+
+J'ai comparé les écrans de l'application aux maquettes approuvées et je les valide, lot par lot. Mes décisions du 20 novembre :
+
+- **Accueil (#217)** et **entrée de salle (#220)** : validés, y compris les écarts et les adaptations A, B et C de #220. Les décisions 5, 10, 11 et 12 (deux traits de vagues au lieu de six) sont closes; 13 et 14 se règlent à la fusion.
+- **Salle d'attente (#214)** : sous 1024 px, le quai garde trois coques sans compte. La note de départ reste réservée à l'hôte, comme sur `dev` : correction demandée à #214.
+- **Bots (#215)** : un niveau enregistré ailleurs remplace le brouillon ouvert, comme sur `dev` (décision 7 close).
+- **Réglages (#216)** : la phrase `durationInvalid` est acceptée telle quelle (décision 6 close); Échap ferme le formulaire sans demander, comme sur `dev`.
+- **Résultats, fiche, historique, compte (#218)** : validés avec leurs écarts (décision 4 close).
+- **Course (#212)** : la découpe du fanion (décision 1) et l'écart d'un navire à son repère restent en étude.
+
+Les captures 4 à 6 de #216 précèdent ses deux derniers correctifs : leur rendu final se verra en recette.
+
 ## Relevé du 19 novembre, 14 h 30
 
 `dev` est à `4564778` (#213 fusionnée). Toujours aucun lot C1 intégré. Ce relevé remplace, pour les SHA et les verdicts, le tableau du 18 novembre gardé plus bas comme historique. Chaque branche se fusionne sans conflit avec `dev` et avec les autres (fusions d'essai, sans exécution).
