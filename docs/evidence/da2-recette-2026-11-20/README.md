@@ -87,9 +87,11 @@ Résultats définitifs sur `a572f2e261eff45b27e9631b06b6fe797d20f0bf` :
   (étape de 19:24:50 à 19:53:00 UTC). Aucun test n'a été désactivé par #223.
 - #223 ouverte, tête inchangée, état GitHub `MERGEABLE` lors de la vérification finale.
 
-Les preuves restent sur une branche documentaire locale distincte, afin de ne
-pas relancer une suite de 28 minutes avec l'ancien plafond de `dev` avant la
-fusion humaine de #223. Le résultat synthétique est aussi publié dans cette PR.
+Après la fusion humaine de #223, `dev` à `dab04d6` a été intégré localement
+à la branche documentaire avec l'autorisation explicite de Philippe.
+La PR de preuves vers `dev` ne contient que ce rapport et les six captures;
+elle hérite du plafond CI corrigé. Le résultat synthétique est aussi publié
+dans #223. Aucun merge GitHub n'est effectué par l'agent.
 
 Revue documentaire : portée, SHA, isolation et limites explicites contrôlés.
 Aucun merge, déploiement, fermeture manuelle de carte ou modification des données existantes.
