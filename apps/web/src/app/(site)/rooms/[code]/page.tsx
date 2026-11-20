@@ -71,6 +71,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
     case "unavailable":
       return (
         <StatePanel
+          waves
           tone="error"
           label={t.errorBoundary.label}
           heading={{ bold: t.errorBoundary.title }}
@@ -93,6 +94,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
       // about the code is said. Retrying reloads the address the student came with.
       return (
         <StatePanel
+          waves
           tone="warning"
           label={t.rooms.unknownLabel}
           heading={{ bold: t.rooms.throttledHeadings[state.refusal] }}
@@ -148,6 +150,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
       const closed = state.phase === "closed";
       return (
         <StatePanel
+          waves
           tone={closed ? "neutral" : "warning"}
           label={format(t.rooms.roomTitle, { code })}
           heading={
@@ -173,6 +176,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[code]">) {
     case "inAnotherRoom":
       return (
         <StatePanel
+          waves
           tone="warning"
           label={format(t.rooms.roomTitle, { code: state.current.code })}
           heading={{ bold: t.rooms.alreadyInRoomLabel }}
@@ -221,6 +225,7 @@ async function finishedRaceOf(snapshot: RoomSnapshot, accountId: string): Promis
 function UnknownRoom({ t, code }: { readonly t: Dictionary; readonly code?: string }) {
   return (
     <StatePanel
+      waves
       tone="neutral"
       label={t.rooms.unknownLabel}
       heading={{ bold: t.rooms.unknownHeading }}

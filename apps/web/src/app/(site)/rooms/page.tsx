@@ -2,6 +2,7 @@ import { describeDatabaseError, listPublicRooms } from "@incision/database";
 import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { PublicRoomExplorer } from "@/components/rooms/public-room-explorer";
+import { FleetScene } from "@/components/rooms/scenes/fleet-scene";
 import { QuickplayCard } from "@/components/rooms/quickplay-card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { publicRoomsCopy } from "@/i18n/public-rooms";
@@ -39,9 +40,11 @@ export default async function PublicRoomsPage({ searchParams }: PageProps<"/room
         <PageHeading bold={t.headingBold} serif={t.headingSerif} />
         <p className="max-w-[560px] text-lg text-embrun">{t.intro}</p>
       </div>
-      {/* Screen 04's card row: matchmaking first (JOIN-03), on the design's three-column grid. */}
+      {/* Screen 04's card row: matchmaking first (JOIN-03), on the design's three-column grid.
+          C1 (docs/da/v2, DA2-6): the two other columns hold the decorative fleet, shown only beside the card (from 1024 px). */}
       <div className="grid gap-4 lg:grid-cols-3">
         <QuickplayCard t={t.quickplay} />
+        <FleetScene className="lg:col-span-2" />
       </div>
       <PublicRoomExplorer locale={locale} initialRooms={rooms} initialFilters={filters} />
     </div>

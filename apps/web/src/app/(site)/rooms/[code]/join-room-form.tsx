@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
+import { JoinChart } from "@/components/rooms/scenes/join-chart";
 import { ParticipateCheckbox } from "@/components/rooms/participate-checkbox";
 import { SubmitButton } from "@/components/submit-button";
 import { FormAlert } from "@/components/ui/form-alert";
@@ -26,28 +27,32 @@ export function JoinRoomForm({ code, t }: { readonly code: string; readonly t: D
   return (
     <>
       <PageHeading bold={t.rooms.joinHeadingBold} serif={t.rooms.joinHeadingSerif} />
-      <section className={`${card} flex max-w-xl flex-col gap-5`}>
-        <div className="flex flex-col gap-2">
-          <p className={monoLabel}>{t.rooms.codeLabel}</p>
-          <RoomCode code={code} />
-        </div>
-        <p className="text-embrun">{format(t.rooms.joinIntro, { code })}</p>
-        <form action={formAction} className="flex flex-col gap-6">
-          {state.error !== undefined && (
-            <div className="flex flex-col gap-2">
-              <FormAlert message={format(t.home.codeErrors[state.error], { code: state.currentCode ?? "" })} />
-              {state.error === "ALREADY_IN_ANOTHER_ROOM" && state.currentCode !== undefined && (
-                <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} inline-flex min-h-11 items-center self-start text-sm`}>
-                  {format(t.home.goToRoom, { code: state.currentCode })}
-                </Link>
-              )}
-            </div>
-          )}
-          <input type="hidden" name="code" value={code} />
-          <ParticipateCheckbox label={t.rooms.participate} />
-          <SubmitButton label={t.home.join} pendingLabel={t.home.joining} className={`${primaryButton} self-start`} />
-        </form>
-      </section>
+      {/* C1 (docs/da/v2, DA2-6): the small chart beside the form from 1024 px, under it below. */}
+      <div className="grid max-w-xl items-start gap-8 lg:max-w-none lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)] xl:gap-12">
+        <section className={`${card} flex flex-col gap-5`}>
+          <div className="flex flex-col gap-2">
+            <p className={monoLabel}>{t.rooms.codeLabel}</p>
+            <RoomCode code={code} />
+          </div>
+          <p className="text-embrun">{format(t.rooms.joinIntro, { code })}</p>
+          <form action={formAction} className="flex flex-col gap-6">
+            {state.error !== undefined && (
+              <div className="flex flex-col gap-2">
+                <FormAlert message={format(t.home.codeErrors[state.error], { code: state.currentCode ?? "" })} />
+                {state.error === "ALREADY_IN_ANOTHER_ROOM" && state.currentCode !== undefined && (
+                  <Link href={`/rooms/${state.currentCode}`} className={`${inlineLink} inline-flex min-h-11 items-center self-start text-sm`}>
+                    {format(t.home.goToRoom, { code: state.currentCode })}
+                  </Link>
+                )}
+              </div>
+            )}
+            <input type="hidden" name="code" value={code} />
+            <ParticipateCheckbox label={t.rooms.participate} />
+            <SubmitButton label={t.home.join} pendingLabel={t.home.joining} className={`${primaryButton} self-start`} />
+          </form>
+        </section>
+        <JoinChart code={code} />
+      </div>
     </>
   );
 }
