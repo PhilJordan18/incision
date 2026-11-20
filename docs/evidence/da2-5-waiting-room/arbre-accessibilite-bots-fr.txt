@@ -1,0 +1,84 @@
+- region "Bots":
+  - heading "Bots" [level=2]
+  - heading "Ajouter un bot" [level=3]
+  - text: Niveau du bot
+  - combobox "Niveau du bot":
+    - option "Mousse — novice"
+    - option "Quartier-maître — débutant" [selected]
+    - option "Capitaine — intermédiaire"
+    - option "Empereur des mers — expert"
+    - option "Roi des pirates — impossible"
+  - button "Ajouter un bot"
+  - paragraph: Ce choix s’applique uniquement au prochain bot ajouté.
+  - status
+  - heading "Bots dans la salle" [level=3]
+  - text: "10"
+  - list:
+    - listitem:
+      - paragraph: Bot 1
+      - paragraph: "Niveau enregistré : Capitaine — intermédiaire"
+      - button "Modifier Bot 1": Modifier
+      - button "Retirer Bot 1": Retirer
+    - listitem:
+      - paragraph: Bot 2 Non enregistré
+      - paragraph: "Niveau enregistré : Mousse — novice"
+      - 'button "Annuler : Bot 2" [expanded]': Annuler
+      - button "Retirer Bot 2": Retirer
+      - text: Niveau du bot 2
+      - combobox "Niveau du bot 2":
+        - option "Mousse — novice"
+        - option "Quartier-maître — débutant"
+        - option "Capitaine — intermédiaire"
+        - option "Empereur des mers — expert" [selected]
+        - option "Roi des pirates — impossible"
+      - button "Changer le niveau"
+      - status: "Modification non enregistrée : Empereur des mers — expert. Choisis « Changer le niveau » pour enregistrer."
+    - listitem:
+      - paragraph: Bot 3
+      - paragraph: "Niveau enregistré : Empereur des mers — expert"
+      - button "Modifier Bot 3": Modifier
+      - button "Retirer Bot 3": Retirer
+    - listitem:
+      - paragraph: Bot 4
+      - paragraph: "Niveau enregistré : Quartier-maître — débutant"
+      - button "Modifier Bot 4": Modifier
+      - button "Retirer Bot 4": Retirer
+    - listitem:
+      - paragraph: Bot 5
+      - paragraph: "Niveau enregistré : Quartier-maître — débutant"
+      - button "Modifier Bot 5": Modifier
+      - button "Retirer Bot 5": Retirer
+    - listitem:
+      - paragraph: Bot 6
+      - paragraph: "Niveau enregistré : Capitaine — intermédiaire"
+      - button "Modifier Bot 6": Modifier
+      - button "Retirer Bot 6": Retirer
+    - listitem:
+      - paragraph: Bot 7
+      - paragraph: "Niveau enregistré : Roi des pirates — impossible"
+      - 'button "Annuler : Bot 7" [expanded]': Annuler
+      - button "Retirer Bot 7": Retirer
+      - text: Niveau du bot 7
+      - combobox "Niveau du bot 7":
+        - option "Mousse — novice"
+        - option "Quartier-maître — débutant"
+        - option "Capitaine — intermédiaire"
+        - option "Empereur des mers — expert"
+        - option "Roi des pirates — impossible" [selected]
+      - button "Changer le niveau" [disabled]
+      - status: Aucune modification en attente.
+    - listitem:
+      - paragraph: Bot 8
+      - paragraph: "Niveau enregistré : Mousse — novice"
+      - button "Modifier Bot 8": Modifier
+      - button "Retirer Bot 8": Retirer
+    - listitem:
+      - paragraph: Bot 9
+      - paragraph: "Niveau enregistré : Empereur des mers — expert"
+      - button "Modifier Bot 9": Modifier
+      - button "Retirer Bot 9": Retirer
+    - listitem:
+      - paragraph: Bot 10
+      - paragraph: "Niveau enregistré : Capitaine — intermédiaire"
+      - button "Modifier Bot 10": Modifier
+      - button "Retirer Bot 10": Retirer

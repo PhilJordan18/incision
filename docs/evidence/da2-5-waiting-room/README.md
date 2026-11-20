@@ -6,7 +6,7 @@ Captures taken from the running app (production build, isolated local database) 
 
 | File | State |
 |---|---|
-| `dix-bots-{fr,en}-{abysse,aube}-{1440,1024,390,360}.jpg` | host, six participants, two spectators, ten bots, capacity 20 |
+| `dix-bots-{fr,en}-{abysse,aube}-{1440,1024,390,360}.jpg` | host, six participants, two spectators, ten bots, capacity 20; Bot 2 open with an unsaved level, Bot 7 open and clean (DA2-5b) |
 | `deux-bots-…`, `sans-bot-…` | host, two bots and no bot (empty roster) |
 | `complete-30-30-fr-abysse-1440.jpg` | full room, after the refused attempt to add a bot |
 | `non-hote-…`, `spectateur-…` | a participant and a spectator who are not the host |
@@ -15,6 +15,7 @@ Captures taken from the running app (production build, isolated local database) 
 | `etat-{expulse,quittee,fermee}-fr-abysse-1440.jpg`, `etat-session-terminee-fr-aube-1440.jpg` | the four states that replace the room (the signed-out one in Aube), with wave marks in the corner |
 | `etat-reconnexion-fr-abysse-1440.jpg` | the reconnection card in the waiting room, with the same wave marks |
 | `arbre-accessibilite-{hote,non-hote}-fr.txt` | accessibility tree of `main` (names, roles, states) |
+| `arbre-accessibilite-bots-{fr,en}.txt` | accessibility tree of the bots panel with an open, unsaved line (DA2-5b) |
 
 ## Decision
 
