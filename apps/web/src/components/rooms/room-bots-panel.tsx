@@ -27,6 +27,7 @@ export function RoomBotsPanel({ guest = false, snapshot, host, live, locale, ref
   // Whether that request was a level save: only its confirmation closes the line that sent it.
   const [savingLevel, setSavingLevel] = useState(false);
   const panelReload = useRef<HTMLButtonElement>(null);
+  const section = useRef<HTMLElement>(null);
   const [confirmation, setConfirmation] = useState("");
   const [pending, transition] = useTransition();
   const submitting = useRef(false);
@@ -69,10 +70,13 @@ export function RoomBotsPanel({ guest = false, snapshot, host, live, locale, ref
   // A refusal shown here (adding, or a line that is gone) disabled the control that had the focus: its way out takes it.
   const panelRefusal = answer.error !== undefined && !onLine;
   useEffect(() => {
-    if (panelRefusal) panelReload.current?.focus();
+    if (!panelRefusal) return;
+    // Unless the host has moved on to something else while the request was on its way.
+    const active = document.activeElement;
+    if (active === null || active === document.body || section.current?.contains(active) === true) panelReload.current?.focus();
   }, [panelRefusal]);
   // DA2-5: the add block, then what the panel answers, then the roster on the panel's full width.
-  return <section aria-labelledby={`${id}-title`} className={`${card} flex min-w-0 flex-col gap-4`}>
+  return <section ref={section} aria-labelledby={`${id}-title`} className={`${card} flex min-w-0 flex-col gap-4`}>
     <h2 id={`${id}-title`} className={panelTitle}>{t.title}</h2>
     {host && <AddRoomBot t={t} enabled={enabled} submit={submit} buttonRef={addButton} />}
     {host && !live && <p role="status" className="text-brume">{t.disconnected}</p>}

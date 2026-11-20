@@ -622,7 +622,11 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
       )}
 
       {connection === "reconnecting" && (
-        <section aria-labelledby="reconnect-heading" className={`${card} flex max-w-xl flex-col gap-3 border-or`}>
+        // The reconnection card is one of the room's state panels: the same wave marks in its corner (DA2-6's rule).
+        <section aria-labelledby="reconnect-heading" data-room-reconnect="" className={`${card} relative flex max-w-xl flex-col gap-3 overflow-hidden border-or *:relative`}>
+          <div aria-hidden="true" className="pointer-events-none absolute! top-0 right-0 h-[90px] w-[220px] opacity-70 max-sm:hidden">
+            <WaveMarks width={220} height={90} className="h-[90px] w-[220px]" />
+          </div>
           <p className={`${monoLabel} text-or`}>
             <span aria-hidden="true">⚠ </span>
             {t.reconnect.label}
