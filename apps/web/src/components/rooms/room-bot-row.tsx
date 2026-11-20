@@ -59,10 +59,20 @@ export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload
   const name = `${t.label} ${index + 1}`;
 
   const reloadButton = useRef<HTMLButtonElement>(null);
-  // A refusal disables the control that had the focus: the way out of it, on this line, takes it.
+  const afterReload = useRef(false);
+  // A refusal disables the control that had the focus: the way out of it, on this line, takes it,
+  // unless the host has moved on to something else while the request was on its way.
+  // After « Recharger la salle » (which goes away), the focus comes back to the line itself.
   useEffect(() => {
-    if (error !== undefined) reloadButton.current?.focus();
-  }, [error]);
+    const active = document.activeElement;
+    const ours = active === null || active === document.body || line.current?.contains(active) === true;
+    if (error !== undefined) {
+      if (ours) reloadButton.current?.focus();
+    } else if (afterReload.current && enabled) {
+      afterReload.current = false;
+      if (ours) (open ? select.current : toggle.current)?.focus();
+    }
+  }, [error, enabled, open]);
 
   const giveFocusBack = useRef(false);
   useEffect(() => {
@@ -125,7 +135,7 @@ export function RoomBotRow({ bot, index, t, host, enabled, submit, error, reload
       </>}
       {error !== undefined && <div className="col-span-full flex flex-col items-start gap-2 border-l-[3px] border-erreur pl-2.5 sm:max-lg:col-start-2 xl:col-start-2">
         <p role="alert" className="text-sm text-erreur"><span aria-hidden="true">⚠ </span>{t.errors[error]}</p>
-        <button ref={reloadButton} type="button" className={lineButton} onClick={reload}>{t.reload}</button>
+        <button ref={reloadButton} type="button" className={lineButton} onClick={() => { afterReload.current = true; reload(); }}>{t.reload}</button>
       </div>}
     </>}
   </li>;

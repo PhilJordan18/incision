@@ -247,6 +247,8 @@ test("a server refusal shows on the line it concerns and keeps the draft", async
   await line(page, 2).getByRole("button", { name: "Recharger la salle" }).click();
   await expect(panel(page).getByRole("alert")).toHaveCount(0);
   await expect(line(page, 2).getByRole("combobox")).toBeEnabled();
+  // The button that had the focus is gone: the line's select takes it back.
+  await expect(line(page, 2).getByRole("combobox")).toBeFocused();
   await expect(line(page, 2).getByRole("combobox")).toHaveValue("impossible");
   await expect(line(page, 3).getByRole("combobox")).toHaveValue("beginner");
   await line(page, 2).getByRole("button", { name: "Changer le niveau" }).click();
@@ -440,7 +442,7 @@ test("losing the host role removes every bot control, and a draft can no longer 
   await expect(line(member, 1).getByRole("button", { name: "Modifier Bot 1", exact: true })).toHaveAttribute("aria-expanded", "false");
 });
 
-test("the start locks the bots: an open draft is not saved and the roster comes back closed", async ({ browser }) => {
+test("the start locks the bots: an open draft is not saved", async ({ browser }) => {
   const { page: first, context } = await account(browser); const code = await roomWithBots(first, 2);
   const second = await context.newPage(); await second.goto(`/rooms/${code}`);
   await expect(second.getByText("[.En direct]", { exact: true })).toBeVisible();
