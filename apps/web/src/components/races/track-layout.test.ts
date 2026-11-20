@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LABEL_BOTTOM, LABEL_GAP, LABEL_TOP, ROUTE_COLOURS, routeStyles, SHIP_BERTHS, HORIZONTAL_SHIP_BERTHS, standingsOrder, trackLayout } from "./track-layout";
+import { LABEL_BOTTOM, LABEL_GAP, LABEL_TOP, ROUTE_COLOURS, routeStyles, SHIP_BERTHS, HORIZONTAL_SHIP_BERTHS, NARROW_LANES, standingsOrder, trackLayout } from "./track-layout";
 
 const runners = (count: number) => Array.from({ length: count }, (_, i) => ({ entrantId: `runner-${String(i).padStart(2, "0")}`, kind: i % 4 === 0 ? "bot" as const : "human" as const,
   status: "racing" as const, position: i * 2, length: 100, netWpm: 40 + i, inactive: false }));
@@ -43,6 +43,37 @@ describe("named ships", () => {
     // Held short of a full clearance by the reach or an edge: possible in a crew bunched on purpose, as
     // here, never the common case (under 3 % of the ships beside mine).
     expect(stopped).toBeLessThanOrEqual(pairs * 0.03);
+  });
+
+  it.each([2, 6, 12, 30, 50])("on a narrow chart, starts every ship right of the finish word and keeps mine clear as drawn, among %i runners", count => {
+    const random = sequence(count + 101);
+    const drawn = (x: number) => NARROW_LANES.offset + NARROW_LANES.scale * x;
+    let stopped = 0; let pairs = 0; let hulls = 0;
+    for (let round = 0; round < 400; round++) {
+      const base = round < 3 ? [0, 40, 100][round]! : Math.floor(random() * 90);
+      const spread = round < 3 ? 0 : Math.floor(random() * 12);
+      const input = runners(count).map(r => ({ ...r, position: Math.min(100, base + Math.floor(random() * (spread + 1))) }));
+      const points = trackLayout(input, input[Math.floor(random() * count)]!.entrantId);
+      // Every lane is drawn right of 28 % (30 % less the routes' swing), a ship never left of it.
+      for (const point of points) expect(drawn(point.x)).toBeGreaterThanOrEqual(30 - 2.4 * NARROW_LANES.scale - 0.01);
+      const ships = points.filter(p => p.labelled).map(p => ({ x: drawn(p.x + p.narrowShipShift), y: p.y, self: p.self, shift: p.narrowShipShift * NARROW_LANES.scale }));
+      const mine = ships.find(ship => ship.self)!;
+      expect(mine.shift).toBe(0);
+      for (const ship of ships) {
+        expect(ship.x).toBeGreaterThanOrEqual(28); expect(ship.x).toBeLessThanOrEqual(SHIP_BERTHS.max + 0.01);
+        expect(Math.abs(ship.shift)).toBeLessThanOrEqual(SHIP_BERTHS.reach + 0.01);
+        if (ship.self) continue;
+        pairs++;
+        const gap = Math.abs(ship.x - mine.x);
+        if (gap < clearance(ship.y - mine.y) - 0.02) stopped++;
+        if (gap < clearance(ship.y - mine.y) * 0.7 - 0.02) hulls++;
+      }
+    }
+    // The band is narrower (25 % instead of 39 %): in crews bunched on purpose, as here, a neighbour
+    // is more often held short of the full clearance by its 10 % reach (measured: up to 10.5 % of
+    // the ships beside mine with 50 runners), and its hull touches mine in up to 8.3 % of them.
+    expect(stopped).toBeLessThanOrEqual(pairs * 0.12);
+    expect(hulls).toBeLessThanOrEqual(pairs * 0.09);
   });
 
   it.each([6, 30, 50])("slides a ship by little between two small advances while the same runners are named, among %i runners", count => {

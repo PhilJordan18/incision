@@ -16,6 +16,8 @@ export type TrackPoint = {
    * unless it would sail under another ship. Drawing only: the marker stays on the real position.
    */
   readonly shipShift: number;
+  /** The same on a narrow vertical chart, in lane space (see `NARROW_LANES`): the stylesheet scales it with the lanes. */
+  readonly narrowShipShift: number;
   /** The same on the tablet's horizontal chart, in % of its height, for the two ships it draws (me and the leader). */
   readonly horizontalShipShift: number;
   /** The runner's stable sea route, the same on every refresh of the round (see `routeStyle`). */
@@ -115,6 +117,16 @@ export const LABEL_GAP = 16.25;
  */
 export type ShipBerths = { readonly clear: number; readonly level: number; readonly ease: number; readonly min: number; readonly max: number; readonly reach: number };
 export const SHIP_BERTHS: ShipBerths = { clear: 7.5, level: 16, ease: 4, min: 4, max: 60, reach: 10 };
+/**
+ * On a narrow vertical chart (600 px or less: the Arcade row, a low screen, a phone) the first
+ * lanes would sail under the finish word. The stylesheet then draws the lanes, 16 to 55 % of the
+ * width, between 30 and 55 %: x' = offset + scale × x (race-track.module.css, same numbers).
+ * Ships there are berthed in lane space with a clearance and a reach divided by the scale, so that
+ * once drawn they keep the same 7.5 % and 10 %, and never start left of 30 %.
+ */
+export const NARROW_LANES = { offset: 30 - 16 * (25 / 39), scale: 25 / 39 } as const;
+export const NARROW_SHIP_BERTHS: ShipBerths = { ...SHIP_BERTHS, clear: SHIP_BERTHS.clear / NARROW_LANES.scale, reach: SHIP_BERTHS.reach / NARROW_LANES.scale,
+  min: (30 - NARROW_LANES.offset) / NARROW_LANES.scale, max: (SHIP_BERTHS.max - NARROW_LANES.offset) / NARROW_LANES.scale };
 /** The tablet's chart: lanes down its 180 px, the course along its width. Only two ships sail there. */
 export const HORIZONTAL_SHIP_BERTHS: ShipBerths = { clear: 18, level: 4, ease: 1.5, min: 14, max: 62, reach: 20 };
 
@@ -197,7 +209,7 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
       runner, self: id === selfId, labelled: labelled.has(id),
       tone: id === selfId ? "self" as const : id === leader ? "leader" as const :
         id === ahead ? "nearAhead" as const : id === behind ? "nearBehind" as const : "neutral" as const,
-      x, y, horizontalX, horizontalY, labelY: 0, shipShift: 0, horizontalShipShift: 0,
+      x, y, horizontalX, horizontalY, labelY: 0, shipShift: 0, narrowShipShift: 0, horizontalShipShift: 0,
       route: routes.get(id)!,
       path: routePath(progress, vertical), horizontalPath: routePath(progress, horizontal),
     };
@@ -213,11 +225,13 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
   const labelPositions = new Map(labels.map((point, i) => [point.runner.entrantId, positions[i]!]));
   // Markers stay at the end of their own route: never moved aside for a label.
   const berthing = raw.map((point, lane) => ({ point, id: point.runner.entrantId, self: point.self, lane }));
-  const shifts = shipShifts(berthing.filter(({ point }) => point.labelled).map(({ point, ...ship }) => ({ ...ship, berth: laneOf(ship.lane), across: point.x, along: point.y })), SHIP_BERTHS);
+  const named = berthing.filter(({ point }) => point.labelled).map(({ point, ...ship }) => ({ ...ship, berth: laneOf(ship.lane), across: point.x, along: point.y }));
+  const shifts = shipShifts(named, SHIP_BERTHS);
+  const narrowShifts = shipShifts(named, NARROW_SHIP_BERTHS);
   const horizontalShifts = shipShifts(berthing.filter(({ point }) => point.self || point.tone === "leader")
     .map(({ point, ...ship }) => ({ ...ship, berth: horizontalLaneOf(ship.lane), across: point.horizontalY, along: point.horizontalX })), HORIZONTAL_SHIP_BERTHS);
   return raw.map((point) => ({ ...point, labelY: labelPositions.get(point.runner.entrantId) ?? point.y,
-    shipShift: shifts.get(point.runner.entrantId) ?? 0, horizontalShipShift: horizontalShifts.get(point.runner.entrantId) ?? 0 }));
+    shipShift: shifts.get(point.runner.entrantId) ?? 0, narrowShipShift: narrowShifts.get(point.runner.entrantId) ?? 0, horizontalShipShift: horizontalShifts.get(point.runner.entrantId) ?? 0 }));
 }
 
 /**

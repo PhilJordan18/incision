@@ -40,7 +40,7 @@ describe("semantic track", () => {
       { entrantId: "b", kind: "bot", status: "racing", position: 8, length: 10, netWpm: 60, inactive: false },
       ...Array.from({ length: 10 }, (_, i) => ({ entrantId: `z${i}`, kind: "human" as const, status: "racing" as const, position: 0, length: 10, netWpm: 0, inactive: false }))] };
     const html = renderToStaticMarkup(createElement(RaceTrack, { progress: crew, entrants: [], selfId: "a", t: getDictionary("fr").races, locale: "fr" }));
-    const marker = (id: string) => html.match(new RegExp(`<span data-runner="${id}"[^>]*>(.*?)</span>`))![0];
+    const marker = (id: string) => html.match(new RegExp(`<span data-runner="${id}"[^>]*>.*?</svg>`))![0];
     // Me: a human, triangle sail in `moi`, two rings. The leader: a bot, square sail, one ring.
     expect(marker("a")).toContain('data-sail="triangle"'); expect(marker("a")).toContain('data-colour="moi"');
     expect(marker("a").match(/<circle/g)).toHaveLength(2);
@@ -65,8 +65,11 @@ describe("semantic track", () => {
     const shifted = [...html.matchAll(/data-runner="(r\d+)"[^>]*style="[^"]*--ship-shift:(-?[\d.]+)/g)].filter(match => Number(match[2]) !== 0).map(match => match[1]!);
     expect(shifted.length).toBeGreaterThan(0);
     expect(shifted).not.toContain("r05");
-    for (const id of shifted) expect(html).toContain(`data-tether="${id}"`);
-    expect(html.match(/data-tether=/g)).toHaveLength(shifted.length);
+    // Every ship has its tether, inside its marker: drawn with the shift's length, nothing when it is 0.
+    for (const id of shifted) expect(html).toMatch(new RegExp(`data-runner="${id}"[^>]*>(<span[^>]*>)?<span data-tether="${id}"`));
+    expect(html.match(/data-tether=/g)).toHaveLength(html.match(/data-ship=/g)!.length);
+    // A narrow chart has its own berths, carried beside the wide ones.
+    expect(html).toMatch(/--narrow-ship-shift:-?[\d.]+/);
   });
   it("gives every runner of the standings the pennant of its kind and route", () => {
     const html = renderToStaticMarkup(createElement(RaceStandings, { progress, entrants: [], selfId: "a", t: getDictionary("fr").races, locale: "fr" }));

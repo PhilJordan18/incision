@@ -57,16 +57,13 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
           className={`${styles.route} ${routeClass(point)}`} />)}
         {points.filter((point) => point.labelled).map((point) => <line key={point.runner.entrantId} className={styles.connector}
           x1={point.x} y1={point.y} x2="63" y2={point.labelY} />)}
-        {/* A ship drawn beside its marker stays tied to it, in its own colour. */}
-        {points.filter((point) => point.labelled && point.shipShift !== 0).map((point) => <line key={point.runner.entrantId} data-tether={point.runner.entrantId}
-          className={`${styles.tether} ${styles[point.route.colour]}`} x1={point.x} y1={point.y} x2={point.x + point.shipShift} y2={point.y} />)}
       </svg>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={`${styles.routes} ${styles.horizontalRoutes}`}>
         {/* This chart names two runners only (me and the leader): every other route is an unnamed one. */}
         {points.map((point) => <polyline key={point.runner.entrantId} points={point.horizontalPath} data-horizontal-route={point.runner.entrantId}
           className={`${styles.route} ${routeClass(point, point.self || point.tone === "leader")}`} />)}
         {points.filter((point) => (point.self || point.tone === "leader") && point.horizontalShipShift !== 0).map((point) => <line key={point.runner.entrantId} data-horizontal-tether={point.runner.entrantId}
-          className={`${styles.tether} ${styles[point.route.colour]}`} x1={point.horizontalX} y1={point.horizontalY} x2={point.horizontalX} y2={point.horizontalY + point.horizontalShipShift} />)}
+          className={`${styles.routeTether} ${styles[point.route.colour]}`} x1={point.horizontalX} y1={point.horizontalY} x2={point.horizontalX} y2={point.horizontalY + point.horizontalShipShift} />)}
       </svg>
       {points.map((point) => {
         const { runner } = point;
@@ -75,12 +72,14 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
         const leader = point.tone === "leader";
         const position = { "--point-x": `${point.x}%`, "--point-y": `${point.y}%`, "--label-y": `${point.labelY}%`,
           "--horizontal-x": `${point.horizontalX}%`, "--horizontal-y": `${point.horizontalY}%`,
-          "--horizontal-label-x": `${Math.max(2, Math.min(60, point.horizontalX - 5))}%`, "--ship-shift": point.shipShift, "--horizontal-ship-shift": point.horizontalShipShift } as CSSProperties;
+          "--horizontal-label-x": `${Math.max(2, Math.min(60, point.horizontalX - 5))}%`, "--ship-shift": point.shipShift, "--narrow-ship-shift": point.narrowShipShift, "--horizontal-ship-shift": point.horizontalShipShift } as CSSProperties;
         return <div key={runner.entrantId}>
           {/* The marker is the runner's real position: a dot, or the foot of a named runner's ship. */}
           <span data-runner={runner.entrantId} data-self={point.self || undefined} data-kind={runner.kind} data-position={runner.position}
             data-route-colour={point.route.colour} data-route-dash={point.route.dash} style={position}
             className={`${styles.point} ${point.labelled ? `${styles.named} ${styles[point.route.colour]}` : styles.anon} ${point.self ? styles.self : ""} ${leader ? styles.leader : ""}`}>
+            {/* A ship drawn beside its marker stays tied to it by a short line in its colour (none when it is on it). */}
+            {point.labelled && <span data-tether={runner.entrantId} className={styles.tether} />}
             {point.labelled && <Ship kind={runner.kind} colour={point.route.colour} self={point.self} leader={leader} className={styles.ship} />}
           </span>
           {point.labelled && <span data-track-label style={position} className={`${styles.label} ${point.self ? styles.selfLabel : ""} ${leader ? styles.leaderLabel : ""}`}>
