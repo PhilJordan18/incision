@@ -17,4 +17,11 @@ Captures taken from the running app (production build, isolated local database) 
 | `arbre-accessibilite-{hote,non-hote}-fr.txt` | accessibility tree of `main` (names, roles, states) |
 | `arbre-accessibilite-bots-{fr,en}.txt` | accessibility tree of the bots panel with an open, unsaved line (DA2-5b) |
 
+## Decision
+
+Start note for non-hosts — decided on 20 November 2026: dev behaviour kept. As on `dev`, only the
+host reads the settings note, beside « Lancer la course »; a participant or a spectator sees the
+code plaque without it (`non-hote-…`, `spectateur-…` and `arbre-accessibilite-non-hote-fr.txt`
+were captured again after the change).
+
 Names are fixtures of the test database (« Participant 1 »…), not real people.

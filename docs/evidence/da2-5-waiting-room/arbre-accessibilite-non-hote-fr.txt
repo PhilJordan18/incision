@@ -8,7 +8,6 @@
     - text: CODE00
     - button "Copier le code"
     - status
-    - paragraph: "Entraînement. Durée maximale : Aucune limite. Correction obligatoire. 50 mots. Passage cohérent, complexité moyenne."
   - region "Réglages de la course":
     - heading "Réglages de la course" [level=2]
     - term: Langue du texte

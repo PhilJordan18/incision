@@ -209,8 +209,8 @@ test("a non-host sees the room in the same order without any host control; updat
     await expect(main.getByRole("combobox")).toHaveCount(0);
     for (const name of [/^Invitations$/, /^Modération de la salle$/]) await expect(region(page, name)).toHaveCount(0);
     expect(await redActions(page)).toEqual([]);
-    // The start note is read by everyone; only the host has the button.
-    await expect(region(page, /^Code de la salle$/)).toContainText("Entraînement.");
+    // As on dev, the start note goes with the start button: a non-host reads neither (decided on 20 November 2026).
+    await expect(region(page, /^Code de la salle$/)).not.toContainText("Entraînement");
     await expect(region(page, /^Bots$/).getByRole("listitem")).toHaveCount(2);
   }
   await expect(region(member, /^Équipage$/).getByRole("heading", { name: /^Spectateurs/ })).toHaveText("Spectateurs1 / 20");
