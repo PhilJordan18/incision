@@ -1,7 +1,8 @@
 "use client";
 
+import { coordinateAccountSignIn } from "@/identity/guest-browser";
 import { LOGIN_MAX_LENGTH, PASSWORD_MAX_LENGTH } from "@incision/domain";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { EyeIcon, EyeOffIcon } from "@/components/icons/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { FieldError } from "@/components/ui/field-error";
@@ -9,6 +10,9 @@ import { FormAlert } from "@/components/ui/form-alert";
 import { fieldLabel, primaryButton, textField } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { type CredentialsFormState, signInWithCredentials } from "./actions";
+
+const subscribe = () => () => {};
+const coordinatedSignIn = (previous: CredentialsFormState, form: FormData) => coordinateAccountSignIn(() => signInWithCredentials(previous, form));
 
 type CredentialsFormProps = {
   readonly callbackUrl: string;
@@ -20,7 +24,8 @@ type CredentialsFormProps = {
  * long is kept and explained by the server, not silently cut.
  */
 export function CredentialsForm({ callbackUrl, t }: CredentialsFormProps) {
-  const [state, formAction] = useActionState<CredentialsFormState, FormData>(signInWithCredentials, {});
+  const ready = useSyncExternalStore(subscribe, () => true, () => false);
+  const [state, formAction] = useActionState<CredentialsFormState, FormData>(ready ? coordinatedSignIn : signInWithCredentials, {});
   const [passwordVisible, setPasswordVisible] = useState(false);
   const loginRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);

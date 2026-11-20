@@ -1,34 +1,57 @@
-import { admissionRefusal, canonicalDisplayName, localDisplayName, type MemberRole, type RoomCode, type RoomPhase } from "@incision/domain";
-import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
+import { guestCommandFence } from "../identity/guest-command-fence";
+import { isBannedFromRoom } from "./room-ban";
+import type { GuestSessionProof } from "../identity/guest-sessions";
+import { retireUnreferencedGuest } from "../identity/guest-retirement";
+import { lockLiveGuest } from "./guest-host";
+import {
+  type AdmissionRefusal,
+  type HumanSubject,
+  type AdmittingPhase,
+  admissionRefusal,
+  admitsNewMembers,
+  canonicalDisplayName,
+  localDisplayName,
+  type MemberRole,
+  type RoomCode,
+  type RoomPhase,
+  type RoomVisibility,
+} from "@incision/domain";
+import { and, asc, count, eq, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { uniqueViolationOf } from "../errors";
+import { interruptRaceForClosedRoom } from "../races/interruption";
 import { firstRow } from "../rows";
-import { accounts, lobbies, lobbyMembers } from "../schema";
-
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-type Queryable = Database | Transaction;
-
-/**
- * The admission and departure rules rely on READ COMMITTED: after the room lock, each
- * statement sees every commit made before it (counts, taken names, memberships).
- */
-const READ_COMMITTED = { isolationLevel: "read committed" } as const;
+import { accounts, type InterruptionReason, lobbies, lobbyMembers, lobbySettings, type RACE_STATES, races } from "../schema";
+import { boundedTransaction, type Queryable, READ_COMMITTED, type Transaction } from "../transaction";
+import { bumpRevision, closeLockedRoom } from "./room-writes";
+import { type RoomSettings, settingsColumns, settingsOf } from "./settings";
+import { lobbyBots } from "../schema/room-bots";
+import type { RoomBot } from "./bots";
+import { transferHostToConnectedMember } from "./succession";
 
 /** The room an account currently occupies (one at most, SALLE-06). */
 export type ActiveMembership = {
   readonly lobbyId: string;
   readonly code: string;
   readonly memberId: string;
-  /** Leaving closes the room at the checkpoint (SALLE-08 comes later). */
+  /** The current host; voluntary departure transfers hosting or closes without a successor. */
   readonly isHost: boolean;
 };
 
 export async function findActiveMembership(db: Queryable, accountId: string): Promise<ActiveMembership | undefined> {
+  return findActiveHumanMembership(db, { kind: "account", accountId });
+}
+
+/** Server-verified subject only; callers must check session validity before granting access. */
+export async function findActiveHumanMembership(db: Queryable, subject: HumanSubject): Promise<ActiveMembership | undefined> {
+  const identity = subject.kind === "account"
+    ? eq(lobbyMembers.accountId, subject.accountId)
+    : eq(lobbyMembers.guestSessionId, subject.guestSessionId);
   const [row] = await db
     .select({ lobbyId: lobbyMembers.lobbyId, code: lobbies.code, memberId: lobbyMembers.id, hostMemberId: lobbies.hostMemberId })
     .from(lobbyMembers)
     .innerJoin(lobbies, eq(lobbies.id, lobbyMembers.lobbyId))
-    .where(and(eq(lobbyMembers.accountId, accountId), isNull(lobbyMembers.leftAt)));
+    .where(and(identity, isNull(lobbyMembers.leftAt)));
   return row === undefined
     ? undefined
     : { lobbyId: row.lobbyId, code: row.code, memberId: row.memberId, isHost: row.hostMemberId === row.memberId };
@@ -48,10 +71,17 @@ export async function findRoomByCode(
 
 export type RoomMember = {
   readonly memberId: string;
-  readonly accountId: string;
+  readonly accountId: string | null;
   readonly displayName: string;
   readonly role: MemberRole;
   readonly isHost: boolean;
+};
+
+/** The room's current (or latest) race, as the database holds it: what a page shows after a reconnection. */
+export type RoomRace = {
+  readonly raceId: string;
+  readonly state: (typeof RACE_STATES)[number];
+  readonly interruptionReason: InterruptionReason | null;
 };
 
 export type RoomSnapshot = {
@@ -59,15 +89,22 @@ export type RoomSnapshot = {
   readonly code: string;
   readonly phase: RoomPhase;
   readonly capacity: number;
+  /** Who may enter next (SALLE-03); members see it, nothing outside the room does. */
+  readonly visibility: RoomVisibility;
   /** Increases with every change of membership: clients keep the newest snapshot. */
   readonly revision: number;
   /** Active members, oldest first. */
   readonly members: readonly RoomMember[];
+  readonly bots: readonly RoomBot[];
+  /** Kept once the room goes back to waiting, so its members learn how that race ended. */
+  readonly race?: RoomRace;
+  /** What the next race will run with (F-03.1); its revision changes with every saved change. */
+  readonly settings: RoomSettings;
 };
 
 /**
- * Room and its active members in one statement, so the revision and the members come
- * from the same snapshot (no query per member).
+ * Room, settings and active members in one statement, so the revision, the settings and the
+ * members come from the same snapshot (no query per member).
  */
 export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<RoomSnapshot | undefined> {
   const rows = await db
@@ -75,14 +112,23 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
       code: lobbies.code,
       phase: lobbies.phase,
       capacity: lobbies.capacity,
+      visibility: lobbies.visibility,
       revision: lobbies.revision,
       hostMemberId: lobbies.hostMemberId,
       memberId: lobbyMembers.id,
       accountId: lobbyMembers.accountId,
       displayName: lobbyMembers.displayName,
       role: lobbyMembers.role,
+      raceId: races.id,
+      raceState: races.state,
+      interruptionReason: races.interruptionReason,
+      ...settingsColumns,
+      // Correlated aggregate keeps bots and membership at the same statement snapshot.
+      bots: sql<RoomBot[]>`coalesce((select jsonb_agg(jsonb_build_object('botId', ${lobbyBots.id}, 'level', ${lobbyBots.level}) order by ${lobbyBots.createdAt}, ${lobbyBots.id}) from ${lobbyBots} where ${lobbyBots.lobbyId} = ${lobbies.id}), '[]'::jsonb)`,
     })
     .from(lobbies)
+    .leftJoin(lobbySettings, eq(lobbySettings.lobbyId, lobbies.id))
+    .leftJoin(races, eq(races.id, lobbies.currentRaceId))
     .leftJoin(lobbyMembers, and(eq(lobbyMembers.lobbyId, lobbies.id), isNull(lobbyMembers.leftAt)))
     .where(eq(lobbies.id, lobbyId))
     .orderBy(asc(lobbyMembers.joinedAt), asc(lobbyMembers.id));
@@ -92,19 +138,37 @@ export async function readRoomSnapshot(db: Queryable, lobbyId: string): Promise<
   }
   const members: RoomMember[] = [];
   for (const row of rows) {
-    if (row.memberId !== null && row.accountId !== null && row.displayName !== null && row.role !== null) {
+    if (row.memberId !== null && row.displayName !== null && row.role !== null) {
       const { memberId, accountId, displayName, role } = row;
       members.push({ memberId, accountId, displayName, role, isHost: memberId === lobby.hostMemberId });
     }
   }
-  return { lobbyId, code: lobby.code, phase: lobby.phase, capacity: lobby.capacity, revision: lobby.revision, members };
+  const race =
+    lobby.raceId === null || lobby.raceState === null
+      ? undefined
+      : { raceId: lobby.raceId, state: lobby.raceState, interruptionReason: lobby.interruptionReason };
+  return {
+    lobbyId,
+    code: lobby.code,
+    phase: lobby.phase,
+    capacity: lobby.capacity,
+    visibility: lobby.visibility,
+    revision: lobby.revision,
+    members,
+    bots: lobby.bots,
+    ...(race === undefined ? {} : { race }),
+    settings: settingsOf(lobby),
+  };
 }
 
 export type JoinRoomInput = { readonly accountId: string; readonly code: RoomCode; readonly role: MemberRole };
 
 export type JoinRoomResult =
+  | { readonly ok: false; readonly error: "ROOM_BANNED" }
   | { readonly ok: true; readonly lobbyId: string; readonly memberId: string; readonly alreadyMember: boolean }
-  | { readonly ok: false; readonly error: "ROOM_NOT_FOUND" | "ROOM_NOT_ADMITTING" | "ROOM_FULL" | "ACCOUNT_NOT_FOUND" }
+  | { readonly ok: false; readonly error: "ROOM_NOT_FOUND" | "ROOM_FULL" | "SPECTATORS_FULL" | "ACCOUNT_NOT_FOUND" }
+  /** The phase tells a closed room from a race in progress (the code limit counts only the first). */
+  | { readonly ok: false; readonly error: "ROOM_NOT_ADMITTING"; readonly phase: Exclude<RoomPhase, AdmittingPhase> }
   | { readonly ok: false; readonly error: "ALREADY_IN_ANOTHER_ROOM"; readonly currentCode: string };
 
 /**
@@ -115,7 +179,7 @@ export type JoinRoomResult =
  */
 export async function joinRoomByCode(db: Database, input: JoinRoomInput): Promise<JoinRoomResult> {
   try {
-    return await db.transaction((tx) => admit(tx, input), READ_COMMITTED);
+    return await boundedTransaction(db, (tx) => admit(tx, input), READ_COMMITTED);
   } catch (error: unknown) {
     // A concurrent join of the same account into another room won the unique index.
     if (uniqueViolationOf(error) === "lobby_members_active_account_unique") {
@@ -129,32 +193,52 @@ export async function joinRoomByCode(db: Database, input: JoinRoomInput): Promis
 }
 
 async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput): Promise<JoinRoomResult> {
+  // A private room is never locked by a code alone: it answers exactly like an unknown code,
+  // without the lock's cost that could tell the two apart (SALLE-03, SALLE-10).
   const [lobby] = await tx
-    .select({ id: lobbies.id, phase: lobbies.phase, visibility: lobbies.visibility, capacity: lobbies.capacity })
+    .select({ id: lobbies.id, phase: lobbies.phase, capacity: lobbies.capacity })
     .from(lobbies)
-    .where(eq(lobbies.code, code))
+    .where(and(eq(lobbies.code, code), ne(lobbies.visibility, "private")))
     .for("update");
-  if (lobby === undefined || lobby.visibility === "private") {
+  if (lobby === undefined) {
     return { ok: false, error: "ROOM_NOT_FOUND" };
   }
+  return admitAccountToLockedRoom(tx, { accountId, role, lobby });
+}
+
+export type LockedAdmissionRoom = { readonly id: string; readonly phase: RoomPhase; readonly capacity: number };
+
+/** Internal transaction helper: caller has locked and authorized access to this room. */
+export async function admitAccountToLockedRoom(tx: Transaction, { accountId, role, lobby }: {
+  readonly accountId: string; readonly role: MemberRole; readonly lobby: LockedAdmissionRoom;
+}): Promise<JoinRoomResult> {
+  // Access to this room was authorized by code or a valid invitation before exposing the ban.
+  if (await isBannedFromRoom(tx, lobby.id, { kind: "account", accountId })) return { ok: false, error: "ROOM_BANNED" };
   const current = await findActiveMembership(tx, accountId);
   if (current !== undefined) {
     return current.lobbyId === lobby.id
       ? { ok: true, lobbyId: lobby.id, memberId: current.memberId, alreadyMember: true }
       : { ok: false, error: "ALREADY_IN_ANOTHER_ROOM", currentCode: current.code };
   }
-  const activeParticipants =
-    role === "participant"
-      ? firstRow(
-          await tx
-            .select({ value: count() })
-            .from(lobbyMembers)
-            .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, "participant"), isNull(lobbyMembers.leftAt))),
-        ).value
-      : 0;
-  const refusal = admissionRefusal({ phase: lobby.phase, role, activeParticipants, capacity: lobby.capacity });
+  // The lobby row lock serializes admissions and departures. Count only the requested
+  // role, independently of the other quota; existing membership was returned above.
+  const activeInRole = firstRow(
+    await tx
+      .select({ value: count() })
+      .from(lobbyMembers)
+      .where(and(eq(lobbyMembers.lobbyId, lobby.id), eq(lobbyMembers.role, role), isNull(lobbyMembers.leftAt))),
+  ).value;
+  const [bots] = role === "participant"
+    ? await tx.select({ value: count() }).from(lobbyBots).where(eq(lobbyBots.lobbyId, lobby.id)) : [];
+  const refusal = admissionRefusal({
+    phase: lobby.phase,
+    role,
+    activeParticipants: role === "participant" ? activeInRole + (bots?.value ?? 0) : 0,
+    activeSpectators: role === "spectator" ? activeInRole : 0,
+    capacity: lobby.capacity,
+  });
   if (refusal !== undefined) {
-    return { ok: false, error: refusal };
+    return admissionRefusalResult(refusal, lobby.phase);
   }
   const [account] = await tx.select({ displayName: accounts.displayName }).from(accounts).where(eq(accounts.id, accountId));
   if (account === undefined) {
@@ -183,42 +267,66 @@ async function admit(tx: Transaction, { accountId, code, role }: JoinRoomInput):
   return { ok: true, lobbyId: lobby.id, memberId: member.id, alreadyMember: false };
 }
 
-export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boolean };
+/** Every refusal stops the admission; the phase tells a closed room from a race in progress. */
+function admissionRefusalResult(refusal: AdmissionRefusal, phase: RoomPhase): JoinRoomResult & { readonly ok: false } {
+  switch (refusal) {
+    case "ROOM_FULL":
+    case "SPECTATORS_FULL":
+      return { ok: false, error: refusal };
+    case "ROOM_NOT_ADMITTING":
+      // The domain refuses admission exactly in these phases; a mismatch still refuses.
+      return admitsNewMembers(phase) ? { ok: false, error: "ROOM_FULL" } : { ok: false, error: "ROOM_NOT_ADMITTING", phase };
+  }
+}
+
+export type LeaveRoomResult = { readonly lobbyId: string; readonly closed: boolean; readonly memberId?: string };
 
 /**
- * The account leaves its current room. At the checkpoint, the host leaving closes the
- * room (host succession comes with SALLE-08): every remaining member leaves with it, in
- * the same transaction, so nobody stays blocked by the one-active-room index.
+ * The account leaves its current room. A departing host transfers to the oldest connected
+ * human; without a successor the room closes. Presence must be read synchronously through
+ * the required callback after the room lock, never supplied as a precomputed snapshot.
  *
  * The membership is read again under the room lock: a second tab, or the host closing
  * the room meanwhile, may already have ended it. Departure times are taken after the
  * lock (`statement_timestamp()`), so they never precede a join committed just before.
  */
-export async function leaveCurrentRoom(db: Database, accountId: string): Promise<LeaveRoomResult | undefined> {
-  return db.transaction(async (tx) => {
-    const seen = await findActiveMembership(tx, accountId);
+export async function leaveCurrentRoom(db: Database, accountId: string, online: (lobbyId: string) => ReadonlySet<string>): Promise<LeaveRoomResult | undefined> {
+  return leaveHumanRoom(db, accountId, online);
+}
+
+export async function leaveGuestRoom(db: Database, proof: GuestSessionProof, online: (lobbyId: string) => ReadonlySet<string>): Promise<LeaveRoomResult | undefined> {
+  return leaveHumanRoom(db, proof, online);
+}
+
+async function leaveHumanRoom(db: Database, actor: string | GuestSessionProof, online: (lobbyId: string) => ReadonlySet<string>): Promise<LeaveRoomResult | undefined> {
+  return guestCommandFence().mutation(() => boundedTransaction(db, async (tx) => {
+    const membership = () => typeof actor === "string" ? findActiveMembership(tx, actor)
+      : findActiveHumanMembership(tx, { kind: "guest", guestSessionId: actor.id });
+    const seen = await membership();
     if (seen === undefined) {
       return undefined;
     }
     const [lobby] = await tx
-      .select({ hostMemberId: lobbies.hostMemberId })
+      .select({ hostMemberId: lobbies.hostMemberId, phase: lobbies.phase, currentRaceId: lobbies.currentRaceId })
       .from(lobbies)
       .where(eq(lobbies.id, seen.lobbyId))
       .for("update");
-    const current = await findActiveMembership(tx, accountId);
+    if (typeof actor !== "string" && !await lockLiveGuest(tx, actor)) return undefined;
+    const current = await membership();
     if (lobby === undefined || current?.memberId !== seen.memberId) {
       return undefined;
     }
-    const closesRoom = lobby.hostMemberId === current.memberId;
+    const closesRoom = lobby.hostMemberId === current.memberId &&
+      !(await transferHostToConnectedMember(tx, { lobbyId: current.lobbyId, outgoingHostId: current.memberId, online }));
+    if (closesRoom && lobby.currentRaceId !== null && (lobby.phase === "countdown" || lobby.phase === "racing")) {
+      // No connected successor: preserve the existing room interruption semantics (D-06).
+      await interruptRaceForClosedRoom(tx, lobby.currentRaceId);
+    }
     if (closesRoom) {
-      await tx
-        .update(lobbyMembers)
-        .set({ leftAt: sql`statement_timestamp()` })
-        .where(and(eq(lobbyMembers.lobbyId, current.lobbyId), isNull(lobbyMembers.leftAt)));
-      await tx
-        .update(lobbies)
-        .set({ phase: "closed", closedAt: sql`statement_timestamp()` })
-        .where(eq(lobbies.id, current.lobbyId));
+      await closeLockedRoom(tx, current.lobbyId);
+    } else if (typeof actor !== "string") {
+      await tx.delete(lobbyMembers).where(eq(lobbyMembers.id, current.memberId));
+      await retireUnreferencedGuest(tx, actor.id);
     } else {
       await tx
         .update(lobbyMembers)
@@ -226,13 +334,6 @@ export async function leaveCurrentRoom(db: Database, accountId: string): Promise
         .where(and(eq(lobbyMembers.id, current.memberId), isNull(lobbyMembers.leftAt)));
     }
     await bumpRevision(tx, current.lobbyId);
-    return { lobbyId: current.lobbyId, closed: closesRoom };
-  }, READ_COMMITTED);
-}
-
-async function bumpRevision(tx: Transaction, lobbyId: string): Promise<void> {
-  await tx
-    .update(lobbies)
-    .set({ revision: sql`${lobbies.revision} + 1` })
-    .where(eq(lobbies.id, lobbyId));
+    return { lobbyId: current.lobbyId, closed: closesRoom, ...(typeof actor === "string" ? {} : { memberId: current.memberId }) };
+  }, READ_COMMITTED));
 }

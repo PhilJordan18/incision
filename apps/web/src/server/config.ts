@@ -1,5 +1,7 @@
 import { isLocalDatabase, usesVerifiedTls } from "@incision/database";
+import { asRandomState, type RandomState } from "@incision/domain";
 import { z } from "zod";
+import { type RacesSwitch, racesSwitchOf } from "./races/races-switch";
 
 /** Variables without which production must not start (docs/DEPLOYMENT.md lists them). */
 const REQUIRED_IN_PRODUCTION = [
@@ -34,6 +36,16 @@ const serverEnvSchema = z
     AUTH_DISCORD_SECRET: nonEmpty.optional(),
     /** Reverse proxies in front of the app whose X-Forwarded-For entry is trusted: 1 on App Service. */
     TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(2).optional(),
+    /** `allowed`: races run the short test fixtures instead of the corpus (local test builds). */
+    RACE_FIXTURE_TEXTS: z.literal("allowed", { error: 'must be "allowed" or unset' }).optional(),
+    /** Only `true` lets new races start; any other value closes them without stopping the start-up. */
+    RACES_ENABLED: z.string().optional(),
+    /**
+     * Four uint32 (`a,b,c,d`): every race's private bonus streams start from this seed instead of
+     * crypto, so a test build knows which bonuses it hands out. Only with RACE_FIXTURE_TEXTS=allowed,
+     * so never on a deployed site.
+     */
+    RACE_TEST_BONUS_SEED: z.string().regex(/^\d{1,10}(,\d{1,10}){3}$/, "must be four integers a,b,c,d").optional(),
   })
   .superRefine((env, context) => {
     const problem = (path: string, message: string) => context.addIssue({ code: "custom", path: [path], message });
@@ -41,6 +53,13 @@ const serverEnvSchema = z
     const appOrigin = env.APP_URL === undefined ? `http://localhost:${env.PORT}` : URL.parse(env.APP_URL)?.origin;
     if (env.AUTH_URL !== undefined && appOrigin !== undefined && !isPublicRoot(env.AUTH_URL, appOrigin)) {
       problem("AUTH_URL", "must equal APP_URL (same origin, no path)");
+    }
+    if (env.RACE_TEST_BONUS_SEED !== undefined) {
+      if (env.RACE_FIXTURE_TEXTS !== "allowed") {
+        problem("RACE_TEST_BONUS_SEED", "is for local test builds only (with RACE_FIXTURE_TEXTS=allowed)");
+      } else if (testSeedOf(env.RACE_TEST_BONUS_SEED) === undefined) {
+        problem("RACE_TEST_BONUS_SEED", "must be four uint32, not all zero");
+      }
     }
     if (env.NODE_ENV !== "production") {
       return;
@@ -53,6 +72,10 @@ const serverEnvSchema = z
     // Secure cookies need HTTPS; a localhost URL is allowed for local production builds (E2E).
     if (env.APP_URL !== undefined && !isHttpsOrLocal(env.APP_URL)) {
       problem("APP_URL", "must use HTTPS in production");
+    }
+    // The short test texts never reach a deployed site: only a local production build (E2E, integration) runs them.
+    if (env.RACE_FIXTURE_TEXTS === "allowed" && !isLocalUrl(env.APP_URL)) {
+      problem("RACE_FIXTURE_TEXTS", "is for local test builds only (APP_URL on localhost)");
     }
     // Without verified TLS, pg would send the password in clear text or trust any certificate.
     if (env.DATABASE_URL !== undefined && !isLocalDatabase(env.DATABASE_URL) && !usesVerifiedTls(env.DATABASE_URL)) {
@@ -71,6 +94,12 @@ export type ServerEnv = {
   /** HTTPS public URL: Auth.js then names its cookies `__Secure-…` (also the JWT key salt). */
   readonly secureCookies: boolean;
   readonly trustedProxyHops: number;
+  /** Races run the short test fixtures (RACE_FIXTURE_TEXTS=allowed) instead of the corpus in the database. */
+  readonly fixtureRaceTexts: boolean;
+  /** Whether new races may start (RACES_ENABLED, races-switch.ts); never which texts they run. */
+  readonly racesSwitch: RacesSwitch;
+  /** RACE_TEST_BONUS_SEED for local test builds; undefined everywhere else (private crypto seeds). */
+  readonly testBonusSeed: (() => RandomState) | undefined;
 };
 
 /** Validates the environment at start-up. Error messages name variables, never their values. */
@@ -82,7 +111,8 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     const problems = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
     throw new Error(`Invalid server environment: ${problems.join("; ")}`);
   }
-  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS } = result.data;
+  const { NODE_ENV, PORT, APP_URL, DATABASE_URL, AUTH_SECRET, TRUSTED_PROXY_HOPS, RACE_FIXTURE_TEXTS, RACES_ENABLED, RACE_TEST_BONUS_SEED } = result.data;
+  const testSeed = RACE_TEST_BONUS_SEED === undefined ? undefined : testSeedOf(RACE_TEST_BONUS_SEED);
   const appOrigin = new URL(APP_URL ?? `http://localhost:${PORT}`).origin;
   return {
     isProduction: NODE_ENV === "production",
@@ -92,12 +122,28 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     authSecret: AUTH_SECRET,
     secureCookies: appOrigin.startsWith("https:"),
     trustedProxyHops: TRUSTED_PROXY_HOPS ?? 0,
+    fixtureRaceTexts: RACE_FIXTURE_TEXTS === "allowed",
+    racesSwitch: racesSwitchOf(RACES_ENABLED),
+    testBonusSeed: testSeed === undefined ? undefined : () => testSeed,
   };
+}
+
+function testSeedOf(value: string): RandomState | undefined {
+  try {
+    return asRandomState(value.split(",").map(Number));
+  } catch {
+    return undefined;
+  }
 }
 
 function isPublicRoot(authUrl: string, appOrigin: string): boolean {
   const url = URL.parse(authUrl);
   return url !== null && url.origin === appOrigin && url.pathname === "/" && url.search === "" && url.hash === "";
+}
+
+function isLocalUrl(appUrl: string | undefined): boolean {
+  const url = appUrl === undefined ? null : URL.parse(appUrl);
+  return url !== null && LOCAL_HOSTNAMES.has(url.hostname);
 }
 
 function isHttpsOrLocal(appUrl: string): boolean {

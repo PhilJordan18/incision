@@ -1,73 +1,73 @@
 # ADR-0001 — Socket.IO et Next.js sur un serveur persistant
 
-- Statut : **retenu pour le prototype, pas encore démontré**.
-- Création : 29 septembre 2026; révision : 2 octobre 2026, après l'énoncé final.
-- Exigences : TECH-05/06/07/09, SALLE-06/09, CONF-12, COURSE-03/05/06/08, PERF-02/03.
+- Statut : **retenu et implémenté**, avec les limites d'intégration décrites ci-dessous.
+- Création : 29 septembre 2026; révision : 25 octobre 2026, code `dev` à `f4600af`.
+- Exigences concernées : TECH-05/06/07/09, SALLE-06/09, COURSE-03/05/06/08, PERF-02/03. Cet ADR n'en déclare pas tous les critères terminés.
 
 ## Contexte
 
-Next.js App Router, React, TypeScript et PostgreSQL/Drizzle; déploiement sur un serveur/VPS explicitement exigé. Mise à jour du 3 octobre : malgré la possibilité prévue dans l'énoncé, aucun serveur du cégep n'est à ma disposition, et mon budget personnel est nul. Une salle accepte de 2 à **30 participants**, bots compris, spectateurs exclus. Le décompte dure **3 secondes** et la fenêtre de reprise **30 secondes**. Ces valeurs remplacent celles de la version précédente.
-
-Le checkpoint exige des membres de salle synchronisés entre navigateurs, pas encore la course complète. L'architecture doit néanmoins permettre une horloge qui fait autorité, des bots, des bonus et des résultats durables.
+Incision utilise Next.js App Router, React, TypeScript et PostgreSQL/Drizzle. Le brief impose un serveur persistant, une course de 2 à 30 participants (bots compris, spectateurs exclus), un décompte de trois secondes et une reprise de trente secondes. Je dois synchroniser plusieurs navigateurs sans donner au client l'autorité sur les résultats.
 
 ## Décision
 
-**Un seul processus Node** exécute Next.js et Socket.IO sur le même serveur HTTP, derrière le frontal HTTPS d'Azure App Service ([ADR-0002](0002-hosting.md)). Une seule instance au départ; état de présence/course en mémoire. PostgreSQL stocke les identités, les salles, la configuration, les invitations et les résultats. Aucun service temps réel payant et aucun service séparé au checkpoint.
+Je conserve **un processus Node** qui compose Next.js et Socket.IO sur le même serveur HTTP, derrière le frontal HTTPS décrit dans l'[ADR hébergement](0002-hosting.md). La présence et les courses actives sont en mémoire; PostgreSQL conserve les identités, salles, concurrents, instantanés de départ et résultats. Le [modèle livré](../ARCHITECTURE.md#3-modèle-de-données-livré) distingue ces tables des invitations, invités et séries MPM encore absents.
 
-Les règles pures vivent dans les modules métier; Socket.IO est un adaptateur. Le serveur personnalisé est écrit en TypeScript exécuté avec `tsx`, prévu comme dépendance de production. Next compile ses pages, pas ce serveur. Les paquets TS sont consommés par `transpilePackages` dans Next et par `tsx` côté serveur; ce chemin complet doit être testé avant les fonctionnalités.
+[server.ts](../../apps/web/server.ts) démarre le serveur personnalisé avec `tsx`, en développement comme en production. Next compile ses pages; il ne remplace pas ce point d'entrée. Les paquets métier sont consommés par Next et par le serveur Node. Je n'utilise pas `output: standalone` avec ce serveur personnalisé, conformément à la documentation Next.js.
 
-**Ne pas utiliser `output: standalone` avec ce serveur personnalisé.** `apps/web/server.ts` démarre Next.js et Socket.IO ensemble, avec `tsx` en développement et en production (`npm run dev` / `npm run start` dans `@incision/web`).
+Les règles pures restent dans [packages/domain](../../packages/domain/src); les canaux Socket.IO valident, autorisent et transmettent aux services. Je peux donc tester la course sans navigateur ni transport.
 
 ## Options envisagées
 
-| Option | Force | Raison pour laquelle elle n'a pas été retenue au départ |
+| Option | Intérêt | Décision |
 |---|---|---|
-| Polling HTTP | Simple | Plus de requêtes, présence/progression retardées. |
-| WebSocket natif | Léger, standard | Accusés de réception, salles, reconnexion et protocole à construire en peu de temps. |
-| Socket.IO + Next dans le même processus | Même origine, salles et reconnexion disponibles, une seule livraison | Retenue; exige un serveur persistant et un prototype de démarrage. |
-| Next et un service Socket.IO séparé | Déploiement/charge indépendants | Deux services, authentification partagée et exploitation supplémentaire sans besoin mesuré. |
+| Polling HTTP applicatif | Simple à exposer | Non retenu comme protocole principal : demandes répétées et retard de présence/progression. |
+| WebSocket natif | Transport standard léger | Non retenu : accusés, salles et reconnexion à construire. |
+| Socket.IO et Next ensemble | Même origine, groupes serveur, accusés et reconnexion | Retenu : une seule livraison et un serveur persistant. Le repli long-polling reste activé. |
+| Service temps réel séparé | Déploiement et charge indépendants | Reporté : ajoute authentification partagée et exploitation sans besoin démontré. |
 
-TECH-05 exige un serveur. L'hébergement est décidé dans l'[ADR-0002](0002-hosting.md) (D-13) : Azure App Service avec une seule instance et Neon PostgreSQL, accepté par l'enseignant le 5 octobre. L'hypothèse d'instance unique de cet ADR y tient; les fichiers durables ne doivent pas dépendre du disque d'App Service.
+## Contrats et autorisation livrés
 
-## Contrats, autorisation et ordonnancement
+Les contrats sont dans les protocoles [salle](../../apps/web/src/rooms/protocol.ts), [course](../../apps/web/src/races/protocol.ts) et [bonus](../../apps/web/src/races/bonus-protocol.ts), pas dans un paquet `contracts` séparé.
 
-- Handshake : vérifier la session du compte ou le cookie d'invité signé, ainsi que l'origine; refuser une identité expirée. L'identité est applicative, jamais `socket.id`.
-- Règle d'origine (CP-02) : le handshake est refusé quand `Origin` est présent et diffère de `APP_URL`, ou quand le navigateur marque la requête `Sec-Fetch-Site: cross-site`. Un `Origin` absent (le premier GET de polling de même origine de Socket.IO, ou un client qui n'est pas un navigateur) est accepté. Le long-polling HTTP reste activé comme solution de repli pour les réseaux scolaires qui bloquent WebSocket; le polling JSONP est refusé. Les cookies de session et d'invité doivent être `SameSite=Lax` ou `Strict` (AUTH-01/02).
-- Chaque commande est validée par un schéma Zod, avec un identifiant d'opération, la salle/course et la séquence selon le cas. Autorisation à **chaque action**, pas seulement à la connexion. Aucun client ne décide de son rôle ni de son groupe Socket.IO.
-- Mutations durables : verrou/transaction PostgreSQL, puis accusé de réception et diffusion **après le commit**. Les opérations répétées restent idempotentes.
-- Instantané à l'entrée/la reprise, puis événements avec une révision monotone. Révision manquante : resynchronisation, aucune confiance dans l'ordre du client.
-- La reconnexion native de Socket.IO est utile mais pas garantie : la reprise applicative réauthentifie, vérifie bannissement/phase/délai et restaure la place existante.
-- Plusieurs onglets : une seule présence logique, une seule autorité de saisie active; la perte de la dernière connexion déclenche le délai de grâce.
-- Codes/invitations : limites par IP/identité, taille et fréquence bornées. Le proxy doit fournir l'IP selon une chaîne de confiance configurée.
+Le handshake extrait la session Auth.js. Un transport anonyme ne donne pas accès aux commandes privées. L'identité métier vient du compte, jamais de `socket.id` ou d'un concurrent choisi dans la requête. Le registre suit l'expiration et la révocation; les commandes contrôlent session, appartenance et permission. Un seul onglet contrôle la saisie.
 
-## Fréquence et autorité de la course
+Le [contrôle d'origine](../../apps/web/src/server/realtime/origin.ts) refuse un `Origin` différent de `APP_URL` et `Sec-Fetch-Site: cross-site`. Une origine absente reste acceptée, notamment pour un client non navigateur; elle ne dispense pas d'authentification. Le polling JSONP est refusé. Zod et les limiteurs bornent les entrées.
 
-Horloge serveur pour le départ, le chronomètre, le délai de grâce, les bonus et l'arrivée. Lots de saisie séquencés, limités au départ à 10 messages/s/joueur; le serveur valide le contenu et rejette les sauts/vitesses impossibles. Cette vérification n'est pas une garantie contre toute automatisation.
+Les actions de création/admission/fermeture sont HTTP. Après une transaction réussie, les services diffusent la projection révisée de la salle. `room:watch` restitue un instantané autorisé. Les [diagramme et table de messages](../ARCHITECTURE.md#5-messages-et-autorité) décrivent les noms réellement utilisés; il n'existe pas d'événement `race:results`.
 
-Projection compacte de la salle diffusée au départ à 4 Hz, avec interpolation côté interface. Pas de paquet pour chaque frappe envoyé à chaque joueur. Les bots sont calculés côté serveur et suivent les mêmes règles. Limites de spectateurs distinctes de la capacité en participants si l'exploitation l'exige; documenter toute limite ajoutée.
+## Livraison et reprise
 
-Les séries MPM sont échantillonnées en mémoire (cible 1 Hz + fin), puis persistées avec les résultats, les erreurs agrégées et les événements de bonus. Pas de SQL par frappe. Un plantage du processus peut faire perdre une manche active : au redémarrage, la signaler comme interrompue, sans créer de faux résultats. La reprise de 30 secondes concerne la connexion du navigateur, pas une garantie de haute disponibilité du serveur.
+Socket.IO garantit l'ordre des événements reçus, mais sa livraison par défaut est « au plus une fois ». La reconnexion du transport ne garantit donc ni la réception d'un résultat ni la restauration de l'état métier. La récupération native optionnelle de Socket.IO n'est pas notre mécanisme de reprise.
 
-## Prototype obligatoire et preuves
+Je m'appuie sur les séquences des lots, la version du texte, les révisions de salle et les instantanés applicatifs. Le navigateur peut retransmettre un lot sans doubler la progression et corrige sa prédiction à partir de l'état serveur. Après reconnexion, il reprend un abonnement autorisé; le domaine contrôle la fenêtre de trente secondes depuis la déconnexion détectée. Le battement de dix secondes et son attente de cinq secondes ajoutent un délai de détection en cas de coupure silencieuse.
 
-1. Installation propre sous Node 24; démarrage en développement, rechargement, puis build et démarrage en production du serveur personnalisé. Vérifier les imports des paquets partagés.
-2. HTTPS public et Socket.IO à travers le proxy; maintien de la connexion (keep-alive) et resynchronisation après une déconnexion.
-3. Compte GitHub, puis compte Discord; connexion locale pour Playwright. Le même validateur de session protège HTTP et Socket.IO.
-4. Deux navigateurs indépendants créent/rejoignent une salle par code et voient les membres/permissions sans recharger.
-5. Tests : code invalide, création par un invité refusée, double onglet, deux admissions concurrentes, renvoi d'une commande, session expirée.
-6. CI à chaque push; déploiement de main après succès; route de santé, migrations et smoke test en production.
+## Horloge et fréquence
 
-Après le checkpoint : course à 30 participants, bots et humains simulés, puis vérification humaine de la fluidité; tests à 29 999/30 000/30 001 ms; résultats cohérents malgré des paquets rejoués. Cibles internes supplémentaires à mesurer : latence visible p95 <500 ms et résultats disponibles en <2 s. Ce sont des objectifs d'ingénierie, pas des seuils supplémentaires attribués à l'enseignant.
+Le serveur décide du départ, de l'arrivée et des échéances. Le [client d'horloge](../../apps/web/src/races/clock-sync.ts) utilise `system:ping`, estime le demi-aller-retour et retient le meilleur échantillon récent, puis avance avec une horloge monotone. Avant un échantillon exploitable, il utilise l'heure serveur reçue. L'asymétrie du réseau limite la précision visuelle; ce calcul n'autorise jamais une frappe hors délai.
 
-## Limites et évolution
+Le domaine borne les lots à 64 événements et dix lots par seconde; le client garde un seul lot en vol. La progression publique périodique est diffusée au plus quatre fois par seconde, avec des messages pouvant être volatiles; l'abonnement reçoit aussi un instantané direct. Les données privées sont envoyées au concurrent concerné. La validation de plausibilité n'est pas une preuve d'absence d'automatisation.
 
-Un redémarrage coupe les sockets; les salles durables se rechargent, mais une course n'est pas restaurée frappe par frappe. Prévoir des annonces, un arrêt contrôlé et des déploiements en dehors des démonstrations. Passer à plusieurs instances exigerait la coordination du moteur de course, le partage des présences/événements et une reprise durable; ajouter simplement un adaptateur de salles ne rend pas l'état métier distribué.
+## Durabilité et pannes
+
+Il n'y a pas de SQL par touche. En fin de manche, le runtime fige les résultats, annonce `race:confirming`, puis attend la transaction de finalisation. La salle ne passe en résultats qu'après confirmation durable. Une réponse perdue après commit peut être reconnue comme `alreadyDone`.
+
+L'[ADR-0004](0004-race-ownership-lease.md) détaille le bail SQL et la génération du propriétaire : ils empêchent un ancien processus de continuer à écrire après récupération de sa course. Une panne conduit à une interruption sans faux classement, pas à une restauration frappe par frappe. La reprise réseau de trente secondes n'est pas une garantie de haute disponibilité.
+
+## Preuves et limites
+
+Le serveur personnalisé, les canaux, le runtime et la persistance sont implémentés. Les sources et vérifications de cette révision sont consignées dans la [note F-10.2](../evidence/f10-2-architecture/README.md). La charge locale enregistrée dans [l'évidence F-09](../../tools/load/evidence/2026-10-20-local.json) ne prouve ni la fluidité de la piste finale, ni un déploiement Azure, ni les bots ou bonus activés.
+
+Les salles ordinaires utilisent encore deux textes fixes, la correction obligatoire, une limite de deux minutes et les bonus désactivés. Le moteur de bots est livré mais son pilotage dans les salles reste à faire ([ADR-0005](0005-deterministic-bots.md)). Les séries MPM et journaux détaillés de bonus ne sont pas persistés. Je n'attribue pas à ces éléments les garanties des parcours humains déjà raccordés.
+
+Une évolution multi-instance exigerait un partage explicite de la présence et de l'état des courses. Un adaptateur de groupes Socket.IO ne suffit pas. Cette révision ne change ni l'hébergement ni les intégrations et n'apporte aucune nouvelle preuve de production.
 
 ## Sources techniques
 
 - [Next.js : serveur personnalisé](https://nextjs.org/docs/app/guides/custom-server)
-- [Socket.IO : rooms](https://socket.io/docs/v4/rooms/), [récupération](https://socket.io/docs/v4/connection-state-recovery/), [garanties de livraison](https://socket.io/docs/v4/delivery-guarantees/)
+- [Socket.IO : groupes serveur](https://socket.io/docs/v4/rooms/)
+- [Socket.IO : garanties de livraison](https://socket.io/docs/v4/delivery-guarantees/)
+- [Socket.IO : récupération optionnelle](https://socket.io/docs/v4/connection-state-recovery/)
 
 ## Historique
 
-La révision du 2 octobre remplace 50 humains / reprise de 5 min / décompte de 5 s, retire l'hypothèse d'une salle hébergée par le système et aligne les invitations sur la liaison IP + session. La décision du monolithe modulaire est conservée.
+La révision du 2 octobre remplaçait 50 humains, cinq minutes de reprise et cinq secondes de décompte par les valeurs du brief final. Celle du 25 octobre conserve le monolithe modulaire, décrit le code effectivement livré et retire les projections présentées comme acquises : invités, invitations, séries MPM et bots en salle.

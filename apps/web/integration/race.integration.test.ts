@@ -1,0 +1,627 @@
+import { changeRoomBots, configureRoom, createDatabase, createRoomWithHost, DEFAULT_BONUS_SETTINGS, DEFAULT_TEXT_SETTINGS, defaultCoherentSettings, joinRoomByCode } from "@incision/database";
+import { countWords, parseRoomCode, passageCut, ROOM_CODE_ALPHABET } from "@incision/domain";
+import { EXCLUSIONS, FORBIDDEN_PAIRS, WORD_LISTS } from "@incision/domain/words";
+import pg from "pg";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { LOCALE_COOKIE } from "../src/i18n/locale";
+import type { RaceBatchAck, RaceProgressPayload, RaceRevealPayload, RaceSelfPayload } from "../src/races/protocol";
+import type { PublicRoomSnapshot } from "../src/rooms/protocol";
+import { CORPUS_RETRY_MS } from "../src/server/races/race-texts";
+import { execFile } from "node:child_process";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { promisify } from "node:util";
+import path from "node:path";
+import { account, BONUS_SEED_EXTEND, DATABASE_URL, openTab, PORTS, prepareDatabase, query, type ServerProcess, sleep, startServer, startStallingProxy, type StallingProxy, type Tab } from "./servers";
+
+/**
+ * F-04.0 integration evidence, without a browser: real server processes (production build),
+ * one disposable database, accounts driven over Socket.IO with their session cookies.
+ */
+const pool = { current: undefined as pg.Pool | undefined };
+const servers: ServerProcess[] = [];
+const tabs: Tab[] = [];
+const proxies: StallingProxy[] = [];
+
+function db() {
+  if (pool.current === undefined) {
+    throw new Error("no pool");
+  }
+  return createDatabase(pool.current);
+}
+
+beforeAll(async () => {
+  await prepareDatabase();
+  pool.current = new pg.Pool({ connectionString: DATABASE_URL });
+}, 60_000);
+
+afterAll(async () => {
+  for (const tab of tabs) {
+    tab.socket.close();
+  }
+  for (const proxy of proxies) {
+    await proxy.close();
+  }
+  // Each process's output is kept with the test results (uploaded by CI on a failure).
+  const logs = path.resolve(import.meta.dirname, "..", "test-results");
+  await mkdir(logs, { recursive: true });
+  // Every process stops first, so a failed write cannot leave one running.
+  for (const server of servers) {
+    server.child.kill("SIGCONT");
+    server.child.kill("SIGKILL");
+  }
+  for (const [index, server] of servers.entries()) {
+    await writeFile(path.join(logs, `integration-server-${index + 1}-${new URL(server.origin).port}.log`), server.output());
+  }
+  await pool.current?.end();
+});
+
+async function server(index: number): Promise<ServerProcess> {
+  const started = await startServer(PORTS[index] ?? 3301 + index);
+  servers.push(started);
+  return started;
+}
+
+async function tab(origin: string, cookie: string, via?: string): Promise<Tab> {
+  const opened = await openTab(origin, cookie, via);
+  tabs.push(opened);
+  return opened;
+}
+
+/** The finished race of the first test, read again by the last one on a server with races closed. */
+let finished: { readonly raceId: string; readonly cookie: string; readonly guestName: string } | undefined;
+
+const FIRST_PAGE = "1c7e2a5b-3f4d-4e6a-8b9c-0d1e2f3a4b5c";
+const SECOND_PAGE = "2d8f3b6c-4a5e-4f7b-9c0d-1e2f3a4b5c6d";
+
+let codes = 0;
+/** A waiting room by code, hosted by `host` (participant), joined by `guests`, through the database functions the server actions use. */
+async function room(host: { id: string }, guests: { id: string }[]): Promise<string> {
+  const seed = codes++;
+  const created = await createRoomWithHost(db(), {
+    accountId: host.id,
+    role: "participant",
+    visibility: "code",
+    capacity: 30,
+    randomIndex: (upperBound) => (seed * 7 + 3) % Math.min(upperBound, ROOM_CODE_ALPHABET.length),
+  });
+  if (!created.ok) {
+    throw new Error(created.error);
+  }
+  const code = parseRoomCode(created.room.code);
+  if (!code.ok) {
+    throw new Error("bad code");
+  }
+  for (const guest of guests) {
+    const joined = await joinRoomByCode(db(), { accountId: guest.id, code: code.code, role: "participant" });
+    if (!joined.ok) {
+      throw new Error(joined.error);
+    }
+  }
+  return created.room.code;
+}
+
+/** Types `graphemes` from `seq` on, two per batch, below ten batches and 25 inserts a second. */
+async function typeAll(page: Tab, raceId: string, graphemes: readonly string[], seq = 1): Promise<number> {
+  let next = seq;
+  let textVersion = 0;
+  let resyncs = 0;
+  for (let index = 0; index < graphemes.length;) {
+    const events = graphemes.slice(index, index + 2).map((grapheme) => ({ type: "insert", grapheme }));
+    const ack = (await page.ask("race:batch", { raceId, seq: next, textVersion, events })) as RaceBatchAck;
+    if (ack.ok && ack.result.outcome === "resync") {
+      // A bot can extend the leader while this client is typing. Only accept that
+      // resync, never hide an ordering error, refusal or a changed text prefix.
+      expect(ack.result.reason).toBe("TEXT_VERSION_CHANGED");
+      const snapshot = ack.result.snapshot;
+      expect(snapshot.ackSeq).toBe(next - 1);
+      expect(snapshot.textVersion).toBeGreaterThan(textVersion);
+      expect(snapshot.target.slice(snapshot.typed.length, snapshot.typed.length + graphemes.length - index)).toEqual(graphemes.slice(index));
+      expect(++resyncs, "one human activation plus at most three bot grants").toBeLessThanOrEqual(4);
+      textVersion = snapshot.textVersion;
+      await sleep(120);
+      continue;
+    }
+    expect(ack, `batch ${next}: ${JSON.stringify(ack)}`).toMatchObject({ ok: true, result: { outcome: "applied", ackSeq: next, textVersion } });
+    next += 1;
+    index += events.length;
+    await sleep(120);
+  }
+  return next;
+}
+
+async function startsAt(reveal: RaceRevealPayload): Promise<void> {
+  await sleep(Math.max(0, reveal.reveal.startsAt - reveal.serverNow) + 150);
+}
+
+describe("an integrated race (F-04.0)", () => {
+  it("runs a race between two accounts, from the start to the stored results read again", async () => {
+    const a = await server(0);
+    const host = await account("int-host", "Hôte");
+    const guest = await account("int-guest", "Invitée");
+    const third = await account("int-late", "Tardive");
+    const code = await room(host, [guest]);
+    const h = await tab(a.origin, host.cookie);
+    const g = await tab(a.origin, guest.cookie);
+    expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await g.ask("room:watch", { code })).toMatchObject({ ok: true });
+
+    expect(await g.ask("race:start", {})).toEqual({ ok: false, error: "NOT_HOST" });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const text = reveal.reveal.text;
+    // The text reached nobody before the countdown (COURSE-03), and follows the room's language:
+    // French, the site's default, for a room created without one (F-03.1a).
+    const beforeReveal = g.received.slice(0, g.received.findIndex((message) => message.event === "race:reveal"));
+    expect(JSON.stringify(beforeReveal)).not.toContain(text.join(""));
+    expect(text.join("")).toBe("Texte de test : la mer est calme, le vent se lève.");
+    expect(reveal.reveal).toMatchObject({ errorMode: "mandatory", timeLimit: null });
+    expect(reveal.selfEntrantId).not.toBeNull();
+    await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "countdown");
+
+    // Nobody new during the race (SALLE-09), not even a third account with the code.
+    const late = parseRoomCode(code);
+    expect(late.ok && (await joinRoomByCode(db(), { accountId: third.id, code: late.code, role: "participant" }))).toMatchObject({ ok: false, error: "ROOM_NOT_ADMITTING" });
+
+    const raceId = reveal.reveal.raceId;
+    expect(await g.ask("race:batch", { raceId, seq: 1, textVersion: 0, events: [{ type: "insert", grapheme: "T" }] })).toMatchObject({
+      ok: true,
+      result: { outcome: "refused", reason: "NOT_RACING" },
+    });
+    await startsAt(reveal);
+    // A wrong grapheme in mandatory correction: counted, never typed, and shown blocked.
+    const wrong = (await g.ask("race:batch", { raceId, seq: 1, textVersion: 0, events: [{ type: "insert", grapheme: "x" }] })) as RaceBatchAck;
+    expect(wrong).toMatchObject({ ok: true, result: { outcome: "applied" }, self: { snapshot: { typed: [], pendingError: true } } });
+    await sleep(120);
+    await Promise.all([typeAll(h, raceId, text), typeAll(g, raceId, text, 2)]);
+
+    const results = (await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "results", 15_000)) as PublicRoomSnapshot;
+    expect(results.race).toMatchObject({ raceId, state: "finished", interruptionReason: null });
+    const rows = await query<{ display_name_snapshot: string; rank: number; outcome: string; position: number; correct_inputs: string; total_inputs: string; accuracy: number }>(
+      "select e.display_name_snapshot, r.rank, r.outcome, r.position, r.correct_inputs, r.total_inputs, r.accuracy from race_results r join race_entrants e on e.id = r.entrant_id where r.race_id = $1 order by r.rank",
+      [raceId],
+    );
+    expect(rows.map((row) => [row.rank, row.outcome, row.position])).toEqual([
+      [1, "finished", text.length],
+      [2, "finished", text.length],
+    ]);
+    const guestRow = rows.find((row) => row.display_name_snapshot === "Invitée");
+    expect(Number(guestRow?.total_inputs)).toBe(text.length + 1);
+    expect(Number(guestRow?.correct_inputs)).toBe(text.length);
+
+    // Everyone's progress came at most four times a second (F-04.4).
+    const progressTimes = h.received.filter((message) => message.event === "race:progress").map((message) => (message.payload as RaceProgressPayload).serverNow);
+    expect(progressTimes.length).toBeGreaterThan(3);
+    for (const [index, time] of progressTimes.entries()) {
+      const inOneSecond = progressTimes.slice(index).filter((later) => later - time < 1_000).length;
+      expect(inOneSecond).toBeLessThanOrEqual(4);
+    }
+
+    // The results page, rendered by the server from the database, for an entrant only.
+    const page = await fetch(`${a.origin}/races/${raceId}`, { headers: { cookie: host.cookie, "accept-language": "fr" } });
+    const html = await page.text();
+    expect(html).toContain("Invitée");
+    expect(html).toContain("Fin de la");
+    finished = { raceId, cookie: host.cookie, guestName: "Invitée" };
+    const stranger = await account("int-stranger", "Inconnue");
+    const hidden = await (await fetch(`${a.origin}/races/${raceId}`, { headers: { cookie: stranger.cookie, "accept-language": "fr" } })).text();
+    expect(hidden).toContain("Course introuvable");
+    expect(hidden).not.toContain("Invitée");
+  }, 90_000);
+
+  it("runs an Arcade race with two people and a bot: grants, a player's extension from the reviewed lists, the bot's own activation, frozen in the race (C3, D-16, D-18)", async () => {
+    const a = servers[0];
+    if (a === undefined) throw new Error("no server");
+    // The servers run with BONUS_SEED_EXTEND: every grant is extendLeader, whoever receives it at each milestone.
+    // Extension words come from the reviewed lists (C1), never the fixtures.
+    expect([WORD_LISTS.fr, EXCLUSIONS.fr, FORBIDDEN_PAIRS.fr].map((data) => data.version.startsWith("fixture"))).toEqual([false, false, false]);
+    const host = await account("int-host-arcade", "Hôte arcade");
+    const guest = await account("int-guest-arcade", "Invitée arcade");
+    const code = parseRoomCode(await room(host, [guest]));
+    if (!code.ok) throw new Error("bad code");
+    const arcade = { textLanguage: "fr", wordCount: 50, timeLimitMs: 30_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, bonusesEnabled: true } as const;
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: arcade })).toMatchObject({ ok: true, revision: 1 });
+    const [lobby] = await query<{ revision: number }>("select revision from lobbies where code = $1", [code.code]);
+    expect(await changeRoomBots(db(), { accountId: host.id, code: code.code, revision: lobby?.revision ?? 0, change: { kind: "add", level: "noob" } })).toMatchObject({ ok: true });
+    const h = await tab(a.origin, host.cookie);
+    const g = await tab(a.origin, guest.cookie);
+    expect(await h.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { bonusesEnabled: true } } });
+    expect(await g.ask("room:watch", { code: code.code })).toMatchObject({ ok: true });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const hostReveal = (await h.next("race:reveal")) as RaceRevealPayload;
+    const raceId = reveal.reveal.raceId;
+    const hostId = hostReveal.selfEntrantId;
+    const botId = reveal.entrants.find((entrant) => entrant.entrantId !== hostId && entrant.entrantId !== reveal.selfEntrantId)?.entrantId;
+    expect(reveal.entrants).toHaveLength(3);
+    expect(botId).toBeDefined();
+    const [stored] = await query<{ config: Record<string, unknown> }>("select config_snapshot as config from races where id = $1", [raceId]);
+    expect(stored?.config.bonuses).toBe(true);
+    // The fixed seed is the test build's, never stored with the race.
+    expect(JSON.stringify(stored?.config)).not.toContain(BONUS_SEED_EXTEND.join(","));
+    await startsAt(reveal);
+    // The guest (last, at 0) receives grants at 25/50 %; the bot becomes eligible once far behind.
+    const typed = Math.ceil(reveal.reveal.text.length * 0.8);
+    const halfway = Math.ceil(reveal.reveal.text.length * 0.5);
+    const nextSeq = await typeAll(h, raceId, reveal.reveal.text.slice(0, halfway));
+    const self = (await g.next("race:bonus:self", (payload: { grants: readonly unknown[] }) => payload.grants.length > 0, 10_000)) as { grants: { milestone: number; kind: string }[] };
+    expect(self.grants[0]).toEqual({ milestone: 25, kind: "extendLeader" });
+    // The guest's Enter: the server applies the extension to the leader, the host, with three words of the reviewed list.
+    const ack = (await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })) as { ok: boolean; result?: { ok: boolean; receipt?: { grant: { kind: string }; targetId: string } } };
+    expect(ack).toMatchObject({ ok: true, result: { ok: true, receipt: { grant: { kind: "extendLeader" }, targetId: hostId } } });
+    // Force an extension before the next old-version batch, independent of the bot's delay.
+    await h.next("race:self", (payload: RaceSelfPayload) => payload.snapshot.textVersion >= 1, 5_000);
+    await typeAll(h, raceId, reveal.reveal.text.slice(halfway, typed), nextSeq);
+    // The bot uses its own grant within its delay (D-16), through the same transition, announced to every follower.
+    const announced = (await h.next("race:bonus:announcement", (payload: { announcement: { type: string; receipt?: { grant: { entrantId: string } } } }) =>
+      payload.announcement.type === "activated" && payload.announcement.receipt?.grant.entrantId === botId, 15_000)) as { announcement: { receipt: { grant: { kind: string }; targetId: string } } };
+    expect(announced.announcement.receipt).toMatchObject({ grant: { kind: "extendLeader" }, targetId: hostId });
+    // Both extensions, the guest's and the bot's in either order, lengthen the host's text by three words each.
+    const extended = (await h.next("race:self", (payload: RaceSelfPayload) => payload.snapshot.textVersion === 2, 5_000)) as RaceSelfPayload;
+    expect(extended.snapshot.target.slice(0, reveal.reveal.text.length)).toEqual(reveal.reveal.text);
+    const added = extended.snapshot.target.slice(reveal.reveal.text.length).join("").trim().split(/\s+/);
+    expect(added).toHaveLength(6);
+    const listed = new Set(WORD_LISTS.fr.entries.map((entry) => entry.word));
+    const excluded = new Set(EXCLUSIONS.fr.words);
+    // With capitals and punctuation on (D-19), only an extension's first word may take a capital, after a sentence end.
+    added.forEach((word, index) => {
+      const entry = index % 3 === 0 ? word.charAt(0).toLocaleLowerCase("fr") + word.slice(1) : word;
+      expect(listed.has(entry), word).toBe(true);
+      expect(excluded.has(entry), word).toBe(false);
+    });
+    expect(JSON.stringify(announced)).not.toMatch(/"random"|"seed"|"cursors"|"words"/);
+    // The receipt is stable; the private snapshot revision advances as other players act.
+    expect(await g.ask("race:bonus:activate", { raceId, seq: 1, milestone: 25 })).toMatchObject({ ok: true, result: ack.result });
+    await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "results", 40_000);
+    const journals = await query<{ ordinal: number; bonus_journal: { version: number; grants: { kind: string; milestone: number; activation?: { targetOrdinal: number; atMs: number } }[] } }>(
+      "select e.ordinal, r.bonus_journal from race_results r join race_entrants e on e.id=r.entrant_id where r.race_id=$1 order by e.ordinal", [raceId]);
+    expect(journals).toHaveLength(3);
+    expect(journals.every((row) => row.bonus_journal.version === 1)).toBe(true);
+    const playerJournal = journals[1]!.bonus_journal;
+    expect(playerJournal.grants.filter((grant) => grant.milestone === 25)).toHaveLength(1);
+    expect(playerJournal.grants[0]).toMatchObject({ kind: "extendLeader", milestone: 25, activation: { targetOrdinal: 1 } });
+    expect(playerJournal.grants.some((grant) => grant.activation === undefined)).toBe(true);
+    expect(journals[2]!.bonus_journal.grants.some((grant) => grant.activation !== undefined)).toBe(true);
+    expect(JSON.stringify(journals)).not.toMatch(/"seed"|"cookie"|"accountId"|"entrantId"/);
+
+  }, 90_000);
+
+  it("notices a runner whose connection goes silent within about 15 s, keeps its place 30 s, then ranks it as abandoned (D-06)", async () => {
+    const a = servers[0] ?? (await server(0));
+    const host = await account("int-host-6", "Hôte six");
+    const guest = await account("int-guest-6", "Invité six");
+    const code = await room(host, [guest]);
+    const proxy = await startStallingProxy(Number(new URL(a.origin).port));
+    proxies.push(proxy);
+    const h = await tab(a.origin, host.cookie);
+    // The guest's only tab goes through a network that will go silent.
+    const g = await tab(a.origin, guest.cookie, `http://127.0.0.1:${proxy.port}`);
+    expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await g.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const raceId = reveal.reveal.raceId;
+    const guestEntrant = reveal.selfEntrantId;
+    await startsAt(reveal);
+    const text = reveal.reveal.text;
+    await typeAll(g, raceId, text.slice(0, 4));
+    const stalledAt = Date.now();
+    proxy.stall();
+    // Nothing closes: the heartbeat finds the loss (at most about 15 s), then the grace runs 30 s.
+    await h.next(
+      "race:progress",
+      (payload: RaceProgressPayload) => payload.broadcast.entrants.some((entrant) => entrant.entrantId === guestEntrant && entrant.status === "abandoned"),
+      60_000,
+    );
+    const elapsed = Date.now() - stalledAt;
+    expect(elapsed).toBeGreaterThanOrEqual(30_000);
+    expect(elapsed).toBeLessThan(30_000 + 15_000 + 2_000);
+    await typeAll(h, raceId, text);
+    await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "results", 15_000);
+    const rows = await query<{ display_name_snapshot: string; outcome: string; abandonment_reason: string | null; position: number }>(
+      "select e.display_name_snapshot, r.outcome, r.abandonment_reason, r.position from race_results r join race_entrants e on e.id = r.entrant_id where r.race_id = $1 order by r.rank",
+      [raceId],
+    );
+    expect(rows).toEqual([
+      { display_name_snapshot: "Hôte six", outcome: "finished", abandonment_reason: null, position: text.length },
+      { display_name_snapshot: "Invité six", outcome: "abandoned", abandonment_reason: "disconnection", position: 4 },
+    ]);
+  }, 90_000);
+
+  it("gives the input to one tab of an entrant, moves it on request, and resumes a reconnected tab from the snapshot", async () => {
+    const a = servers[0] ?? (await server(0));
+    const host = await account("int-host-2", "Hôte deux");
+    const guest = await account("int-guest-2", "Invité deux");
+    const code = await room(host, [guest]);
+    const h = await tab(a.origin, host.cookie);
+    const first = await tab(a.origin, guest.cookie);
+    await h.ask("room:watch", { code });
+    // Each page keeps its own id across reconnections, as the room page does.
+    await first.ask("room:watch", { code, pageId: FIRST_PAGE });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await first.next("race:reveal")) as RaceRevealPayload;
+    const raceId = reveal.reveal.raceId;
+    expect(((await first.next("race:self")) as RaceSelfPayload).control).toBe("controlling");
+
+    // A second tab of the same member observes; its batches are discarded before the engine.
+    const second = await tab(a.origin, guest.cookie);
+    await second.ask("room:watch", { code, pageId: SECOND_PAGE });
+    expect(((await second.next("race:self")) as RaceSelfPayload).control).toBe("observing");
+    await startsAt(reveal);
+    expect(await second.ask("race:batch", { raceId, seq: 1, textVersion: 0, events: [{ type: "insert", grapheme: "T" }] })).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+    let seq = await typeAll(first, raceId, reveal.reveal.text.slice(0, 4));
+    expect(await second.ask("race:control", { raceId })).toEqual({ ok: true });
+    expect(await first.ask("race:batch", { raceId, seq, textVersion: 0, events: [{ type: "insert", grapheme: "e" }] })).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+    seq = await typeAll(second, raceId, reveal.reveal.text.slice(4, 6), seq);
+
+    // The typing page loses its connection and reconnects: it takes its input back and learns
+    // what was applied, whether or not the server has seen its former socket close yet.
+    second.socket.close();
+    first.socket.close();
+    const back = await tab(a.origin, guest.cookie);
+    await back.ask("room:watch", { code, pageId: SECOND_PAGE });
+    const self = (await back.next("race:self")) as RaceSelfPayload;
+    expect(self).toMatchObject({ control: "controlling", snapshot: { ackSeq: seq - 1, typed: reveal.reveal.text.slice(0, 6) } });
+    // A batch already applied, sent again after the reconnection, is recognised.
+    expect(await back.ask("race:batch", { raceId, seq: seq - 1, textVersion: 0, events: reveal.reveal.text.slice(4, 6).map((grapheme) => ({ type: "insert", grapheme })) })).toMatchObject({
+      ok: true,
+      result: { outcome: "duplicate" },
+    });
+    // A player's 10 batches a second count across all its tabs and survive a reconnection:
+    // the tabs above and the resend used most of this second.
+    await sleep(1_000);
+    await typeAll(back, raceId, reveal.reveal.text.slice(6), seq);
+    await typeAll(h, raceId, reveal.reveal.text);
+    await h.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "results" && snapshot.race?.raceId === raceId, 15_000);
+  }, 90_000);
+
+  it("leaves a race to the process that owns it, recovers it once that process stops renewing, and refuses the old owner's late writes", async () => {
+    const a = servers[0] ?? (await server(0));
+    const b = await server(1);
+    const host = await account("int-host-3", "Hôte trois");
+    const guest = await account("int-guest-3", "Invité trois");
+    const code = await room(host, [guest]);
+    const h = await tab(a.origin, host.cookie);
+    const g = await tab(a.origin, guest.cookie);
+    await h.ask("room:watch", { code });
+    await g.ask("room:watch", { code, pageId: FIRST_PAGE });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const raceId = reveal.reveal.raceId;
+    await startsAt(reveal);
+    const seq = await typeAll(g, raceId, reveal.reveal.text.slice(0, 4));
+
+    // Process B sees a race it does not own: it runs nothing for it and interrupts nothing.
+    const onB = await tab(b.origin, host.cookie);
+    expect(await onB.ask("room:watch", { code })).toMatchObject({ ok: true, snapshot: { phase: "racing" } });
+    expect(onB.received.some((message) => message.event === "race:reveal")).toBe(false);
+    expect((await query<{ state: string }>("select state from races where id = $1", [raceId]))[0]?.state).toBe("racing");
+
+    // Process A freezes (no renewal) until its lease has passed on the database clock.
+    a.child.kill("SIGSTOP");
+    try {
+      for (;;) {
+        const [lease] = await query<{ expired: boolean }>("select lease_expires_at <= statement_timestamp() as expired from races where id = $1", [raceId]);
+        if (lease?.expired === true) {
+          break;
+        }
+        await sleep(1_000);
+      }
+      // The next opening of the room on B recovers the race: interrupted, no result (D-06).
+      const recoverer = await tab(b.origin, guest.cookie);
+      await recoverer.ask("room:watch", { code });
+      const recovered = (await recoverer.next("room:snapshot", (snapshot: PublicRoomSnapshot) => snapshot.phase === "waiting", 15_000)) as PublicRoomSnapshot;
+      expect(recovered.race).toEqual({ raceId, state: "interrupted", interruptionReason: "owner_lost" });
+    } finally {
+      a.child.kill("SIGCONT");
+    }
+
+    // A wakes up: its lease is past, its renewal refused, and nothing it does counts any more.
+    await sleep(3_000);
+    // The guest's socket to A did not survive the freeze: without a ping for more than 15 s the
+    // client's own heartbeat closed it (F-04.6). The same page comes back to A at once and takes
+    // its input back (its page id): its late batch is never applied, and never NOT_CONTROLLING.
+    expect(g.socket.connected).toBe(false);
+    const back = await tab(a.origin, guest.cookie);
+    await back.ask("room:watch", { code, pageId: FIRST_PAGE });
+    const late = (await back.ask("race:batch", { raceId, seq, textVersion: 0, events: [{ type: "insert", grapheme: "e" }] })) as RaceBatchAck;
+    // Refused by the lease (SUSPENDED) while A still holds the race, or (NO_RACE) once A has let it
+    // go, which its log shows happens within the 3 s above.
+    expect(late.ok ? late.result.outcome : late.error).toMatch(/^(SUSPENDED|NO_RACE)$/);
+    expect(await query("select 1 from race_results where race_id = $1", [raceId])).toEqual([]);
+    expect((await query<{ state: string; owner_epoch: number }>("select state, owner_epoch from races where id = $1", [raceId]))[0]).toEqual({ state: "interrupted", owner_epoch: 2 });
+    expect((await fetch(`${a.origin}/api/health/live`)).ok).toBe(true);
+    expect(a.output()).toContain("lost: the race stops here");
+  }, 120_000);
+
+  it("interrupts its own race when it stops (SIGTERM), and its room waits again", async () => {
+    const b = servers[1] ?? (await server(1));
+    const host = await account("int-host-4", "Hôte quatre");
+    const guest = await account("int-guest-4", "Invité quatre");
+    const code = await room(host, [guest]);
+    const h = await tab(b.origin, host.cookie);
+    await h.ask("room:watch", { code });
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await h.next("race:reveal")) as RaceRevealPayload;
+    await startsAt(reveal);
+    b.child.kill("SIGTERM");
+    expect(await b.exited).toBe(0);
+    expect((await query<{ state: string; interruption_reason: string }>("select state, interruption_reason from races where id = $1", [reveal.reveal.raceId]))[0]).toEqual({
+      state: "interrupted",
+      interruption_reason: "server_stopped",
+    });
+    expect(b.output()).toContain("1 interrupted");
+    const [lobby] = await query<{ phase: string }>("select l.phase from lobbies l join races r on r.id = l.current_race_id where r.id = $1", [reveal.reveal.raceId]);
+    expect(lobby?.phase).toBe("waiting");
+  }, 60_000);
+
+  it("draws the race text from the imported corpus in production, refuses without one, and records the passage", async () => {
+    // The process of the previous test has exited: its port is free again.
+    // A corpus server, as in production: no fixtures, so no test seed either.
+    const c = await startServer(PORTS[1] ?? 3302, { RACE_FIXTURE_TEXTS: "", RACE_TEST_BONUS_SEED: "" });
+    servers.push(c);
+    expect(c.output()).toContain("[races] race texts: drawn from the active corpus (coherent, room word count, medium)");
+    expect(c.output()).not.toContain("RACE_FIXTURE_TEXTS=allowed");
+    const host = await account("int-host-5", "Hôte cinq");
+    const guest = await account("int-guest-5", "Invité cinq");
+    const code = await room(host, [guest]);
+    const h = await tab(c.origin, host.cookie);
+    const g = await tab(c.origin, guest.cookie);
+    expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await g.ask("room:watch", { code })).toMatchObject({ ok: true });
+
+    // Migrated, nothing imported yet: refused as texts unavailable (not the settings), no race written, never the fixtures.
+    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "TEXTS_UNAVAILABLE" });
+    // The server's last read of the corpus happened before this answer.
+    const refusedAt = Date.now();
+    expect(await query<{ races: number; phase: string }>("select count(r.id)::int as races, l.phase from lobbies l left join races r on r.lobby_id = l.id where l.code = $1 group by l.phase", [code])).toEqual([
+      { races: 0, phase: "waiting" },
+    ]);
+    expect(c.output()).toContain("[races] corpus: no active version, starts refused until one is imported");
+
+    // The documented import (DEPLOYMENT.md), with the contract fixture: the running process serves it without a restart,
+    // once the delay between two reads of a missing corpus has passed.
+    await importCorpus("contract-2026-10-21", CONTRACT_CORPUS);
+    await sleep(Math.max(0, refusedAt + CORPUS_RETRY_MS + 500 - Date.now()));
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const [passage] = (JSON.parse(await readFile(path.join(CONTRACT_CORPUS, "contract-2026-10-21", "fr.json"), "utf8")) as { passages: { id: string; text: string }[] }).passages;
+    const cut = passageCut({ id: passage?.id ?? "", language: "fr", complexity: "medium", text: passage?.text ?? "" }, defaultCoherentSettings("fr"));
+    expect(cut).toBeDefined();
+    expect(reveal.reveal.text.join("")).toBe(cut);
+    expect(countWords(cut ?? "")).toBe(50);
+    const [stored] = await query<{ text: string; config: Record<string, unknown> }>("select text_snapshot as text, config_snapshot as config from races where id = $1", [reveal.reveal.raceId]);
+    expect(stored?.text).toBe(cut);
+    expect(stored?.config).toMatchObject({
+      errorMode: "mandatory",
+      timeLimitMs: null,
+      language: "fr",
+      text: passage?.id,
+      corpusVersion: "contract-2026-10-21",
+      textSettings: { kind: "coherent", wordCount: 50, complexity: "medium" },
+      textVersions: { generator: 1, normalization: 2 },
+    });
+    expect(c.output()).toContain("[races] corpus contract-2026-10-21: 1 fr, 1 en selectable passages");
+  }, 90_000);
+
+  it("draws each room's text in the language its host saved, whatever the language of the tabs (F-03.1a, CONF-02)", async () => {
+    // The previous test's process, with the contract corpus imported: one passage per language.
+    const c = servers.at(-1);
+    expect(c?.output()).toContain("[races] corpus contract-2026-10-21: 1 fr, 1 en selectable passages");
+    const host = await account("int-host-language", "Hôte langue");
+    const guest = await account("int-guest-language", "Invité langue");
+    const code = parseRoomCode(await room(host, [guest]));
+    if (c === undefined || !code.ok) {
+      throw new Error("no server or no room");
+    }
+    // The host saves English texts and a 60 s limit with the revision a new room's page shows, through the
+    // database function configureRoomAction calls.
+    const english = { textLanguage: "en", wordCount: 50, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS } as const;
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: english })).toMatchObject({ ok: true, revision: 1 });
+    // Both browse the site in French.
+    const h = await tab(c.origin, `${host.cookie}; ${LOCALE_COOKIE}=fr`);
+    const g = await tab(c.origin, `${guest.cookie}; ${LOCALE_COOKIE}=fr`);
+    expect(await h.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { revision: 1, ...english } } });
+    expect(await g.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { revision: 1, ...english } } });
+
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const [passage] = (JSON.parse(await readFile(path.join(CONTRACT_CORPUS, "contract-2026-10-21", "en.json"), "utf8")) as { passages: { id: string; text: string }[] }).passages;
+    const cut = passageCut({ id: passage?.id ?? "", language: "en", complexity: "medium", text: passage?.text ?? "" }, defaultCoherentSettings("en"));
+    expect(cut).toBeDefined();
+    expect(reveal.reveal.text.join("")).toBe(cut);
+    expect(reveal.reveal).toMatchObject({ errorMode: "mandatory", timeLimit: 60_000 });
+    const [stored] = await query<{ text: string; config: Record<string, unknown> }>("select text_snapshot as text, config_snapshot as config from races where id = $1", [reveal.reveal.raceId]);
+    expect(stored?.text).toBe(cut);
+    expect(stored?.config).toMatchObject({ errorMode: "mandatory", timeLimitMs: 60_000, language: "en", text: passage?.id, corpusVersion: "contract-2026-10-21" });
+    // Once the countdown has begun, the settings stay those the race started with.
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 1, settings: { ...english, textLanguage: "fr" } })).toEqual({
+      ok: false,
+      error: "ROOM_NOT_WAITING",
+    });
+  }, 60_000);
+
+  it("runs a random-words race with the host's saved settings, or refuses it with no race while only fixtures ship (F-03.1e)", async () => {
+    const c = servers.at(-1);
+    expect(c?.output()).toContain("[races] corpus contract-2026-10-21: 1 fr, 1 en selectable passages");
+    const host = await account("int-host-random", "Hôte aléatoire");
+    const guest = await account("int-guest-random", "Invité aléatoire");
+    const code = parseRoomCode(await room(host, [guest]));
+    if (c === undefined || !code.ok) throw new Error("no server or no room");
+    const random = {
+      textLanguage: "fr", wordCount: 30, timeLimitMs: 60_000, errorMode: "mandatory", ...DEFAULT_TEXT_SETTINGS, ...DEFAULT_BONUS_SETTINGS,
+      textKind: "random", complexity: "easy", numbers: true, includeCharacters: ["z"], excludeCharacters: [],
+    } as const;
+    expect(await configureRoom(db(), { accountId: host.id, code: code.code, revision: 0, settings: random })).toMatchObject({ ok: true, revision: 1 });
+    const h = await tab(c.origin, host.cookie);
+    const g = await tab(c.origin, guest.cookie);
+    expect(await h.ask("room:watch", { code: code.code })).toMatchObject({ ok: true, snapshot: { settings: { revision: 1, textKind: "random", includeCharacters: ["z"] } } });
+    expect(await g.ask("room:watch", { code: code.code })).toMatchObject({ ok: true });
+    const approved = ![WORD_LISTS.fr, EXCLUSIONS.fr, FORBIDDEN_PAIRS.fr].some((data) => data.version.startsWith("fixture"));
+    if (!approved) {
+      // No fallback on the hand-written fixtures: the start is refused and nothing is written.
+      expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "TEXTS_UNAVAILABLE" });
+      expect(await query("select r.id from races r join lobbies l on l.id = r.lobby_id where l.code = $1", [code.code])).toEqual([]);
+      return;
+    }
+    expect(await h.ask("race:start", {})).toEqual({ ok: true });
+    const reveal = (await g.next("race:reveal")) as RaceRevealPayload;
+    const text = reveal.reveal.text.join("");
+    expect(countWords(text)).toBe(30);
+    expect(text.toLowerCase()).toContain("z");
+    expect(/\d/u.test(text)).toBe(true);
+    const [stored] = await query<{ text: string; config: Record<string, unknown> }>("select text_snapshot as text, config_snapshot as config from races where id = $1", [reveal.reveal.raceId]);
+    expect(stored?.text).toBe(text);
+    expect(stored?.config).toMatchObject({
+      language: "fr", text: "random", wordCount: 30,
+      wordsVersions: { list: WORD_LISTS.fr.version, exclusions: EXCLUSIONS.fr.version, pairs: FORBIDDEN_PAIRS.fr.version },
+      textSettings: { kind: "random", language: "fr", wordCount: 30, complexity: "easy", options: { numbers: true }, include: ["z"], exclude: [] },
+    });
+    // Every word of the race text is a playable word of the approved list.
+    const listed = new Set(WORD_LISTS.fr.entries.map((entry) => entry.word));
+    const words = text.split(" ").map((token) => token.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")).filter((core) => /\p{L}/u.test(core));
+    expect(words.filter((word) => !listed.has(word))).toEqual([]);
+  }, 60_000);
+
+  it("closes new races without RACES_ENABLED: a direct start creates nothing, rooms and stored results stay", async () => {
+    // The corpus tests' process stops (its races are interrupted, as at any restart): its port is free again.
+    const previous = servers.at(-1);
+    previous?.child.kill("SIGTERM");
+    await previous?.exited;
+    const d = await startServer(PORTS[1] ?? 3302, { RACES_ENABLED: "" });
+    servers.push(d);
+    expect(d.output()).toContain('[races] new races are closed (RACES_ENABLED is not "true")');
+    // Logins of its own: the other tests' numbered logins may be taken by later cards' tests.
+    const host = await account("int-host-closed", "Hôte fermé");
+    const guest = await account("int-guest-closed", "Invité fermé");
+    const code = await room(host, [guest]);
+    const h = await tab(d.origin, host.cookie);
+    const g = await tab(d.origin, guest.cookie);
+    // The room works: both watch it live.
+    expect(await h.ask("room:watch", { code })).toMatchObject({ ok: true });
+    expect(await g.ask("room:watch", { code })).toMatchObject({ ok: true });
+    // Straight to the socket, as a page without its button would: refused, and no race row.
+    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "RACES_CLOSED" });
+    expect(await h.ask("race:start", {})).toEqual({ ok: false, error: "RACES_CLOSED" });
+    expect(await query<{ races: number; phase: string }>("select count(r.id)::int as races, l.phase from lobbies l left join races r on r.lobby_id = l.id where l.code = $1 group by l.phase", [code])).toEqual([
+      { races: 0, phase: "waiting" },
+    ]);
+    expect(g.received.some((message) => message.event === "race:reveal")).toBe(false);
+    // A race finished before still reads the same for its entrants (HIST-02).
+    // Set by the first test of this file (the file runs in order; `-t` alone cannot run this one).
+    expect(finished, "the first test's finished race").toBeDefined();
+    const page = await fetch(`${d.origin}/races/${finished?.raceId}`, { headers: { cookie: finished?.cookie ?? "", "accept-language": "fr" } });
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain(finished?.guestName);
+  }, 60_000);
+});
+
+const CONTRACT_CORPUS = path.resolve(import.meta.dirname, "..", "..", "..", "packages", "database", "test", "fixtures", "corpus-contract");
+
+/** Imports a corpus version into the test database with the local import script, as DEPLOYMENT.md says. */
+async function importCorpus(version: string, folder: string): Promise<void> {
+  const database = path.resolve(import.meta.dirname, "..", "..", "..", "packages", "database");
+  await promisify(execFile)(process.execPath, ["--import", "tsx", "scripts/import-corpus.ts", "--version", version, "--folder", folder], {
+    cwd: database,
+    env: { ...process.env, CI: "1", DATABASE_URL_UNPOOLED: DATABASE_URL },
+  });
+}

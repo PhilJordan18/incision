@@ -1,0 +1,62 @@
+/* Reading copy for the mock-ups only. The single source of tokens is apps/design/tokens.css; never import this file in the app. */
+:root, [data-theme="abysse"] {
+  --color-abysse: #05070d;
+  --color-nuit: #0c1424;
+  --color-mer: #0b1a30;
+  --color-sillage: #16233a;
+  --color-houle: #22324d;
+  --color-ombre: #4a5a73;
+  --color-voile: #6b7c96;
+  --color-brume: #8a9bb5;
+  --color-embrun: #c9d3e1;
+  --color-ecume: #eef2f7;
+  --color-redline: #bc0404;
+  --color-action: #d41f27;
+  --color-ligne: #eb3b44;
+  --color-erreur: #ff8a90;
+  --color-erreur-fond: #3a1219;
+  --color-moi: #5bd6ff;
+  --color-or: #ffb347;
+  --color-juste: #5be3a6;
+  --color-arcade: #b48cff;
+  --color-point-logo: #06a0ff;
+}
+[data-theme="aube"] {
+  --color-abysse: #f3f5f8;
+  --color-nuit: #ffffff;
+  --color-mer: #e6ebf2;
+  --color-sillage: #e1e6ee;
+  --color-houle: #c9d3e1;
+  --color-ombre: #8a9bb5;
+  --color-voile: #6b7c96;
+  --color-brume: #4a5a73;
+  --color-embrun: #22324d;
+  --color-ecume: #0a1020;
+  --color-redline: #bc0404;
+  --color-action: #c81e25;
+  --color-ligne: #c81e25;
+  --color-erreur: #b3141c;
+  --color-erreur-fond: #fce4e6;
+  --color-moi: #0077a8;
+  --color-or: #a15c00;
+  --color-juste: #08784a;
+  --color-arcade: #6a3fc8;
+  --color-point-logo: #06a0ff;
+}
+:root {
+  --espace-8: 8px;
+  --espace-12: 12px;
+  --espace-16: 16px;
+  --espace-20: 20px;
+  --espace-28: 28px;
+  --espace-40: 40px;
+  --espace-56: 56px;
+  --radius-puce: 6px;
+  --radius-bouton: 8px;
+  --radius-carte: 12px;
+  --container-page: 1344px;
+  --font-display: "Big Shoulders Display", "Big Shoulders", "Arial Narrow", sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-sans: "Geist", "Helvetica Neue", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+}

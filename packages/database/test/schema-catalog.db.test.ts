@@ -64,8 +64,9 @@ const REFERENTIAL_ACTIONS: Record<string, string> = {
 };
 
 /**
- * PostgreSQL prints defaults as text, and an enum default with its cast
- * (`'waiting'::lobby_phase`); the snapshot stores `0` and `'waiting'`. Other types may need a spelling map when a card first uses them
+ * PostgreSQL prints defaults as text, and enum/text literals with their cast
+ * (`'waiting'::lobby_phase`, `'human'::text`); the snapshot omits those casts.
+ * Other types may need a spelling map when a card first uses them
  * (e.g. varchar(40) is printed character varying(40)).
  */
 function snapshotDefault(column: SnapshotColumn): string | null {
@@ -73,6 +74,7 @@ function snapshotDefault(column: SnapshotColumn): string | null {
     return null;
   }
   const text = String(column.default);
+  if (column.type === "text" && /^'(?:[^']|'')*'$/.test(text)) return `${text}::text`;
   return column.typeSchema === undefined ? text : `${text}::${column.type}`;
 }
 
@@ -82,6 +84,15 @@ function snapshotDefault(column: SnapshotColumn): string | null {
 // and partiality, foreign-key actions, and the names of every constraint and index.
 // Not compared: index and key columns, primary keys, check expressions (behaviour tests).
 describe("migrated catalog", () => {
+  it("matches PostgreSQL's literal text cast without altering SQL expressions or literal values", () => {
+    const column = { name: "kind", type: "text", notNull: true };
+    expect(snapshotDefault({ ...column, default: "'human'" })).toBe("'human'::text");
+    expect(snapshotDefault({ ...column, default: "'bot'" })).toBe("'bot'::text");
+    expect(snapshotDefault({ ...column, default: "'it''s'" })).toBe("'it''s'::text");
+    expect(snapshotDefault({ ...column, default: "'human'::text" })).toBe("'human'::text");
+    expect(snapshotDefault({ ...column, default: "current_user" })).toBe("current_user");
+    expect(snapshotDefault(column)).toBeNull();
+  });
   it("has exactly the snapshot's tables, with the same column types, nullability and defaults", async () => {
     const columns = await client.query<{
       table_name: string;

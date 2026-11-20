@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
+import { guestEntryEnabled } from "@/server/identity/guest-entry-switch";
 import { redirect } from "next/navigation";
+import { LeaveRoomForm } from "@/components/rooms/leave-room-form";
+import { guestPresenceBlocksSignIn } from "@/server/identity/guest-transition";
 import { LogoLink } from "@/components/brand/logo";
 import { LanguageSwitcher } from "@/components/preferences/language-switcher";
 import { ThemeToggle } from "@/components/preferences/theme-toggle";
@@ -31,7 +35,8 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   if (session !== null) {
     redirect(callbackUrl);
   }
-  const error = signInErrorKey(params.error, params.code);
+  const guestPresence = await guestPresenceBlocksSignIn();
+  const error = guestPresence ? "guestPresence" : signInErrorKey(params.error, params.code);
 
   return (
     // Side by side from 1080 px (the decorative panel and the form); below, the form
@@ -66,6 +71,12 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
           <div className="flex w-full max-w-[440px] flex-col gap-6">
             <PageHeading bold={t.signIn.headingBold} serif={t.signIn.headingSerif} size="panel" />
             {error !== undefined && <FormAlert message={t.signIn.errors[error]} />}
+            {guestPresence ? <>
+              <p id="guest-departure-note" className="text-sm leading-relaxed text-brume">{t.signIn.guestDepartureNote}</p>
+              <LeaveRoomForm guest label={t.signIn.guestDepartureConfirm} pendingLabel={t.rooms.leaving}
+                errors={t.rooms.changeErrors} returnTo={`/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+                describedBy="guest-departure-note" />
+            </> : <>
             <ProviderButtons callbackUrl={callbackUrl} t={t.signIn} />
             <p className={`${monoLabel} flex items-center gap-3`}>
               <span aria-hidden="true" className="h-px grow bg-houle" />
@@ -73,7 +84,10 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
               <span aria-hidden="true" className="h-px grow bg-houle" />
             </p>
             <CredentialsForm callbackUrl={callbackUrl} t={t.signIn} />
+            </>}
             <p className="text-[13px] leading-relaxed text-brume">{t.signIn.privacyNote}</p>
+            {guestEntryEnabled() && !guestPresence && <Link className="inline-flex min-h-11 items-center text-moi underline underline-offset-4"
+              href={`/guest${/^\/rooms\/[A-Z2-9]{6}$/.test(callbackUrl) ? `?code=${callbackUrl.slice(7)}` : ""}`}>{t.guestEntry.title}</Link>}
           </div>
         </main>
       </div>

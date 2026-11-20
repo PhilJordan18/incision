@@ -1,0 +1,209 @@
+import { ResultsBonusJournal } from "./results-bonus-journal";
+import type { RaceResultView } from "@incision/database";
+import { Coast, Pennant, Ship, SHIP_ANCHOR, WaveMarks } from "@/components/nautical";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { card, monoLabel, secondaryButton } from "@/components/ui/styles";
+import type { Dictionary } from "@/i18n/dictionaries";
+import { format } from "@/i18n/format";
+import { formatNumber } from "@/i18n/value-format";
+import type { Locale } from "@/i18n/locale";
+import { resultsDetails } from "@/i18n/results-details";
+import { formatAccuracy, formatElapsed, formatWpm, ordinal } from "@/races/format";
+import { ResultsPodium } from "./results-podium";
+import { BotIdentityLabel } from "./bot-identity-label";
+import { type ResultEntrant, resultRoutes } from "./result-routes";
+
+type RaceResultsProps = {
+  readonly race: RaceResultView;
+  readonly t: Dictionary["races"];
+  readonly locale: Locale;
+  /** Shown in the room: a link to the race's own page (HIST-02). */
+  readonly linkToRace?: boolean;
+  readonly headingId?: string;
+  /** The room's actions after the summary, before the ranking (screen 10), given the race link to place beside them. */
+  readonly actions?: (openRace: ReactNode) => ReactNode;
+};
+
+const OUTCOME_STATUS = { finished: "finished", timed_out: "timedOut", abandoned: "abandoned" } as const;
+
+/**
+ * Results of a finished race (screen 10, adapted to COURSE-10, D-15): the ranking comes from the
+ * engine and puts arrivals first, then time-outs and abandons by progress, never WPM first.
+ * Read from the database once saved, so a reload shows exactly what was stored.
+ */
+export function RaceResults({ race, t, locale, linkToRace = false, headingId, actions }: RaceResultsProps) {
+  const ranked = race.entrants.filter((entrant) => entrant.result !== undefined);
+  const self = race.entrants.find((entrant) => entrant.isSelf);
+  const details = resultsDetails[locale];
+  const record = self?.result?.outcome === "finished" ? race.personalRecord : undefined;
+  // Each runner's pennant: the shape of its sail, and the track's route style where it is known
+  // (today the reader's own only; the others take no runner colour, see `resultRoutes`).
+  const routes = resultRoutes(race.entrants);
+  const finishers = ranked.filter((entrant) => entrant.result?.outcome === "finished").length;
+  // The race page is its entrants' history (HIST-02): the link is shown to them only.
+  const openRace =
+    linkToRace && self !== undefined ? (
+      <Link href={`/races/${race.raceId}`} className={`${secondaryButton} self-start`}>
+        {t.results.openRace}
+      </Link>
+    ) : null;
+  return (
+    <section aria-labelledby={headingId ?? "results-heading"} className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <p className={monoLabel}>
+          <span aria-hidden="true">[.</span>
+          {t.results.label} · {format(t.results.roundLabel, { round: formatNumber(race.roundNo, locale) })}
+          <span aria-hidden="true">]</span>
+        </p>
+        {/* The view's main heading, in the room as on the race's own page. */}
+        <h1 id={headingId ?? "results-heading"} tabIndex={-1} className="font-display text-5xl leading-[0.9] font-black uppercase outline-none sm:text-[64px]">
+          {t.results.headingBold} <em className="font-serif font-normal normal-case italic">{t.results.headingSerif}</em>
+        </h1>
+      </div>
+
+      {self?.result !== undefined ? (
+        <div className="flex flex-col gap-6">
+          {/* The red coast beside the rank: it replaces the red mist here (art direction C1, D-15). */}
+          <div className="grid items-center gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-8">
+            <p className="flex items-baseline gap-4">
+              <span className="font-display text-[96px] leading-none font-black text-ecume sm:text-[120px]">{ordinal(self.result.rank, locale, t.results.ordinal)}</span>
+              <span className="font-display text-2xl font-extrabold text-brume uppercase">{format(t.results.rankOf, { count: formatNumber(ranked.length, locale) })}</span>
+            </p>
+            <ArrivalShore entrants={ranked} self={self} routes={routes} />
+          </div>
+          {record !== undefined && (
+            <div aria-label={details.recordLabel} role="note" className={`self-start rounded-lg border bg-nuit p-3 text-sm ${record.status === "improved" || record.status === "tied" ? "border-or" : "border-houle"}`}>
+              <p className={`font-semibold ${record.status === "improved" || record.status === "tied" ? "text-or" : "text-embrun"}`}>
+                {record.status === "improved" || record.status === "tied" ? <span aria-hidden="true">★ </span> : null}
+                {details[record.status]}
+              </p>
+              {record.status !== "unavailable" && <>
+                <p className="mt-1 text-brume">{record.category.bonuses ? details.bonuses : details.noBonuses} · {details[record.category.errorMode]}</p>
+                <p className="mt-1 text-brume">{details.timing}</p>
+              </>}
+            </div>
+          )}
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Tile label={t.results.columns.netWpm} value={formatWpm(self.result.netWpm, locale)} unit={t.wpm} />
+            <Tile label={t.results.columns.rawWpm} value={formatWpm(self.result.rawWpm, locale)} unit={t.wpm} />
+            <Tile label={t.results.columns.accuracy} value={formatAccuracy(self.result.accuracy, locale)} />
+            <Tile label={t.results.columns.time} value={formatElapsed(self.result.elapsedMs, locale)} />
+          </dl>
+        </div>
+      ) : self === undefined ? (
+        <p className="text-embrun">{t.results.spectator}</p>
+      ) : null}
+
+      {finishers === 0 && <p className="text-embrun">{t.results.noVictory}</p>}
+
+      {actions === undefined ? openRace : actions(openRace)}
+
+      <ResultsPodium entrants={ranked} locale={locale} t={t} routes={routes} />
+
+      {/* Scrolls sideways at 360 px: focusable and named, so the keyboard reaches every column. */}
+      <div role="region" aria-label={t.results.tableLabel} tabIndex={0} className={`${card} overflow-x-auto p-0`}>
+        <table className="w-full min-w-[560px] border-collapse text-left">
+          <caption className="sr-only">{t.results.tableLabel}</caption>
+          <thead>
+            <tr className="border-b border-sillage">
+              {[t.results.columns.rank, t.results.columns.runner, t.results.columns.status, t.results.columns.time, t.results.columns.netWpm, t.results.columns.rawWpm, t.results.columns.accuracy, details.errors].map(
+                (label, index) => (
+                  <th key={label} scope="col" className={`${monoLabel} px-4 py-3 ${index >= 3 ? "text-right" : ""}`}>
+                    {label}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.map((entrant) => {
+              const result = entrant.result;
+              if (result === undefined) {
+                return null;
+              }
+              return (
+                <tr key={entrant.ordinal} className={`border-b border-sillage last:border-b-0 ${entrant.isSelf ? "bg-moi/10" : ""}`}>
+                  <td className="px-4 py-3 font-mono">{ordinal(result.rank, locale, t.results.ordinal)}</td>
+                  {/* The pennant keeps its own gutter, so a name that wraps never leaves it alone on a line. */}
+                  <th scope="row" data-result-entrant={entrant.ordinal} className="relative py-3 pr-4 pl-12 font-semibold">
+                    <Pennant kind={entrant.kind ?? "human"} {...routes.get(entrant.ordinal)} className="absolute top-4 left-4" />
+                    {entrant.displayName}
+                    <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
+                    {entrant.isSelf ? <span className="font-normal text-brume"> ({t.you})</span> : null}
+                  </th>
+                  <td className="px-4 py-3 whitespace-nowrap text-embrun">
+                    {result.outcome === "finished" ? "" : <span aria-hidden="true">· </span>}
+                    {t.status[OUTCOME_STATUS[result.outcome]]}
+                    {/* A lost connection, inactivity and a choice stay apart (D-06, D-17). */}
+                    {result.abandonmentReason === null ? "" : ` (${t.abandonReasons[result.abandonmentReason]})`}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono">{formatElapsed(result.elapsedMs, locale)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatWpm(result.netWpm, locale)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatWpm(result.rawWpm, locale)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatAccuracy(result.accuracy, locale)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatNumber(result.errors, locale)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-sm text-brume">{t.results.rounding}</p>
+      <p className="text-sm text-brume">{details.errorsHelp}</p>
+      <ResultsBonusJournal race={race} locale={locale} t={t} routes={routes} />
+    </section>
+  );
+}
+
+/** Where the ships of the scene sit, first rank nearest the coast: decoration, never a measure. */
+const BERTHS = [
+  { left: "24%", top: "60%" },
+  { left: "42%", top: "66%" },
+  { left: "58%", top: "70%" },
+  { left: "73%", top: "76%" },
+  { left: "86%", top: "80%" },
+] as const;
+
+/**
+ * The arrival beside the rank: the red coast, and the ships of the first places in rank order
+ * (the reader's own always among them, a little larger). Decorative: the podium and the table
+ * below say everything it shows.
+ */
+function ArrivalShore({ entrants, self, routes }: {
+  readonly entrants: readonly ResultEntrant[];
+  readonly self: ResultEntrant;
+  readonly routes: ReturnType<typeof resultRoutes>;
+}) {
+  const first = entrants.slice(0, BERTHS.length);
+  const ships = first.includes(self) ? first : [...first.slice(0, -1), self];
+  return (
+    <div aria-hidden="true" data-arrival-shore="" className="relative h-24 overflow-hidden rounded-carte border border-sillage bg-mer sm:h-[132px]">
+      <WaveMarks width={900} height={132} className="absolute inset-0 size-full" />
+      <div className="absolute inset-x-0 top-0 h-[32%] sm:h-[38%]"><Coast /></div>
+      {ships.map((entrant, index) => {
+        const size = entrant.isSelf ? 70 : 56;
+        const foot = { x: size * SHIP_ANCHOR.x, y: size * SHIP_ANCHOR.y };
+        // Pinned by its foot, and a little smaller in the phone's lower scene, so no mast reaches the coast.
+        return (
+          <span key={entrant.ordinal} className="absolute max-sm:scale-[0.8]"
+            style={{ left: BERTHS[index]!.left, top: BERTHS[index]!.top, marginLeft: -foot.x, marginTop: -foot.y, transformOrigin: `${foot.x}px ${foot.y}px` }}>
+            <Ship kind={entrant.kind ?? "human"} colour={routes.get(entrant.ordinal)?.colour} size={size} />
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function Tile({ label, value, unit }: { readonly label: string; readonly value: string; readonly unit?: string }) {
+  return (
+    <div className={`${card} flex flex-col gap-1 p-4`}>
+      <dt className={monoLabel}>{label}</dt>
+      <dd className="font-display text-4xl font-extrabold">
+        {value}
+        {unit !== undefined && <span className="ml-1 text-base font-semibold text-brume">{unit}</span>}
+      </dd>
+    </div>
+  );
+}

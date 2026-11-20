@@ -1,12 +1,19 @@
 import { AttemptLimiter } from "@/server/auth/attempt-limiter";
 
 /**
- * Room changes (create, join, leave) one account may make per minute. A person needs a
- * few; a loop would fill the database with rooms and flood a room's crew list.
+ * Room changes (create, join, leave, and the host's next round and closing) one account may make
+ * per minute, refused requests included. A person needs a few; a loop would fill the database
+ * with rooms and flood a room's crew list.
  */
 export const ROOM_CHANGE_LIMIT = { maxFailures: 10, windowMs: 60_000 } as const;
 
-const processGlobal = globalThis as typeof globalThis & { incisionRoomChanges?: AttemptLimiter };
+/**
+ * Settings saves one account may make per minute (F-03.1), refused ones included. Counted apart from
+ * the room changes, so that adjusting the settings never spends the budget for leaving or closing.
+ */
+export const SETTINGS_CHANGE_LIMIT = { maxFailures: 30, windowMs: 60_000 } as const;
+
+const processGlobal = globalThis as typeof globalThis & { incisionRoomChanges?: AttemptLimiter; incisionSettingsChanges?: AttemptLimiter };
 
 /** One counter per process: Next bundles each server action module separately. */
 function roomChanges(): AttemptLimiter {
@@ -21,4 +28,19 @@ export function allowRoomChange(accountId: string, limiter: AttemptLimiter = roo
   }
   limiter.recordFailure(accountId);
   return true;
+}
+
+/** Gives back the change counted for a join that the code limit refused before anything changed. */
+export function forgiveRoomChange(accountId: string, limiter: AttemptLimiter = roomChanges()): void {
+  limiter.forgive(accountId);
+}
+
+function settingsChanges(): AttemptLimiter {
+  processGlobal.incisionSettingsChanges ??= new AttemptLimiter(SETTINGS_CHANGE_LIMIT);
+  return processGlobal.incisionSettingsChanges;
+}
+
+/** Counts one settings save of the account; false once it made too many this minute. */
+export function allowSettingsChange(accountId: string, limiter: AttemptLimiter = settingsChanges()): boolean {
+  return allowRoomChange(accountId, limiter);
 }

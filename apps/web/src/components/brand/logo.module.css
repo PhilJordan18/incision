@@ -1,0 +1,30 @@
+.white {
+  display: block;
+}
+
+.black {
+  display: none;
+}
+
+@media (forced-colors: none) {
+  :global([data-theme="aube"]) .white {
+    display: none;
+  }
+
+  :global([data-theme="aube"]) .black {
+    display: block;
+  }
+}
+
+/* External SVG colours are not forced by the browser. Select Philippe's existing
+   variant for the system canvas, independently of the saved application theme.
+   CSS also reacts to preference changes and works before/without JavaScript. */
+@media (forced-colors: active) and (prefers-color-scheme: light) {
+  .white {
+    display: none;
+  }
+
+  .black {
+    display: block;
+  }
+}

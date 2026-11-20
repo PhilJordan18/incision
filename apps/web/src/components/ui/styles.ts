@@ -12,6 +12,13 @@ const BUTTON_BASE =
 export const primaryButton = `${BUTTON_BASE} h-14 bg-action font-semibold text-white hover:underline hover:decoration-2 hover:underline-offset-4`;
 export const secondaryButton = `${BUTTON_BASE} h-[52px] border border-ecume font-semibold text-ecume hover:bg-ecume/10`;
 export const discreetButton = `${BUTTON_BASE} h-[52px] border border-houle font-medium text-embrun hover:text-ecume`;
+/**
+ * A destructive action that is not the screen's red primary: screen 12's « Supprimer mon compte »
+ * (red text, underlined, no border). As tall as the buttons beside it, so that a question's two
+ * answers line up.
+ */
+export const destructiveLink =
+  "inline-flex h-[52px] items-center px-1 text-sm text-erreur underline underline-offset-[3px] transition-colors duration-200 ease-incision hover:decoration-2";
 /** Provider buttons of the sign-in screen: surface, thin border. */
 export const surfaceButton = `${BUTTON_BASE} h-[52px] border border-houle bg-nuit font-semibold text-ecume hover:border-brume`;
 /** Round header controls (44 px), used on the site header. */
@@ -31,3 +38,8 @@ export const fieldLabel = "text-sm font-medium text-ecume";
 export const monoLabel = "font-mono text-[11px] font-medium tracking-[0.2em] text-brume uppercase";
 export const inlineLink = "text-moi underline underline-offset-4 hover:text-ecume";
 export const card = "rounded-carte border border-houle bg-nuit p-6";
+/**
+ * The one title style of every panel (art direction C1 « Cap », docs/da/v2): on the panel's
+ * `<h2>`, as drawn in the waiting room. 24 px on a phone, 30 px from 640 px.
+ */
+export const panelTitle = "font-display text-2xl leading-none font-extrabold uppercase sm:text-[30px]";

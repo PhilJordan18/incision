@@ -8,6 +8,15 @@ export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
+function languageQuality(parameters: readonly string[]): number {
+  if (parameters.length === 0) return 1;
+  if (parameters.length !== 1) return 0;
+  // RFC 9110 §12.4.2: q is case-insensitive, 0–1 with at most three decimals.
+  // An invalid weight must not be promoted to the default priority of an unweighted entry.
+  const match = /^[\t ]*q=(0(?:\.\d{0,3})?|1(?:\.0{0,3})?)[\t ]*$/i.exec(parameters[0] ?? "");
+  return match === null ? 0 : Number(match[1]);
+}
+
 /**
  * Explicit cookie first, then the browser's `Accept-Language` preferences in quality
  * order (`fr-CA` counts as `fr`), then French. Malformed entries are ignored.
@@ -20,8 +29,7 @@ export function resolveLocale(cookieValue: string | undefined, acceptLanguage: s
     .split(",")
     .map((part, index) => {
       const [tag = "", ...parameters] = part.trim().split(";");
-      const quality = parameters.map((parameter) => /^\s*q=([01](?:\.\d{0,3})?)\s*$/.exec(parameter)?.[1]).find(Boolean);
-      return { language: tag.trim().toLowerCase().split("-")[0], quality: quality === undefined ? 1 : Number(quality), index };
+      return { language: tag.trim().toLowerCase().split("-")[0], quality: languageQuality(parameters), index };
     })
     .filter((preference) => preference.quality > 0)
     .sort((a, b) => b.quality - a.quality || a.index - b.index);

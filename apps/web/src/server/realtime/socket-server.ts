@@ -1,9 +1,11 @@
+import type { GuestSocketSession, HumanHandshake } from "./human-handshake";
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { type DefaultEventsMap, Server, type Socket } from "socket.io";
+import { HANDSHAKE_UNAVAILABLE } from "../../rooms/protocol";
 import { isAllowedHandshake } from "./origin";
 import { answerPing, PING_EVENT } from "./ping";
 import type { SessionRegistry } from "./session-registry";
-import type { HandshakeAuthentication, SocketSession } from "./socket-session";
+import type { SocketSession } from "./socket-session";
 
 /** Protected event of the checkpoint: answers the account of the socket's session. */
 export const SESSION_EVENT = "session:whoami";
@@ -16,17 +18,31 @@ type RealtimeOptions = {
   readonly allowedOrigin: string;
   readonly isProduction: boolean;
   /** Reads the session from the handshake's cookies (socket-session.ts). */
-  readonly authenticate: (cookieHeader: string | undefined) => Promise<HandshakeAuthentication>;
+  readonly authenticate: (cookieHeader: string | undefined) => Promise<HumanHandshake>;
   readonly registry: SessionRegistry;
 };
 
-type SocketData = { session?: SocketSession };
+type SocketData = { session?: SocketSession; guestSession?: GuestSocketSession };
+
+/** Bound on one incoming message: a socket that sends more is cut by Socket.IO. */
+export const MAX_MESSAGE_BYTES = 32 * 1024;
+/**
+ * How soon a connection lost without a word (a network cut, a sleeping laptop) is noticed: the
+ * server pings every PING_INTERVAL_MS and closes a socket that has not answered within
+ * PING_TIMEOUT_MS, so at most about 15 s after its last packet instead of Socket.IO's 45 s.
+ * A race's 30 s grace (D-06) counts from that detection.
+ */
+export const HEARTBEAT = { pingIntervalMs: 10_000, pingTimeoutMs: 5_000 } as const;
 type SessionSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
 export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOptions): Server {
   const { allowedOrigin, isProduction, authenticate, registry } = options;
   const io = new Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>(httpServer, {
     serveClient: false,
+    // The largest message a page sends is a keystroke batch of a few kilobytes; the default is 1 MB.
+    maxHttpBufferSize: MAX_MESSAGE_BYTES,
+    pingInterval: HEARTBEAT.pingIntervalMs,
+    pingTimeout: HEARTBEAT.pingTimeoutMs,
     // Close upgrade requests nobody handles; in development Next's reload socket needs them open.
     destroyUpgrade: isProduction,
     allowRequest: (request, callback) => {
@@ -39,25 +55,37 @@ export function attachRealtimeServer(httpServer: HttpServer, options: RealtimeOp
     authenticate(socket.request.headers.cookie)
       .then((result) => {
         if (result.kind === "refused") {
-          next(new Error("UNAUTHORIZED"));
+          // The session could not be checked (the database did not answer): refused, but as
+          // unavailable, which the page retries, not as a session that ended.
+          next(new Error(result.reason === "CHECK_FAILED" ? HANDSHAKE_UNAVAILABLE : "UNAUTHORIZED"));
           return;
         }
         if (result.kind === "authenticated") {
           socket.data.session = result.session;
         }
+        if (result.kind === "guest") socket.data.guestSession = result.session;
         next();
       })
-      .catch(() => next(new Error("UNAUTHORIZED")));
+      .catch((error: unknown) => {
+        // A bug rather than a database blip: logged, and refused as unavailable (fail closed).
+        console.error("[auth] socket handshake check failed:", error instanceof Error ? error.name : "unknown error");
+        next(new Error(HANDSHAKE_UNAVAILABLE));
+      });
   });
 
   io.on("connection", (socket) => {
-    const { session } = socket.data;
+    const { session, guestSession } = socket.data;
     if (session !== undefined) {
       // A sign-out may have happened while the handshake was being checked.
       if (!registry.register(socket, session)) {
         socket.disconnect(true);
         return;
       }
+      socket.on("disconnect", () => registry.unregister(socket.id));
+    }
+
+    if (guestSession !== undefined) {
+      if (!registry.registerGuest(socket, guestSession)) { socket.disconnect(true); return; }
       socket.on("disconnect", () => registry.unregister(socket.id));
     }
 
@@ -99,7 +127,7 @@ export function currentSession(
   return session;
 }
 
-function isAllowedRequest(request: Pick<IncomingMessage, "headers" | "url">, allowedOrigin: string): boolean {
+export function isAllowedRequest(request: Pick<IncomingMessage, "headers" | "url">, allowedOrigin: string): boolean {
   const secFetchSite = request.headers["sec-fetch-site"];
   const origin = request.headers.origin;
   return isAllowedHandshake(
@@ -110,4 +138,15 @@ function isAllowedRequest(request: Pick<IncomingMessage, "headers" | "url">, all
     },
     allowedOrigin,
   );
+}
+
+/** Local guard only; room authorization also rechecks the guest proof in SQL. */
+export function currentGuestSession(
+  socket: Pick<SessionSocket, "id" | "data" | "handshake" | "disconnect">,
+  options: { allowedOrigin: string; registry: SessionRegistry },
+): GuestSocketSession | undefined {
+  const session = socket.data.guestSession;
+  if (session === undefined || socket.data.session !== undefined || !isAllowedRequest(socket.handshake, options.allowedOrigin)) return undefined;
+  if (!options.registry.isGuestCurrent(socket.id, session.proof.id)) { socket.disconnect(true); return undefined; }
+  return session;
 }

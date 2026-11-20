@@ -2,6 +2,7 @@
 
 import type { MouseEvent, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+import { HourglassIcon } from "@/components/icons/icons";
 
 type SubmitButtonProps = {
   readonly label: ReactNode;
@@ -17,7 +18,10 @@ type SubmitButtonProps = {
 /**
  * Submit button of the enclosing form, relabelled while its action runs. It stays
  * focusable (`aria-disabled`, not `disabled`), so keyboard focus is not lost, and a second
- * activation is ignored while the first one runs.
+ * activation is ignored while the first one runs. The pending label is the state: it is
+ * never dimmed (at 80 % the white label on the red button fell to 4.3:1 in Aube). A fixed
+ * hourglass in the label's own colour stands beside it, so the state shows without the wait
+ * cursor (keyboard, touch); it is decorative, never animated, and adds nothing to the name.
  */
 export function SubmitButton({ label, pendingLabel, className, name, value, ariaLabel, describedBy }: SubmitButtonProps) {
   const { pending } = useFormStatus();
@@ -35,9 +39,14 @@ export function SubmitButton({ label, pendingLabel, className, name, value, aria
       onClick={ignoreWhilePending}
       aria-label={pending ? undefined : ariaLabel}
       aria-describedby={describedBy}
-      className={`${className} aria-disabled:cursor-wait aria-disabled:opacity-80`}
+      className={`${className} aria-disabled:cursor-wait`}
     >
-      {pending ? pendingLabel : label}
+      {pending ? (
+        <span className="inline-flex items-center gap-2">
+          <HourglassIcon data-pending-icon="" width="1.2em" height="1.2em" />
+          {pendingLabel}
+        </span>
+      ) : label}
     </button>
   );
 }

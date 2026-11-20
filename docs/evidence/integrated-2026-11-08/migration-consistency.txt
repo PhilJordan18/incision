@@ -1,0 +1,27 @@
+
+> @incision/database@0.1.0 db:generate
+> drizzle-kit generate
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/workspace/incision-final-integrated/packages/database/drizzle.config.ts'
+18 tables
+accounts 8 columns 0 indexes 0 fks
+oauth_identities 5 columns 0 indexes 1 fks
+lobbies 10 columns 1 indexes 2 fks
+lobby_members 9 columns 4 indexes 3 fks
+lobby_settings 15 columns 0 indexes 1 fks
+race_entrants 8 columns 0 indexes 3 fks
+race_results 14 columns 0 indexes 1 fks
+races 14 columns 1 indexes 1 fks
+race_corpus_entries 7 columns 0 indexes 2 fks
+race_corpus_versions 6 columns 1 indexes 0 fks
+race_passages 10 columns 0 indexes 1 fks
+profile_photos 4 columns 0 indexes 1 fks
+race_wpm_series 3 columns 0 indexes 1 fks
+lobby_bots 4 columns 1 indexes 1 fks
+race_key_errors 3 columns 0 indexes 1 fks
+guest_sessions 5 columns 1 indexes 0 fks
+lobby_invitations 8 columns 3 indexes 2 fks
+lobby_bans 5 columns 3 indexes 3 fks
+
+No schema changes, nothing to migrate 😴

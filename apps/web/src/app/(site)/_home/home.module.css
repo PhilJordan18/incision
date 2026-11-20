@@ -1,0 +1,79 @@
+/* Home page, art direction C1 « Cap ». Colours come from the tokens of apps/design/tokens.css. */
+
+/* The home's bands run from one edge of the window to the other: on this page only, the shell's
+   main region gives up its width limit and its padding; each band centres its own content. */
+main:has(> .route) {
+  max-width: none;
+  gap: 0;
+  padding: 0;
+}
+
+/* The red coast: a flat land with a `ligne` edge. `erreur-fond` is too pale on Aube to read as
+   land, so Aube mixes 20 % of `ligne` into `nuit` (choice D-15). */
+.land {
+  fill: var(--color-erreur-fond);
+}
+
+[data-theme="aube"] .land {
+  fill: color-mix(in srgb, var(--color-ligne) 20%, var(--color-nuit));
+}
+
+.coastline {
+  fill: none;
+  stroke: var(--color-ligne);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+/* The dotted route that links the escales, drawn behind the buoys. */
+.spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  margin-left: -1.5px;
+  border-left: 3px dotted var(--color-moi);
+}
+
+.belt {
+  height: 34px;
+  background: linear-gradient(var(--color-sillage) 0 6px, transparent 6px 28px, var(--color-sillage) 28px 34px);
+}
+
+/* Forced colours: every scene becomes a line drawing in the text colour the system imposes
+   around it (`currentColor`), on the system's own background. The backdrops that pass behind
+   text (sea, chart lines, wave marks, outlined numbers) are removed. The shared ships, pennants and
+   compass (`components/nautical`) bring their own forced colours and are left to them. */
+@media (forced-colors: active) {
+  .scene,
+  .scene *:not([data-ship], [data-ship] *, [data-compass], [data-compass] *, [data-pennant], [data-pennant] *) {
+    color: inherit;
+    fill: none;
+    stroke: currentColor;
+    opacity: 1;
+  }
+
+  /* `!important`: one caption sets its own colour with an important utility. */
+  .scene text {
+    fill: currentColor !important;
+    stroke: none;
+  }
+
+  .backdrop {
+    display: none;
+  }
+
+  .spine {
+    border-left-color: currentColor;
+  }
+
+  .belt {
+    background: none;
+    border-block: 1px solid;
+  }
+
+  /* After the Aube rule above, which has the same weight. */
+  .scene .land {
+    fill: none;
+  }
+}

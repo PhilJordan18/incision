@@ -4,6 +4,9 @@ import { parse } from "pg-connection-string";
 
 const TEMPORARY_NAME = /^incision_test_[0-9a-f]{12}$/;
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+/** How long a drop waits for the test's own connections to finish closing. */
+const DROP_WAIT_MS = 5_000;
+const DROP_POLL_MS = 25;
 
 export type TemporaryDatabase = { readonly url: string; readonly drop: () => Promise<void> };
 
@@ -52,7 +55,18 @@ export async function createTemporaryDatabase(): Promise<TemporaryDatabase> {
       if (!TEMPORARY_NAME.test(name)) {
         throw new Error("Refusing to drop a database that this helper did not create");
       }
-      await withServer((client) => client.query(`drop database if exists "${name}" with (force)`));
+      await withServer(async (client) => {
+        // pg's Pool.end() resolves before its sockets close: a forced drop would kill those
+        // closing sessions, and pg would raise their 57P01 as an unhandled error. Wait for them
+        // first (bounded); the forced drop still ends any session a test left open.
+        for (let waited = 0; waited < DROP_WAIT_MS; waited += DROP_POLL_MS) {
+          const { rows } = await client.query<{ n: number }>(
+            "select count(*)::int as n from pg_stat_activity where datname = $1 and pid <> pg_backend_pid()", [name]);
+          if (rows[0]?.n === 0) break;
+          await new Promise((resolve) => setTimeout(resolve, DROP_POLL_MS));
+        }
+        await client.query(`drop database if exists "${name}" with (force)`);
+      });
     },
   };
 }

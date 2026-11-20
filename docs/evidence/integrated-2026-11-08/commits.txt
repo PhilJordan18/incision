@@ -1,0 +1,6 @@
+d69edf7548db0041759873645500c7fe3aea566e docs(delivery): align fresh installation and integrated feature status
+e3a8cdbaeb211532b50dd41e20b872b77fb37cb3 test(results): reopen the same bonus journal through private history
+7d19d256a7167f84a1dbcb3cb791972f3509be25 docs(qa): prepare the remaining human bonus journal acceptance
+68902f38a243b2fdc45fad027ad967bf87249e3a test(results): assert the localized bot level in bonus journals
+09ed03ce1338da4c851664232a52e917743bb34a docs(setup): record invitation and release-check prerequisites
+a3b86750eea6287b4079ee84e42554b8eee04679 docs(requirements): link integrated evidence without promoting human acceptance

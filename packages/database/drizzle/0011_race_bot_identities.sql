@@ -1,0 +1,4 @@
+ALTER TABLE "race_entrants" ALTER COLUMN "account_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "race_entrants" ADD COLUMN "kind" text DEFAULT 'human' NOT NULL;--> statement-breakpoint
+ALTER TABLE "race_entrants" ADD COLUMN "bot_level" text;--> statement-breakpoint
+ALTER TABLE "race_entrants" ADD CONSTRAINT "race_entrants_identity_kind" CHECK (("race_entrants"."kind" = 'human' and "race_entrants"."account_id" is not null and "race_entrants"."bot_level" is null) or ("race_entrants"."kind" = 'bot' and "race_entrants"."account_id" is null and "race_entrants"."member_id" is null and "race_entrants"."bot_level" is not null and "race_entrants"."bot_level" in ('noob', 'beginner', 'intermediate', 'expert', 'impossible')));

@@ -1,7 +1,8 @@
-import { MEMBER_ROLES, ROOM_PHASES } from "@incision/domain";
+import { COMPLEXITIES, ERROR_MODES, MAX_SETTING_CHARACTERS, MEMBER_ROLES, ROOM_PHASES, TEXT_KINDS, TEXT_LANGUAGES, TIME_LIMIT_MAX_MS, TIME_LIMIT_MIN_MS, MIN_TEXT_WORDS, MAX_TEXT_WORDS } from "@incision/domain";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  boolean,
   check,
   foreignKey,
   index,
@@ -16,11 +17,17 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { accounts } from "./identity";
+import { guestSessions } from "./guest-sessions";
+import { races } from "./races";
 
 export const lobbyVisibility = pgEnum("lobby_visibility", ["public", "code", "private"]);
 /** COURSE-01 states: EN_ATTENTE, DECOMPTE, EN_COURSE, RESULTATS, FERMEE. */
 export const lobbyPhase = pgEnum("lobby_phase", ROOM_PHASES);
 export const memberRole = pgEnum("member_role", MEMBER_ROLES);
+export const textLanguage = pgEnum("text_language", TEXT_LANGUAGES);
+export const errorMode = pgEnum("error_mode", ERROR_MODES);
+export const textKind = pgEnum("text_kind", TEXT_KINDS);
+export const textComplexity = pgEnum("text_complexity", COMPLEXITIES);
 
 /** Presence of an account in a room. Leaving sets `left_at`; rows are kept. */
 export const lobbyMembers = pgTable(
@@ -31,8 +38,9 @@ export const lobbyMembers = pgTable(
       .notNull()
       .references((): AnyPgColumn => lobbies.id, { onDelete: "cascade" }),
     accountId: uuid("account_id")
-      .notNull()
       .references(() => accounts.id, { onDelete: "restrict" }),
+    // Preparatory constraint only: guest admission is not enabled by this migration.
+    guestSessionId: uuid("guest_session_id").references(() => guestSessions.id, { onDelete: "restrict" }),
     role: memberRole().notNull(),
     displayName: text("display_name").notNull(),
     displayNameCanonical: text("display_name_canonical").notNull(),
@@ -44,6 +52,9 @@ export const lobbyMembers = pgTable(
     unique("lobby_members_lobby_id_id_unique").on(table.lobbyId, table.id),
     // SALLE-06: one active room per account, enforced by the database (D-04).
     uniqueIndex("lobby_members_active_account_unique").on(table.accountId).where(sql`${table.leftAt} is null`),
+    uniqueIndex("lobby_members_active_guest_unique").on(table.guestSessionId).where(sql`${table.leftAt} is null`),
+    check("lobby_members_one_subject", sql`(${table.accountId} is not null) <> (${table.guestSessionId} is not null)`),
+    check("lobby_members_guest_name_length", sql`${table.guestSessionId} is null or char_length(${table.displayName}) between 3 and 20`),
     uniqueIndex("lobby_members_active_display_name_unique")
       .on(table.lobbyId, table.displayNameCanonical)
       .where(sql`${table.leftAt} is null`),
@@ -73,6 +84,12 @@ export const lobbies = pgTable(
     revision: integer().notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     closedAt: timestamp("closed_at", { withTimezone: true }),
+    /**
+     * The race of the current or latest round. Kept after an interruption, so a returning
+     * player learns that their race was interrupted; transitions compare it with the race
+     * they act on (compare-and-set, ADR-0004).
+     */
+    currentRaceId: uuid("current_race_id"),
   },
   (table) => [
     unique("lobbies_code_unique").on(table.code),
@@ -80,6 +97,8 @@ export const lobbies = pgTable(
     check("lobbies_code_format", sql`${table.code} ~ '^[2-9A-HJKMNP-Z]{6}$'`),
     // Bound of the setting only; admission must still count participants (CP-06).
     check("lobbies_capacity_range", sql`${table.capacity} between 2 and 30`),
+    // Explorer and quickplay (JOIN-02, JOIN-03): open public rooms, oldest first; closed rooms stay out.
+    index("lobbies_open_public_idx").on(table.createdAt, table.id).where(sql`${table.visibility} = 'public' and ${table.phase} <> 'closed'`),
     check("lobbies_revision_non_negative", sql`${table.revision} >= 0`),
     check("lobbies_closed_at_matches_phase", sql`(${table.phase} = 'closed') = (${table.closedAt} is not null)`),
     // NO ACTION (checked at the end of the statement): deleting a member that hosts fails,
@@ -89,5 +108,64 @@ export const lobbies = pgTable(
       columns: [table.id, table.hostMemberId],
       foreignColumns: [lobbyMembers.lobbyId, lobbyMembers.id],
     }).onDelete("no action"),
+    // The current race belongs to this room. NO ACTION: deleting a race that is still current fails.
+    foreignKey({
+      name: "lobbies_current_race_fk",
+      columns: [table.id, table.currentRaceId],
+      foreignColumns: [races.lobbyId, races.id],
+    }).onDelete("no action"),
+    check("lobbies_active_phase_has_race", sql`${table.phase} not in ('countdown', 'racing', 'results') or ${table.currentRaceId} is not null`),
+  ],
+);
+
+/**
+ * A room's race configuration (F-03.1, CONF-01/02/08/12): one row per room, written with the room
+ * (rooms of a process older than migration 0006 may lack it; readers then use the defaults). The
+ * revision increases with every change the host saves, and a start checks it under the room lock.
+ * The text columns of F-03.1e (CONF-03 to CONF-07) default to D-19, so rows written before them
+ * keep running coherent, medium texts with punctuation, capitals and accents, without numbers.
+ */
+export const lobbySettings = pgTable(
+  "lobby_settings",
+  {
+    lobbyId: uuid("lobby_id")
+      .primaryKey()
+      .references(() => lobbies.id, { onDelete: "cascade" }),
+    revision: integer().notNull().default(0),
+    /** The language of the race texts, independent of anyone's interface (CONF-02). */
+    textLanguage: textLanguage("text_language").notNull(),
+    wordCount: smallint("word_count").notNull().default(50),
+    /** Null: no time limit at all (CONF-01, D-17). */
+    timeLimitMs: integer("time_limit_ms"),
+    errorMode: errorMode("error_mode").notNull(),
+    textKind: textKind("text_kind").notNull().default("coherent"),
+    complexity: textComplexity().notNull().default("medium"),
+    punctuation: boolean().notNull().default(true),
+    numbers: boolean().notNull().default(false),
+    capitals: boolean().notNull().default(true),
+    accents: boolean().notNull().default(true),
+    /** Random mode only (D-10): one lowercase character each, checked by the engine before saving. */
+    includeCharacters: text("include_characters").array().notNull().default(sql`'{}'::text[]`),
+    excludeCharacters: text("exclude_characters").array().notNull().default(sql`'{}'::text[]`),
+    /** CONF-09, D-18: Arcade (bonuses on) or training (off, D-19's default). */
+    bonusesEnabled: boolean("bonuses_enabled").notNull().default(false),
+  },
+  (table) => [
+    check("lobby_settings_revision_non_negative", sql`${table.revision} >= 0`),
+    // Coherent mode cannot express characters to include or exclude (D-10).
+    check(
+      "lobby_settings_characters_random_only",
+      sql`${table.textKind} = 'random' or (cardinality(${table.includeCharacters}) = 0 and cardinality(${table.excludeCharacters}) = 0)`,
+    ),
+    check(
+      "lobby_settings_characters_bounded",
+      sql`cardinality(${table.includeCharacters}) <= ${sql.raw(String(MAX_SETTING_CHARACTERS))} and cardinality(${table.excludeCharacters}) <= ${sql.raw(String(MAX_SETTING_CHARACTERS))}`,
+    ),
+    check("lobby_settings_word_count_range", sql`${table.wordCount} between ${sql.raw(String(MIN_TEXT_WORDS))} and ${sql.raw(String(MAX_TEXT_WORDS))}`),
+    // The engine's bounds (TIME_LIMIT_MIN_MS, TIME_LIMIT_MAX_MS), whatever the server accepts today.
+    check(
+      "lobby_settings_time_limit_range",
+      sql`${table.timeLimitMs} is null or ${table.timeLimitMs} between ${sql.raw(String(TIME_LIMIT_MIN_MS))} and ${sql.raw(String(TIME_LIMIT_MAX_MS))}`,
+    ),
   ],
 );

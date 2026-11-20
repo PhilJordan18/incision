@@ -1,0 +1,74 @@
+{
+  "base": "3f7a740a095b82cdfac7630d255bad6a4ad24e01",
+  "scope": "Offline structural verification only; no new source reading, calibration or editorial acceptance",
+  "files": [
+    {
+      "path": "packages/database/corpus/2026-10-25.1/en.json",
+      "sha256": "55bfa334c5916c3a6591e22fd5af73293e35083ac0b0dba0d3560f3f80f24282",
+      "unchanged_from_dev": true
+    },
+    {
+      "path": "packages/database/corpus/2026-10-25.1/fr.json",
+      "sha256": "fb03a867464164e0a32a35e306e57257859d4924a7101e9b92188656e0cdb077",
+      "unchanged_from_dev": true
+    },
+    {
+      "path": "packages/database/corpus/2026-10-25.2/en.json",
+      "sha256": "45a917188d375d9b642f58c98b8d66972802ed2be26510f4b18f73f2672cc568",
+      "unchanged_from_dev": true
+    },
+    {
+      "path": "packages/database/corpus/2026-10-25.2/fr.json",
+      "sha256": "e922c8e25ea84f7d7f13b5cd68559eead400b08c7ac8ccbd41ee8b4aafcda9a1",
+      "unchanged_from_dev": true
+    },
+    {
+      "path": "packages/database/corpus/2026-10-25.3/en.json",
+      "sha256": "2713cc36d6e17f7b34daa4c502ceda22f35b2d5d6ee281b462e780390e3ccb78",
+      "unchanged_from_dev": true
+    },
+    {
+      "path": "packages/database/corpus/2026-10-25.3/fr.json",
+      "sha256": "364c4623029f0c4d5980ff7fe706c0692bebb192b4b740203237d02a9a10b9c6",
+      "unchanged_from_dev": true
+    },
+    {
+      "path": "packages/database/corpus/2026-10-25.4/en.json",
+      "sha256": "c46575009ac66c6d5a93fec63b1a403f7fe82d2274f6604e6d8ccd4188199cad",
+      "unchanged_from_dev": true
+    },
+    {
+      "path": "packages/database/corpus/2026-10-25.4/fr.json",
+      "sha256": "de11bef94441533e2f921b1d5a37342d94543f73eee4704f663fe5d8cbc1d7c8",
+      "unchanged_from_dev": true
+    }
+  ],
+  "counts": {
+    "fr": {
+      "entries": 61,
+      "statuses": {
+        "retained": 55,
+        "spare": 6
+      },
+      "escalated_ids": [
+        "fr-malot-sans-famille-p1-ch11-miche"
+      ]
+    },
+    "en": {
+      "entries": 61,
+      "statuses": {
+        "retained": 56,
+        "spare": 5
+      },
+      "escalated_ids": [
+        "en-kipling-captains-courageous-ch01-forecastle",
+        "en-kipling-just-so-cat-opening",
+        "en-jerome-three-men-boat-ch02-river-evening",
+        "en-london-white-fang-p2-ch04-forest",
+        "en-shackleton-south-ch09-james-caird",
+        "en-twain-life-mississippi-ch09-sunset",
+        "en-twain-life-mississippi-ch09-face-water"
+      ]
+    }
+  }
+}

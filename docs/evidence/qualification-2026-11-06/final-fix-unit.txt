@@ -1,0 +1,116 @@
+
+> @incision/root@0.1.0 test
+> npm run test --workspaces --if-present
+
+
+> @incision/web@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-validation/apps/web
+
+(node:22356) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  107 passed (107)
+      Tests  1106 passed (1106)
+   Start at  04:22:27
+   Duration  27.86s (tests 45%, import 45%, transform 9%, worker 1%)
+
+     Import  379 modules were evaluated 2112 times · 30.14s total, 45% of tracked time
+             ~6.76s faster with isolate: false — shared modules are evaluated once per worker instead of once per file
+             learn more: https://vitest.dev/guide/improving-performance#test-isolation
+
+
+> @incision/database@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-validation/packages/database
+
+(node:23007) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:23014) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  13 passed (13)
+      Tests  146 passed (146)
+   Start at  04:22:56
+   Duration  3.09s (import 41%, tests 41%, transform 17%, worker 1%)
+
+    Isolate  13 workers spawned · ~128ms startup each (spawn + environment, per file)
+             at least ~428ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> @incision/domain@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-validation/packages/domain
+
+
+ Test Files  46 passed (46)
+      Tests  1259 passed (1259)
+   Start at  04:22:59
+   Duration  8.59s (tests 77%, import 13%, transform 10%, worker 1%)
+
+    Isolate  46 workers spawned · ~135ms startup each (spawn + environment, per file)
+             at least ~1.94s faster with isolate: false — reuses workers across files instead of one per file
+
+
+> @incision/load@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-validation/tools/load
+
+
+ Test Files  3 passed (3)
+      Tests  21 passed (21)
+   Start at  04:23:08
+   Duration  1.67s (tests 43%, transform 31%, import 25%, worker 1%)
+
+
+> @incision/word-lists@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /workspace/incision-validation/tools/word-lists
+
+
+ Test Files  8 passed (8)
+      Tests  111 passed (111)
+   Start at  04:23:10
+   Duration  5.49s (tests 86%, transform 9%, import 5%)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

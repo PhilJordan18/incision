@@ -10,6 +10,8 @@ import { claimsForSignIn, revalidateClaims } from "@/server/auth/session-callbac
 import { SESSION_MAX_AGE_SECONDS, sessionClaimsSchema, sessionDeadline } from "@/server/auth/session-token";
 import { databaseSessionStore, findCredentials, revokeSessions } from "@/server/auth/store";
 
+import { guestPresenceBlocksSignIn } from "@/server/identity/guest-transition";
+
 const callbackDependencies = { store: databaseSessionStore, now: Date.now };
 
 /**
@@ -45,6 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    signIn: async () => await guestPresenceBlocksSignIn(true) ? "/sign-in?error=GuestPresence" : true,
     jwt: ({ token, account, user }) =>
       account ? claimsForSignIn(account, user, callbackDependencies) : revalidateClaims(token, callbackDependencies),
     // Exposes only our account id and the real end of the session, never a profile.

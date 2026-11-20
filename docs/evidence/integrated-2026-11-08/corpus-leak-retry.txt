@@ -1,0 +1,6 @@
+
+> @incision/database@0.1.0 db:check-corpus-leak
+> tsx scripts/check-corpus-leak.ts
+
+[corpus-leak] 963 build files checked against 260 fingerprints
+[corpus-leak] no corpus in the build

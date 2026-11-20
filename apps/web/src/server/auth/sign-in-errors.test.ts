@@ -11,6 +11,7 @@ describe("signInErrorKey", () => {
     ["CredentialsSignin", "busy", "unavailable"],
     ["OAuthCallbackError", undefined, "providerFailed"],
     ["AccessDenied", undefined, "providerFailed"],
+    ["GuestPresence", undefined, "guestPresence"],
     ["Configuration", undefined, "unavailable"],
     ["<script>alert(1)</script>", undefined, "unavailable"],
     [["CredentialsSignin"], undefined, undefined],

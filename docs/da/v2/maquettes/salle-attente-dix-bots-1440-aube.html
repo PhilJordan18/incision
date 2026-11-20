@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="fr" data-theme="abysse">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="jetons-lecture.css"><link rel="stylesheet" href="base.css"><style>
+
+.c-moi { --c: var(--color-moi); } .c-juste { --c: var(--color-juste); } .c-arcade { --c: var(--color-arcade); } .c-embrun { --c: var(--color-embrun); } .c-brume { --c: var(--color-brume); }
+.signal { height: 6px; background: repeating-linear-gradient(115deg, var(--color-houle) 0 10px, transparent 10px 20px); }
+.hull { fill: var(--color-ecume); }
+.sail { fill: var(--c); }
+.mast { stroke: var(--color-ecume); stroke-width: 1.5; stroke-linecap: round; }
+
+.c-ecume { --c: var(--color-ecume); } .c-or { --c: var(--color-or); }
+.land { fill: var(--color-erreur-fond); }
+.coastline { fill: none; stroke: var(--color-ligne); stroke-width: 4; stroke-linejoin: round; }
+.isle { fill: var(--color-sillage); stroke: var(--color-houle); stroke-width: 1.5; }
+.lp-glass { fill: color-mix(in srgb, var(--color-mer) 60%, transparent); stroke: var(--color-ecume); stroke-width: 2; }
+.lp-base { fill: var(--color-nuit); stroke: var(--color-ecume); stroke-width: 2; stroke-linejoin: round; }
+.lp-line { fill: none; stroke: var(--color-ecume); stroke-width: 1.5; stroke-linecap: round; }
+.lp-n1 { fill: var(--color-ligne); } .lp-n2 { fill: var(--color-ecume); }
+
+.site-header { position: relative; z-index: 2; }
+.deck { padding-bottom: 56px; }
+.foot { padding: 20px 48px; max-width: var(--container-page); margin: 40px auto 0; }
+h1.ph { font-size: 64px; line-height: 0.9; }
+.intro-p { max-width: 560px; font-size: 18px; color: var(--color-embrun); }
+.stack { display: flex; flex-direction: column; gap: 24px; }
+.panel { border-radius: var(--radius-carte); border: 1px solid var(--color-houle); background: var(--color-nuit); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel > h2, .ptitle h2 { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1; text-transform: uppercase; }
+.ptitle { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.muted { color: var(--color-brume); font-size: 14px; }
+.soft { color: var(--color-embrun); font-size: 14px; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.btn-discreet.idle { color: var(--color-brume); }
+.flabel { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 500; min-width: 0; max-width: 100%; }
+select.field { max-width: 100%; appearance: none; padding-right: 40px; background-image: linear-gradient(45deg, transparent 50%, var(--color-embrun) 50%), linear-gradient(135deg, var(--color-embrun) 50%, transparent 50%); background-position: calc(100% - 20px) 23px, calc(100% - 14px) 23px; background-size: 6px 6px; background-repeat: no-repeat; }
+input.field.num { width: 100%; }
+.chartbox { border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-mer); overflow: hidden; }
+.chartfig { display: block; width: 100%; height: auto; }
+.chartfig .cap { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.2em; fill: var(--color-embrun); }
+.chartfig .lbl { font-family: var(--font-sans); font-size: 15px; font-weight: 600; fill: var(--color-ecume); }
+.chartfig .code { font-family: var(--font-mono); font-size: 16px; letter-spacing: 0.22em; fill: var(--color-ecume); }
+.chartfig text.mono { font-family: var(--font-mono); font-size: 18px; fill: var(--color-brume); }
+.roomcode { font-family: var(--font-mono); font-size: 34px; line-height: 1; font-weight: 500; letter-spacing: 0.24em; }
+.sample { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-brume); }
+[data-theme="aube"] .land { fill: color-mix(in srgb, var(--color-ligne) 20%, var(--color-nuit)); }
+
+/* ---- waiting room */
+.quay { position: relative; height: 150px; overflow: hidden; border-block: 1px solid var(--color-sillage); background: var(--color-mer); }
+.quay svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dock { fill: var(--color-sillage); stroke: var(--color-houle); stroke-width: 1.5; }
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 32px 0 24px; }
+.head-l { display: flex; flex-direction: column; gap: 12px; }
+.live { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-embrun); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-juste); flex: none; }
+.dot.off { background: var(--color-voile); }
+.depart { flex-direction: row; align-items: center; gap: 28px; border-color: var(--color-voile); }
+.depart .codeblock { display: flex; flex-direction: column; gap: 10px; }
+.depart .coderow { display: flex; align-items: center; gap: 14px; }
+.iconbtn { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-bouton); border: 1px solid var(--color-houle); color: var(--color-embrun); background: transparent; }
+.depart .lane { flex: 1; min-width: 60px; height: 44px; }
+.depart .go { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+.depart .go .btn { align-self: flex-start; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--color-sillage); }
+.mrow .nm { font-weight: 600; }
+.mrow .you { font-weight: 400; color: var(--color-brume); }
+.mrow .hote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-ligne); }
+.mrow .st { margin-left: auto; }
+.mrow .pen { width: 24px; height: 16px; flex: none; }
+.gtag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; border: 1px solid var(--color-houle); border-radius: var(--radius-puce); padding: 2px 6px; color: var(--color-embrun); }
+.bots-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; align-items: start; }
+.sub { border-radius: var(--radius-carte); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.sub h3 { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.sub.berth { border: 2px dashed var(--color-voile); }
+.sub.roster { border: 1px solid var(--color-houle); background: var(--color-abysse); }
+.mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--color-ecume); font-family: var(--font-mono); font-size: 14px; line-height: 1; flex: none; }
+.mark.sq { border-radius: 4px; }
+.insignia { width: 48px; height: 48px; flex: none; border: 1px solid var(--color-houle); border-radius: var(--radius-bouton); padding: 4px; color: var(--color-embrun); }
+.idrow { display: flex; align-items: center; gap: 12px; }
+.botrow { border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-nuit); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.botrow.dirty { border-color: var(--color-or); }
+.chips { display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; margin: 0; }
+.chips div { border: 1px solid var(--color-houle); border-radius: var(--radius-puce); padding: 8px 12px; }
+.chips div.arc { border-color: var(--color-arcade); }
+.chips dt { color: var(--color-brume); } .chips dd { margin: 0; }
+.modrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+
+/* ---- create / join */
+.two { display: grid; grid-template-columns: minmax(0, 640px) minmax(0, 1fr); gap: 48px; align-items: start; padding-top: 8px; }
+.pagehead { display: flex; flex-direction: column; gap: 16px; padding: 40px 0 28px; }
+.legendm { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-brume); margin-bottom: 12px; padding: 0; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.choice { display: flex; flex-direction: column; gap: 4px; min-height: 44px; border: 1px solid var(--color-houle); border-radius: var(--radius-bouton); padding: 16px; cursor: pointer; }
+.choice.on { border: 2px solid var(--color-ecume); background: var(--color-sillage); padding: 15px; }
+.choice .rl { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.choice .n { font-family: var(--font-display); font-weight: 900; font-size: 20px; color: var(--color-brume); margin-left: auto; }
+.choice .b { font-size: 14px; color: var(--color-embrun); }
+.choice input { width: 18px; height: 18px; accent-color: var(--color-moi); flex: none; }
+.check { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; }
+.check input { width: 20px; height: 20px; accent-color: var(--color-action); flex: none; }
+
+/* ---- public rooms */
+.row3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; align-items: stretch; }
+.quick { border-color: var(--color-ligne); gap: 14px; background: radial-gradient(ellipse 70% 80% at 85% 100%, color-mix(in srgb, var(--color-ligne) 16%, transparent), transparent 70%), var(--color-nuit); }
+.quick h2 { font-family: var(--font-sans); font-size: 20px; font-weight: 700; text-transform: none; }
+.quick .btn { width: 100%; margin-top: auto; }
+.row3 .chartbox { display: flex; } .row3 .chartbox svg { width: 100%; height: 100%; min-height: 200px; }
+.listh { font-family: var(--font-display); font-weight: 900; font-size: 44px; text-transform: uppercase; line-height: 1; }
+.listh span { font-family: var(--font-mono); font-size: 14px; font-weight: 500; letter-spacing: 0.2em; color: var(--color-brume); margin-left: 12px; vertical-align: middle; }
+.filters { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: flex-end; }
+.fchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fchip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; border-radius: 9999px; border: 1px solid var(--color-houle); padding: 0 16px; font-size: 14px; color: var(--color-embrun); }
+.fchip.on { border: 2px solid var(--color-moi); background: color-mix(in srgb, var(--color-moi) 10%, transparent); color: var(--color-ecume); }
+.table { border-radius: var(--radius-carte); border: 1px solid var(--color-houle); background: var(--color-nuit); }
+.trow { display: grid; grid-template-columns: minmax(6rem, 1fr) minmax(6rem, 1.2fr) minmax(5.5rem, 1fr) minmax(8rem, 1.5fr) minmax(4.5rem, .8fr) minmax(7rem, 1.1fr) 8.5rem; gap: 8px 16px; align-items: center; padding: 16px 24px; }
+li.trow { border-top: 1px solid var(--color-houle); min-height: 84px; }
+.trow .k { display: none; }
+.trow .codec { font-family: var(--font-mono); font-weight: 600; letter-spacing: 0.12em; display: inline-flex; align-items: center; gap: 10px; }
+.trow .arc { color: var(--color-arcade); font-weight: 600; }
+.trow .ph { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+.trow .end { text-align: right; }
+.trow .btn { height: 44px; }
+
+@media (max-width: 1240px) { .bots-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1023px) {
+  .page { padding: 0 32px; } .site-header { padding: 20px 32px; } .foot { padding: 20px 32px; }
+  .cols, .pair, .two, .row3 { grid-template-columns: 1fr; }
+  .depart { flex-direction: column; align-items: stretch; } .depart .lane { display: none; } .depart .go { max-width: none; }
+  .trow.thead { display: none; }
+  li.trow { grid-template-columns: 1fr 1fr; }
+  .trow .k { display: inline; margin-right: 8px; }
+  .trow .end { text-align: left; grid-column: 1 / -1; }
+}
+@media (min-width: 640px) and (max-width: 1023px) { .bots-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); } }
+@media (max-width: 639px) {
+  .page { padding: 0 16px; } .site-header { padding: 16px; gap: 12px; } .foot { padding: 20px 16px; }
+  h1.ph { font-size: 48px; } .head { padding: 24px 0 20px; }
+  .quay { height: 110px; }
+  .panel { padding: 18px; } .roomcode { font-size: 28px; }
+  .choices { grid-template-columns: 1fr; }
+  li.trow { grid-template-columns: 1fr; padding: 16px 18px; }
+  .listh { font-size: 36px; } .listh span { display: block; margin: 8px 0 0; }
+  .depart .go .btn { align-self: stretch; }
+  .row3 .chartbox { display: none; }
+}
+/* Low screens (the app's `short` variant: >= 1024 px wide, <= 760 px high): the ornament goes, the controls stay. */
+@media (min-width: 1024px) and (max-height: 760px) {
+  .quay { display: none; } .site-header { padding-block: 12px; } .head { padding: 16px 0; } h1.ph { font-size: 52px; }
+  .pagehead { padding: 20px 0 16px; }
+}
+
+/* ---- waiting room v2 */
+.depart2 { display: grid; grid-template-columns: auto minmax(40px, 1fr) minmax(0, 460px); gap: 12px 28px; align-items: center; border-color: var(--color-voile); }
+.depart2 .codeblock { display: flex; flex-direction: column; gap: 10px; }
+.depart2 .coderow { display: flex; align-items: center; gap: 14px; }
+.depart2 .lane { width: 100%; height: 44px; }
+.depart2 .go { display: flex; flex-direction: column; gap: 10px; }
+.depart2 .go .btn { align-self: flex-start; }
+.depart2 .closeline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-top: 10px; border-top: 1px solid var(--color-sillage); }
+.depart2 .closeline p { flex: 1 1 200px; }
+.depart2.guestview { grid-template-columns: auto 1fr; }
+.strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+.strip .panel { gap: 12px; }
+.strip .panel > h2 { font-size: 24px; }
+.strip .btn { align-self: flex-start; margin-top: auto; }
+.lists { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); gap: 24px; align-items: start; }
+.grp { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-brume); padding-top: 4px; }
+.grp + ul { margin-top: -8px; }
+.mrow { padding: 9px 0; min-height: 44px; }
+.spec .mrow .pen { display: none; }
+.eye { width: 24px; height: 16px; flex: none; color: var(--color-brume); }
+/* add bar: a free berth, dashed, visibly not a list */
+.addbar { border: 2px dashed var(--color-voile); border-radius: var(--radius-carte); padding: 14px 16px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px 14px; align-items: end; }
+.addbar h3 { grid-column: 1 / -1; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.addbar .insignia, .brow .insignia { width: 44px; height: 44px; }
+.addbar .help { grid-column: 1 / -1; }
+.addbar .alert { grid-column: 1 / -1; color: var(--color-ecume); font-size: 14px; border-left: 3px solid var(--color-or); padding-left: 10px; }
+/* roster: a solid ledger, one line per bot */
+.roster2 { border: 1px solid var(--color-houle); border-radius: var(--radius-carte); background: var(--color-abysse); }
+.roster2 > h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; font-size: 16px; font-weight: 600; border-bottom: 1px solid var(--color-houle); }
+.roster2 > h3 .n { font-family: var(--font-mono); font-size: 14px; border: 1.5px solid var(--color-ecume); border-radius: 4px; padding: 1px 8px; }
+.roster2 > p { padding: 16px; }
+.brow { display: grid; grid-template-columns: 44px minmax(4.5rem, auto) minmax(0, 1fr) auto auto; gap: 8px 12px; align-items: center; padding: 8px 16px; border-top: 1px solid var(--color-sillage); min-height: 60px; }
+.brow:first-child { border-top: 0; }
+.brow .bn { font-weight: 600; white-space: nowrap; }
+.brow .lv { font-size: 14px; color: var(--color-embrun); min-width: 0; }
+.brow .btn { height: 44px; padding: 0 16px; }
+.brow.open { background: var(--color-nuit); box-shadow: inset 3px 0 0 var(--color-voile); }
+.brow.dirty { box-shadow: inset 3px 0 0 var(--color-or); }
+.brow .editor { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; }
+.brow .editor .flabel { flex: 1 1 240px; }
+.brow .state { grid-column: 2 / -1; font-size: 14px; color: var(--color-embrun); }
+.tagd { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; border: 1px solid var(--color-or); border-radius: var(--radius-puce); padding: 2px 6px; color: var(--color-ecume); margin-left: 8px; white-space: nowrap; }
+.modgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 24px; }
+.modgrid .modrow { min-height: 52px; }
+.quay text { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.14em; fill: var(--color-embrun); }
+
+@media (max-width: 1239px) { .depart2 { grid-template-columns: auto minmax(0, 1fr); } .depart2 .lane { display: none; } }
+@media (max-width: 1023px) {
+  .lists { grid-template-columns: 1fr; }
+  .strip { grid-template-columns: 1fr; gap: 16px; }
+}
+@media (min-width: 720px) and (max-width: 1023px) { .strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } .strip .panel { padding: 16px; } }
+@media (max-width: 639px) {
+  .depart2, .depart2.guestview { grid-template-columns: 1fr; }
+  .depart2 .go .btn { align-self: stretch; }
+  .addbar { grid-template-columns: auto minmax(0, 1fr); }
+  .addbar > .btn { grid-column: 1 / -1; }
+  /* each line becomes a compact card: identity on top, the two actions side by side under it */
+  .brow { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr); padding: 12px; }
+  .brow .insignia { grid-row: span 2; align-self: start; }
+  .brow .bn { grid-column: 2 / -1; }
+  .brow .lv { grid-column: 2 / -1; }
+  .brow > .btn { grid-column: span 1; }
+  .brow > .btn:first-of-type { grid-column: 1 / 3; }
+  .brow .editor, .brow .state { grid-column: 1 / -1; }
+  .brow .editor .btn { flex: 1 1 130px; }
+  .tagd { margin-left: 6px; }
+}
+@media (min-width: 1024px) and (max-height: 760px) { .depart2 { padding-block: 16px; } }
+/* Forced colours: backgrounds and shadows vanish, so every state keeps a border, a sign or a word. */
+@media (forced-colors: active) {
+  .dot { forced-color-adjust: none; background: CanvasText; border: 2px solid CanvasText; } .dot.off { background: Canvas; }
+  .pen, .eye, .insignia { --c: CanvasText; --color-ecume: CanvasText; color: CanvasText; }
+  .brow.open { border-left: 4px solid CanvasText; } .brow.dirty { border-left: 8px double CanvasText; }
+}
+
+.force-aube { background: var(--color-abysse); color: var(--color-ecume); min-height: 100vh; }
+.force-aube .only-aube { display: inline !important; }
+.force-aube .only-abysse { display: none !important; }
+</style>
+</head>
+<body>
+<div class="force-aube" data-theme="aube">
+<div class="deck">
+<header class="site-header ">
+  <a class="logo" href="#" aria-label="Incision, accueil"><img src="../../../../apps/design/logo/ico-red.svg" alt="" style="height:36px;width:36px"><img class="only-abysse" src="../../../../apps/design/logo/wm-white.svg" alt="" style="height:26px"><img class="only-aube" src="../../../../apps/design/logo/wm-black.svg" alt="" style="height:26px"></a>
+  <div class="site-tools">
+    <span class="pill" role="group" aria-label="Langue de l’interface"><a href="#" aria-current="true" class="lang on">FR</a><span aria-hidden="true">/</span><a href="#" class="lang">EN</a></span>
+    <button class="pill" type="button" aria-label="Passer au thème clair Aube"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"/></svg></button>
+    <nav aria-label="Navigation principale" class="site-nav"><a class="pill mono" href="#">Jouer</a><a class="pill solid" href="#">Mon compte</a></nav>
+  </div>
+</header>
+<div class="quay" aria-hidden="true"><svg viewBox="0 0 1440 150" preserveAspectRatio="xMinYMid slice" fill="none" focusable="false">
+  <path d="M165 95 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M262 66 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M359 37 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M456 98 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M553 69 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M650 40 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M747 11 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M844 72 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M941 43 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M1038 14 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M1135 75 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M1232 46 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M1329 17 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M26 78 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M123 49 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M220 20 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M317 81 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M414 52 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M511 23 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M608 84 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M705 55 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M802 26 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M899 87 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M996 58 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M1093 29 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M1190 90 q6 -6 12 0 q6 6 12 0" stroke="var(--color-houle)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <path d="M912 126 C1052 126 1000 62 1180 74" stroke="var(--color-moi)" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 14"/>
+  <g class="c-moi" transform="translate(112 106) scale(2.3)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(206 108) scale(1.6)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(282 108) scale(1.6)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(358 108) scale(1.6)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(434 108) scale(1.6)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(510 108) scale(1.6)"><path class="mast" d="M0 -22 V3"/><path class="sail" d="M1 -17 L10 0 L1 0 Z"/><path class="sail" d="M-1.5 -13 L-1.5 0 L-8 0 Z" opacity="0.75"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(586 108) scale(1.6)"><path class="mast" d="M0 -22 V3"/><rect class="sail" x="-7" y="-15" width="13" height="13" rx="1.5"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><g class="c-ecume" transform="translate(662 108) scale(1.6)"><path class="mast" d="M0 -22 V3"/><rect class="sail" x="-7" y="-15" width="13" height="13" rx="1.5"/><path class="sail" d="M0 -22 l7 2.5 l-7 2.5 Z"/><path class="hull" d="M-11 3 H11 L7.5 8.5 H-7.5 Z"/></g><path d="M60 108 V132" stroke="var(--color-houle)" stroke-width="4" stroke-linecap="round"/><path d="M156 108 V132" stroke="var(--color-houle)" stroke-width="4" stroke-linecap="round"/><path d="M252 108 V132" stroke="var(--color-houle)" stroke-width="4" stroke-linecap="round"/><path d="M348 108 V132" stroke="var(--color-houle)" stroke-width="4" stroke-linecap="round"/><path d="M444 108 V132" stroke="var(--color-houle)" stroke-width="4" stroke-linecap="round"/><path d="M540 108 V132" stroke="var(--color-houle)" stroke-width="4" stroke-linecap="round"/><path d="M636 108 V132" stroke="var(--color-houle)" stroke-width="4" stroke-linecap="round"/><path class="dock" d="M-10 122 H722 V136 H-10 Z"/><text x="744" y="112">+8 au mouillage</text>
+  <g transform="translate(1290 66)">
+  <path class="lp-base" d="M-52 33 H52 L44 47 H-44 Z"/>
+  <path class="lp-base" d="M-34 24 H34 V33 H-34 Z"/>
+  <circle class="lp-glass" r="42"/>
+  <path class="lp-line" d="M-26 -21 A34 34 0 0 1 -8 -32" opacity=".6"/>
+  <path class="lp-line" d="M0 -42 V0"/>
+  <rect class="lp-n2" x="-8" y="-47" width="15" height="6" rx="3"/>
+  <g transform="rotate(-58)"><path class="lp-n1" d="M0 -5 L26 0 L0 5 Z"/><path class="lp-n2" d="M0 -5 L-26 0 L0 5 Z"/></g>
+  <circle r="3" fill="var(--color-abysse)" stroke="var(--color-ecume)" stroke-width="1.5"/>
+</g>
+</svg></div>
+<main class="page">
+  <div class="head"><div class="head-l"><p class="mono-label">[.Salle B7K4PQ]</p><h1 class="display ph">Salle d’attente</h1>
+    <p class="live" role="status"><span class="dot" aria-hidden="true"></span>En direct</p></div>
+    <button class="btn btn-discreet" type="button">Quitter la salle</button></div>
+  <div class="stack">
+    <section class="panel depart2" aria-labelledby="code-h"><div class="codeblock"><h2 id="code-h" class="mono-label" style="font:500 11px var(--font-mono)">Code de la salle</h2>
+        <div class="coderow"><span class="roomcode">B7K4PQ</span><button class="iconbtn" type="button" aria-label="Copier le code"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></button></div></div><svg class="lane" viewBox="0 0 300 44" preserveAspectRatio="none" fill="none" aria-hidden="true"><path d="M4 30 H296" stroke="var(--color-houle)" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 12"/></svg>
+      <div class="go"><button class="btn btn-primary" type="button" aria-describedby="start-note">Lancer la course</button>
+        <p id="start-note" class="muted">Arcade. Durée maximale : 120 s. Correction obligatoire. 50 mots. Passage cohérent, complexité moyenne.</p>
+        <div class="closeline"><p class="muted">Fermer la salle fait partir tout le monde : tu devras confirmer.</p><button class="btn btn-discreet" type="button">Fermer la salle</button></div></div>
+    </section>
+    <section class="panel" aria-labelledby="set-h"><div class="ptitle"><h2 id="set-h">Réglages de la course</h2><button class="btn btn-discreet" type="button">Modifier les réglages</button></div><dl class="chips"><div><dt>Langue du texte</dt><dd>Français</dd></div><div><dt>Nombre de mots</dt><dd>50</dd></div><div><dt>Durée maximale (secondes)</dt><dd>120</dd></div><div><dt>Mode de frappe</dt><dd>Correction obligatoire</dd></div><div class=arc><dt>Mode de jeu</dt><dd><span aria-hidden=true>◆ </span>Arcade</dd></div><div><dt>Type de texte</dt><dd>Passage cohérent</dd></div><div><dt>Complexité</dt><dd>Moyenne</dd></div><div><dt>Options du texte</dt><dd>ponctuation, majuscules, accents</dd></div></dl></section>
+    <div class="strip">
+      <section class="panel" aria-labelledby="vis-h"><h2 id="vis-h">Visibilité de la salle</h2>
+        <div><p><span class="muted" style="font-size:16px">Visibilité : </span><strong style="font-weight:600">Sur code</strong></p><p class="soft">Absente des listes. On entre avec le code ou un lien d’invitation.</p></div><button class="btn btn-discreet" type="button">Modifier la visibilité</button></section>
+      <section class="panel" aria-labelledby="cap-h"><h2 id="cap-h">Capacité de la salle</h2>
+        <p>Nombre maximal de participants : 20</p><p class="muted">De 2 à 30 participants, bots compris. Les spectateurs ne prennent pas de place de participant (20 maximum).</p><button class="btn btn-discreet" type="button">Modifier la capacité</button></section>
+      <section class="panel" aria-labelledby="inv-h"><h2 id="inv-h">Invitations</h2><p class="muted">Chaque lien est lié à la première personne admise et à son adresse IP. Il ne peut pas être partagé ensuite.</p>
+          <div class="btnrow" style="margin-top:auto"><button class="btn btn-secondary" type="button">Générer une invitation</button><button class="btn btn-discreet" type="button">Afficher / actualiser les invitations</button></div></section></div>
+    <div class="lists"><section class="panel" aria-labelledby="crew-h"><div class="ptitle"><h2 id="crew-h">Équipage</h2><p class="muted" style="font-family:var(--font-mono)">16 / 20 participants</p></div>
+          <h3 class="grp"><span>Participants</span><span>6</span></h3><ul><li class="mrow"><span class="dot" aria-hidden="true"></span><svg class="pen c-moi" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 L20 7.5 L3 13 Z" fill="var(--c)"/></svg>
+  <span class="nm">Capitaine <span class="you">(toi)</span></span>
+  <span class="hote">Hôte</span><span class="muted">participant</span><span class="muted st">en ligne</span></li><li class="mrow"><span class="dot" aria-hidden="true"></span><svg class="pen c-ecume" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 L20 7.5 L3 13 Z" fill="var(--c)"/></svg>
+  <span class="nm">Lina</span>
+  <span class="muted">participant</span><span class="muted st">en ligne</span></li><li class="mrow"><span class="dot" aria-hidden="true"></span><svg class="pen c-ecume" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 L20 7.5 L3 13 Z" fill="var(--c)"/></svg>
+  <span class="gtag">Invité</span><span class="nm">Éli</span>
+  <span class="muted">participant</span><span class="muted st">en ligne</span></li><li class="mrow"><span class="dot" aria-hidden="true"></span><svg class="pen c-ecume" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 L20 7.5 L3 13 Z" fill="var(--c)"/></svg>
+  <span class="nm">Noa</span>
+  <span class="muted">participant</span><span class="muted st">en ligne</span></li><li class="mrow"><span class="dot off" aria-hidden="true"></span><svg class="pen c-ecume" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 L20 7.5 L3 13 Z" fill="var(--c)"/></svg>
+  <span class="nm">Sam</span>
+  <span class="muted">participant</span><span class="muted st">hors ligne</span></li><li class="mrow"><span class="dot" aria-hidden="true"></span><svg class="pen c-ecume" width="24" height="16" aria-hidden="true"><path d="M2 1 V15" stroke="var(--color-ecume)" stroke-width="1.5" stroke-linecap="round"/><path d="M3 2 L20 7.5 L3 13 Z" fill="var(--c)"/></svg>
+  <span class="nm">Maé</span>
+  <span class="muted">participant</span><span class="muted st">en ligne</span></li></ul>
+          <h3 class="grp"><span>Spectateurs</span><span>2 / 20</span></h3><ul class="spec"><li class="mrow"><span class="dot" aria-hidden="true"></span><svg class="eye" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 8 C6 2 18 2 22 8 C18 14 6 14 2 8 Z"/><circle cx="12" cy="8" r="2.6"/></svg>
+  <span class="nm">Alix</span>
+  <span class="muted">spectateur</span><span class="muted st">en ligne</span></li><li class="mrow"><span class="dot off" aria-hidden="true"></span><svg class="eye" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 8 C6 2 18 2 22 8 C18 14 6 14 2 8 Z"/><circle cx="12" cy="8" r="2.6"/></svg>
+  <span class="nm">Camille</span>
+  <span class="muted">spectateur</span><span class="muted st">hors ligne</span></li></ul></section><section class="panel" aria-labelledby="bots-h"><h2 id="bots-h">Bots</h2><div class="addbar"><h3><span class="mark" aria-hidden="true">+</span>Ajouter un bot</h3>
+            <svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="10" r="4"/><path d="M24 14v25M15 21h18M9 29c0 14 30 14 30 0M9 29l-2 6m2-6 6 2m24-2 2 6m-2-6-6 2"/></svg><label class="flabel" for="lv-add">Niveau du bot<select id="lv-add" class="field"><option>Mousse — novice</option><option selected>Quartier-maître — débutant</option><option>Capitaine — intermédiaire</option><option>Empereur des mers — expert</option><option>Roi des pirates — impossible</option></select></label><button class="btn btn-secondary" type="button">Ajouter un bot</button>
+            <p class="muted help">Ce choix s’applique uniquement au prochain bot ajouté.</p></div>
+          <div class="roster2"><h3 id="roster-h">Bots dans la salle<span class="n" aria-label="10">10</span></h3><ul><li class="brow"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="12"/><circle cx="24" cy="24" r="3"/><path d="M24 5v16m0 6v16M5 24h16m6 0h16M10 10l12 12m4 4 12 12M10 38l12-12m4-4 12-12"/></svg><p class="bn">Bot 1</p><p class="lv">Niveau enregistré : Capitaine — intermédiaire</p><button class="btn btn-discreet" type="button" aria-expanded="false" aria-label="Modifier Bot 1">Modifier</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 1">Retirer</button></li><li class="brow open dirty"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 8v26H10L24 12l14 22H24M8 39q8-4 16 0t16 0"/></svg><p class="bn">Bot 2<span class="tagd"><span aria-hidden="true">⚠</span>Non enregistré</span></p><p class="lv">Niveau enregistré : Mousse — novice</p><button class="btn btn-discreet" type="button" aria-expanded="true" aria-label="Annuler : Bot 2">Annuler</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 2">Retirer</button>
+  <div class="editor"><label class="flabel" for="lv-2">Niveau du bot 2<select id="lv-2" class="field"><option>Mousse — novice</option><option>Quartier-maître — débutant</option><option>Capitaine — intermédiaire</option><option selected>Empereur des mers — expert</option><option>Roi des pirates — impossible</option></select></label><button class="btn btn-secondary" type="button">Changer le niveau</button></div>
+  <p class="state" role="status"><span aria-hidden="true" style="color:var(--color-or)">⚠ </span>Modification non enregistrée : Empereur des mers — expert. Choisis « Changer le niveau » pour enregistrer.</p></li><li class="brow"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="m24 9 5 10 10 5-10 5-5 10-5-10-10-5 10-5Z"/><circle cx="24" cy="24" r="3"/></svg><p class="bn">Bot 3</p><p class="lv">Niveau enregistré : Empereur des mers — expert</p><button class="btn btn-discreet" type="button" aria-expanded="false" aria-label="Modifier Bot 3">Modifier</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 3">Retirer</button></li><li class="brow"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="10" r="4"/><path d="M24 14v25M15 21h18M9 29c0 14 30 14 30 0M9 29l-2 6m2-6 6 2m24-2 2 6m-2-6-6 2"/></svg><p class="bn">Bot 4</p><p class="lv">Niveau enregistré : Quartier-maître — débutant</p><button class="btn btn-discreet" type="button" aria-expanded="false" aria-label="Modifier Bot 4">Modifier</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 4">Retirer</button></li><li class="brow"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="10" r="4"/><path d="M24 14v25M15 21h18M9 29c0 14 30 14 30 0M9 29l-2 6m2-6 6 2m24-2 2 6m-2-6-6 2"/></svg><p class="bn">Bot 5</p><p class="lv">Niveau enregistré : Quartier-maître — débutant</p><button class="btn btn-discreet" type="button" aria-expanded="false" aria-label="Modifier Bot 5">Modifier</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 5">Retirer</button></li><li class="brow"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="12"/><circle cx="24" cy="24" r="3"/><path d="M24 5v16m0 6v16M5 24h16m6 0h16M10 10l12 12m4 4 12 12M10 38l12-12m4-4 12-12"/></svg><p class="bn">Bot 6</p><p class="lv">Niveau enregistré : Capitaine — intermédiaire</p><button class="btn btn-discreet" type="button" aria-expanded="false" aria-label="Modifier Bot 6">Modifier</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 6">Retirer</button></li><li class="brow open"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 13 9 7 7-12 7 12 9-7-4 20H12ZM13 37h22M18 41h12"/><path d="M17 28h14"/></svg><p class="bn">Bot 7</p><p class="lv">Niveau enregistré : Roi des pirates — impossible</p><button class="btn btn-discreet" type="button" aria-expanded="true" aria-label="Annuler : Bot 7">Annuler</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 7">Retirer</button>
+  <div class="editor"><label class="flabel" for="lv-7">Niveau du bot 7<select id="lv-7" class="field"><option>Mousse — novice</option><option>Quartier-maître — débutant</option><option>Capitaine — intermédiaire</option><option>Empereur des mers — expert</option><option selected>Roi des pirates — impossible</option></select></label><button class="btn btn-discreet idle" type="button" aria-disabled="true">Changer le niveau</button></div>
+  <p class="state" role="status">Aucune modification en attente.</p></li><li class="brow"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 8v26H10L24 12l14 22H24M8 39q8-4 16 0t16 0"/></svg><p class="bn">Bot 8</p><p class="lv">Niveau enregistré : Mousse — novice</p><button class="btn btn-discreet" type="button" aria-expanded="false" aria-label="Modifier Bot 8">Modifier</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 8">Retirer</button></li><li class="brow"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="m24 9 5 10 10 5-10 5-5 10-5-10-10-5 10-5Z"/><circle cx="24" cy="24" r="3"/></svg><p class="bn">Bot 9</p><p class="lv">Niveau enregistré : Empereur des mers — expert</p><button class="btn btn-discreet" type="button" aria-expanded="false" aria-label="Modifier Bot 9">Modifier</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 9">Retirer</button></li><li class="brow"><svg class="insignia" aria-hidden="true" focusable="false" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="12"/><circle cx="24" cy="24" r="3"/><path d="M24 5v16m0 6v16M5 24h16m6 0h16M10 10l12 12m4 4 12 12M10 38l12-12m4-4 12-12"/></svg><p class="bn">Bot 10</p><p class="lv">Niveau enregistré : Capitaine — intermédiaire</p><button class="btn btn-discreet" type="button" aria-expanded="false" aria-label="Modifier Bot 10">Modifier</button><button class="btn btn-discreet" type="button" aria-label="Retirer Bot 10">Retirer</button></li></ul></div></section></div>
+    <section class="panel" aria-labelledby="mod-h"><h2 id="mod-h">Modération de la salle</h2>
+      <ul class="modgrid"><li class="modrow"><span>Lina</span><button class="btn btn-discreet" type="button" aria-label="Expulser Lina">Expulser</button></li><li class="modrow"><span>Éli</span><button class="btn btn-discreet" type="button" aria-label="Expulser Éli">Expulser</button></li><li class="modrow"><span>Noa</span><button class="btn btn-discreet" type="button" aria-label="Expulser Noa">Expulser</button></li><li class="modrow"><span>Sam</span><button class="btn btn-discreet" type="button" aria-label="Expulser Sam">Expulser</button></li><li class="modrow"><span>Maé</span><button class="btn btn-discreet" type="button" aria-label="Expulser Maé">Expulser</button></li><li class="modrow"><span>Alix</span><button class="btn btn-discreet" type="button" aria-label="Expulser Alix">Expulser</button></li><li class="modrow"><span>Camille</span><button class="btn btn-discreet" type="button" aria-label="Expulser Camille">Expulser</button></li></ul></section>
+  </div>
+</main>
+<footer class="foot mono-label">Incision · un projet de Philippe Monfouayi <span class="sample" style="margin-left:16px">· Données d’exemple</span></footer>
+</div>
+</div>
+</body>
+</html>

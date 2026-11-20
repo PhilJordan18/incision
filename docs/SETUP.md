@@ -4,7 +4,7 @@ Ce guide part d'une copie du dépôt `incision/`. L'application Next.js existe d
 
 ## Outils
 
-Utiliser Node.js 24, npm 11, Git et Docker. Démarrer Docker Desktop pour la base de données locale. GitHub héberge le dépôt et exécute la CI à chaque push. La production tourne sur Azure App Service avec Neon PostgreSQL ([ADR-0002](adr/0002-hosting.md), [guide de déploiement](DEPLOYMENT.md)); le budget reste à **0 $ de dépense personnelle**. Un éditeur qui prend en charge TypeScript est recommandé.
+Utiliser Node.js 24, npm 11, Git et Docker. Démarrer le moteur Docker de cette machine (Docker Desktop sur poste local, daemon Docker dans un environnement cloud isolé). GitHub héberge le dépôt et exécute la CI à chaque push. La production tourne sur Azure App Service avec Neon PostgreSQL ([ADR-0002](adr/0002-hosting.md), [guide de déploiement](DEPLOYMENT.md)); le budget reste à **0 $ de dépense personnelle**. Un éditeur qui prend en charge TypeScript est recommandé.
 
 ## 1. Aller à la racine du dépôt
 
@@ -20,10 +20,12 @@ Sur une autre machine, cloner d'abord le dépôt GitHub et entrer dans son dossi
 
 ```sh
 npm ci
+# Préparer ensuite la base et les variables (sections 3 et 3 bis),
+# puis lancer :
 npm run dev -w @incision/web
 ```
 
-Ouvrir `http://localhost:3000` pour vérifier l'écran initial. `npm run dev -w @incision/web` démarre le serveur personnalisé, qui sert Next.js et Socket.IO sur le même port et lit le `.env` à la racine. `http://localhost:3000/api/health` indique l'état de la base de données. La connexion exige la base de données (section 3) et les variables d'authentification de `.env` (section 3 bis).
+Ouvrir `http://localhost:3000` pour vérifier l'écran initial. `npm run dev -w @incision/web` démarre le serveur personnalisé, qui sert Next.js et Socket.IO sur le même port et lit le `.env` à la racine. `http://localhost:3000/api/health` indique l'état de la base de données. Les courses ne démarrent qu'avec `RACES_ENABLED=true` dans `.env` : un `.env` copié avant cette variable ne l'a pas (la copie de la section 3 n'écrase jamais), il faut alors y ajouter la ligne `RACES_ENABLED=true`. Sans elle, le bouton de départ répond que les courses sont fermées. Depuis F-02.3b, une course tire aussi son texte du corpus de la base locale : importer une version de `packages/database/corpus/` (`npm run db:import:corpus -w @incision/database -- --version <version>`, la plus récente) ; sans corpus actif, le départ est refusé (`TEXTS_UNAVAILABLE`). Un corpus actif qui ne contient aucun passage compatible avec les réglages entraîne plutôt `NO_COMPATIBLE_PASSAGE`. La connexion exige la base de données (section 3) et les variables d'authentification de `.env` (section 3 bis).
 
 **Contrainte TypeScript stricte.** Le code du produit utilise `.ts`/`.tsx`; la configuration PostCSS est en JSON. `tsconfig.json` désactive `allowJs`. Les fichiers JavaScript des dépendances dans `node_modules` ne sont pas du code écrit pour ce projet.
 
@@ -34,6 +36,7 @@ cp -n .env.example .env
 docker compose up -d db
 docker compose ps
 npm run db:migrate -w @incision/database
+npm run db:import:corpus -w @incision/database -- --version 2026-10-25.4
 ```
 
 `db:migrate` applique les migrations versionnées à la base de données de `DATABASE_URL_UNPOOLED` (la base locale par défaut). Les tests de base de données utilisent un serveur distinct et jetable qui garde ses données en mémoire :
@@ -49,7 +52,8 @@ Ils n'acceptent qu'un serveur `localhost` et y créent puis suppriment des bases
 
 1. Dans `.env`, donner à `AUTH_SECRET` la sortie de `openssl rand -base64 32` (ne jamais réutiliser une valeur de production) et garder `AUTH_URL=http://localhost:3000`.
 2. Créer les comptes de démonstration : `npm run db:seed:demo -w @incision/database`, puis se connecter à `http://localhost:3000/sign-in` avec un [compte de démonstration](../README.md#comptes-de-démonstration).
-3. Pour GitHub et Discord, remplir `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET` avec l'application OAuth GitHub de **développement** et `AUTH_DISCORD_ID`/`AUTH_DISCORD_SECRET` avec l'application Discord, dont les URL de callback sont listées dans [DEPLOYMENT.md](DEPLOYMENT.md#authentification). Sans elles, les identifiants locaux fonctionnent quand même.
+3. Pour utiliser les invitations dans cette copie isolée, générer aussi une clé dédiée pour `INVITATION_IP_SECRET`, distincte des clés de compte et d’invité. Sans elle, émission et admission par invitation sont désactivées; voir [la procédure](architecture/room-invitations.md).
+4. Pour GitHub et Discord, remplir `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET` avec l'application OAuth GitHub de **développement** et `AUTH_DISCORD_ID`/`AUTH_DISCORD_SECRET` avec l'application Discord, dont les URL de callback sont listées dans [DEPLOYMENT.md](DEPLOYMENT.md#authentification). Sans elles, les identifiants locaux fonctionnent quand même.
 
 Les tests de bout en bout ne font aucun build eux-mêmes : lancer d'abord `npm run build`, démarrer `db-test`, puis
 
@@ -59,9 +63,111 @@ npm run test:e2e -w @incision/web
 
 Playwright démarre le build de production par le serveur personnalisé sur le port 3200, avec une base jetable `incision_e2e` sur `db-test` qu'il supprime, migre et alimente avec le seed à chaque exécution (`E2E_DATABASE_URL` la remplace, localhost seulement). La première exécution peut exiger `npx playwright install chromium`. Les tests OAuth sont simulés : ils s'arrêtent à l'URL d'autorisation du fournisseur et ne se connectent jamais à GitHub ni à Discord.
 
+Les tests d'intégration de la course lancent eux aussi le build de production, en deux processus sur les ports 3301 et 3302, avec une base jetable `incision_e2e_integration` sur `db-test` (`INTEGRATION_DATABASE_URL` et `INTEGRATION_PORTS` les remplacent, localhost seulement). Ils pilotent les comptes par Socket.IO, sans navigateur, et durent environ deux à trois minutes sur la machine de qualification :
+
+```sh
+npm run test:integration -w @incision/web
+```
+
+### Historique de démonstration facultatif
+
+Sur la base locale migrée **de cette copie seulement**, fournir explicitement son
+URL (le script ne lit pas `.env`) :
+
+```sh
+DEMO_HISTORY_DATABASE_URL=postgresql://incision:incision_local_only@localhost:5432/incision \
+  node --import tsx packages/database/scripts/seed-history.ts --version 2026-10-25.4
+```
+
+Adapter l’URL si le port ou le mot de passe local diffère. Le script importe le
+corpus de manière idempotente et crée six courses synthétiques pour
+`demo-history-alice` / `brume-history-alice-4817` et
+`demo-history-bruno` / `brume-history-bruno-2096` (identifiants volontairement publics).
+Il ne remplace pas des données existantes en conflit. Ces courses ne collectent
+pas de journal Arcade : elles servent aussi à vérifier l’état « journal indisponible »,
+jamais un faux « aucun bonus ». Voir les [limites du seed](evidence/f07-7-demo-history/README.md).
+
+Pour une même recette locale réutilisée, conserver les valeurs de
+`AUTH_SECRET`, `GUEST_SESSION_SECRET` et `INVITATION_IP_SECRET` entre les
+redémarrages dans la configuration privée de cet environnement. Les générer à
+la création de l'environnement. Si la clé Auth.js change, les cookies existants
+sont refusés et une nouvelle connexion émet une session chiffrée avec la clé
+courante. Les suites à base et navigateur jetables peuvent générer leurs
+propres clés par exécution.
+
+## 3 ter. Activer explicitement le parcours invité (#31)
+
+La copie de `.env.example` laisse `GUEST_ENTRY_ENABLED=false` et
+`GUEST_SESSION_SECRET` vide. Sans activation, le lien invité est masqué, `/guest`
+indique son indisponibilité et les actions d'admission sont refusées. Ce flag ne
+coupe pas globalement les API d'identité invitée ni les sockets déjà livrés.
+
+Procédure pour un **environnement de développement isolé choisi explicitement**,
+pas pour la recette partagée, ses données ou ses sauvegardes :
+
+1. Utiliser une version contenant le parcours invité et sa base migrée par la
+   procédure habituelle (migrations publiées immuables, aucune ancienne migration
+   cloud à réappliquer). Aucun changement de schéma supplémentaire n'est nécessaire
+   pour ce raccordement navigateur.
+2. Dans le `.env` ignoré de cet environnement seulement, renseigner
+   `GUEST_SESSION_SECRET` avec une nouvelle clé aléatoire dédiée, par exemple générée
+   séparément avec `openssl rand -base64 32`. Ne pas réutiliser `AUTH_SECRET`, une
+   clé de test ou celle d'un autre environnement. Le serveur accepte 32 à 1 024
+   octets ; ne jamais publier la valeur, la journaliser ni employer `NEXT_PUBLIC_`.
+3. Définir explicitement `GUEST_ENTRY_ENABLED=true`, puis redémarrer le serveur
+   personnalisé. Toute autre valeur ferme l'entrée. Une clé absente/invalide rend
+   l'identité invitée indisponible, même si le flag vaut `true`.
+4. Conserver `APP_URL` et `AUTH_URL` sur la même origine. Pour courir, les prérequis
+   existants restent nécessaires : `RACES_ENABLED=true` et corpus compatible.
+   Un invité rejoint par code une salle existante ; il ne crée pas de salle.
+5. Depuis un navigateur avec JavaScript et Web Locks (contexte sécurisé : HTTPS,
+   ou localhost en développement), ouvrir `/guest`, puis vérifier deux onglets,
+   le refus d'un pseudo occupé, une course et le départ avant connexion à un compte.
+   Sans Web Locks, l'entrée invitée est refusée explicitement ; la connexion locale
+   des comptes reste utilisable sans JavaScript.
+
+Le cookie reste HttpOnly ; seul le serveur utilise la clé. La synchronisation du
+cookie déclenchée par les événements temps réel suit une activité acceptée, au plus
+une fois par minute par onglet monté, sans heartbeat de renouvellement. Les actions
+HTTP acceptées peuvent aussi rafraîchir le cookie dans leur réponse. Une réponse perdue peut laisser le cookie expirer
+avant la session SQL. Les résultats temporaires sont en mémoire du processus : un
+redémarrage peut les perdre et interrompt les courses selon les règles existantes.
+L'activité de frappe acceptée est maintenue en mémoire et persistée par lots
+(intervalle de 60 secondes), avec son horodatage d'acceptation + 24 h, jamais celui
+du flush. L'arrêt normal tente de vider les écritures en attente ; un arrêt brutal
+peut perdre l'activité depuis le dernier checkpoint. Les pauses du processus ou
+les délais SQL ne permettent pas de promettre une fenêtre de perte strictement
+limitée à 60 secondes. Après redémarrage, l'échéance SQL fait autorité ; une panne
+de persistance coupe les sockets invités concernés. Le rafraîchissement du cookie
+peut lire l'échéance acceptée en mémoire après validation SQL du justificatif,
+sans créer d'activité. Ce fonctionnement suppose le runtime à instance unique ;
+les mutations de présence utilisent une barrière locale, pas un protocole de
+révocation distribué.
+
+La purge physique peut prendre du retard pendant une panne ; l'expiration des
+droits reste vérifiée côté serveur. Ce mécanisme ne constitue pas un cache distribué.
+
+Les E2E configurent eux-mêmes `GUEST_ENTRY_ENABLED=true`, une clé invitée aléatoire
+éphémère distincte de celle des comptes et `RACES_ENABLED=true`, sur leur base
+jetable. Ne pas recopier leurs clés ni `RACE_FIXTURE_TEXTS` dans un environnement
+réel. Le [rapport #187](evidence/f01-1ce-guest-realtime/README.md) distingue les tests
+exécutés et les validations humaines restantes. Aucun accès à la recette ou à une
+ressource distante n'est autorisé par cette procédure ; voir aussi
+[Activation invitée](DEPLOYMENT.md#activation-invitée-31).
+
+### Qualification de charge isolée
+
+Après le build, `LOAD_CONFIRM=local-only npm run load -w @incision/load` crée sa propre
+base jetable sur `127.0.0.1:5433`, applique les migrations et importe le corpus versionné
+`2026-10-25.4` avec les contrôles du projet. Importer le corpus dans la base de développement
+ne prépare donc pas cette base de test. Le scénario connecte 30 coureurs et 20 spectateurs,
+puis vérifie la course entière et ses résultats persistés. Voir [le protocole](../tools/load/README.md).
+Cet import local ne vaut pas acceptation éditoriale du corpus ni validation humaine :
+elles restent à confirmer avec le coordinateur. Aucun accès à la recette n’est nécessaire.
+
 ## 4. Ajouter les modules de l'application
 
-`packages/domain` (règles pures) et `packages/database` (schéma Drizzle, migrations, création de salle) existent déjà; `packages/contracts` sera créé avec les premiers événements temps réel partagés. Ajouter les dépendances avec `npm install --workspace=<path>` et garder des **versions stables verrouillées par `package-lock.json`**.
+`packages/domain` (règles pures) et `packages/database` (schéma Drizzle, migrations, création de salle) existent déjà; les contrats temps réel partagés vivent dans `apps/web/src/rooms` et `apps/web/src/races` (pas de paquet `packages/contracts`). Ajouter les dépendances avec `npm install --workspace=<path>` et garder des **versions stables verrouillées par `package-lock.json`**.
 
 Pour changer le schéma : modifier `packages/database/src/schema`, lancer `npm run db:generate -w @incision/database`, relire et commiter le SQL généré, puis lancer les tests de base de données. La CI échoue si le schéma et les migrations ne concordent pas. Ne jamais utiliser `drizzle-kit push`, et ne jamais modifier une migration déjà appliquée à une base de données distante. [Le schéma livré](architecture/data-model.md#delivered-schema) liste ce qui existe aujourd'hui.
 

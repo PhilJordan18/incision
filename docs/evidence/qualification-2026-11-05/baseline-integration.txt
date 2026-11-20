@@ -1,0 +1,19 @@
+Source: c588a272acdeca72722dd1aac65c80c5e1d0d006, previous fresh-clone qualification
+
+> @incision/web@0.1.0 test:integration
+> vitest run --config vitest.integration.config.mts
+
+
+ RUN  v5.0.3 /workspace/incision-validation/apps/web
+
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  16:31:34
+   Duration  152.77s (tests 97%, import 2%, transform 1%)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

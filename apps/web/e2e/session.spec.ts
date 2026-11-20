@@ -1,6 +1,8 @@
+import { randomBytes } from "node:crypto";
 import { hashPassword } from "@incision/database";
 import { DEMO_ACCOUNTS } from "@incision/database/demo-accounts";
 import { expect, test } from "@playwright/test";
+import { encode } from "next-auth/jwt";
 import { SESSION_EVENT } from "../src/server/realtime/socket-server";
 import { connectSocket, FRENCH, forgeSessionCookie, query, SESSION_COOKIE, sessionCookieHeader, signInWithCredentials } from "./support";
 
@@ -98,6 +100,33 @@ test.describe("sign-out ends every session of the account (option B)", () => {
 });
 
 test.describe("refused cookies", () => {
+  test("an earlier signing secret refuses the old session and a fresh sign-in restores it", async ({ page, context, baseURL }) => {
+    const origin = baseURL ?? "";
+    const [account] = await query<{ id: string; session_version: number }>(
+      "select id, session_version from accounts where login_canonical = $1", [bruno.login],
+    );
+    if (!account) throw new Error("Missing synthetic account");
+    const earlierToken = await encode({
+      token: { sub: account.id, sessionVersion: account.session_version, authTime: Math.floor(Date.now() / 1000) },
+      salt: SESSION_COOKIE,
+      secret: randomBytes(32).toString("base64url"),
+    });
+    await context.addCookies([{ name: SESSION_COOKIE, value: earlierToken, url: origin }]);
+    await page.goto("/account");
+    await expect(page).toHaveURL(/\/sign-in/);
+    const old = await connectSocket(origin, `${SESSION_COOKIE}=${earlierToken}`);
+    try { expect(old.error).toBe("UNAUTHORIZED"); }
+    finally { old.socket.close(); }
+
+    await signInWithCredentials(page, bruno.login, bruno.password);
+    await expect(page).toHaveURL(/\/account$/);
+    const fresh = await connectSocket(origin, await sessionCookieHeader(context));
+    try {
+      expect(fresh.error).toBeUndefined();
+      expect(await fresh.socket.timeout(5000).emitWithAck(SESSION_EVENT, {})).toMatchObject({ ok: true });
+    } finally { fresh.socket.close(); }
+  });
+
   test("refuses a tampered cookie on HTTP and Socket.IO", async ({ page, context, baseURL }) => {
     await signInWithCredentials(page, bruno.login, bruno.password);
     await expect(page).toHaveURL(/\/account$/);

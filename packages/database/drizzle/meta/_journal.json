@@ -15,6 +15,139 @@
       "when": 1791258156734,
       "tag": "0001_session_version",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791460337860,
+      "tag": "0002_races",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791719894991,
+      "tag": "0003_engine_error",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792590008682,
+      "tag": "0004_race_corpus",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792933136676,
+      "tag": "0005_profile_photos",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792954069234,
+      "tag": "0006_lobby_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793054058399,
+      "tag": "0007_lobby_settings_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793119089743,
+      "tag": "0008_race_wpm_series",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793198503354,
+      "tag": "0009_room_bots",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793198763930,
+      "tag": "0010_race_key_errors",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793200041234,
+      "tag": "0011_race_bot_identities",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793226538080,
+      "tag": "0012_third_human_cannonball",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793235286010,
+      "tag": "0013_guest_identity_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793246763446,
+      "tag": "0014_anonymous_guest_results",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793333931372,
+      "tag": "0015_room_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793352588670,
+      "tag": "0016_lobby_text_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793353003376,
+      "tag": "0017_lobby_bonuses",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793366809239,
+      "tag": "0018_lobby_bans",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793673683743,
+      "tag": "0019_public_rooms_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793974144348,
+      "tag": "0020_lowly_veda",
+      "breakpoints": true
     }
   ]
 }

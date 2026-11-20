@@ -1,0 +1,33 @@
+/** RES-02/04 strings kept separate from shared configuration dictionaries. */
+export const resultsDetails = {
+  fr: {
+    errors: "Erreurs",
+    errorsHelp: "Chaque frappe incorrecte compte, même après correction.",
+    recordLabel: "Record personnel de cette course",
+    first: "Première référence",
+    improved: "Nouveau record personnel",
+    tied: "Record personnel égalé",
+    below: "Record personnel non battu",
+    unavailable: "Comparaison indisponible : le mode ou l’historique est incomplet.",
+    timing: "Comparé à tes courses admissibles terminées avant celle-ci, sans arrondi.",
+    bonuses: "Avec bonus",
+    noBonuses: "Sans bonus",
+    mandatory: "Correction obligatoire",
+    free: "Frappe libre",
+  },
+  en: {
+    errors: "Errors",
+    errorsHelp: "Every incorrect insertion counts, even after correction.",
+    recordLabel: "Personal record for this race",
+    first: "First reference",
+    improved: "New personal record",
+    tied: "Personal record tied",
+    below: "Personal record not beaten",
+    unavailable: "Comparison unavailable: the mode or history is incomplete.",
+    timing: "Compared with your eligible races completed before this one, without rounding.",
+    bonuses: "With bonuses",
+    noBonuses: "Without bonuses",
+    mandatory: "Mandatory correction",
+    free: "Free typing",
+  },
+} as const;

@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { firstRow } from "../rows";
 import { accounts, oauthIdentities, oauthProvider } from "../schema";
+import { boundedTransaction } from "../transaction";
 
 export type OAuthProvider = (typeof oauthProvider.enumValues)[number];
 export const OAUTH_PROVIDERS: readonly OAuthProvider[] = oauthProvider.enumValues;
@@ -36,7 +37,7 @@ export async function findOrCreateOAuthAccount(db: Database, signIn: OAuthSignIn
     return existing;
   }
   try {
-    return await db.transaction(async (tx) => {
+    return await boundedTransaction(db, async (tx) => {
       const account = firstRow(
         await tx
           .insert(accounts)
@@ -108,5 +109,15 @@ export async function revokeAccountSessions(db: Database, accountId: string): Pr
 /** What the account page shows; never a provider profile. */
 export async function readAccountProfile(db: Database, accountId: string): Promise<{ readonly displayName: string } | undefined> {
   const [row] = await db.select({ displayName: accounts.displayName }).from(accounts).where(eq(accounts.id, accountId));
+  return row;
+}
+
+/** Writes a validated D-14 name for the authenticated account only. Room and race names are snapshots. */
+export async function updateAccountDisplayName(
+  db: Database,
+  input: { readonly accountId: string; readonly displayName: string },
+): Promise<{ readonly displayName: string } | undefined> {
+  const [row] = await db.update(accounts).set({ displayName: input.displayName })
+    .where(eq(accounts.id, input.accountId)).returning({ displayName: accounts.displayName });
   return row;
 }

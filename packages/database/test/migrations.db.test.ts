@@ -41,6 +41,14 @@ function releasedMigrationCount(): number {
   return journal.entries.length;
 }
 
+/** The position of a migration in the package's journal. */
+function journalIndex(tag: string): number {
+  const journal: { entries: { tag: string }[] } = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"), "utf8"));
+  const index = journal.entries.findIndex((entry) => entry.tag === tag);
+  if (index === -1) throw new Error(`No migration tagged ${tag}`);
+  return index;
+}
+
 /** Copy of the package's migrations folder truncated after `lastTag`, i.e. an earlier release. */
 function releasedMigrationsUpTo(lastTag: string): string {
   const journal: { entries: { tag: string }[] } = JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, "meta", "_journal.json"), "utf8"));
@@ -82,6 +90,65 @@ function migrationsFolder(migrations: readonly (string | FixtureMigration)[]): s
 }
 
 describe("runMigrations", () => {
+  it("adds the 50-word default to populated settings without rewriting accounts, photos or historical races", async () => {
+    const previous = releasedMigrationsUpTo("0011_race_bot_identities");
+    await runMigrations({ connectionString: database.url, migrationsFolder: previous });
+    await query("insert into accounts (display_name) values ('Preserved account')");
+    await query("insert into profile_photos (account_id, webp) select id, decode('524946460000000057454250', 'hex') from accounts");
+    const photosBefore = await query("select * from profile_photos");
+    await query("insert into lobbies (code, capacity) values ('B7K4PQ', 30)");
+    await query("insert into lobby_settings (lobby_id, revision, text_language, time_limit_ms, error_mode) select id, 7, 'en', 600000, 'free' from lobbies");
+    await query(`insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
+      select id, 1, 'finished', 1, 'Historical text.', '{"language":"en","timeLimitMs":600000,"errorMode":"free"}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`);
+    const before = { accounts: await query("select * from accounts"), rooms: await query("select * from lobbies"), races: await query("select * from races") };
+    const settingsBefore = await query("select lobby_id, revision, text_language, time_limit_ms, error_mode from lobby_settings");
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 12 });
+    expect({ accounts: await query("select * from accounts"), rooms: await query("select * from lobbies"), races: await query("select * from races") }).toEqual(before);
+    expect(await query("select lobby_id, revision, text_language, time_limit_ms, error_mode from lobby_settings")).toEqual(settingsBefore);
+    expect(await query("select word_count from lobby_settings")).toEqual([{ word_count: 50 }]);
+    expect(await query("select * from profile_photos")).toEqual(photosBefore);
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: previous })).toEqual({ applied: 0 });
+  });
+  it("gives populated settings D-19's text settings (0016) without touching their other values or historical races", async () => {
+    // The migration before the text settings (L2's invitations): the test
+    // upgrades from its predecessor and counts what is applied from the journal.
+    const predecessor = "0015_room_invitations";
+    const previous = releasedMigrationsUpTo(predecessor);
+    await runMigrations({ connectionString: database.url, migrationsFolder: previous });
+    await query("insert into lobbies (code, capacity) values ('C8M5RT', 12)");
+    await query("insert into lobby_settings (lobby_id, revision, text_language, word_count, time_limit_ms, error_mode) select id, 4, 'en', 120, null, 'free' from lobbies");
+    await query(`insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
+      select id, 1, 'finished', 1, 'Historical text.', '{"language":"en","errorMode":"free"}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`);
+    const before = { rooms: await query("select * from lobbies"), races: await query("select * from races"), settings: await query("select * from lobby_settings") };
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - (journalIndex(predecessor) + 1) });
+    expect({ rooms: await query("select * from lobbies"), races: await query("select * from races") }).toEqual({ rooms: before.rooms, races: before.races });
+    expect(await query("select * from lobby_settings")).toEqual(before.settings.map((row) => ({
+      ...row, text_kind: "coherent", complexity: "medium", punctuation: true, numbers: false, capitals: true, accents: true, include_characters: [], exclude_characters: [],
+      // Later migrations add their own defaults (0017: training).
+      bonuses_enabled: false,
+    })));
+    // Coherent mode cannot hold characters to include or exclude (D-10); random mode holds at most 100 of each.
+    await expect(query("update lobby_settings set include_characters = '{a}'")).rejects.toThrow("lobby_settings_characters_random_only");
+    await query("update lobby_settings set text_kind = 'random', include_characters = '{a}', exclude_characters = '{b}'");
+    await expect(query("update lobby_settings set exclude_characters = array_fill('x'::text, array[101])")).rejects.toThrow("lobby_settings_characters_bounded");
+    await expect(query("update lobby_settings set text_kind = 'coherent'")).rejects.toThrow("lobby_settings_characters_random_only");
+  });
+
+  it("keeps existing rooms in training (0017) without touching their text settings or historical races", async () => {
+    // Upgrades from the text settings migration, whatever numbers the coordinator assigns.
+    const predecessor = "0016_lobby_text_settings";
+    await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo(predecessor) });
+    await query("insert into lobbies (code, capacity) values ('D9N6SV', 8)");
+    await query("insert into lobby_settings (lobby_id, revision, text_language, word_count, time_limit_ms, error_mode, text_kind, complexity) select id, 2, 'fr', 50, null, 'mandatory', 'random', 'hard' from lobbies");
+    await query(`insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
+      select id, 1, 'finished', 1, 'Texte.', '{"language":"fr","bonuses":false}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`);
+    const before = { races: await query("select * from races"), settings: await query("select * from lobby_settings") };
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - (journalIndex(predecessor) + 1) });
+    expect(await query("select * from races")).toEqual(before.races);
+    expect(await query("select * from lobby_settings")).toEqual(before.settings.map((row) => ({ ...row, bonuses_enabled: false })));
+    await expect(query("update lobby_settings set bonuses_enabled = null")).rejects.toThrow();
+  });
+
   it("builds the schema on an empty database, then a second run applies nothing", async () => {
     expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() });
     for (const table of ["accounts", "oauth_identities", "lobbies", "lobby_members"]) {
@@ -99,6 +166,39 @@ describe("runMigrations", () => {
     expect(row?.session_version).toBe(1);
     // Redeploying the CP-03 release on the upgraded database (rollback) applies nothing.
     expect(await runMigrations({ connectionString: database.url, migrationsFolder: cp03Release })).toEqual({ applied: 0 });
+  });
+
+  it("upgrades a database at the first-race release (0003): the corpus tables arrive, rooms and races are untouched", async () => {
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo("0003_engine_error") })).toEqual({ applied: 4 });
+    await query("insert into lobbies (code, capacity) values ('B7K4PQ', 30)");
+    await query(
+      `insert into races (lobby_id, round_no, state, rules_version, text_snapshot, config_snapshot, countdown_at, started_at, ended_at, owner_id, lease_expires_at)
+       select id, 1, 'finished', 1, 'Texte.', '{"text": "fr-verne-vingt-mille-lieues-p1-ch14-pacifique"}', now() - interval '3 minutes', now() - interval '2 minutes', now() - interval '1 minute', gen_random_uuid(), now() from lobbies`,
+    );
+    const before = { lobbies: await query("select * from lobbies"), races: await query("select * from races") };
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 4 });
+    for (const table of ["race_corpus_versions", "race_passages", "race_corpus_entries"]) {
+      expect(await tableExists(table)).toBe(true);
+    }
+    expect({ lobbies: await query("select * from lobbies"), races: await query("select * from races") }).toEqual(before);
+    // Redeploying the first-race release on the upgraded database (rollback) applies nothing.
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: releasedMigrationsUpTo("0003_engine_error") })).toEqual({ applied: 0 });
+  });
+
+  it("upgrades a database at the profile-photo release (0005): every room gets French texts, 120 s and mandatory correction (0006, 0007)", async () => {
+    const photoRelease = releasedMigrationsUpTo("0005_profile_photos");
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: photoRelease })).toEqual({ applied: 6 });
+    await query("insert into lobbies (code, capacity) values ('B7K4PQ', 30), ('C8M5RS', 2)");
+    await query("update lobbies set phase = 'closed', closed_at = now() where code = 'C8M5RS'");
+    const before = await query("select * from lobbies order by code");
+    expect(await runMigrations({ connectionString: database.url })).toEqual({ applied: releasedMigrationCount() - 6 });
+    expect(await query("select l.code, s.revision, s.text_language, s.time_limit_ms, s.error_mode from lobby_settings s join lobbies l on l.id = s.lobby_id order by l.code")).toEqual([
+      { code: "B7K4PQ", revision: 0, text_language: "fr", time_limit_ms: 120_000, error_mode: "mandatory" },
+      { code: "C8M5RS", revision: 0, text_language: "fr", time_limit_ms: 120_000, error_mode: "mandatory" },
+    ]);
+    expect(await query("select * from lobbies order by code")).toEqual(before);
+    // Redeploying the profile-photo release on the upgraded database (rollback) applies nothing.
+    expect(await runMigrations({ connectionString: database.url, migrationsFolder: photoRelease })).toEqual({ applied: 0 });
   });
 
   it("serialises two concurrent migrators: a slow migration is applied exactly once", async () => {

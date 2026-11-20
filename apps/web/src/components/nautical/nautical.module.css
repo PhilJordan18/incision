@@ -1,0 +1,99 @@
+/*
+ * Nautical primitives (art direction C1 « Cap »). Decorative drawings only: tokens of
+ * apps/design/tokens.css, no image, nothing moves on its own, nothing takes the pointer.
+ */
+.drawing {
+  display: block;
+  flex: none;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* A runner's colour, by token name (the same names as the track's routes). */
+.moi { --nautical-colour: var(--color-moi); }
+.juste { --nautical-colour: var(--color-juste); }
+.arcade { --nautical-colour: var(--color-arcade); }
+.embrun { --nautical-colour: var(--color-embrun); }
+.brume { --nautical-colour: var(--color-brume); }
+.ecume { --nautical-colour: var(--color-ecume); }
+
+/* Ship: hull and mast in `ecume`, the sail in the runner's colour. */
+.hull { fill: var(--color-ecume); }
+.mast { fill: none; stroke: var(--color-ecume); stroke-width: 1.5px; stroke-linecap: round; }
+.sail { fill: var(--nautical-colour); }
+.jib { fill: var(--nautical-colour); opacity: 0.75; }
+.selfRing { fill: none; stroke: var(--color-moi); stroke-width: 1.6px; opacity: 0.6; }
+.selfRingOuter { fill: none; stroke: var(--color-moi); stroke-width: 0.8px; opacity: 0.25; }
+/* In Aube `moi` at 60 % falls under 3:1 on the sea: the inner ring is drawn in full. */
+:global([data-theme="aube"]) .selfRing { opacity: 1; }
+.leaderRing { fill: none; stroke: var(--color-or); stroke-width: 3px; }
+
+/* Pennant: a staff, a cloth in the runner's colour, and the route's own line under it. */
+.pennant { display: inline-block; width: 24px; height: 16px; vertical-align: middle; }
+.staff { fill: none; stroke: var(--color-ecume); stroke-width: 1.5px; stroke-linecap: round; }
+.cloth { fill: var(--nautical-colour); }
+.wake { fill: none; stroke: var(--nautical-colour); stroke-width: 2px; stroke-linecap: round; }
+/* The same patterns as the track's routes (race-track.module.css), so a sample equals its route. */
+.dashed { stroke-dasharray: 7 4; }
+.dotted { stroke-dasharray: 1 4; }
+.eye { display: inline-block; width: 24px; height: 16px; vertical-align: middle; color: var(--color-brume); }
+.eye path, .eye circle { fill: none; stroke: currentColor; stroke-width: 1.6px; }
+
+/* Red coast: a flat land with a `ligne` edge. Never a halo. */
+.coast { width: 100%; height: 100%; }
+.land { fill: var(--color-erreur-fond); }
+/* In Aube `erreur-fond` is too pale to read as land: 20 % of `ligne` in `nuit` (D-15). */
+:global([data-theme="aube"]) .land { fill: color-mix(in srgb, var(--color-ligne) 20%, var(--color-nuit)); }
+.coastline {
+  fill: none;
+  stroke: var(--color-ligne);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Wave marks: short strokes, never behind text to read or type. */
+.wave { fill: none; stroke: var(--color-houle); stroke-width: 1.5px; stroke-linecap: round; }
+
+/* Glass compass. */
+.compassBase { fill: var(--color-nuit); stroke: var(--color-ecume); stroke-width: 2px; stroke-linejoin: round; }
+.compassGlass { fill: color-mix(in srgb, var(--color-mer) 60%, transparent); stroke: var(--color-ecume); stroke-width: 2px; }
+.compassLine { fill: none; stroke: var(--color-ecume); stroke-width: 1.5px; stroke-linecap: round; }
+.compassNorth { fill: var(--color-ligne); }
+.compassSouth { fill: var(--color-ecume); }
+.compassPivot { fill: var(--color-abysse); stroke: var(--color-ecume); stroke-width: 1.5px; }
+
+/* Quay: a strip of moored hulls. */
+.quay {
+  position: relative;
+  height: 150px;
+  overflow: hidden;
+  border-block: 1px solid var(--color-sillage);
+  background: var(--color-mer);
+  pointer-events: none;
+}
+.quay > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.post { fill: none; stroke: var(--color-houle); stroke-width: 4px; stroke-linecap: round; }
+.dock { fill: var(--color-sillage); stroke: var(--color-houle); stroke-width: 1.5px; }
+.quayCount { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.14em; fill: var(--color-embrun); }
+
+/*
+ * Forced colours: authored fills vanish or lose their meaning, so every shape takes a system
+ * colour and a border. Kind stays readable by shape, a route by its dash.
+ */
+@media (forced-colors: active) {
+  .drawing, .quay { forced-color-adjust: none; }
+  .sail, .jib, .cloth { fill: CanvasText; stroke: CanvasText; stroke-width: 1px; opacity: 1; }
+  .hull { fill: Canvas; stroke: CanvasText; stroke-width: 1.5px; }
+  .mast, .staff, .wake, .wave, .post, .compassLine { stroke: CanvasText; }
+  .selfRing, .selfRingOuter, .leaderRing { stroke: Highlight; opacity: 1; }
+  .eye { color: CanvasText; }
+  .land, :global([data-theme="aube"]) .land { fill: Canvas; }
+  .coastline { stroke: CanvasText; }
+  .compassBase, .compassGlass, .compassPivot, .dock { fill: Canvas; stroke: CanvasText; }
+  .compassNorth { fill: CanvasText; }
+  .compassSouth { fill: Canvas; stroke: CanvasText; stroke-width: 1px; }
+  .quay { border-color: CanvasText; background: Canvas; }
+  .quayCount { fill: CanvasText; }
+}

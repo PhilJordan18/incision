@@ -1,0 +1,20 @@
+{
+  "result": "PASS",
+  "corpusVersion": "2026-10-25.4",
+  "participants": 2,
+  "used": 1,
+  "unused": 2,
+  "outcomes": [
+    {
+      "kind": "human",
+      "outcome": "abandoned"
+    },
+    {
+      "kind": "bot",
+      "outcome": "finished"
+    }
+  ],
+  "reloadAndHistoryIdentical": true,
+  "fixtureTexts": false,
+  "forcedBonusSeed": false
+}

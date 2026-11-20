@@ -1,0 +1,114 @@
+[
+  {
+    "phase": "before",
+    "motion": "reduce",
+    "direction": "light",
+    "samples": 12,
+    "first": {
+      "ms": 10.599999999860302,
+      "theme": "abysse",
+      "fg": "rgb(138, 155, 181)",
+      "bg": "rgb(12, 20, 36)",
+      "contrast": 6.516498732034484
+    },
+    "last": {
+      "ms": 565,
+      "theme": "aube",
+      "fg": "rgb(74, 90, 115)",
+      "bg": "rgb(255, 255, 255)",
+      "contrast": 6.997210730507921
+    },
+    "worst": {
+      "ms": 157.69999999995343,
+      "theme": "aube",
+      "fg": "rgb(116, 132, 158)",
+      "bg": "rgb(96, 101, 112)",
+      "contrast": 1.5410899513185539
+    },
+    "axeViolations": 0
+  },
+  {
+    "phase": "before",
+    "motion": "reduce",
+    "direction": "dark",
+    "samples": 25,
+    "first": {
+      "ms": 2.800000000046566,
+      "theme": "aube",
+      "fg": "rgb(74, 90, 115)",
+      "bg": "rgb(255, 255, 255)",
+      "contrast": 6.997210730507921
+    },
+    "last": {
+      "ms": 505.30000000004657,
+      "theme": "abysse",
+      "fg": "rgb(138, 155, 181)",
+      "bg": "rgb(12, 20, 36)",
+      "contrast": 6.516498732034484
+    },
+    "worst": {
+      "ms": 88,
+      "theme": "abysse",
+      "fg": "rgb(111, 127, 153)",
+      "bg": "rgb(115, 120, 129)",
+      "contrast": 1.0927787119154317
+    },
+    "axeViolations": 0
+  },
+  {
+    "phase": "after",
+    "motion": "reduce",
+    "direction": "light",
+    "samples": 17,
+    "first": {
+      "ms": 2.8999999999068677,
+      "theme": "abysse",
+      "fg": "rgb(138, 155, 181)",
+      "bg": "rgb(12, 20, 36)",
+      "contrast": 6.516498732034484
+    },
+    "last": {
+      "ms": 500.69999999995343,
+      "theme": "aube",
+      "fg": "rgb(74, 90, 115)",
+      "bg": "rgb(255, 255, 255)",
+      "contrast": 6.997210730507921
+    },
+    "worst": {
+      "ms": 2.8999999999068677,
+      "theme": "abysse",
+      "fg": "rgb(138, 155, 181)",
+      "bg": "rgb(12, 20, 36)",
+      "contrast": 6.516498732034484
+    },
+    "axeViolations": 0
+  },
+  {
+    "phase": "after",
+    "motion": "reduce",
+    "direction": "dark",
+    "samples": 29,
+    "first": {
+      "ms": 0.5,
+      "theme": "aube",
+      "fg": "rgb(74, 90, 115)",
+      "bg": "rgb(255, 255, 255)",
+      "contrast": 6.997210730507921
+    },
+    "last": {
+      "ms": 483.10000000009313,
+      "theme": "abysse",
+      "fg": "rgb(138, 155, 181)",
+      "bg": "rgb(12, 20, 36)",
+      "contrast": 6.516498732034484
+    },
+    "worst": {
+      "ms": 33.10000000009313,
+      "theme": "abysse",
+      "fg": "rgb(138, 155, 181)",
+      "bg": "rgb(12, 20, 36)",
+      "contrast": 6.516498732034484
+    },
+    "axeViolations": 0
+  }
+]

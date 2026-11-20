@@ -1,10 +1,49 @@
 export * from "./client";
+export * from "./rooms/bots";
+export * from "./rooms/capacity";
+export * from "./rooms/visibility";
+export * from "./rooms/public-rooms";
+export * from "./rooms/quickplay";
+export * from "./corpus/defaults";
+export * from "./corpus/load";
 export * from "./errors";
 export * from "./identity/accounts";
+export * from "./identity/photos";
 export * from "./identity/password";
 export * from "./local-database";
 export * from "./pool";
+export * from "./races/lifecycle";
+export * from "./races/key-errors";
+export * from "./races/history";
+export * from "./races/profile-statistics";
+export * from "./races/results";
 export * from "./rooms/create-room";
+export * from "./rooms/host-actions";
 export * from "./rooms/membership";
+export * from "./rooms/settings";
 export * from "./schema";
 export * from "./tls";
+export * from "./identity/guest-sessions";
+export * from "./rooms/guest-admission";
+export * from "./rooms/guest-departure";
+export * from "./identity/guest-member-command";
+
+export { endDisconnectedHostPresence, type HostDepartureInput, type HostDepartureResult, type HostPresenceState } from "./rooms/host-departure";
+
+export { readGuestRoomSettings } from "./rooms/guest-host";
+
+export { readRoomRaceForGuest } from "./races/results";
+
+export { leaveGuestRoom } from "./rooms/membership";
+
+export { maintainGuestRetention, type GuestRetentionReport } from "./identity/guest-retention";
+
+export { prepareGuestAccountSignIn } from "./identity/guest-account-transition";
+
+export { readGuestRoom } from "./rooms/guest-room";
+
+export { guestCommandFence } from "./identity/guest-command-fence";
+export { expelRoomMember, type ExpelRoomMemberResult } from "./rooms/moderation";
+export { createRoomInvitation, revokeRoomInvitation, listRoomInvitations, joinRoomByInvitation, canResumeInvitationMembership } from "./rooms/invitations";
+
+export * from "./races/bonus-journal";

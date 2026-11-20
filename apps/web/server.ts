@@ -1,16 +1,54 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
-import { findActiveMembership, getDatabase, readRoomSnapshot, readSessionVersion } from "@incision/database";
+import {
+  beginRacing,
+  canResumeInvitationMembership,
+  endDisconnectedGuestPresence,
+  maintainGuestRetention,
+  endDisconnectedHostPresence,
+  runGuestMemberCommand,
+  finalizeRace,
+  findActiveMembership,
+  findActiveHumanMembership,
+  readGuestSession,
+  readGuestRoomSettings,
+  getDatabase,
+  interruptOwnRace,
+  loadActiveCorpus,
+  readOwnRoomSettings,
+  readRoomSnapshot,
+  readSessionVersion,
+  recoverAbandonedRaces,
+  recoverRoomIfAbandoned,
+  renewRaceLease,
+  startRace,
+  listPublicRooms,
+} from "@incision/database";
 import next from "next";
 import { parseServerEnv, type ServerEnv } from "./src/server/config";
-import { CLIENT_ADDRESS_HEADER, clientAddress } from "./src/server/http/client-address";
-import { registerRoomChannel } from "./src/server/realtime/room-channel";
-import { RoomPresence } from "./src/server/realtime/room-presence";
+import { assignClientAddress, clientAddress } from "./src/server/http/client-address";
+import { invitationAddressDigest } from "./src/server/rooms/invitation-credentials";
+import { registerRaceChannel } from "./src/server/realtime/race-channel";
+import { followedMember, followedRoom, registerRoomChannel } from "./src/server/realtime/room-channel";
+import { GuestCommandGate } from "./src/server/realtime/guest-command-gate";
+import { GuestRetentionWorker } from "./src/server/identity/guest-retention-worker";
+import { temporaryRoomResults } from "./src/server/races/temporary-room-results";
+import { HostPresenceGrace } from "./src/server/realtime/host-presence-grace";
+import { currentSession, currentGuestSession } from "./src/server/realtime/socket-server";
+import { GuestPresenceGrace } from "./src/server/realtime/guest-presence-grace";
+import { roomPresence } from "./src/server/realtime/room-presence";
 import { getSessionRegistry } from "./src/server/realtime/session-registry";
 import { attachRealtimeServer } from "./src/server/realtime/socket-server";
-import { authenticateHandshake } from "./src/server/realtime/socket-session";
-import { roomEvents } from "./src/server/rooms/room-events";
+import { authenticateHumanHandshake } from "./src/server/realtime/human-handshake";
+import { recoverRacesAtBoot } from "./src/server/races/boot-recovery";
+import { processOwnerId } from "./src/server/races/process-owner";
+import { RaceService, serverClock } from "./src/server/races/race-service";
+import { racesOpenOf, racesSwitchNotice } from "./src/server/races/races-switch";
+import { CorpusTexts, FIXTURE_RACE_TEXTS, fixedRaceTexts } from "./src/server/races/race-texts";
+import { notifyRoomChanged, roomEvents } from "./src/server/rooms/room-events";
+import { PublicRoomFeed, shareFeed } from "./src/server/rooms/public-room-feed";
+import { publicRoomWatchers, publishPublicRooms, registerPublicRoomChannel } from "./src/server/realtime/public-room-channel";
 
 // One Node process serves Next.js and Socket.IO on the same port (ADR-0001).
 async function main(): Promise<void> {
@@ -27,7 +65,7 @@ async function main(): Promise<void> {
   httpServer.on("request", (request, response) => {
     // The only source of the client address for Next (rate limits): a value sent by the
     // client under this name is overwritten (TRUSTED_PROXY_HOPS, docs/DEPLOYMENT.md).
-    request.headers[CLIENT_ADDRESS_HEADER] = clientAddress(request, env.trustedProxyHops);
+    assignClientAddress(request, env.trustedProxyHops);
     void handle(request, response);
   });
   // The same registry as the sign-out server action: both read it from globalThis.
@@ -37,21 +75,189 @@ async function main(): Promise<void> {
     allowedOrigin: env.appOrigin,
     isProduction: env.isProduction,
     authenticate: (cookieHeader) =>
-      authenticateHandshake(cookieHeader, {
+      authenticateHumanHandshake(cookieHeader, {
+        guestKey: process.env.GUEST_SESSION_SECRET,
+        readGuest: (proof) => readGuestSession(databaseOf(env), proof),
         secret: env.authSecret,
         secureCookie: env.secureCookies,
         readVersion: (accountId) => readSessionVersion(databaseOf(env), accountId),
       }),
     registry,
   });
+  // The race texts (F-02.3b): drawn from the active corpus, unless a test build asks for the short fixtures.
+  const corpusTexts = env.fixtureRaceTexts
+    ? undefined
+    : new CorpusTexts({ load: () => loadActiveCorpus(databaseOf(env)), log: (message) => console.log(message), logError: (message) => console.error(message) });
+  // The races this process runs (F-04.0, ADR-0004): every write fenced by owner and generation.
+  const races = new RaceService({
+    ownerId: processOwnerId(),
+    store: {
+      startRace: (input) => startRace(databaseOf(env), input),
+      readOwnRoomSettings: (accountId) => readOwnRoomSettings(databaseOf(env), accountId),
+      readGuestRoomSettings: (proof) => readGuestRoomSettings(databaseOf(env), proof),
+      beginRacing: (ownership) => beginRacing(databaseOf(env), ownership),
+      finalizeRace: (ownership, results) => finalizeRace(databaseOf(env), ownership, results),
+      interruptOwnRace: (ownership, reason) => interruptOwnRace(databaseOf(env), ownership, reason),
+      renewRaceLease: (ownership) => renewRaceLease(databaseOf(env), ownership),
+    },
+    now: serverClock,
+    monotonic: () => performance.now(),
+    schedule: (callback, delayMs) => {
+      const timer = setTimeout(callback, delayMs);
+      timer.unref();
+      return () => clearTimeout(timer);
+    },
+    onRoomChanged: notifyRoomChanged,
+    onSavedResults: (input) => temporaryRoomResults().save(input),
+    onGuestActivity: (session) => registry.refreshGuest(session.id, session.expiresAt.getTime()),
+    onRaceLost: (lobbyId) => roomEvents().emit("raceLost", lobbyId),
+    texts: corpusTexts ?? fixedRaceTexts(FIXTURE_RACE_TEXTS),
+    // Whether races may start at all; never which texts they run (the fixtures stay local only).
+    racesOpen: racesOpenOf(env.racesSwitch),
+    // Crypto seeds per race, except a local test build given RACE_TEST_BONUS_SEED (config.ts).
+    bonusSeed: env.testBonusSeed,
+    log: (message) => console.log(message),
+    logError: (message) => console.error(message),
+  });
+  console.log(
+    corpusTexts === undefined
+      ? "[races] RACE_FIXTURE_TEXTS=allowed: races run the test fixture texts, not the corpus"
+      : "[races] race texts: drawn from the active corpus (coherent, room word count, medium)",
+  );
+  // Loaded now, without delaying the server; a failure is retried by a later start, at most every CORPUS_RETRY_MS.
+  if (corpusTexts !== undefined && env.databaseUrl !== undefined) {
+    void corpusTexts.warm();
+  }
+  const racesNotice = racesSwitchNotice(env.racesSwitch);
+  (racesNotice.level === "warn" ? console.warn : console.log)(racesNotice.message);
+  // A departure committed by a server action ends the leaver's race, or the race if the room closed.
+  // It runs inside that action: a failure here must not turn the committed departure into an error.
+  roomEvents().on("left", (lobbyId, accountId, closed) => {
+    if (closed) temporaryRoomResults().discard(lobbyId);
+    try {
+      races.memberLeft(lobbyId, accountId, { roomClosed: closed });
+    } catch (error: unknown) {
+      console.error("[races] departure not applied to the race:", error instanceof Error ? error.name : "unknown error");
+    }
+  });
+  roomEvents().on("closed", (lobbyId) => { temporaryRoomResults().discard(lobbyId); races.roomClosed(lobbyId); });
+  roomEvents().on("guestLeft", (lobbyId, memberId, closed) => {
+    temporaryRoomResults().forgetMember(lobbyId, memberId);
+    if (closed) { temporaryRoomResults().discard(lobbyId); races.roomClosed(lobbyId); }
+    else races.guestMemberLeft(lobbyId, memberId);
+  });
+  roomEvents().on("changed", (lobbyId) => {
+    void temporaryRoomResults().reconcile(lobbyId, () => readRoomSnapshot(databaseOf(env), lobbyId))
+      .catch(() => console.error("[races] temporary display cleanup unavailable"));
+  });
+  const authorizedOnlineMembers = (lobbyId: string): ReadonlySet<string> => {
+      const members = new Set<string>();
+      for (const socket of io.sockets.sockets.values()) {
+        const member = followedMember(socket);
+        if (member?.lobbyId !== lobbyId || !socket.connected) continue;
+        const guard = { allowedOrigin: env.appOrigin, registry };
+        if (currentSession(socket, guard) !== undefined || currentGuestSession(socket, guard) !== undefined) members.add(member.memberId);
+      }
+      return members;
+    };
+  const hostGrace = new HostPresenceGrace({
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
+    membersOnline: authorizedOnlineMembers,
+    end: (input) => endDisconnectedHostPresence(databaseOf(env), input),
+    departed: ({ lobbyId, memberId }, result) => {
+      temporaryRoomResults().forgetMember(lobbyId, memberId);
+      if (result.closed) temporaryRoomResults().discard(lobbyId);
+      try {
+        if (result.closed) races.roomClosed(lobbyId);
+        else if (result.accountId === null) races.guestMemberLeft(lobbyId, memberId);
+        else races.memberLeft(lobbyId, result.accountId, { roomClosed: false });
+      } finally { notifyRoomChanged(lobbyId); }
+    },
+    failed: () => console.error("[rooms] host departure unavailable; retry scheduled"),
+  });
+  const guestGrace = new GuestPresenceGrace({
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    online: ({ lobbyId, memberId }) => roomPresence().onlineMembers(lobbyId).has(memberId),
+    end: (input) => endDisconnectedGuestPresence(databaseOf(env), input),
+    departed: ({ lobbyId, memberId }) => {
+      temporaryRoomResults().forgetMember(lobbyId, memberId);
+      try { races.guestMemberLeft(lobbyId, memberId); }
+      finally { notifyRoomChanged(lobbyId); }
+    },
+    failed: () => console.error("[guests] presence departure unavailable; retry scheduled"),
+  });
   // Room presence (CP-06): membership from the database, changes from the server actions.
-  registerRoomChannel(io, {
+  const roomChannel = registerRoomChannel(io, {
     allowedOrigin: env.appOrigin,
     registry,
-    presence: new RoomPresence(),
+    presence: roomPresence(),
     events: roomEvents(),
     findActiveMembership: (accountId) => findActiveMembership(databaseOf(env), accountId),
+    findGuestMembership: (guestSessionId) => findActiveHumanMembership(databaseOf(env), { kind: "guest", guestSessionId }),
+    canResumeMembership: (socket, member) => canResumeInvitationMembership(databaseOf(env), {
+      memberId: member.memberId,
+      addressDigest: invitationAddressDigest({ address: clientAddress(socket.request, env.trustedProxyHops), lobbyId: member.lobbyId, key: process.env.INVITATION_IP_SECRET }),
+    }),
+    readGuest: (proof) => readGuestSession(databaseOf(env), proof),
+    guestGrace,
+    hostGrace,
     readRoomSnapshot: (lobbyId) => readRoomSnapshot(databaseOf(env), lobbyId),
+    raceRecovery: {
+      recover: (lobbyId) => recoverRoomIfAbandoned(databaseOf(env), lobbyId),
+      ownsRace: (lobbyId) => races.ownsRace(lobbyId),
+    },
+    races,
+  });
+  const guestCommands = new GuestCommandGate({ registry, now: Date.now,
+    store: (input) => runGuestMemberCommand(databaseOf(env), input),
+  });
+  registerRaceChannel(io, { allowedOrigin: env.appOrigin, registry, races, followedRoom, followedMember, guestCommands,
+    guestStart: (connection, proof, payload) => races.startGuest(connection, proof, payload),
+  });
+
+  // Public room explorer (JOIN-02): one throttled read for all watchers, none without watchers.
+  const publicRooms = new PublicRoomFeed({
+    load: () => listPublicRooms(databaseOf(env)),
+    publish: (rooms) => publishPublicRooms(io, rooms),
+    watched: () => publicRoomWatchers(io) > 0,
+    now: Date.now,
+    schedule: (callback, delayMs) => { const timer = setTimeout(callback, delayMs); timer.unref(); return () => clearTimeout(timer); },
+    logError: (message) => console.error(message),
+  });
+  shareFeed(publicRooms);
+  registerPublicRoomChannel(io, { allowedOrigin: env.appOrigin, feed: publicRooms });
+  roomEvents().on("changed", () => publicRooms.changed());
+  roomEvents().on("closed", () => publicRooms.changed());
+
+  // Races a previous process left behind (ADR-0004): recovered without delaying the server.
+  if (env.databaseUrl !== undefined) {
+    recoverRacesAtBoot({
+      recover: () => recoverAbandonedRaces(databaseOf(env)),
+      onRecovered: notifyRoomChanged,
+      schedule: (callback, delayMs) => void setTimeout(callback, delayMs).unref(),
+      log: (message) => console.log(message),
+      logError: (message) => console.error(message),
+    });
+  }
+
+  const guestRetention = env.databaseUrl === undefined ? undefined : new GuestRetentionWorker({
+    run: () => maintainGuestRetention(databaseOf(env), authorizedOnlineMembers),
+    schedule: (callback, delay) => { const timer = setTimeout(callback, delay); timer.unref(); return () => clearTimeout(timer); },
+    committed: (report) => {
+      for (const member of report.departed) {
+        roomEvents().emit("guestLeft", member.lobbyId, member.memberId, member.closed);
+        notifyRoomChanged(member.lobbyId);
+      }
+      for (const lobbyId of report.purgedRooms) temporaryRoomResults().discard(lobbyId);
+    },
+    failed: () => {
+      // Earlier transactions in a failed batch may already have committed departures.
+      temporaryRoomResults().clear();
+      console.error("[guests] retention batch unavailable; next bounded batch scheduled");
+    },
   });
 
   httpServer.listen(env.port, () => {
@@ -61,14 +267,41 @@ async function main(): Promise<void> {
   // App Service sends SIGTERM before replacing the process: stop accepting work, then exit.
   process.once("SIGTERM", () => {
     console.log("[server] SIGTERM received, closing");
+    guestGrace.stop();
+    hostGrace.stop();
+    guestRetention?.stop();
+    publicRooms.stop();
+    temporaryRoomResults().clear();
     setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
-    void io.close(() => process.exit(0));
+    // Own races first (ADR-0004): no new start, then each one ends through its own shutdown
+    // (its frozen results saved, or interrupted as server_stopped); their rooms are told before
+    // the sockets close.
+    void (async () => {
+      try {
+        await guestCommands.stop();
+        const report = await races.stop({ onEnded: (lobbyId) => notifyRoomChanged(lobbyId), timeoutMs: RACE_STOP_MS });
+        if (report.finalised + report.interrupted + report.left > 0) {
+          console.log(`[races] stopped: ${report.finalised} finalised, ${report.interrupted} interrupted, ${report.left} left to their lease`);
+        }
+        await Promise.race([roomChannel.whenIdle(), new Promise((resolve) => setTimeout(resolve, BROADCAST_DRAIN_MS).unref())]);
+      } catch (error: unknown) {
+        console.error("[races] stop failed:", error instanceof Error ? error.name : "unknown error");
+      } finally {
+        void io.close(() => process.exit(0));
+      }
+    })();
   });
 }
 
 const SHUTDOWN_GRACE_MS = 10_000;
+/** Part of the grace given to ending the races this process runs, then to telling their rooms. */
+const RACE_STOP_MS = 5_000;
+const BROADCAST_DRAIN_MS = 2_000;
 
-/** Opened on the first authenticated handshake only: anonymous sockets never reach the database. */
+/**
+ * Opened on first use: the boot recovery, then authenticated handshakes. Anonymous sockets
+ * never reach the database.
+ */
 function databaseOf(env: ServerEnv) {
   if (env.databaseUrl === undefined) {
     throw new Error("DATABASE_URL is not set: sessions cannot be checked");

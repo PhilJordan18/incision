@@ -1,27 +1,53 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
+import { guestAwareAction } from "@/identity/guest-browser";
 import { useActionState, useEffect } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { FormAlert } from "@/components/ui/form-alert";
 import { discreetButton } from "@/components/ui/styles";
 import { leaveRoomAction, type LeaveRoomState } from "@/server/rooms/actions";
 
+import { guestLeaveRoomAction } from "@/server/rooms/guest-actions";
+
 type LeaveRoomFormProps = {
+  readonly guest?: boolean;
   readonly label: string;
   readonly pendingLabel: string;
   readonly errors: Readonly<Record<NonNullable<LeaveRoomState["error"]>, string>>;
   readonly returnTo?: string;
-  /** Id of the note saying what leaving does (the host closes the room). */
+  /** Id of the note explaining the consequences of leaving. */
   readonly describedBy?: string;
   /** Told when the person submits, before the server answers. */
   readonly onLeaving?: () => void;
   /** Told when the server could not record the departure. */
   readonly onFailed?: () => void;
+  /** The submit button's look (a discreet button by default; the host's confirmation uses its own). */
+  readonly buttonClassName?: string;
+  /** Told while the departure is on its way, and when it answered. */
+  readonly onPendingChange?: (pending: boolean) => void;
 };
 
 /** Leaves the current room on the server, then goes to `returnTo` (home by default). */
-export function LeaveRoomForm({ label, pendingLabel, errors, returnTo = "/", describedBy, onLeaving, onFailed }: LeaveRoomFormProps) {
-  const [state, formAction] = useActionState<LeaveRoomState, FormData>(leaveRoomAction, {});
+export function LeaveRoomForm({
+  guest = false,
+  label,
+  pendingLabel,
+  errors,
+  returnTo = "/",
+  describedBy,
+  onLeaving,
+  onFailed,
+  buttonClassName = `${discreetButton} self-start`,
+  onPendingChange,
+}: LeaveRoomFormProps) {
+  const [state, formAction, pending] = useActionState<LeaveRoomState, FormData>(async (previous, form) => {
+    try { return await guestAwareAction(guest, () => guest ? guestLeaveRoomAction(previous, form) : leaveRoomAction(previous, form)); }
+    catch (error) { unstable_rethrow(error); return { error: "UNAVAILABLE" }; }
+  }, {});
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
   useEffect(() => {
     if (state.error !== undefined) {
       onFailed?.();
@@ -30,7 +56,7 @@ export function LeaveRoomForm({ label, pendingLabel, errors, returnTo = "/", des
   return (
     <form action={formAction} onSubmit={onLeaving} className="flex flex-col gap-3">
       <input type="hidden" name="returnTo" value={returnTo} />
-      <SubmitButton label={label} pendingLabel={pendingLabel} className={`${discreetButton} self-start`} describedBy={describedBy} />
+      <SubmitButton label={label} pendingLabel={pendingLabel} className={buttonClassName} describedBy={describedBy} />
       {state.error !== undefined && <FormAlert message={errors[state.error]} />}
     </form>
   );

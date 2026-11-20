@@ -17,6 +17,21 @@ describe("resolveLocale", () => {
     ["*", "fr"],
     ["", "fr"],
     ["garbage;;q=x,,", "fr"],
+    ["en;q=oops,fr;q=0.9", "fr"],
+    ["en;q=1.5,fr;q=0.9", "fr"],
+    ["en;q=0.1234,fr;q=0.9", "fr"],
+    ["en;q=-1,fr;q=0.9", "fr"],
+    ["en;q=,fr;q=0.9", "fr"],
+    ["en;q=0;q=1,fr;q=0.9", "fr"],
+    ["en;foo=bar,fr;q=0.9", "fr"],
+    ["en;Q=0.1,fr;q=0.9", "fr"],
+    ["en;q=1.,fr;q=0.9", "en"],
+    ["en;q=0.,fr;q=0.9", "fr"],
+    ["en;q=1.000,fr;q=0.999", "en"],
+    ["en;q=0.001,fr;q=0", "en"],
+    ["en;q=0.8,fr;q=0.8", "en"],
+    ["fr;q=0.8,en;q=0.8", "fr"],
+    ["EN-us;\tQ=0.8 , fr-CA;q=0.7", "en"],
   ])("negotiates %j as %s", (acceptLanguage, expected) => {
     expect(resolveLocale(undefined, acceptLanguage)).toBe(expected);
   });

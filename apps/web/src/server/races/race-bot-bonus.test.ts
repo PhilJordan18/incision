@@ -1,0 +1,216 @@
+import { asDuration, asEntrantId, asInstant, asRaceId, BONUS_KINDS, type BonusContent, type BonusKind, COUNTDOWN_MS, createBonusRace, createRandom, type RandomState } from "@incision/domain";
+import { describe, expect, it, vi } from "vitest";
+import { RACE_BONUS_ANNOUNCEMENT_EVENT } from "../../races/bonus-protocol";
+import type { LeaseState } from "./race-lease";
+import { BOT_BONUS_DELAY_MS, RaceRuntime, type RaceConnection, type RaceStore } from "./race-runtime";
+
+/**
+ * D-16 on the server: a bot that receives a grant uses it after a delay drawn from its private
+ * stream, through the same authoritative transition as a player's Enter.
+ */
+const START = 1_800_000_000_000;
+const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
+const TEXT = "aa bb cc dd ee ff gg hh ii jj";
+const HUMAN = { entrantId: "human", accountId: "account", displayName: "Human" };
+const BOT = { entrantId: "bot", accountId: null, displayName: "Bot 1", kind: "bot" as const, botLevel: "noob" as const };
+const WON = { won: true, alreadyDone: false } as const;
+async function settle() { for (let turn = 0; turn < 12; turn++) await Promise.resolve(); }
+
+/** An award seed whose first draw is `kind`, as the coordinator selects it. */
+function seedFor(kind: BonusKind): RandomState {
+  for (let n = 1; n < 1000; n++) {
+    const seed: RandomState = [1, n * 1234567, 3, 4];
+    if (BONUS_KINDS[createRandom(seed).index(3)] === kind) return seed;
+  }
+  throw new Error("No deterministic test seed");
+}
+
+function setup({ enabled = true, kind = "shortenSelf" as BonusKind, botBonusSeed = [5, 6, 7, 8] as RandomState, bonusContent = undefined as BonusContent | undefined } = {}) {
+  let now = START; let next = 0; let leaseState: LeaseState = "held";
+  const timers = new Map<number, { at: number; callback: () => void }>();
+  const schedule = (callback: () => void, delay: number) => { const id = ++next; timers.set(id, { at: now + delay, callback }); return () => { timers.delete(id); }; };
+  const created = createBonusRace({ enabled, random: seedFor(kind), race: {
+    raceId: asRaceId(RACE), now: asInstant(START), text: TEXT, errorMode: "mandatory", timeLimit: asDuration(120_000),
+    participants: [{ entrantId: asEntrantId(HUMAN.entrantId), kind: "human" }, { entrantId: asEntrantId(BOT.entrantId), kind: "bot" }],
+  } });
+  if (!created.ok) throw new Error(created.reason);
+  const emit = vi.fn<RaceConnection["emit"]>();
+  const connection: RaceConnection = { id: "human-tab", accountId: HUMAN.accountId, emit };
+  const store = { beginRacing: vi.fn<RaceStore["beginRacing"]>(async () => WON), finalizeRace: vi.fn<RaceStore["finalizeRace"]>(async () => WON),
+    interruptOwnRace: vi.fn<RaceStore["interruptOwnRace"]>(async () => ({ ...WON })) };
+  const runtime = new RaceRuntime({ ownership: { raceId: RACE, lobbyId: "room", ownerId: "server", ownerEpoch: 1 },
+    state: created.state, entrants: [HUMAN, BOT], language: "fr", store, schedule, now: () => now, followers: () => [connection],
+    onSettled: vi.fn(), log: vi.fn(), botSeed: () => [1, 2, 3, 4], botBonusSeed: () => botBonusSeed,
+    ...(bonusContent === undefined ? {} : { bonusContent }),
+    lease: { start: () => {}, stop: () => {}, isAuthoritative: () => leaseState === "held", get state() { return leaseState; }, suspendedForMs: () => 0 },
+  });
+  async function advance(ms: number) {
+    const target = now + ms;
+    for (let calls = 0; ; calls++) {
+      if (calls > 100_000) throw new Error("unbounded timer loop");
+      const due = [...timers.entries()].filter(([, timer]) => timer.at <= target).sort((a, b) => a[1].at - b[1].at || a[0] - b[0])[0];
+      if (!due) break;
+      timers.delete(due[0]); now = Math.max(now, due[1].at); due[1].callback(); await settle();
+    }
+    now = target; await settle();
+  }
+  /** The human leads past 75 %: the trailing bot crosses no milestone itself and receives the grants. */
+  async function humanLeads() {
+    runtime.start();
+    // One second into the race: 23 inserts stay under the plausibility bound (COURSE-06).
+    await advance(COUNTDOWN_MS + 1_000);
+    const typed = runtime.keystrokes(connection, { raceId: RACE, seq: 1, textVersion: 0, events: [...TEXT.slice(0, 23)].map((grapheme) => ({ type: "insert" as const, grapheme })) });
+    expect(typed, JSON.stringify(typed)).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    await settle();
+  }
+  const botActivations = () => emit.mock.calls.filter(([event, payload]) => event === RACE_BONUS_ANNOUNCEMENT_EVENT
+    && (payload as { announcement: { type: string; receipt?: { grant: { entrantId: string } } } }).announcement.receipt?.grant.entrantId === BOT.entrantId);
+  const lease = (state: LeaseState) => { leaseState = state; runtime.leaseChanged(state); };
+  return { runtime, advance, humanLeads, botActivations, lease, now: () => now };
+}
+
+describe("bots use their bonuses (D-16)", () => {
+  it("activates the first grant after a delay drawn from the bot's private stream, within its bounds", async () => {
+    const { advance, humanLeads, botActivations } = setup();
+    await humanLeads();
+    const [min, max] = BOT_BONUS_DELAY_MS;
+    await advance(min - 1);
+    expect(botActivations()).toHaveLength(0);
+    await advance(max - min + 1);
+    expect(botActivations().length).toBeGreaterThanOrEqual(1);
+    const [, first] = botActivations()[0]!;
+    expect(first).toMatchObject({ raceId: RACE, announcement: { type: "activated", receipt: { grant: { entrantId: "bot", milestone: 25, kind: "shortenSelf" }, targetId: "bot" } } });
+  });
+
+  it("uses its grants in order, each once, and loses the rest when it finishes (D-16)", async () => {
+    const { advance, humanLeads, botActivations, runtime } = setup();
+    await humanLeads();
+    await advance(4 * BOT_BONUS_DELAY_MS[1]);
+    const milestones = botActivations().map(([, payload]) => (payload as { announcement: { receipt: { grant: { milestone: number } } } }).announcement.receipt.grant.milestone);
+    // Two shortenSelf grants shorten the bot's text until it finishes: its 75 % grant is never used.
+    expect(milestones).toEqual([25, 50]);
+    expect(runtime.state.entrants.find((entrant) => entrant.entrantId === "bot")?.status).toBe("finished");
+    await advance(30_000);
+    expect(botActivations()).toHaveLength(2);
+  });
+
+  it("draws the same delays from the same private seed, and other delays from another", async () => {
+    const at = async (seed: RandomState) => {
+      const run = setup({ botBonusSeed: seed });
+      await run.humanLeads();
+      const start = run.now();
+      for (let waited = 0; run.botActivations().length === 0 && waited < BOT_BONUS_DELAY_MS[1] + 10; waited += 10) await run.advance(10);
+      return run.now() - start;
+    };
+    const first = await at([5, 6, 7, 8]);
+    expect(await at([5, 6, 7, 8])).toBe(first);
+    const seeds: readonly RandomState[] = [[9, 9, 9, 9], [11, 12, 13, 14], [21, 22, 23, 24]];
+    const others = await Promise.all(seeds.map((seed) => at(seed)));
+    expect(others.some((delay) => delay !== first)).toBe(true);
+  });
+
+  it("does nothing in training: a race without bonuses grants and activates nothing", async () => {
+    const { advance, humanLeads, botActivations } = setup({ enabled: false });
+    await humanLeads();
+    await advance(20_000);
+    expect(botActivations()).toHaveLength(0);
+  });
+
+  it("keeps a grant the coordinator refuses (no extension words), then retries after a new delay", async () => {
+    // extendLeader while no content is available: CONTENT_UNAVAILABLE never consumes the grant.
+    const asked: number[] = [];
+    let available = false;
+    const bonusContent: BonusContent = () => { asked.push(clock()); return available ? ["mer", "vent", "cap"] : undefined; };
+    const { advance, humanLeads, botActivations, runtime, now: clock } = setup({ kind: "extendLeader", bonusContent });
+    await humanLeads();
+    const [min, max] = BOT_BONUS_DELAY_MS;
+    await advance(max);
+    expect(asked).toHaveLength(1);
+    expect(botActivations()).toHaveLength(0);
+    // Refused: the bot asks again for the same grant only after a new delay within the bounds.
+    await advance(max);
+    expect(asked.length).toBeGreaterThanOrEqual(2);
+    const gap = asked[1]! - asked[0]!;
+    expect(gap).toBeGreaterThanOrEqual(min);
+    expect(gap).toBeLessThanOrEqual(max);
+    expect(runtime.state.entrants.find((entrant) => entrant.entrantId === "bot")?.status).toBe("racing");
+    // Once content exists, the kept 25 % grant is the one that applies.
+    available = true;
+    await advance(max);
+    // The kept grant applies once (later grants may follow, each after its own delay).
+    const milestones = botActivations().map(([, payload]) => (payload as { announcement: { receipt: { grant: { milestone: number } } } }).announcement.receipt.grant.milestone);
+    expect(milestones.filter((milestone) => milestone === 25)).toHaveLength(1);
+    expect(botActivations()[0]?.[1]).toMatchObject({ announcement: { type: "activated", receipt: { grant: { entrantId: "bot", milestone: 25, kind: "extendLeader" } } } });
+  });
+
+  it("draws a fresh delay after a pause, never activating at a time that passed during it (D-16, D-17)", async () => {
+    const { advance, humanLeads, botActivations, lease, now } = setup();
+    await humanLeads();
+    const [min] = BOT_BONUS_DELAY_MS;
+    // Due before the pause ends: suspended at once, held again 10 s later.
+    lease("suspended");
+    await advance(10_000);
+    lease("held");
+    const resumed = now();
+    const [, max] = BOT_BONUS_DELAY_MS;
+    // The first activation comes within a fresh delay drawn at the resume, and only one.
+    for (let waited = 0; botActivations().length === 0 && waited <= max; waited += 10) await advance(10);
+    const activated = now() - resumed;
+    expect(activated).toBeGreaterThanOrEqual(min);
+    expect(activated).toBeLessThanOrEqual(max + 10);
+    expect(botActivations()).toHaveLength(1);
+  });
+});
+
+describe("bounded cost of Arcade with a full roster", () => {
+  /**
+   * In-process regression check, not a production load proof: 1 person and 9 bots on a 120-grapheme
+   * text, with and without bonuses, driven to the end on fake timers. Arcade adds grants, bot
+   * activations and effects; it must stay within a small factor of training on the same seeds.
+   */
+  async function run(enabled: boolean): Promise<{ readonly ms: number; readonly activations: number; readonly finished: number }> {
+    const text = Array.from({ length: 30 }, (_, index) => ["mer", "vent", "port", "cap"][index % 4]).join(" ").slice(0, 120);
+    let now = START; let next = 0;
+    const timers = new Map<number, { at: number; callback: () => void }>();
+    const schedule = (callback: () => void, delay: number) => { const id = ++next; timers.set(id, { at: now + delay, callback }); return () => { timers.delete(id); }; };
+    const bots = Array.from({ length: 9 }, (_, index) => ({ entrantId: `bot-${index}`, accountId: null, displayName: `Bot ${index}`, kind: "bot" as const, botLevel: (["noob", "beginner", "intermediate", "expert", "impossible"] as const)[index % 5] }));
+    const created = createBonusRace({ enabled, random: [1, 2, 3, 4], race: {
+      raceId: asRaceId(RACE), now: asInstant(START), text, errorMode: "mandatory", timeLimit: asDuration(600_000),
+      participants: [{ entrantId: asEntrantId(HUMAN.entrantId), kind: "human" }, ...bots.map((bot) => ({ entrantId: asEntrantId(bot.entrantId), kind: "bot" as const }))],
+    } });
+    if (!created.ok) throw new Error(created.reason);
+    let activations = 0;
+    const connection: RaceConnection = { id: "human-tab", accountId: HUMAN.accountId, emit: (event) => { if (event === RACE_BONUS_ANNOUNCEMENT_EVENT) activations += 1; } };
+    let seed = 0;
+    const runtime = new RaceRuntime({ ownership: { raceId: RACE, lobbyId: "room", ownerId: "server", ownerEpoch: 1 },
+      state: created.state, entrants: [HUMAN, ...bots], language: "fr", schedule, now: () => now, followers: () => [connection],
+      store: { beginRacing: async () => WON, finalizeRace: async () => WON, interruptOwnRace: async () => ({ ...WON }) },
+      onSettled: () => undefined, log: () => undefined, botSeed: () => [++seed, 2, 3, 4], botBonusSeed: () => [++seed, 7, 8, 9],
+      lease: { start: () => {}, stop: () => {}, isAuthoritative: () => true, get state() { return "held" as const; }, suspendedForMs: () => 0 },
+    });
+    const started = performance.now();
+    runtime.start();
+    for (let calls = 0; timers.size > 0 && calls < 2_000_000; calls++) {
+      const [id, timer] = [...timers.entries()].sort((a, b) => a[1].at - b[1].at || a[0] - b[0])[0]!;
+      timers.delete(id); now = Math.max(now, timer.at);
+      if (now > START + 700_000) break;
+      timer.callback();
+      if (calls % 50 === 0) await settle();
+    }
+    await settle();
+    const finished = runtime.state.entrants.filter((entrant) => entrant.kind === "bot" && entrant.status === "finished").length;
+    runtime.retire();
+    return { ms: performance.now() - started, activations, finished };
+  }
+
+  it("keeps a 10-entrant Arcade race within a small factor of training", async () => {
+    const training = await run(false);
+    const arcade = await run(true);
+    expect(training.activations).toBe(0);
+    expect(arcade.activations).toBeGreaterThan(0);
+    expect(arcade.finished).toBe(9);
+    expect(training.finished).toBe(9);
+    console.log(`[perf] 10 entrants, 120 graphemes: training ${training.ms.toFixed(0)} ms, arcade ${arcade.ms.toFixed(0)} ms, ${arcade.activations} announcements`);
+    expect(arcade.ms).toBeLessThan(Math.max(3 * training.ms, training.ms + 2_000));
+  }, 120_000);
+});

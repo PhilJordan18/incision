@@ -36,3 +36,11 @@ export class RoomPresence {
     return new Set(this.#sockets.get(lobbyId)?.keys() ?? []);
   }
 }
+
+const processGlobal = globalThis as typeof globalThis & { incisionRoomPresence?: RoomPresence };
+
+/** Shared by Next server-action bundles and the custom Socket.IO server in this process. */
+export function roomPresence(): RoomPresence {
+  processGlobal.incisionRoomPresence ??= new RoomPresence();
+  return processGlobal.incisionRoomPresence;
+}
