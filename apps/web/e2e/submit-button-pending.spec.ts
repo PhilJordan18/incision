@@ -108,7 +108,8 @@ for (const theme of THEMES) {
   });
 
   test(`pending submit labels stay readable on sign-in (primary, provider), ${theme}`, async ({ browser }) => {
-    const context = await browser.newContext({ locale: "fr-CA", reducedMotion: "reduce", viewport: { width: 1440, height: 900 } });
+    // Motion allowed here, so a hourglass that spun only when motion is allowed would be caught.
+    const context = await browser.newContext({ locale: "fr-CA", reducedMotion: "no-preference", viewport: { width: 1440, height: 900 } });
     contexts.push(context);
     await context.addCookies([{ name: "theme", url: test.info().project.use.baseURL!, value: theme }]);
     const credentials = await context.newPage();
