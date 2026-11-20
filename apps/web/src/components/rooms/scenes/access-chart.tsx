@@ -23,7 +23,8 @@ export function AccessChart({ locale }: { readonly locale: Locale }) {
           {MERIDIANS.map((x) => <path key={`v${x}`} d={`M${x} 0V460`} />)}
           {PARALLELS.map((y) => <path key={`h${y}`} d={`M0 ${y}H600`} />)}
         </g>
-        <WaveField width={600} height={460} count={18} />
+        {/* The eleventh mark would follow « 03 · Privée » like a tilde. */}
+        <WaveField width={600} height={460} count={18} skip={[10]} />
         <Course d="M190 396 C200 330 250 250 256 200" width={2.6} />
         <Course d="M190 396 C230 380 290 360 318 326" width={2.6} />
         <Course d="M190 396 C330 420 440 320 446 216" width={2.6} />

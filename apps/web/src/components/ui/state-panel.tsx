@@ -26,7 +26,7 @@ const TONES = {
 export function StatePanel({ label, tone, heading, children, actions, headingId, waves = false }: StatePanelProps) {
   const style = TONES[tone];
   return (
-    <section className={`${card} ${style.border} flex max-w-xl flex-col gap-4 ${waves ? "relative overflow-hidden *:relative" : ""}`}>
+    <section className={`${card} ${style.border} flex max-w-xl flex-col gap-4${waves ? " relative overflow-hidden *:relative" : ""}`}>
       {waves && <CornerWaves />}
       <p className={`${monoLabel} ${style.text}`}>
         <span aria-hidden="true">{style.sign} </span>

@@ -1,7 +1,7 @@
 # DA2-6 — Create, join, public rooms, room states (C1 « Cap »)
 
 Card DA2-6 of `docs/da/v2/plan.md`; requirements DES-04, SALLE-01, SALLE-03, JOIN-01, JOIN-02, JOIN-03, I18N-01; choice D-15.
-Branch `feat/da2-6-room-entry`, started from `feat/da2-0-nautical-primitives`. Captures taken on 18 November 2026 from the production build of commit `c7c0891`, served locally on a disposable database (`db-test`, PostgreSQL 17). Later commits on the branch add only this folder.
+Branch `feat/da2-6-room-entry`, started from `feat/da2-0-nautical-primitives`. Captures of `app/` taken on 20 November 2026 from the production build of the branch's final code, served locally on a disposable database (`db-test`, PostgreSQL 17). They are written only when `DA2_EVIDENCE_DIR` is set; an ordinary run of the spec takes no screenshot.
 
 ## How the captures were made
 
@@ -45,7 +45,11 @@ Other views in `app/`:
 - **1024 px split.** The mock-up's fixed 640 px form column leaves a 240 px chart at 1024 px. From 1024 to 1279 px the app shares the row 3 : 2; from 1280 px it uses the mock-up's 640 px column.
 - **Fewer wave marks in the corner.** The mock-up draws six strokes; the panels use the shared `WaveMarks` primitive of `components/nautical`, which draws two on a 220 × 90 box. One drawing for every lot was preferred to a second lattice.
 - **Wave marks on a phone.** Under 640 px the label of a state panel can reach the corner, so a smaller box is drawn and it starts under the label's line. The marks may pass behind the title, never behind text to read.
-- **Seven of the eleven panels.** The marks are on the room-entry panels, the error boundary and the 404 (the auth error page and the race page keep their panels as they were). « Expulsion », « Tu as quitté la salle », « Reconnecte-toi » and the « Reconnexion » card are rendered by `rooms/[code]/room-view.tsx`, which belongs to the waiting-room lot. « Avarie » uses the same panel and has the marks, but no capture: the test database cannot be made to fail on demand.
+- **Seven of the eleven panels.** The marks are on the room-entry panels, the error boundary and the 404 (the auth error page and the race page keep their panels as they were). « Expulsion », « Tu as quitté la salle », « Reconnecte-toi » and the « Reconnexion » card are rendered by `rooms/[code]/room-view.tsx`, which belongs to the waiting-room lot.
+- **« Avarie » has neither test nor capture.** It uses the same `waves` option as the six captured panels; the test database cannot be made to fail on demand. The UI/UX review saw it once, with the database failing on purpose.
+- **Form card width.** From 1024 px the form card is 640 px wide from 1280 px and shares the row below that; under 1024 px it keeps its former width (`max-w-xl`), with the chart under it.
+- **One mark left out of the access chart.** The eleventh mark of the chart's sea would follow « 03 · Privée » like a tilde.
+- **The public rooms captures with a listed room** show the page in its first state (the matchmaking card untouched); the no-room answer of « Trouver une salle » has its own capture, `public-rooms-no-room-*`.
 
 ## Not checked
 

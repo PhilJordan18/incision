@@ -48,8 +48,9 @@ export default async function NewRoomPage() {
   return (
     <>
       <PageHeading bold={t.rooms.newHeadingBold} serif={t.rooms.newHeadingSerif} />
-      {/* C1 (docs/da/v2, DA2-6): the chart of the three accesses beside the form from 1024 px, under it below. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)] xl:gap-12">
+      {/* C1 (docs/da/v2, DA2-6): the chart of the three accesses beside the form from 1024 px, under it below,
+          where the form keeps the width it had. */}
+      <div className="grid max-w-xl items-start gap-8 lg:max-w-none lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)] xl:gap-12">
         <section className={`${card} flex flex-col gap-5`}>
           <p className="text-embrun">{t.rooms.newIntro}</p>
           <CreateRoomForm t={t.rooms} locale={locale} />

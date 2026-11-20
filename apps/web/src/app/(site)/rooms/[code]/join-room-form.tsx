@@ -28,7 +28,7 @@ export function JoinRoomForm({ code, t }: { readonly code: string; readonly t: D
     <>
       <PageHeading bold={t.rooms.joinHeadingBold} serif={t.rooms.joinHeadingSerif} />
       {/* C1 (docs/da/v2, DA2-6): the small chart beside the form from 1024 px, under it below. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)] xl:gap-12">
+      <div className="grid max-w-xl items-start gap-8 lg:max-w-none lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)] xl:gap-12">
         <section className={`${card} flex flex-col gap-5`}>
           <div className="flex flex-col gap-2">
             <p className={monoLabel}>{t.rooms.codeLabel}</p>

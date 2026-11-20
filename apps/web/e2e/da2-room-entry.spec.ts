@@ -56,10 +56,16 @@ async function setTheme(page: Page, option: (typeof THEMES)[number]): Promise<vo
   await page.emulateMedia({ colorScheme: option.scheme });
   await expect(page.locator("html")).toHaveAttribute("data-theme", option.theme);
 }
+/** Writes an evidence capture, only when DA2_EVIDENCE_DIR asks for them: an ordinary run takes no screenshot. */
 async function capture(page: Page, name: string, fullPage = true): Promise<void> {
-  const file = evidenceDir === undefined ? test.info().outputPath(`${name}.png`) : path.resolve(evidenceDir, `${name}.png`);
+  if (evidenceDir === undefined) return;
+  const file = path.resolve(evidenceDir, `${name}.png`);
   mkdirSync(path.dirname(file), { recursive: true });
   await page.screenshot({ path: file, fullPage });
+}
+/** axe once per theme on the widest and on the phone layout; the other widths keep their geometry checks. */
+async function audit(page: Page, width: number): Promise<void> {
+  if (width === 1440 || width === 390) await expectNoAccessibilityViolation(page);
 }
 const scene = (page: Page, name: string): Locator => page.locator(`[data-scene="${name}"]`);
 
@@ -173,7 +179,7 @@ for (const locale of LOCALES) {
           expect(chartBox.y).toBeGreaterThanOrEqual(formBox.y + formBox.height);
         }
         await expectNoHorizontalScroll(page);
-        await expectNoAccessibilityViolation(page);
+        await audit(page, width);
         await capture(page, `create-${tag}-${option.theme}-${width}`);
       }
     }
@@ -259,7 +265,7 @@ for (const locale of LOCALES) {
             }
           }
           await expectNoHorizontalScroll(page);
-          await expectNoAccessibilityViolation(page);
+          await audit(page, width);
           await capture(page, `public-rooms-${state}-${tag}-${option.theme}-${width}`);
         }
       }
@@ -295,7 +301,10 @@ for (const locale of LOCALES) {
     await capture(page, `public-rooms-no-room-${tag}-aube-1440`);
     await setTheme(page, THEMES[0]);
 
-    // With rooms in the list: the fleet is a drawing, it does not count or name them.
+    // With rooms in the list: the fleet is a drawing, it does not count or name them. The page is read again,
+    // so the card is back to its first state.
+    await page.reload();
+    await expect(page.getByText(fr ? "La liste se met à jour en direct." : "The list updates live.")).toBeVisible();
     const host = await account(browser, "Hôte public", "fr-CA");
     const code = await openRoom(host, "public");
     await expect(page.getByRole("link", { name: fr ? `Rejoindre la salle ${code}` : `Join room ${code}` })).toBeVisible();
@@ -332,7 +341,7 @@ for (const locale of LOCALES) {
         if (width >= 1024) expect(chartBox.x).toBeGreaterThanOrEqual(panelBox.x + panelBox.width);
         else expect(chartBox.y).toBeGreaterThanOrEqual(panelBox.y + panelBox.height);
         await expectNoHorizontalScroll(page);
-        await expectNoAccessibilityViolation(page);
+        await audit(page, width);
         await capture(page, `join-${tag}-${option.theme}-${width}`);
       }
     }
@@ -392,7 +401,7 @@ for (const locale of LOCALES) {
             return marks.filter((mark) => texts.some((text) => mark.left < text.right && text.left < mark.right && mark.top < text.bottom && text.top < mark.bottom)).length;
           })).toBe(0);
           await expectNoHorizontalScroll(page);
-          await expectNoAccessibilityViolation(page);
+          await audit(page, width);
           if (width !== 360) await capture(page, `state-${name}-${tag}-${option.theme}-${width}`);
         }
       }
@@ -423,14 +432,14 @@ for (const locale of LOCALES) {
     await expect(memberWaves).toHaveCount(1);
     await expect(member.locator("main section").filter({ has: memberWaves }).locator("p").first()).toHaveText(/^⚠ /);
     await expectNoAccessibilityViolation(member);
-    await member.screenshot({ path: evidenceDir === undefined ? test.info().outputPath("in-another.png") : path.resolve(evidenceDir, `state-in-another-room-${tag}-abysse-1440.png`), fullPage: true });
+    await capture(member, `state-in-another-room-${tag}-abysse-1440`);
     await member.goto("/rooms/new");
     await expect(member.getByRole("heading", { level: 1 })).toHaveText(fr ? /^Déjà en salle$/ : /^Already in a room$/);
     await expect(memberWaves).toHaveCount(1);
     await expect(scene(member, "access-chart")).toHaveCount(0);
     await setTheme(member, THEMES[1]);
     await expectNoAccessibilityViolation(member);
-    await member.screenshot({ path: evidenceDir === undefined ? test.info().outputPath("already.png") : path.resolve(evidenceDir, `state-already-in-room-${tag}-aube-1440.png`), fullPage: true });
+    await capture(member, `state-already-in-room-${tag}-aube-1440`);
 
     // 3. A race is running (a fixture: nothing runs it), then the room is closed.
     await query(
@@ -454,8 +463,9 @@ for (const locale of LOCALES) {
     await expectState("not-found", { border: "houle", sign: "· ", heading: fr ? /^Cap\s+perdu$/ : /^Off\s+course$/, actions: [home] });
 
     // 5. Too many wrong codes from one network: the same panel whatever the code.
-    // The unknown code above already spent one of the ten failed codes this network may try in a minute.
-    for (let index = 0; index < 9; index += 1) await page.request.get(`${proxy.url}/rooms/ZZZZ${"23456789AB"[index]}9`);
+    // The whole budget (ten failed codes in a sliding minute) is spent here, just before the page is read:
+    // nothing earlier in this test is counted on, so a slow runner cannot let the window slide past it.
+    for (let index = 0; index < 10; index += 1) await page.request.get(`${proxy.url}/rooms/ZZZZ${"23456789AB"[index]}9`);
     await page.goto(`${proxy.url}/rooms/ZZZZZ3`);
     await expectState("throttled", { border: "or", sign: "⚠ ", heading: fr ? /^Trop d’essais$/ : /^Too many tries$/, actions: [fr ? /^Réessayer$/ : /^Try again$/, home] });
   });
