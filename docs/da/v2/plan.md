@@ -67,6 +67,7 @@ IDs: DES-04, COURSE-05, BOT-04, PERF-03, A11Y-01, DES-05, DES-06 · Branch `feat
 - [ ] Named markers render a ship in the runner's colour; unnamed runners stay dots; my ship keeps its two rings, the leader its `or` ring.
 - [ ] Route, ship and standings pennant of one named runner share one colour and one dash, in both themes (three-way assertion in `race-track.spec.ts`). Unnamed runners: grey dot and grey dotted route on the chart, desktop and tablet; their pennant in the standings keeps their colour and dash (amended 19 November 2026).
 - [ ] A bot differs from a human by the sail's shape, without colour.
+- [ ] Every ship is drawn on its own marker, never beside it; where hulls overlap, mine is drawn above the others (decided 20 November 2026). The pennant keeps the kind's shape, with the route's dash as a line under the cloth (decided 20 November 2026).
 - [ ] The finish is the coast; the finish word stays. The compass sits on the track, away from the text.
 - [ ] Markers follow the broadcast with the existing transition; nothing moves on its own; reduced motion unchanged.
 - [ ] Vertical and horizontal tracks both work; under 768 px the keyboard advice still replaces text and typing.

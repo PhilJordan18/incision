@@ -22,7 +22,7 @@ J'ai comparé les écrans de l'application aux maquettes approuvées et je les v
 - **Bots (#215)** : un niveau enregistré ailleurs remplace le brouillon ouvert, comme sur `dev` (décision 7 close).
 - **Réglages (#216)** : la phrase `durationInvalid` est acceptée telle quelle (décision 6 close); Échap ferme le formulaire sans demander, comme sur `dev`.
 - **Résultats, fiche, historique, compte (#218)** : validés avec leurs écarts (décision 4 close).
-- **Course (#212)** : la découpe du fanion (décision 1) et l'écart d'un navire à son repère restent en étude.
+- **Course (#212)** : je garde le fanion intégré, forme du type de coureur avec le tracé en trait dessous (décision 1 close). Je refuse l'écart d'un navire à son repère : chaque navire reste sur son point, et le mien est dessiné par-dessus les autres. Correction demandée à #212.
 
 Les captures 4 à 6 de #216 précèdent ses deux derniers correctifs : leur rendu final se verra en recette.
 
