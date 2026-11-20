@@ -30,6 +30,11 @@ const fr = {
   charactersHint: "Tape les caractères à la suite, par exemple « kwz ».",
   charactersDisabled: "Désactivé pour un passage cohérent : on ne réécrit pas un texte d’auteur.",
   none: "aucun",
+  // DA2-8: the four groups of the edit form, and what tells a pending change from the saved value.
+  groupText: "Texte", groupDuration: "Durée", groupTyping: "Mode de frappe", groupGame: "Mode de jeu",
+  unsavedTag: "Non enregistré", savedValue: "Enregistré : {value}", savedSeconds: "{seconds} s",
+  pendingNone: "Aucune modification en attente.", pendingOne: "1 modification en attente.", pendingMany: "{count} modifications en attente.",
+  durationInvalid: "Choisis « Aucune limite » ou une durée entière de 30 à 600 secondes.",
   textRefusals: {
     WORD_COUNT_OUT_OF_RANGE: "Choisis de 10 à 200 mots.",
     UNSUPPORTED_CHARACTER: "Un caractère n’est pas pris en charge : utilise des lettres de la langue du texte, des chiffres ou de la ponctuation simple.",
@@ -78,6 +83,10 @@ const en: typeof fr = {
   charactersHint: "Type the characters one after another, for example “kwz”.",
   charactersDisabled: "Disabled for a coherent passage: an author’s text is never rewritten.",
   none: "none",
+  groupText: "Text", groupDuration: "Duration", groupTyping: "Typing mode", groupGame: "Game mode",
+  unsavedTag: "Unsaved", savedValue: "Saved: {value}", savedSeconds: "{seconds} s",
+  pendingNone: "No pending changes.", pendingOne: "1 pending change.", pendingMany: "{count} pending changes.",
+  durationInvalid: "Choose “No limit” or a whole duration from 30 to 600 seconds.",
   textRefusals: {
     WORD_COUNT_OUT_OF_RANGE: "Choose 10 to 200 words.",
     UNSUPPORTED_CHARACTER: "A character is not supported: use letters of the text’s language, digits or simple punctuation.",
