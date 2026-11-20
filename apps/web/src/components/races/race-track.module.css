@@ -54,7 +54,7 @@
 }
 /*
  * The chart's two words sit on the land, on a plate of the land's own colour and above the other
- * ships: a ship reaching the coast passes behind them. Only my own ship passes in front.
+ * ships, mine included. The lanes keep clear of them on every chart, so no ship should reach them.
  */
 .finishText, .more {
   position: absolute;
@@ -152,8 +152,8 @@
 }
 /* A named runner: the marker is the foot of its ship, which carries the colour on its sail. */
 .named { z-index: 2; width: 0; height: 0; box-shadow: none; }
-/* Mine is above everything on the chart, the two words' plates included: I never lose sight of it. */
-.self { z-index: 5; }
+/* Mine above every other ship, below the two words' plates (the lanes keep clear of them). */
+.self { z-index: 3; }
 .ship {
   --ship-size: 46px;
   position: absolute;
@@ -219,6 +219,8 @@
 }
 @container (max-width: 400px) {
   .track .pennant { display: none; }
+  /* The others' count stays right of the furthest a ship can reach (58 %). */
+  .more { font-size: 10px; }
   .label { left: 63%; width: 36.5%; }
 }
 /* Tablet: the same chart turned on its side, the start on the left and the coast on the right. */

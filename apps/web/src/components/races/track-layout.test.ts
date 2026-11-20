@@ -70,10 +70,10 @@ describe("named ships", () => {
       }
     }
     // The band is narrower (25 % instead of 39 %): in crews bunched on purpose, as here, a neighbour
-    // is more often held short of the full clearance by its 10 % reach (measured: up to 10.5 % of
-    // the ships beside mine with 50 runners), and its hull touches mine in up to 8.3 % of them.
-    expect(stopped).toBeLessThanOrEqual(pairs * 0.12);
-    expect(hulls).toBeLessThanOrEqual(pairs * 0.09);
+    // is more often held short of the full clearance by its 10 % reach (measured: up to 8.9 % of
+    // the ships beside mine with 50 runners), and its hull touches mine in up to 2.7 % of them.
+    expect(stopped).toBeLessThanOrEqual(pairs * 0.1);
+    expect(hulls).toBeLessThanOrEqual(pairs * 0.04);
   });
 
   it.each([6, 30, 50])("slides a ship by little between two small advances while the same runners are named, among %i runners", count => {

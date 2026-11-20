@@ -128,10 +128,12 @@ export const SHIP_BERTHS: ShipBerths = { clear: 7.5, level: 16, ease: 4, min: 4,
 export const NARROW_LANES = { offset: 30 - 16 * (25 / 39), scale: 25 / 39 } as const;
 /** The lane-space value drawn at 63 % on a narrow chart: where a name's connector ends. */
 export const NARROW_LINK_END = Math.round((63 - NARROW_LANES.offset) / NARROW_LANES.scale * 100) / 100;
+/** On a narrow chart a ship's mast stops at 58 %, short of the others' count on the right (`.more`). */
+const NARROW_SHIP_MAX = 58;
 export const NARROW_SHIP_BERTHS: ShipBerths = { ...SHIP_BERTHS, clear: SHIP_BERTHS.clear / NARROW_LANES.scale, reach: SHIP_BERTHS.reach / NARROW_LANES.scale,
-  min: (30 - NARROW_LANES.offset) / NARROW_LANES.scale, max: (SHIP_BERTHS.max - NARROW_LANES.offset) / NARROW_LANES.scale };
+  min: (30 - NARROW_LANES.offset) / NARROW_LANES.scale, max: (NARROW_SHIP_MAX - NARROW_LANES.offset) / NARROW_LANES.scale };
 /** The tablet's chart: lanes down its 180 px, the course along its width. Only two ships sail there. */
-export const HORIZONTAL_SHIP_BERTHS: ShipBerths = { clear: 18, level: 4, ease: 1.5, min: 14, max: 62, reach: 20 };
+export const HORIZONTAL_SHIP_BERTHS: ShipBerths = { clear: 14, level: 4, ease: 1.5, min: 30, max: 58, reach: 20 };
 
 /** A ship to place: its fixed lane's rank, its marker across the lanes (`across`) and along the course (`along`). */
 type Berthing = { readonly id: string; readonly self: boolean; readonly lane: number; /** The fixed lane's own place across the chart, without the route's swing. */ readonly berth: number; readonly across: number; readonly along: number };
@@ -161,7 +163,7 @@ function shipShifts(ships: readonly Berthing[], berths: ShipBerths): ReadonlyMap
   const upper = others.filter((ship) => ship.lane > anchor.lane).sort((a, b) => a.lane - b.lane);
   // A side without room for one ship beside the fixed one (it sails by an edge) sends its ships to
   // the other side. Decided from the lanes, fixed for the round, never from a position.
-  const room = berths.clear + SWING;
+  const room = berths.clear;
   if (anchor.berth - berths.min < room && berths.max - anchor.berth >= room) upper.unshift(...lower.splice(0).reverse());
   else if (berths.max - anchor.berth < room && anchor.berth - berths.min >= room) lower.unshift(...upper.splice(0).reverse());
   for (const [side, group] of [[-1, lower], [1, upper]] as const) {
@@ -195,7 +197,8 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
   const routes = routeStyles(stable, selfId);
   const share = (index: number) => stable.length <= 1 ? 0.5 : index / (stable.length - 1);
   const laneOf = (index: number) => 16 + 39 * share(index);
-  const horizontalLaneOf = (index: number) => 16 + 40 * share(index);
+  // The tablet's lanes keep below the two words along its top edge (« + N », « ARRIVÉE »): 30 to 58 % of 180 px.
+  const horizontalLaneOf = (index: number) => 30 + 28 * share(index);
   const raw = stable.map((runner, index) => {
     const id = runner.entrantId;
     // A fixed lane per runner (its place in the crew by id), so that a route never jumps sideways.

@@ -133,25 +133,17 @@ for (const item of cases) {
       const edge = (await track.locator('[data-coast="horizontal"] [data-coast-edge]').boundingBox())!;
       for (const word of boxes.words) expect(word.bottom, "the coastline through a word").toBeLessThanOrEqual(edge.y + 1);
     }
-    // No other ship is ever painted over a word: each word has an opaque plate, above every other
-    // marker. My own ship alone passes in front, so that I never lose sight of it at the finish.
+    // The two words have an opaque plate above every ship, mine included, and no ship reaches them:
+    // on every chart the lanes keep clear of both words.
     for (const word of boxes.words) {
       expect(word.layer, "a word under the ships").toBeGreaterThan(word.above);
-      expect(word.mine, "my ship behind a word").toBeGreaterThan(word.layer);
+      expect(word.layer, "a word under my ship").toBeGreaterThan(word.mine);
+      for (const ship of [...boxes.ships, ...boxes.sails]) expect(overlap(ship, word), `a ship on « ${word.word} »`).toBe(false);
       expect(word.plate).toMatch(/^(rgb\(|color\(srgb [\d. ]+\)$)/);
     }
     // No ship over mine: one that would cover it is drawn beside its marker (two others may touch).
-    // Exception, measured and declared: a whole crew exactly level on a narrow vertical chart (the
-    // by-the-coast cases at 1024 and 1280 × 640) can hold a neighbour short of mine by its 10 %
-    // reach. There, at most a third of my hull may lie under other hulls; mine is drawn above them.
     expect(boxes.mine).toHaveLength(1);
-    const mine = boxes.mine[0]!;
-    const under = boxes.others.reduce((sum, hull) => sum + Math.max(0, Math.min(hull.right, mine.right) - Math.max(hull.left, mine.left))
-      * Math.max(0, Math.min(hull.bottom, mine.bottom) - Math.max(hull.top, mine.top)), 0) / ((mine.right - mine.left) * (mine.bottom - mine.top));
-    if (steps > 4 && !horizontal) {
-      console.info("[my hull under others, level crew]", name, Math.round(under * 100) / 100);
-      expect(under, "my hull under other hulls").toBeLessThanOrEqual(1 / 3);
-    } else for (const hull of boxes.others) expect(overlap(hull, mine), "a hull over mine").toBe(false);
+    for (const hull of boxes.others) expect(overlap(hull, boxes.mine[0]!), "a hull over mine").toBe(false);
     // A ship drawn beside its marker is tied to it, the tether running from the marker to the ship's
     // foot; a ship on its marker has none. Measured as drawn, whatever the chart's mapping.
     if (horizontal) expect(await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].filter(marker => marker.querySelector("[data-ship]"))
