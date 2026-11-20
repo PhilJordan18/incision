@@ -1,8 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { LABEL_BOTTOM, LABEL_GAP, LABEL_TOP, ROUTE_COLOURS, routeStyles, standingsOrder, trackLayout } from "./track-layout";
+import { LABEL_BOTTOM, LABEL_GAP, LABEL_TOP, ROUTE_COLOURS, routeStyles, NARROW_LANES, standingsOrder, trackLayout } from "./track-layout";
 
 const runners = (count: number) => Array.from({ length: count }, (_, i) => ({ entrantId: `runner-${String(i).padStart(2, "0")}`, kind: i % 4 === 0 ? "bot" as const : "human" as const,
   status: "racing" as const, position: i * 2, length: 100, netWpm: 40 + i, inactive: false }));
+
+/** A small deterministic generator, so that a failure can be replayed. */
+const sequence = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
+
+describe("named ships", () => {
+  it.each([2, 6, 12, 30, 50])("draws every ship on its own marker among %i runners, on every chart, and right of the finish word on a narrow one", count => {
+    const random = sequence(count + 101);
+    const drawn = (x: number) => NARROW_LANES.offset + NARROW_LANES.scale * x;
+    for (let round = 0; round < 200; round++) {
+      // Level (ties at the start and the finish) or within a few percent of one another.
+      const base = round < 3 ? [0, 40, 100][round]! : Math.floor(random() * 90);
+      const spread = round < 3 ? 0 : Math.floor(random() * 12);
+      const input = runners(count).map(r => ({ ...r, position: Math.min(100, base + Math.floor(random() * (spread + 1))) }));
+      const points = trackLayout(input, input[Math.floor(random() * count)]!.entrantId);
+      for (const point of points) {
+        // No sideways berth: the layout gives a ship nothing but its marker's position.
+        expect(Object.keys(point).filter(key => /shift/i.test(key))).toEqual([]);
+        // The marker is the end of its own route, on both charts.
+        const [x, y] = point.path.split(" ").at(-1)!.split(",").map(Number);
+        expect(x).toBeCloseTo(point.x, 1); expect(y).toBeCloseTo(point.y, 1);
+        expect(Number(point.horizontalPath.split(" ").at(-1)!.split(",")[1])).toBeCloseTo(point.horizontalY, 1);
+        // A narrow chart draws every lane between 28 % (30 % less the swing) and 58 %, short of the others' count.
+        expect(drawn(point.x)).toBeGreaterThanOrEqual(30 - 2.4 * NARROW_LANES.scale - 0.01);
+        expect(drawn(point.x)).toBeLessThanOrEqual(58);
+        // The tablet's lanes keep below its two words and above the names: 30 to 58 % of its height, less the swing.
+        expect(point.horizontalY).toBeGreaterThanOrEqual(30 - 2.4 - 0.01); expect(point.horizontalY).toBeLessThanOrEqual(58 + 2.4 + 0.01);
+      }
+      expect(trackLayout([...input].reverse(), points.find(p => p.self)!.runner.entrantId)).toEqual(points);
+    }
+  });
+});
 
 describe("track presentation layout", () => {
   it.each([2, 6, 30, 50])("keeps all %i runners, bounded positions and at most five non-overlapping labels", count => {

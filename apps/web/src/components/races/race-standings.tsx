@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { Pennant } from "@/components/nautical";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { raceScreenMessages } from "@/i18n/dictionaries/race-screen";
 import { raceTrackMessages } from "@/i18n/dictionaries/race-track";
@@ -8,7 +9,6 @@ import type { Locale } from "@/i18n/locale";
 import { formatNumber } from "@/i18n/value-format";
 import { formatProgress, formatWpm } from "@/races/format";
 import type { RaceClientState } from "@/races/race-client";
-import { RouteSwatch } from "./race-track";
 import { routeStyles, standingsOrder } from "./track-layout";
 import styles from "./race-panels.module.css";
 
@@ -28,7 +28,8 @@ export const RaceStandings = memo(function RaceStandings({ entrants, progress, s
   const track = raceTrackMessages[locale];
   const names = new Map(entrants.map((entrant) => [entrant.entrantId, entrant.displayName]));
   const runners = standingsOrder(progress?.entrants ?? []);
-  // The legend of the chart: each name beside its route's colour and dash.
+  // The legend of the chart: each name beside its pennant, in its route's colour and dash, cut
+  // like its ship's sail (triangle for a human, square for a bot).
   const routes = routeStyles(progress?.entrants ?? [], selfId);
   return (
     <section aria-labelledby="standings-heading" className={`${styles.log} flex min-w-0 flex-col gap-2 self-start lg:h-full lg:self-stretch`}>
@@ -58,7 +59,7 @@ export const RaceStandings = memo(function RaceStandings({ entrants, progress, s
                 </span>
                 <span className="flex min-w-0 grow flex-col gap-1">
                   <span className="block break-words font-semibold leading-tight">
-                    <RouteSwatch route={routes.get(runner.entrantId)!} />
+                    <Pennant kind={runner.kind} {...routes.get(runner.entrantId)!} className="mr-1.5" />
                     {name}
                     {self ? ` (${t.you})` : ""}
                     {runner.kind === "bot" ? ` · □ ${track.bot}` : ""}
