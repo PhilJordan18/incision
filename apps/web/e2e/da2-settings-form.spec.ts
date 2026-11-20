@@ -336,6 +336,8 @@ test("a concurrent save updates the summary, shows the conflict and never overwr
   await expect(summary(first, /^Durée maximale/)).toHaveText("90");
   await expect(summary(first, /^Langue du texte$/)).toHaveText("Anglais");
   await expect(panel(first).getByRole("alert")).toHaveText("⚠ Les réglages ont changé dans un autre onglet. Ton brouillon est conservé. Recharge les réglages avant de modifier à nouveau.");
+  // The field that had the focus is now disabled: the way out takes the focus instead of the page.
+  await expect(panel(first).getByRole("button", { name: "Recharger les réglages" })).toBeFocused();
   await expect(seconds(first)).toHaveValue("45");
   await expect(words(first)).toHaveValue("80");
   await expect(language(first)).toHaveValue("fr");

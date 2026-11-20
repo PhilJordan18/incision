@@ -131,11 +131,16 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
     target?.focus();
   }, [refusedAttempt, pending, firstRefused, id]);
 
-  // A refusal that asks to read the settings again disables the form under the focus: the way out takes it.
   const reloadButton = useRef<HTMLButtonElement>(null);
+  const section = useRef<HTMLElement>(null);
+  // A refusal that asks to read the settings again, or a concurrent save (conflict), disables the form
+  // under the focus: the way out takes it, unless the host has moved on to something outside the panel.
+  const blocked = (needsRefresh || conflict) && !pending;
   useEffect(() => {
-    if (needsRefresh && !pending) reloadButton.current?.focus();
-  }, [needsRefresh, pending]);
+    if (!blocked) return;
+    const active = document.activeElement;
+    if (active === null || active === document.body || section.current?.contains(active) === true) reloadButton.current?.focus();
+  }, [blocked]);
 
   function cancel() {
     if (submitting.current) return;
@@ -203,7 +208,7 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
   const charactersFirst = firstRefused === "include" || firstRefused === "exclude";
 
   return (
-    <section aria-labelledby={`${id}-heading`} className={`${card} flex flex-col gap-4`}>
+    <section ref={section} aria-labelledby={`${id}-heading`} className={`${card} flex flex-col gap-4`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id={`${id}-heading`} className={panelTitle}>{t.title}</h2>
         {host && <button ref={editButton} type="button" className={`${discreetButton} aria-disabled:cursor-not-allowed aria-disabled:border-transparent aria-disabled:bg-sillage aria-disabled:text-voile`} aria-disabled={!canEdit || draft !== null} aria-expanded={draft !== null}
