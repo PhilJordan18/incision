@@ -280,13 +280,14 @@ export function RoomSettingsPanel({ guest = false, code, settings, host, live, l
                 <label className={`${fieldLabel} flex flex-col gap-2`} htmlFor={`${id}-words`}>{t.wordCount}
                   <input id={`${id}-words`} className={formField} type="number" min={MIN_TEXT_WORDS} max={MAX_TEXT_WORDS}
                     step="1" required value={draft.wordCount} aria-invalid={wordsInvalid || refused.includes("wordCount") || undefined}
-                    aria-describedby={ids(`${id}-words-hint`, refusalId("wordCount"), wordsInvalid && refusal === undefined && `${id}-words-error`, pendingId("wordCount"))}
+                    aria-describedby={ids(`${id}-words-hint`, refusalId("wordCount"), wordsInvalid && firstRefused !== "wordCount" && `${id}-words-error`, pendingId("wordCount"))}
                     onChange={(event) => setDraft({ ...draft, wordCount: event.target.value })} />
                   <span id={`${id}-words-hint`} className="text-sm font-normal text-brume">{t.wordCountHint}</span>
                 </label>
                   {refusalAt("wordCount")}
-                  {/* A count that is not a number yet has no engine refusal: the same words, beside the field. */}
-                  {wordsInvalid && refusal === undefined && <FieldError id={`${id}-words-error`} message={t.textRefusals.WORD_COUNT_OUT_OF_RANGE} />}
+                  {/* A count that is not a number yet has no engine refusal (and a server refusal may speak of other
+                      fields): the same words, beside the field, unless a refusal about the word count is already there. */}
+                  {wordsInvalid && firstRefused !== "wordCount" && <FieldError id={`${id}-words-error`} message={t.textRefusals.WORD_COUNT_OUT_OF_RANGE} />}
                   {pendingMark("wordCount")}
                 </div>
                 <fieldset className="flex min-w-0 flex-col gap-2 sm:col-span-2">

@@ -199,7 +199,10 @@ describe("waiting-room settings state", () => {
     const refused = { ...settingsDraft(saved), textKind: "random" as const, complexity: "easy" as const, exclude: "aeiou" };
     // NO_COMPATIBLE_WORDS names the complexity and the excluded characters.
     expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, refused)).toBe(true);
-    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, seconds: "60", bonusesEnabled: true, textLanguage: "en" })).toBe(true);
+    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, seconds: "60", bonusesEnabled: true, errorMode: "free" })).toBe(true);
+    // The text's kind and language change what the server can produce: the refusal no longer speaks of the draft.
+    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, textLanguage: "en" })).toBe(false);
+    expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, textKind: "coherent" })).toBe(false);
     expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, complexity: "hard" })).toBe(false);
     expect(refusalApplies("NO_COMPATIBLE_WORDS", refused, { ...refused, exclude: "aei" })).toBe(false);
     // Back to the refused value: the refusal speaks of the draft again.

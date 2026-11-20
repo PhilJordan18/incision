@@ -121,11 +121,13 @@ function fieldValue(draft: SettingsDraft, field: SettingsField): string {
 
 /**
  * Whether the server's refusal of `refused` still speaks of `draft`: as long as none of the fields
- * it names changed. Editing another field keeps the message beside its field; changing a named
+ * it names changed, nor the text's kind or language. Editing another field keeps the message beside its field; changing a named
  * field removes it, and typing the refused value back shows it again.
  */
 export function refusalApplies(problem: TextSettingsProblem, refused: SettingsDraft, draft: SettingsDraft): boolean {
-  return refusalFields(problem).every((field) => fieldValue(refused, field) === fieldValue(draft, field));
+  // The text's kind and language change what the server can produce, whichever field the message sits beside.
+  return refused.textKind === draft.textKind && refused.textLanguage === draft.textLanguage
+    && refusalFields(problem).every((field) => fieldValue(refused, field) === fieldValue(draft, field));
 }
 
 /**

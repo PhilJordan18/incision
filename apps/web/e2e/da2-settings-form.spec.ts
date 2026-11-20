@@ -260,6 +260,13 @@ test("a refused save shows beside the field it concerns, keeps the draft and mov
   // The refusal speaks of the fields it names. Another field can change under it…
   await panel(page).getByRole("combobox", { name: "Mode de jeu", exact: true }).selectOption("arcade");
   await expect(alert).toContainText("Ces réglages de texte ne peuvent pas produire de texte.");
+  // …and an error of another field still has its own message beside it (never a state alone).
+  await words(page).fill("");
+  await expect(words(page)).toHaveAttribute("aria-invalid", "true");
+  expect(await describedBy(words(page))).toContain("Choisis de 10 à 200 mots.");
+  await expect(groupOf(page, /^Texte$/).getByText("Choisis de 10 à 200 mots.")).toBeVisible();
+  await expect(alert).toContainText("Ces réglages de texte ne peuvent pas produire de texte.");
+  await words(page).fill("50");
   if (!unavailable) {
     // …a field it names removes it, and the refused value brings it back.
     await panel(page).getByRole("combobox", { name: "Complexité", exact: true }).selectOption("hard");
