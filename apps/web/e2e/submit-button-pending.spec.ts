@@ -56,6 +56,7 @@ async function expectReadableWhilePending(page: Page, { path, button, pending, l
   });
   try {
     const idle = await labelContrast(button);
+    await expect(button.locator("[data-pending-icon]"), `${label}: no hourglass at rest`).toHaveCount(0);
     await button.click();
     const waiting = page.getByRole("button", { name: pending, exact: true });
     await expect(waiting).toHaveAttribute("aria-disabled", "true");
@@ -66,6 +67,17 @@ async function expectReadableWhilePending(page: Page, { path, button, pending, l
     expect(busy.opacity, `${label}: the pending button is not dimmed`).toBe(1);
     // The state is said without colour: the word, and the wait cursor.
     expect(await waiting.evaluate((node) => getComputedStyle(node).cursor)).toBe("wait");
+    // And a cue the pointer is not needed for: one fixed hourglass in the label's colour, hidden
+    // from assistive technology (the name stays the pending word, checked above), never moving.
+    const hourglass = waiting.locator("[data-pending-icon]");
+    await expect(hourglass, `${label}: one hourglass while pending`).toHaveCount(1);
+    await expect(hourglass).toBeVisible();
+    await expect(hourglass).toHaveAttribute("aria-hidden", "true");
+    const drawn = await hourglass.evaluate((icon) => ({
+      stroke: getComputedStyle(icon).stroke, label: getComputedStyle(icon.closest("button")!).color, moving: icon.getAnimations({ subtree: true }).length,
+    }));
+    expect(drawn.stroke, `${label}: the hourglass takes the label's colour`).toBe(drawn.label);
+    expect(drawn.moving, `${label}: the hourglass never moves`).toBe(0);
     await expectNoAccessibilityViolation(page);
   } finally {
     release();
