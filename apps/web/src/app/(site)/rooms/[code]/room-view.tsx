@@ -2,8 +2,9 @@
 
 import { GuestActivityRefresh, withGuestCookieLock } from "@/identity/guest-browser";
 import { GUEST_ACTIVITY_EVENT } from "@/identity/guest-contract";
-import { GuestAvatar } from "@/components/rooms/guest-avatar";
 import { RoomBotsPanel } from "@/components/rooms/room-bots-panel";
+import { Quay, type QuayHull, quayBerths, WaveMarks } from "@/components/nautical";
+import { RoomCrewPanel } from "@/components/rooms/room-crew-panel";
 import { RoomCapacityPanel } from "@/components/rooms/room-capacity-panel";
 import { RoomVisibilityPanel } from "@/components/rooms/room-visibility-panel";
 import { RoomModerationPanel } from "@/components/rooms/room-moderation-panel";
@@ -23,9 +24,10 @@ import { StatePanel } from "@/components/ui/state-panel";
 import { card, discreetButton, monoLabel, secondaryButton } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
-import { formatNumber } from "@/i18n/value-format";
 import type { Locale } from "@/i18n/locale";
+import { roomCrewCopy } from "@/i18n/room-crew";
 import { roomStartNote } from "@/i18n/room-settings";
+import { formatNumber } from "@/i18n/value-format";
 import { BonusChannel } from "@/races/bonus-channel";
 import { BonusClient } from "@/races/bonus-client";
 import { RACE_BONUS_ACTIVATE_EVENT, RACE_BONUS_ANNOUNCEMENT_EVENT, RACE_BONUS_SELF_EVENT } from "@/races/bonus-protocol";
@@ -575,9 +577,28 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
   }
 
   const interrupted = snapshot.race?.state === "interrupted" ? snapshot.race.interruptionReason : null;
+  const live = connection === "live";
+  const rejoinRoom = () => { setConnection("connecting"); retryNowRef.current(); };
+  // Second layout (DA2-5a, D-15): the start plaque, the settings, who may enter, the crew and
+  // the bots, then moderation. The DOM order is the visual order at every width.
+  // The quay: mine first, then the other participants, then the bots; eight hulls at most, then a count.
+  const moored: QuayHull[] = [
+    ...(self.role === "participant" ? [{ kind: "human", colour: "moi", self: true } as const] : []),
+    ...snapshot.members.filter((member) => member.role === "participant" && member.memberId !== selfMemberId).map(() => ({ kind: "human" } as const)),
+    ...(snapshot.bots ?? []).map(() => ({ kind: "bot" } as const)),
+  ];
+  const beyond = quayBerths(moored.length).beyond;
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-start justify-between gap-6">
+    <div className="flex flex-col gap-6">
+      {/* Decorative and bounded: hidden from assistive technology by the primitive, removed on a low screen. */}
+      <div data-room-quay="wide" className="contents">
+        <Quay hulls={moored} more={beyond > 0 ? format(roomCrewCopy(locale).moored, { count: formatNumber(beyond, locale) }) : undefined} className="hidden rounded-carte lg:block short:hidden" />
+      </div>
+      {/* Under 1024 px the strip is too narrow for eight hulls and their count: three hulls, no clipped words. The crew counters say the numbers. */}
+      <div data-room-quay="narrow" className="contents">
+        <Quay hulls={moored.slice(0, 3)} className="h-[110px]! rounded-carte lg:hidden" />
+      </div>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex flex-col gap-3">
           <p className={monoLabel}>
             <span aria-hidden="true">[.</span>
@@ -585,11 +606,10 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
             <span aria-hidden="true">]</span>
           </p>
           <PageHeading bold={t.roomHeading} id={ROOM_HEADING_ID} />
+          {connectionLine}
         </div>
         {leave}
       </div>
-
-      {connectionLine}
 
       {interrupted !== null && (
         <section aria-labelledby="interrupted-heading" className={`${card} flex max-w-xl flex-col gap-2 border-or`}>
@@ -601,23 +621,12 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
         </section>
       )}
 
-      {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
-      <RoomBotsPanel guest={guest} snapshot={snapshot} host={self.isHost} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />
-      {self.isHost && <RoomModerationPanel snapshot={snapshot} guest={guest} live={connection === "live"} locale={locale} refresh={() => router.refresh()} />}
-      {snapshot.visibility !== undefined && <RoomVisibilityPanel guest={guest} code={snapshot.code} visibility={snapshot.visibility} revision={snapshot.revision}
-        host={self.isHost} live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />}
-      <RoomCapacityPanel guest={guest} code={snapshot.code} capacity={snapshot.capacity} revision={snapshot.revision} host={self.isHost}
-        live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
-      {self.isHost && <RoomInvitationsPanel key={`invitations:${snapshot.code}`} code={snapshot.code} locale={locale} live={connection === "live"} />}
-      <RoomSettingsPanel guest={guest} key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
-        live={connection === "live"} locale={locale} refresh={() => { setConnection("connecting"); retryNowRef.current(); }} />
-      {self.isHost && (
-        <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants === 0 ? 0 : participants + (snapshot.bots?.length ?? 0)} t={tRaces} note={roomStartNote(snapshot.settings, locale)} />
-      )}
-      {self.isHost && <HostRoundActions guest={guest} t={t.hostActions} code={snapshot.code} />}
-
       {connection === "reconnecting" && (
-        <section aria-labelledby="reconnect-heading" className={`${card} flex max-w-xl flex-col gap-3 border-or`}>
+        // The reconnection card is one of the room's state panels: the same wave marks in its corner (DA2-6's rule).
+        <section aria-labelledby="reconnect-heading" data-room-reconnect="" className={`${card} relative flex max-w-xl flex-col gap-3 overflow-hidden border-or *:relative`}>
+          <div aria-hidden="true" className="pointer-events-none absolute! top-0 right-0 h-[90px] w-[220px] opacity-70 max-sm:hidden">
+            <WaveMarks width={220} height={90} className="h-[90px] w-[220px]" />
+          </div>
           <p className={`${monoLabel} text-or`}>
             <span aria-hidden="true">⚠ </span>
             {t.reconnect.label}
@@ -632,15 +641,17 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
         </section>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
-        <section aria-labelledby="code-heading" className={`${card} flex flex-col gap-3 self-start lg:order-2`}>
+      {/* The start plaque: the code to share, then the host's start with closing alone under it. */}
+      <section
+        aria-labelledby="code-heading"
+        className={`${card} grid items-center gap-x-7 gap-y-4 border-voile short:py-4 ${self.isHost ? "sm:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(2.5rem,1fr)_minmax(0,28.75rem)]" : "sm:grid-cols-[auto_minmax(0,1fr)]"}`}
+      >
+        <div className="flex flex-col gap-2">
           <h2 id="code-heading" className={monoLabel}>
             {t.codeLabel}
           </h2>
-          <div className="flex items-center gap-3">
-            <span className="grow">
-              <RoomCode code={snapshot.code} />
-            </span>
+          <div className="flex items-center gap-3.5">
+            <RoomCode code={snapshot.code} />
             <button
               type="button"
               onClick={() => void copyCode()}
@@ -653,38 +664,61 @@ export function RoomView({ guest = false, initial, selfMemberId, t, tRaces, loca
           <p role="status" className={`min-h-5 text-sm ${copy === "failed" ? "text-erreur" : "text-juste"}`}>
             {copy === "copied" ? `✓ ${t.codeCopied}` : copy === "failed" ? `⚠ ${t.copyFailed}` : ""}
           </p>
-        </section>
+        </div>
+        {/* As on dev, the start note sits beside the start button: only the host reads it. */}
+        {self.isHost && (
+          <>
+            <div aria-hidden="true" className="hidden border-t-2 border-dotted border-houle xl:block" />
+            <div className="flex min-w-0 flex-col gap-2">
+              {/* Keyed by the race: a race that ended before this page saw it run gives back a fresh button. */}
+              <StartRaceButton key={snapshot.race?.raceId ?? "none"} start={() => startRef.current()} participants={participants === 0 ? 0 : participants + (snapshot.bots?.length ?? 0)} t={tRaces} note={roomStartNote(snapshot.settings, locale)} />
+              <div className="border-t border-sillage pt-3">
+                <HostRoundActions guest={guest} t={t.hostActions} code={snapshot.code} />
+              </div>
+            </div>
+          </>
+        )}
+      </section>
 
-        <section aria-labelledby="crew-heading" className={`${card} flex flex-col gap-4`}>
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 id="crew-heading" className="font-display text-3xl font-extrabold uppercase">
-              {t.membersHeading}
-            </h2>
-            <p className="font-mono text-sm text-brume">{format(t.membersCount, { count: formatNumber(participants + (snapshot.bots?.length ?? 0), locale), capacity: formatNumber(snapshot.capacity, locale) })}</p>
-          </div>
-          <ul className="flex flex-col divide-y divide-sillage">
-            {snapshot.members.map((member) => (
-              <li key={member.memberId} className="flex flex-wrap items-center gap-3 py-3">
-                <span aria-hidden="true" className={`size-2.5 rounded-full ${member.online ? "bg-juste" : "bg-voile"}`} />
-                {member.isGuest && <GuestAvatar compact nickname={member.displayName} label={t.guestLabel} />}
-                <span className="font-semibold">
-                  {member.displayName}
-                  {member.memberId === selfMemberId ? <span className="font-normal text-brume"> ({t.you})</span> : null}
-                </span>
-                {member.isHost && <span className="font-mono text-[10px] tracking-[0.2em] text-ligne uppercase">{t.host}</span>}
-                <span className="text-sm text-brume">{t.roleNames[member.role]}</span>
-                <span className="ml-auto text-sm text-brume">{member.online ? t.online : t.offline}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      <RoomSettingsPanel guest={guest} key={snapshot.code} code={snapshot.code} settings={snapshot.settings} host={self.isHost}
+        live={live} locale={locale} refresh={rejoinRoom} />
+
+      {/* Side by side from the tablet up; a panel that opens its choices takes the row (its cards need the width). */}
+      <div className="grid gap-6 md:auto-cols-fr md:grid-flow-col md:has-[[data-editing]]:grid-flow-row">
+        {snapshot.visibility !== undefined && <RoomVisibilityPanel guest={guest} code={snapshot.code} visibility={snapshot.visibility} revision={snapshot.revision}
+          host={self.isHost} live={live} locale={locale} refresh={rejoinRoom} />}
+        <RoomCapacityPanel guest={guest} code={snapshot.code} capacity={snapshot.capacity} revision={snapshot.revision} host={self.isHost}
+          live={live} locale={locale} refresh={rejoinRoom} />
+        {self.isHost && <RoomInvitationsPanel key={`invitations:${snapshot.code}`} code={snapshot.code} locale={locale} live={live} />}
       </div>
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.45fr)]">
+        <RoomCrewPanel snapshot={snapshot} selfMemberId={selfMemberId} t={t} locale={locale} />
+        <RoomBotsPanel guest={guest} snapshot={snapshot} host={self.isHost} live={live} locale={locale} refresh={() => router.refresh()} />
+      </div>
+
+      {self.isHost && <RoomModerationPanel snapshot={snapshot} guest={guest} live={live} locale={locale} refresh={() => router.refresh()} />}
+    </div>
+  );
+}
+
+/**
+ * The four states that replace the room (closed, expelled, no longer a member, signed out), with
+ * the C1 wave marks in the panel's corner (DA2-6's rule for every room state panel). The marks are
+ * decorative, clear of the label and the heading, and left out on a phone, where the label can
+ * reach the corner. Tone border, sign, texts and actions are those of screen 15, unchanged.
+ */
+function RoomEnding(props: Parameters<typeof RoomEndingPanel>[0]) {
+  return (
+    <div data-room-ending={props.ending} className="relative max-w-xl overflow-hidden rounded-carte">
+      <RoomEndingPanel {...props} />
+      <WaveMarks width={220} height={90} className="pointer-events-none absolute top-0 right-0 h-[90px] w-[220px] opacity-70 max-sm:hidden!" />
     </div>
   );
 }
 
 /** What replaces the waiting room once it no longer applies (screen 15). */
-function RoomEnding({
+function RoomEndingPanel({
   ending,
   code,
   hosted,

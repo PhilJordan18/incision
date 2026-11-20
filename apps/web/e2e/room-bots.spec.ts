@@ -86,7 +86,8 @@ test("bot controls are accessible in both languages and themes at reference widt
           expect(Math.abs(remove.y + remove.height - select.y - select.height)).toBeLessThan(1);
           expect(Math.abs(remove.y - change.y)).toBeLessThan(1);
         }
-        await page.screenshot({ path: `../../docs/evidence/f05-2-bot-controls-alignment/${locale}-${theme}-${width}.png`, fullPage: true });
+        // The F-05.2 captures stay as delivered (docs/evidence/f05-2-bot-controls-alignment); the second layout has its own.
+        await page.screenshot({ path: test.info().outputPath(`${locale}-${theme}-${width}.png`), fullPage: true });
       }
     }
     const row = panel(page).getByRole("listitem");
