@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Locator, type Page, test, type WebSocketRoute } from "@playwright/test";
 import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
 
 // Waiting room, second layout (DA2-5, D-15): order, counters, host and non-host views, the full
@@ -344,35 +344,64 @@ test("screen reader: names, roles and states of the room, as the accessibility t
   }
 });
 
+/** The border colour a tone token gives, read from a probe element. */
+async function toneColour(page: Page, token: "or" | "houle"): Promise<string> {
+  return page.evaluate((name) => {
+    const probe = document.createElement("span");
+    probe.className = `border border-${name}`;
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).borderTopColor;
+    probe.remove();
+    return colour;
+  }, token);
+}
+
+/** Wave marks of a panel: drawn, decorative, inside the panel and behind no word of its label, heading or body. */
+async function expectCornerWaves(panel: Locator): Promise<void> {
+  const marks = panel.locator("[data-wave-marks]");
+  await expect(marks).toBeVisible();
+  await expect(marks.locator("xpath=ancestor-or-self::*[@aria-hidden='true']").first()).toBeAttached();
+  const boxes = await panel.evaluate((root) => {
+    const waves = [...root.querySelectorAll("[data-wave-marks] path")].map((path) => path.getBoundingClientRect());
+    const range = document.createRange();
+    const words = [...root.querySelectorAll("section > p, h1, h2")].map((element) => { range.selectNodeContents(element); return range.getBoundingClientRect(); });
+    const frame = root.getBoundingClientRect();
+    return {
+      count: waves.length,
+      overlap: waves.some((wave) => words.some((word) => wave.left < word.right && wave.right > word.left && wave.top < word.bottom && wave.bottom > word.top)),
+      inside: waves.every((wave) => wave.right <= frame.right + 0.5 && wave.top >= frame.top - 0.5),
+      pointer: getComputedStyle(root.querySelector("[data-wave-marks]")!).pointerEvents,
+    };
+  });
+  expect(boxes.count).toBeGreaterThan(0);
+  expect(boxes.overlap).toBe(false);
+  expect(boxes.inside).toBe(true);
+  expect(boxes.pointer).toBe("none");
+}
+
 test("the four states that replace the room keep their tone, texts and actions, with wave marks in the corner", async ({ browser }) => {
   const ending = (page: Page) => page.locator("[data-room-ending]");
   // Each state is produced by the real flow, from a second browser or tab.
-  const check = async (page: Page, state: string, heading: RegExp, actions: string[], name: string) => {
+  type Expected = { readonly tone: "or" | "houle"; readonly sign: string; readonly label: string; readonly heading: RegExp; readonly body: string; readonly actions: string[] };
+  const check = async (page: Page, state: string, expected: Expected, name: string) => {
+    const { heading, actions } = expected;
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
     await expect(ending(page)).toHaveAttribute("data-room-ending", state);
     await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
     const marks = ending(page).locator("[data-wave-marks]");
     await expect(marks).toHaveAttribute("aria-hidden", "true");
     expect(await marks.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe("none");
-    // Unchanged: the tone's sign, and the same actions in the same order.
-    await expect(ending(page).locator("section > p").first()).toContainText(/^[⚠×·] /);
+    // Unchanged: the tone's border and sign, the label, the body text, and the same actions in the same order.
+    const section = ending(page).locator("section");
+    expect(await section.evaluate((element) => getComputedStyle(element).borderTopColor)).toBe(await toneColour(page, expected.tone));
+    await expect(section.locator("> p").first()).toHaveText(`${expected.sign} ${expected.label}`);
+    await expect(section).toContainText(expected.body);
     await expect(ending(page).locator("a, button")).toHaveText(actions);
     // In the corner, clear of the label and of the heading; no wave is behind a word.
     await page.setViewportSize({ width: 1440, height: 900 });
-    await expect(marks).toBeVisible();
-    const boxes = await ending(page).evaluate((panel) => {
-      const rect = (element: Element | null) => element?.getBoundingClientRect();
-      const waves = [...panel.querySelectorAll("[data-wave-marks] path")].map((path) => path.getBoundingClientRect());
-      const words = [rect(panel.querySelector("section > p")), rect(panel.querySelector("h1"))];
-      const range = document.createRange();
-      const text = words.map((_, index) => { range.selectNodeContents(panel.querySelectorAll("section > p, h1")[index]!); return range.getBoundingClientRect(); });
-      return { overlap: waves.some((wave) => text.some((word) => wave.left < word.right && wave.right > word.left && wave.top < word.bottom && wave.bottom > word.top)), count: waves.length, panel: panel.getBoundingClientRect().right, right: Math.max(...waves.map((wave) => wave.right)) };
-    });
-    expect(boxes.count).toBeGreaterThan(0);
-    expect(boxes.overlap, state).toBe(false);
-    expect(boxes.right).toBeLessThanOrEqual(boxes.panel);
+    await expectCornerWaves(ending(page));
     await expectNoAccessibilityViolation(page);
-    await capture(page, `etat-${name}-fr-abysse-1440`, false);
+    await capture(page, `etat-${name}-1440`, false);
     // On a phone the label can reach the corner: the marks are left out.
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(marks).toBeHidden();
@@ -390,21 +419,52 @@ test("the four states that replace the room keep their tone, texts and actions, 
   const moderation = region(host, /^Modération de la salle$/);
   await moderation.getByRole("button", { name: "Expulser Lina" }).click();
   await moderation.getByRole("button", { name: "Confirmer l’expulsion" }).click();
-  await check(expelled, "expelled", /Expulsé|expuls/i, ["Revenir à l’accueil"], "expulse");
+  await check(expelled, "expelled", { tone: "or", sign: "⚠", label: `Salle ${code}`, heading: /^Expulsion de la salle$/,
+    body: "L’hôte t’a expulsé de cette salle. Cette identité ne peut plus la rejoindre. Tu peux rejoindre une autre salle.", actions: ["Revenir à l’accueil"] }, "expulse-fr-abysse");
   // Left from another tab of the same member.
   const otherTab = await leaver.context().newPage();
   await otherTab.goto(`/rooms/${code}`);
   await expect(otherTab.getByText(LIVE)).toBeVisible();
   await otherTab.getByRole("button", { name: "Quitter la salle" }).click();
-  await check(leaver, "notMember", /Tu as quitté la salle/i, ["Rejoindre à nouveau", "Revenir à l’accueil"], "quittee");
+  await check(leaver, "notMember", { tone: "or", sign: "⚠", label: "Hors de la salle", heading: /^Tu as quitté la salle$/,
+    body: `Tu ne fais plus partie de la salle ${code}. Tu peux la rejoindre à nouveau tant qu’elle est ouverte.`, actions: ["Rejoindre à nouveau", "Revenir à l’accueil"] }, "quittee-fr-abysse");
   // Signed out elsewhere (Aube).
   const account2 = await signedOut.context().newPage();
   await account2.goto("/account");
   await account2.getByRole("button", { name: "Se déconnecter" }).click();
-  await check(signedOut, "signedOut", /Reconnecte-toi/i, ["Me reconnecter", "Revenir à l’accueil"], "session-terminee-aube");
+  await check(signedOut, "signedOut", { tone: "or", sign: "⚠", label: "Session terminée", heading: /^Reconnecte-toi$/,
+    body: `Ta session a pris fin, ici ou sur un autre appareil. Reconnecte-toi pour revenir dans la salle ${code}.`, actions: ["Me reconnecter", "Revenir à l’accueil"] }, "session-terminee-fr-aube");
   // Closed by the host, for the member who stayed and for the host.
   await host.getByRole("button", { name: "Fermer la salle" }).click();
   await host.getByRole("button", { name: "Oui, fermer la salle" }).click();
-  await check(stays, "closed", /Salle\s*fermée/i, ["Créer une salle", "Revenir à l’accueil"], "fermee");
+  await check(stays, "closed", { tone: "houle", sign: "·", label: `Salle ${code}`, heading: /^Salle\s*fermée$/,
+    body: `L’hôte a fermé la salle ${code} pour tout le monde.`, actions: ["Créer une salle", "Revenir à l’accueil"] }, "fermee-fr-abysse");
   await expect(ending(host)).toHaveAttribute("data-room-ending", "closed");
+});
+
+test("the reconnection card keeps its tone, texts and action, with the same wave marks in the corner", async ({ browser }) => {
+  const host = await account(browser, "Capitaine");
+  // The emulated network loss does not close an open WebSocket: the room's socket goes through the test, which cuts it.
+  const sockets: WebSocketRoute[] = [];
+  await host.routeWebSocket(/\/socket\.io\//, (socket) => { socket.connectToServer(); sockets.push(socket); });
+  await openRoom(host);
+  await host.context().setOffline(true);
+  await Promise.all(sockets.splice(0).map((socket) => socket.close()));
+  const card = host.locator("[data-room-reconnect]");
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  expect(await card.evaluate((element) => getComputedStyle(element).borderTopColor)).toBe(await toneColour(host, "or"));
+  await expect(card.locator("> p").first()).toHaveText("⚠ Connexion perdue");
+  await expect(card.getByRole("heading", { level: 2 })).toHaveText("Reconnexion");
+  await expect(card).toContainText("Ta place est gardée. La page se reconnecte toute seule.");
+  await expect(card.getByRole("button")).toHaveText(["Réessayer maintenant"]);
+  await expectCornerWaves(card);
+  await expectNoAccessibilityViolation(host);
+  await card.screenshot({ path: EVIDENCE === undefined ? test.info().outputPath("etat-reconnexion.jpg") : `${EVIDENCE}/etat-reconnexion-fr-abysse-1440.jpg`, type: "jpeg", quality: 72 });
+  await host.setViewportSize({ width: 390, height: 844 });
+  await expect(card.locator("[data-wave-marks]")).toBeHidden();
+  await expectNoHorizontalScroll(host);
+  // Back online, the card goes and the room is live again.
+  await host.context().setOffline(false);
+  await expect(host.getByText(LIVE)).toBeVisible({ timeout: 30_000 });
+  await expect(card).toHaveCount(0);
 });
