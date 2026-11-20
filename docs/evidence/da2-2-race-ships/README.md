@@ -73,6 +73,12 @@ and dotted lines under the cloth are hard to tell apart.
 - **Tablet chart**: a runner it does not name is grey there too, dot and route.
 - **Ships** are drawn at 85 % of the mock-up's size, so that they fit the shortest chart (12 rem).
 
+## Assertions of `race-track.spec.ts` changed against `dev`
+
+Listed in full in the pull request (#212). One more, removed in `09b9b50`: in forced colours the
+check « sail = marker background » is gone, because a named runner's marker is now a zero-size foot
+whose background is no longer painted; the sail, the hull and the coast edge are read instead.
+
 ## Contrast measured on the app (`race ships contrast`, 1440 × 900, 30 runners)
 
 | Mark, against what is behind it | Abysse | Aube |

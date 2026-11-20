@@ -122,9 +122,12 @@ export const SHIP_BERTHS: ShipBerths = { clear: 7.5, level: 16, ease: 4, min: 4,
  * lanes would sail under the finish word. The stylesheet then draws the lanes, 16 to 55 % of the
  * width, between 30 and 55 %: x' = offset + scale × x (race-track.module.css, same numbers).
  * Ships there are berthed in lane space with a clearance and a reach divided by the scale, so that
- * once drawn they keep the same 7.5 % and 10 %, and never start left of 30 %.
+ * once drawn they keep the same 7.5 % and 10 %, and a ship never starts left of 30 % unless its
+ * own marker does (the first lane swings down to about 28.5 %).
  */
 export const NARROW_LANES = { offset: 30 - 16 * (25 / 39), scale: 25 / 39 } as const;
+/** The lane-space value drawn at 63 % on a narrow chart: where a name's connector ends. */
+export const NARROW_LINK_END = Math.round((63 - NARROW_LANES.offset) / NARROW_LANES.scale * 100) / 100;
 export const NARROW_SHIP_BERTHS: ShipBerths = { ...SHIP_BERTHS, clear: SHIP_BERTHS.clear / NARROW_LANES.scale, reach: SHIP_BERTHS.reach / NARROW_LANES.scale,
   min: (30 - NARROW_LANES.offset) / NARROW_LANES.scale, max: (SHIP_BERTHS.max - NARROW_LANES.offset) / NARROW_LANES.scale };
 /** The tablet's chart: lanes down its 180 px, the course along its width. Only two ships sail there. */

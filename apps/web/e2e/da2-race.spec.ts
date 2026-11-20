@@ -141,13 +141,17 @@ for (const item of cases) {
       expect(word.plate).toMatch(/^(rgb\(|color\(srgb [\d. ]+\)$)/);
     }
     // No ship over mine: one that would cover it is drawn beside its marker (two others may touch).
-    // Exception, measured and declared: a whole crew exactly level on a narrow chart (the
-    // by-the-coast cases) can hold a neighbour short of mine by its 10 % reach; mine is then drawn
-    // above it, never under.
+    // Exception, measured and declared: a whole crew exactly level on a narrow vertical chart (the
+    // by-the-coast cases at 1024 and 1280 × 640) can hold a neighbour short of mine by its 10 %
+    // reach. There, at most a third of my hull may lie under other hulls; mine is drawn above them.
     expect(boxes.mine).toHaveLength(1);
-    if (steps > 4) expect(await track.evaluate(el => { const z = (m: Element) => Number(getComputedStyle(m).zIndex) || 0;
-      const mine = el.querySelector("[data-runner][data-self]")!; return [...el.querySelectorAll("[data-runner]:not([data-self])")].every(other => z(other) < z(mine)); })).toBe(true);
-    else for (const hull of boxes.others) expect(overlap(hull, boxes.mine[0]!), "a hull over mine").toBe(false);
+    const mine = boxes.mine[0]!;
+    const under = boxes.others.reduce((sum, hull) => sum + Math.max(0, Math.min(hull.right, mine.right) - Math.max(hull.left, mine.left))
+      * Math.max(0, Math.min(hull.bottom, mine.bottom) - Math.max(hull.top, mine.top)), 0) / ((mine.right - mine.left) * (mine.bottom - mine.top));
+    if (steps > 4 && !horizontal) {
+      console.info("[my hull under others, level crew]", name, Math.round(under * 100) / 100);
+      expect(under, "my hull under other hulls").toBeLessThanOrEqual(1 / 3);
+    } else for (const hull of boxes.others) expect(overlap(hull, mine), "a hull over mine").toBe(false);
     // A ship drawn beside its marker is tied to it, the tether running from the marker to the ship's
     // foot; a ship on its marker has none. Measured as drawn, whatever the chart's mapping.
     if (horizontal) expect(await track.evaluate(el => [...el.querySelectorAll<HTMLElement>("[data-runner]")].filter(marker => marker.querySelector("[data-ship]"))

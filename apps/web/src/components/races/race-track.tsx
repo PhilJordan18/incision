@@ -8,7 +8,7 @@ import type { Locale } from "@/i18n/locale";
 import { formatNumber } from "@/i18n/value-format";
 import { formatProgress, formatWpm } from "@/races/format";
 import type { RaceClientState } from "@/races/race-client";
-import { MILESTONES, standingsOrder, type TrackPoint, trackLayout, trackX, trackY } from "./track-layout";
+import { MILESTONES, NARROW_LINK_END, standingsOrder, type TrackPoint, trackLayout, trackX, trackY } from "./track-layout";
 import styles from "./race-track.module.css";
 
 /**
@@ -53,10 +53,17 @@ export const RaceTrack = memo(function RaceTrack({ entrants, progress, selfId, t
       <Compass heading={0} className={`${styles.compass} ${styles.horizontalOnly}`} />
       {/* The sea routes, under the markers: from the start to each runner's real progress. */}
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={`${styles.routes} ${styles.verticalRoutes}`}>
-        {points.map((point) => <polyline key={point.runner.entrantId} points={point.path} data-route={point.runner.entrantId}
-          className={`${styles.route} ${routeClass(point)}`} />)}
-        {points.filter((point) => point.labelled).map((point) => <line key={point.runner.entrantId} className={styles.connector}
-          x1={point.x} y1={point.y} x2="63" y2={point.labelY} />)}
+        {/* One group, so that a narrow chart moves the lanes inside the drawing and the strokes keep their width. */}
+        <g className={styles.verticalLanes}>
+          {points.map((point) => <polyline key={point.runner.entrantId} points={point.path} data-route={point.runner.entrantId}
+            className={`${styles.route} ${routeClass(point)}`} />)}
+          {/* From a marker to its name: 63 % on a wide chart; on a narrow one, where the names' column is reached
+              through the lanes' mapping, the value that is drawn at 63 % (NARROW_LINK_END). */}
+          {points.filter((point) => point.labelled).map((point) => <line key={point.runner.entrantId} className={`${styles.connector} ${styles.wideLink}`}
+            x1={point.x} y1={point.y} x2="63" y2={point.labelY} />)}
+          {points.filter((point) => point.labelled).map((point) => <line key={point.runner.entrantId} className={`${styles.connector} ${styles.narrowLink}`}
+            x1={point.x} y1={point.y} x2={NARROW_LINK_END} y2={point.labelY} />)}
+        </g>
       </svg>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={`${styles.routes} ${styles.horizontalRoutes}`}>
         {/* This chart names two runners only (me and the leader): every other route is an unnamed one. */}
