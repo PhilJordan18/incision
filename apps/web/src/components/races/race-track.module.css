@@ -11,7 +11,7 @@
   align-self: start;
 }
 .track {
-  /* Its own width as a unit (cqw), for a ship drawn beside its marker. */
+  /* A size container: the narrow-chart rules below query its width. */
   container-type: inline-size;
   position: relative;
   height: 560px;

@@ -11,10 +11,6 @@ export type TrackPoint = {
   readonly horizontalX: number;
   readonly horizontalY: number;
   readonly labelY: number;
-  /*
-   * A named runner's ship is drawn on its own marker, on every chart and whatever the crew's
-   * size: where hulls overlap, mine is painted on top (race-track's paint order and z-index).
-   */
   /** The runner's stable sea route, the same on every refresh of the round (see `routeStyle`). */
   readonly route: RouteStyle;
   /** The route from the start to the runner's real progress, in the track's 0–100 boxes. */
