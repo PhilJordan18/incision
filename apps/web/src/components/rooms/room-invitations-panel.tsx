@@ -3,7 +3,7 @@ import { useRef, useState, useTransition } from "react";
 import type { Locale } from "@/i18n/locale";
 import { invitationCopy } from "@/i18n/invitations";
 import { createInvitationAction, listInvitationsAction, revokeInvitationAction } from "@/server/rooms/invitation-actions";
-import { card, discreetButton, fieldLabel, secondaryButton, textField } from "../ui/styles";
+import { card, discreetButton, fieldLabel, panelTitle, secondaryButton, textField } from "../ui/styles";
 
 type Listing = Extract<Awaited<ReturnType<typeof listInvitationsAction>>, { ok: true }>;
 export function RoomInvitationsPanel({ code, locale, live }: { code: string; locale: Locale; live: boolean }) {
@@ -26,8 +26,8 @@ export function RoomInvitationsPanel({ code, locale, live }: { code: string; loc
     setMessage("");
     transition(async () => { try { await action(); } catch { setMessage(t.unavailable); } });
   }
-  return <section className={`${card} flex flex-col gap-4`} aria-labelledby="invitations-heading">
-    <h2 id="invitations-heading" className="font-display text-3xl font-extrabold uppercase">{t.title}</h2>
+  return <section className={`${card} flex min-w-0 flex-col gap-4`} aria-labelledby="invitations-heading">
+    <h2 id="invitations-heading" className={panelTitle}>{t.title}</h2>
     <p className="text-sm text-brume">{t.intro}</p>
     <div className="flex flex-wrap gap-3">
       <button className={secondaryButton} disabled={pending || !live} onClick={() => run(async () => {

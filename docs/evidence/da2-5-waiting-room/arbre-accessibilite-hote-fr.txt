@@ -1,0 +1,98 @@
+- main:
+  - paragraph: Salle CODE00
+  - heading "Salle d’attente" [level=1]
+  - paragraph: En direct
+  - button "Quitter la salle"
+  - paragraph: Si tu quittes, le plus ancien membre humain connecté devient hôte. Sans successeur connecté, la salle ferme. Tu devras confirmer.
+  - region "Code de la salle":
+    - heading "Code de la salle" [level=2]
+    - text: CODE00
+    - button "Copier le code"
+    - status
+    - button "Lancer la course"
+    - paragraph: "Entraînement. Durée maximale : Aucune limite. Correction obligatoire. 50 mots. Passage cohérent, complexité moyenne."
+    - alert
+    - button "Fermer la salle"
+    - paragraph: "Fermer la salle fait partir tout le monde : tu devras confirmer."
+  - region "Réglages de la course":
+    - heading "Réglages de la course" [level=2]
+    - button "Modifier les réglages"
+    - term: Langue du texte
+    - definition: Français
+    - term: Nombre de mots
+    - definition: "50"
+    - term: Durée maximale (secondes)
+    - definition: Aucune limite
+    - term: Mode de frappe
+    - definition: Correction obligatoire
+    - term: Mode de jeu
+    - definition: Entraînement
+    - term: Type de texte
+    - definition: Passage cohérent
+    - term: Complexité
+    - definition: Moyenne
+    - term: Options du texte
+    - definition: ponctuation, majuscules, accents
+  - region "Visibilité de la salle":
+    - heading "Visibilité de la salle" [level=2]
+    - paragraph:
+      - text: "Visibilité :"
+      - strong: Sur code
+    - paragraph: Absente des listes. On entre avec le code ou un lien d’invitation.
+    - button "Modifier la visibilité"
+  - region "Capacité de la salle":
+    - heading "Capacité de la salle" [level=2]
+    - paragraph: "Nombre maximal de participants : 30"
+    - paragraph: De 2 à 30 participants, bots compris. Les spectateurs ne prennent pas de place de participant (20 maximum).
+    - button "Modifier la capacité"
+  - region "Invitations":
+    - heading "Invitations" [level=2]
+    - paragraph: Chaque lien est lié à la première personne admise et à son adresse IP. Il ne peut pas être partagé ensuite.
+    - button "Générer une invitation"
+    - button "Afficher / actualiser les invitations"
+    - status
+  - region "Équipage":
+    - heading "Équipage" [level=2]
+    - paragraph: 4 / 30 participants
+    - heading "Participants 2" [level=3]
+    - list "Participants 2":
+      - listitem: Capitaine (toi) Hôte participant en ligne
+      - listitem: Participant 1 participant hors ligne
+    - heading "Spectateurs 1 / 20" [level=3]
+    - list "Spectateurs 1 / 20":
+      - listitem: Spectator 1 spectateur hors ligne
+  - region "Bots":
+    - heading "Bots" [level=2]
+    - heading "Ajouter un bot" [level=3]
+    - text: Niveau du bot
+    - combobox "Niveau du bot":
+      - option "Mousse — novice"
+      - option "Quartier-maître — débutant" [selected]
+      - option "Capitaine — intermédiaire"
+      - option "Empereur des mers — expert"
+      - option "Roi des pirates — impossible"
+    - button "Ajouter un bot"
+    - paragraph: Ce choix s’applique uniquement au prochain bot ajouté.
+    - status
+    - heading "Bots dans la salle" [level=3]
+    - text: "2"
+    - list:
+      - listitem:
+        - paragraph: Bot 1
+        - paragraph: "Niveau enregistré : Capitaine — intermédiaire"
+        - button "Modifier Bot 1": Modifier
+        - button "Retirer Bot 1": Retirer
+      - listitem:
+        - paragraph: Bot 2
+        - paragraph: "Niveau enregistré : Mousse — novice"
+        - button "Modifier Bot 2": Modifier
+        - button "Retirer Bot 2": Retirer
+  - region "Modération de la salle":
+    - heading "Modération de la salle" [level=2]
+    - list:
+      - listitem:
+        - text: Participant 1
+        - button "Expulser Participant 1": Expulser
+      - listitem:
+        - text: Spectator 1
+        - button "Expulser Spectator 1": Expulser

@@ -19,6 +19,7 @@ export function ErrorState({ retry }: { readonly retry: () => void }) {
   const t = getDictionary(isLocale(lang) ? lang : DEFAULT_LOCALE).errorBoundary;
   return (
     <StatePanel
+      waves
       tone="error"
       label={t.label}
       heading={{ bold: t.title }}

@@ -29,7 +29,7 @@ export type RouteStyle = {
 /**
  * Each runner's route, fixed for the round: the player's own in `moi`, the others by their place
  * in the crew sorted by id (not by rank, which changes), a colour then a dash pattern, so that
- * twelve neighbours never share both. Names, initials and markers still identify every runner:
+ * twelve neighbours never share both. Names, pennants and sails still identify every runner:
  * the colour is never the only cue (rule 8).
  */
 export function routeStyle(stableIndex: number, self: boolean): RouteStyle {
@@ -81,10 +81,29 @@ function routePath(ratio: number, point: (t: number) => readonly [number, number
   return coords.length === 1 ? `${coords[0]} ${coords[0]}` : coords.join(" ");
 }
 
-/** The names' column (in % of the chart's height): five two-line names (31 px) fit apart on a 12 rem chart, under the finish band (12 %). */
+/**
+ * The lengthwise axis of both charts, in % of the track: the start at 0, the finish (the coast) at 1.
+ * Vertical: upwards. Horizontal (tablet): to the right.
+ */
+export const trackY = (t: number) => 90 - 77 * t;
+export const trackX = (t: number) => 5 + 88 * t;
+/** The milestones drawn across the chart, as shares of the text. */
+export const MILESTONES = [0.25, 0.5, 0.75] as const;
+
+/** The names' column (in % of the chart's height): five two-line names (31 px) fit apart on a 12 rem chart, under the coast (15 %). */
 export const LABEL_TOP = 25;
 export const LABEL_BOTTOM = 90;
 export const LABEL_GAP = 16.25;
+
+/**
+ * On a vertical chart of 900 px or less the first lanes would sail under the finish word: that
+ * is every vertical chart the page draws today (the widest, the race row without Arcade on a large
+ * screen, is about 830 px). The stylesheet then draws the lanes, 16 to 55 % of the
+ * width, between 30 and 55 %: x' = offset + scale × x (race-track.module.css, same numbers).
+ */
+export const NARROW_LANES = { offset: 30 - 16 * (25 / 39), scale: 25 / 39 } as const;
+/** The lane-space value drawn at 63 % on a narrow chart: where a name's connector ends. */
+export const NARROW_LINK_END = Math.round((63 - NARROW_LANES.offset) / NARROW_LANES.scale * 100) / 100;
 
 /** Presentation only: progress proximity is NOT the engine's official finish ranking. */
 export function trackLayout(entrants: readonly Runner[], selfId: string | null): readonly TrackPoint[] {
@@ -102,13 +121,19 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
   // A tie is not a win: no gold leader at the start or among tied finishers.
   const leader = first && ratio(first) > 0 && (active[1] === undefined || ratio(first) > ratio(active[1])) ? first.entrantId : undefined;
   const routes = routeStyles(stable, selfId);
+  const share = (index: number) => stable.length <= 1 ? 0.5 : index / (stable.length - 1);
+  const laneOf = (index: number) => 16 + 39 * share(index);
+  // The tablet's lanes keep below the two words along its top edge (« + N », « ARRIVÉE »): 30 to 58 % of 180 px.
+  const horizontalLaneOf = (index: number) => 30 + 28 * share(index);
   const raw = stable.map((runner, index) => {
     const id = runner.entrantId;
     // A fixed lane per runner (its place in the crew by id), so that a route never jumps sideways.
-    const lane = 9 + 46 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
-    const horizontalLane = 14 + 66 * (stable.length <= 1 ? 0.5 : index / (stable.length - 1));
-    const vertical = (t: number) => [lane + swing(t, id), 90 - 77 * t] as const;
-    const horizontal = (t: number) => [5 + 88 * t, horizontalLane + swing(t, id)] as const;
+    // The lanes leave the chart's bottom-left corner (vertical) and bottom edge (horizontal) to the
+    // compass and the names: a ship never starts or sails over them.
+    const lane = laneOf(index);
+    const horizontalLane = horizontalLaneOf(index);
+    const vertical = (t: number) => [lane + swing(t, id), trackY(t)] as const;
+    const horizontal = (t: number) => [trackX(t), horizontalLane + swing(t, id)] as const;
     const progress = ratio(runner);
     const [x, y] = vertical(progress);
     const [horizontalX, horizontalY] = horizontal(progress);
@@ -130,7 +155,6 @@ export function trackLayout(entrants: readonly Runner[], selfId: string | null):
     for (let i = positions.length - 2; i >= 0; i--) positions[i] = Math.min(positions[i]!, positions[i + 1]! - LABEL_GAP);
   }
   const labelPositions = new Map(labels.map((point, i) => [point.runner.entrantId, positions[i]!]));
-  // Markers stay at the end of their own route: never moved aside for a label.
   return raw.map((point) => ({ ...point, labelY: labelPositions.get(point.runner.entrantId) ?? point.y }));
 }
 

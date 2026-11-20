@@ -1,18 +1,21 @@
-import type { EntrantResultView } from "@incision/database";
+import { Pennant } from "@/components/nautical";
 import { card, monoLabel } from "@/components/ui/styles";
 import type { Dictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/locale";
 import { resultsPodiumLabels } from "@/i18n/results-podium";
 import { formatWpm, ordinal } from "@/races/format";
 import { BotIdentityLabel } from "./bot-identity-label";
+import type { ResultEntrant, resultRoutes } from "./result-routes";
 
 const STATUS = { finished: "finished", timed_out: "timedOut", abandoned: "abandoned" } as const;
 
 /** Display the persisted rank, never a new WPM-based ranking or a victory calculation. */
-export function ResultsPodium({ entrants, locale, t }: {
-  readonly entrants: readonly EntrantResultView[];
+export function ResultsPodium({ entrants, locale, t, routes }: {
+  readonly entrants: readonly ResultEntrant[];
   readonly locale: Locale;
   readonly t: Dictionary["races"];
+  /** The track's route style by ordinal, for the runners it is known for: `resultRoutes` of the race's whole crew, never of this filtered list. */
+  readonly routes: ReturnType<typeof resultRoutes>;
 }) {
   const places = entrants.filter((entrant) => entrant.result !== undefined && entrant.result.rank <= 3)
     .toSorted((a, b) => a.result!.rank - b.result!.rank);
@@ -29,7 +32,8 @@ export function ResultsPodium({ entrants, locale, t }: {
           className={`${card} min-w-0 ${firstFinisher ? "border-or" : ""} ${entrant.isSelf ? "bg-moi/10" : ""}`}>
           <p className={monoLabel}>{t.results.columns.rank}</p>
           <p className="mt-1 font-display text-5xl font-extrabold">{ordinal(result.rank, locale, t.results.ordinal)}</p>
-          <p className="mt-3 break-words text-lg font-semibold [overflow-wrap:anywhere]">{entrant.displayName}
+          <p className="mt-3 break-words text-lg font-semibold [overflow-wrap:anywhere]" data-result-entrant={entrant.ordinal}>
+            <Pennant kind={entrant.kind ?? "human"} {...routes.get(entrant.ordinal)} className="mr-2" />{entrant.displayName}
             {entrant.isSelf && <span className="font-normal text-brume"> ({t.you})</span>}</p>
           <BotIdentityLabel kind={entrant.kind} level={entrant.botLevel} locale={locale} />
           <p className="mt-2 text-sm text-embrun">{t.status[STATUS[result.outcome]]}
