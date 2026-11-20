@@ -79,7 +79,17 @@ La CI initiale de `dev`, [44789876564](https://github.com/PhilJordan18/incision/
 a été coupée au plafond Playwright de 25 minutes après le test 310 sur 365.
 Les étapes précédentes étaient réussies; ce timeout n'est pas une suite complète verte.
 La correction de délai est livrée séparément dans la [PR #223](https://github.com/PhilJordan18/incision/pull/223).
-Ses résultats définitifs sont à relever avant toute recommandation de fusion.
+Résultats définitifs sur `a572f2e261eff45b27e9631b06b6fe797d20f0bf` :
+
+- [CI push 44800527451](https://github.com/PhilJordan18/incision/actions/runs/44800527451) : réussie.
+- [CI pull_request 44800540107](https://github.com/PhilJordan18/incision/actions/runs/44800540107) : réussie.
+- Playwright du run pull_request : **360 réussis, 5 ignorés**, 28,1 minutes
+  (étape de 19:24:50 à 19:53:00 UTC). Aucun test n'a été désactivé par #223.
+- #223 ouverte, tête inchangée, état GitHub `MERGEABLE` lors de la vérification finale.
+
+Les preuves restent sur une branche documentaire locale distincte, afin de ne
+pas relancer une suite de 28 minutes avec l'ancien plafond de `dev` avant la
+fusion humaine de #223. Le résultat synthétique est aussi publié dans cette PR.
 
 Revue documentaire : portée, SHA, isolation et limites explicites contrôlés.
 Aucun merge, déploiement, fermeture manuelle de carte ou modification des données existantes.
