@@ -1,5 +1,5 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
+import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, holdForAccent, query, sentKeystrokes, SESSION_COOKIE } from "./support";
 
 /**
  * The first complete race (F-04.0) in real browsers: two accounts, the countdown on the server's
@@ -115,6 +115,64 @@ test("a held e can be replaced by an accent before it reaches the race", async (
   );
   expect(counts).toEqual({ correct_inputs: String(text.length), total_inputs: String(text.length + 1) });
 
+});
+
+test("every held letter of the texts takes its accent, as one grapheme, in both cases", async ({ browser }) => {
+  const { page: host } = await signedIn(browser, "Capitaine", { locale: "en-US" });
+  const { page: runner } = await signedIn(browser, "Matelot", { locale: "fr-CA" });
+  const sent = sentKeystrokes(runner);
+  const code = await openRoom(host);
+  await join(runner, code);
+  await host.getByRole("button", { name: "Start the race" }).click();
+  const field = runner.getByLabel("Ta frappe", { exact: true });
+  await expect(field).toBeEnabled({ timeout: 6000 });
+  await expect(field).toBeFocused();
+  await runner.keyboard.insertText("T");
+  const progress = host.getByRole("progressbar", { name: "Matelot" });
+  await expect(progress).toHaveAttribute("value", "1");
+
+  // The fixture expects e here: each chosen accent reaches the race alone, one fault, never its letter.
+  const accents = [["i", "î"], ["i", "ï"], ["i", "ì"], ["i", "í"], ["I", "Î"], ["I", "Ï"], ["I", "Ì"], ["I", "Í"],
+    ["a", "à"], ["A", "Â"], ["c", "ç"], ["C", "Ç"], ["o", "ô"], ["O", "Ö"], ["u", "ù"], ["U", "Ü"], ["y", "ÿ"], ["Y", "Ÿ"], ["E", "É"]];
+  for (const [key, accent] of accents) {
+    expect(await holdForAccent(runner, field, key!, accent!)).toBe(true);
+    await expect(field, `${key} → ${accent}`).toHaveAttribute("aria-invalid", "true");
+    await expect(field).toHaveValue("");
+    await field.press("Backspace");
+    await expect(field, `${key} → ${accent} erased`).not.toHaveAttribute("aria-invalid", "true");
+  }
+  const afterAccents = ["T", ...accents.flatMap(([, accent]) => [accent!, "⌫"])];
+  await expect.poll(sent).toEqual(afterAccents);
+
+  // Refused: another letter, the other case, a ligature, two graphemes, any text. The held letter
+  // stays as typed, still unsent; Backspace sends then erases it, as when the menu is dismissed.
+  const refused = [["i", "é"], ["i", "Î"], ["o", "œ"], ["i", "îe"], ["a", "unwanted text"]];
+  for (const [key, replacement] of refused) {
+    expect(await holdForAccent(runner, field, key!, replacement!), `${key} → ${replacement} cancelled`).toBe(true);
+    await expect(field).toHaveValue(key!);
+    await field.press("Backspace");
+    await expect(field).toHaveValue("");
+    await expect(field).not.toHaveAttribute("aria-invalid", "true");
+  }
+  const afterRefused = [...afterAccents, ...refused.flatMap(([key]) => [key!, "⌫"])];
+  await expect.poll(sent).toEqual(afterRefused);
+  await expect(progress).toHaveAttribute("value", "1");
+
+  // Normal typing, the held vowels included, loses, doubles and blocks nothing.
+  const text = await raceText(runner);
+  await Promise.all([typeText(field, text.slice(1)), typeText(host.getByLabel("Your typing"), text)]);
+  await expect(runner.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
+  expect(sent()).toEqual([...afterRefused, ...text.slice(1)]);
+  const [counts] = await query<{ correct_inputs: string; total_inputs: string }>(
+    `select r.correct_inputs, r.total_inputs from race_results r
+      join race_entrants e on e.id = r.entrant_id
+      join lobbies l on l.current_race_id = r.race_id
+      where l.code = $1 and e.display_name_snapshot = $2`, [code, "Matelot"],
+  );
+  // One input per chosen accent and per refused held letter, nothing more: the scoring is unchanged.
+  expect(counts).toEqual({
+    correct_inputs: String(text.length), total_inputs: String(text.length + accents.length + refused.length),
+  });
 });
 
 test.describe("the first complete race (F-04.0)", () => {

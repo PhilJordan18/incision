@@ -1,5 +1,5 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
+import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, holdForAccent, query, sentKeystrokes, SESSION_COOKIE } from "./support";
 
 const contexts: BrowserContext[] = [];
 test.beforeEach(async () => {
@@ -30,6 +30,7 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       const french = locale === "fr-CA";
       const host = await signedIn(browser, { name: "Captain", locale: "en-US", theme });
       const runner = await signedIn(browser, { name: "Runner", locale, theme });
+      const sent = sentKeystrokes(runner);
       const errors: string[] = [];
       runner.on("pageerror", error => errors.push(error.message));
       await host.goto("/rooms/new");
@@ -112,6 +113,14 @@ for (const locale of ["fr-CA", "en-US"] as const) {
       await field.pressSequentially(text[2]!, { delay: 80 });
       await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
       await field.press("Enter");
+      await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
+      // A held i the OS accent menu replaces reaches the race as î alone, in either typing mode.
+      const accent = text[3] === "î" ? "ï" : "î";
+      const beforeAccent = sent().length;
+      expect(await holdForAccent(runner, field, "i", accent)).toBe(true);
+      await expect(field).toHaveValue("");
+      await field.press("Backspace");
+      await expect.poll(() => sent().slice(beforeAccent)).toEqual([accent, "⌫"]);
       await expect(runner.locator(".course-texte .course-juste")).toHaveCount(3);
       // « Ta frappe » under the panels: away from it, the line says how to come back; a press on
       // the text, on the field, or Escape from the text or a panel gives the keys back, and

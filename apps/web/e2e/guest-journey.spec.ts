@@ -1,5 +1,5 @@
 import { type Browser, type BrowserContext, type Page, expect, test } from "@playwright/test";
-import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, query, SESSION_COOKIE } from "./support";
+import { expectNoAccessibilityViolation, expectNoHorizontalScroll, forgeSessionCookie, holdForAccent, query, sentKeystrokes, SESSION_COOKIE } from "./support";
 
 test.use({ actionTimeout: 10_000 });
 const contexts: BrowserContext[] = [];
@@ -32,6 +32,7 @@ test("first-cookie tabs share one presence, race, preserve account results and i
   test.setTimeout(120_000);
   const host = await hostRoom(browser);
   const { context, page } = await visitor(browser);
+  const sent = sentKeystrokes(page);
   const second = await context.newPage();
   await Promise.all([fillGuest(page, host.code), fillGuest(second, host.code)]);
   await Promise.all([enter(page), enter(second)]);
@@ -57,6 +58,16 @@ test("first-cookie tabs share one presence, race, preserve account results and i
   await page.reload(); await expect(page.getByLabel("Ta frappe")).toBeEnabled({ timeout: 10_000 });
   expect(await query("select id,joined_at from lobby_members where guest_session_id=$1 and left_at is null", [guestId])).toEqual(members);
   const text = (await page.locator(".course-texte").textContent()) ?? "";
+  // A guest's held i takes its accent alone, as an account's does (race.spec); the fixture starts with T.
+  const guestField = page.getByLabel("Ta frappe");
+  await guestField.focus();
+  for (const [key, accent] of [["i", "î"], ["I", "Î"]] as const) {
+    const before = sent().length;
+    expect(await holdForAccent(page, guestField, key, accent)).toBe(true);
+    await expect(guestField).toHaveValue("");
+    await guestField.press("Backspace");
+    await expect.poll(() => sent().slice(before)).toEqual([accent, "⌫"]);
+  }
   await Promise.all([page.getByLabel("Ta frappe").pressSequentially(text, { delay: 70 }), host.page.getByLabel("Ta frappe").pressSequentially(text, { delay: 70 })]);
   await expect(page.locator("#results-heading")).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('a[href^="/races/"]')).toHaveCount(0);
