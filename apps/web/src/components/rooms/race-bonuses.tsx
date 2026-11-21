@@ -86,7 +86,7 @@ function BonusMark({ kind }: { readonly kind: keyof Dictionary["races"]["bonuses
 
 export function bonusErrorText(error: BonusClientError, t: Dictionary["races"]["bonuses"]): string {
   switch (error) {
-    case "ACK_TIMEOUT": case "INVALID_RESPONSE": case "OFFLINE": return t.unconfirmed;
+    case "ACK_TIMEOUT": case "INVALID_RESPONSE": case "OFFLINE": case "UNAVAILABLE": return t.unconfirmed;
     case "CONTENT_UNAVAILABLE": return t.contentUnavailable;
     case "RATE_LIMITED": return t.rateLimited;
     case "FOG_ALREADY_ACTIVE": return t.fogActive;
