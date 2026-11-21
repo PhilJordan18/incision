@@ -57,7 +57,7 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
       if (member === undefined) { acknowledge({ ok: false, error: "NO_RACE" }); return; }
       const budget = kind === "control" ? controls : entrantActions;
       const limit = kind === "control" ? CONTROL_LIMIT : ENTRANT_ACTION_LIMIT;
-      // Batches and bonuses are bounded by the gate and the service, like an account's.
+      // Batches and bonuses have no per-socket budget: the gate's per-guest window and the service's limiters bound them.
       if (kind !== "batch" && kind !== "bonus") {
         if (now() - budget.windowStart >= limit.windowMs) { budget.windowStart = now(); budget.used = 0; }
         budget.used += 1;
@@ -75,7 +75,8 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
           }
           if (kind === "bonus") {
             const answer = dependencies.races.activateBonus(connection, payload);
-            return { answer, activity: answer.ok };
+            // Only an accepted activation is activity; a refusal by the bonus rules renews nothing.
+            return { answer, activity: answer.ok && answer.result.ok };
           }
           const answer = kind === "control" ? dependencies.races.takeControl(connection, payload)
             : kind === "present" ? dependencies.races.present(connection, payload) : dependencies.races.abandon(connection, payload);
@@ -83,7 +84,9 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
         },
       }).then((answer) => {
         acknowledge(answer);
-        if (answer.ok && (kind !== "batch" || ("result" in answer && "outcome" in answer.result && answer.result.outcome === "applied"))) {
+        const accepted = kind === "batch" ? "result" in answer && "outcome" in answer.result && answer.result.outcome === "applied"
+          : kind === "bonus" ? "result" in answer && "receipt" in answer.result && answer.result.ok : true;
+        if (answer.ok && accepted) {
           socket.emit(GUEST_ACTIVITY_EVENT, {});
         }
         if (!answer.ok && answer.error === "UNAUTHORIZED") socket.disconnect(true);

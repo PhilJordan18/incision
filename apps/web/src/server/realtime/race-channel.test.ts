@@ -228,6 +228,16 @@ describe("guest bonus activation (BONUS-02)", () => {
     expect(guestActivity).toEqual([false]);
   });
 
+  it("does not renew a guest on an activation the bonus rules refuse", async () => {
+    races.activateBonus.mockReturnValueOnce({ ...applied, result: { ok: false, seq: 1, reason: "GRANT_CONSUMED" } } as BonusActivationAck);
+    const guest = await open("session=guest"); following.add(guest.id!);
+    let renewed = 0; guest.on("guest:activity", () => { renewed++; });
+    expect(await ask(guest, RACE_BONUS_ACTIVATE_EVENT, payload)).toMatchObject({ ok: true, result: { ok: false, reason: "GRANT_CONSUMED" } });
+    expect(guestActivity).toEqual([false]);
+    await ask(guest, RACE_PRESENT_EVENT, { raceId: RACE }); // Ordered after any activity event of the activation.
+    expect(renewed).toBe(1);
+  });
+
   it("disconnects a guest revoked in SQL before activating anything", async () => {
     const guest = await open("session=guest"); following.add(guest.id!); guestStore.invalid = true;
     const disconnected = new Promise<void>((resolve) => guest.once("disconnect", () => resolve()));
