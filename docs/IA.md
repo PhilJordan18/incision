@@ -32,7 +32,7 @@ Avec mon Mac en fin de vie, j’ai appris plein de trucs aussi : mieux utiliser 
 2. **12 octobre — une correction qui en casse une autre (Claude).** Sur la génération des textes, une correction de revue a laissé des guillemets et des parenthèses orphelins; les confirmations suivantes ont trouvé un traitement quadratique, puis une normalisation non idempotente. Les revues rejouées l'ont vu, pas les vérifications finales; chaque correctif a un test qui échoue sans lui.
 3. **La préparation de la production (Codex).** Un exemple qui m’a vraiment frustré, c’est quand Codex est resté bloqué toute une nuit sur la préparation de la production. De mon côté, j’ai vu mes crédits diminuer sans avoir le résultat attendu. J’ai dû reprendre moi-même la création de la branche de sauvegarde Neon, la configuration de la connexion, les migrations et l’import du corpus avec les commandes fournies. Fait que l’agent était censé me faire gagner du temps, mais je me suis retrouvé à superviser longtemps puis à finir les opérations moi-même. Ça m’a appris qu’il faut aussi fixer une limite : quand l’agent ne progresse plus, il doit expliquer précisément ce qui bloque et passer la main rapidement.
 
-L'annexe compte 43 erreurs (23 de Claude, 16 de Codex, 4 sans agent nommé) : 38 corrections intégrées à `dev`, 2 changements de méthode et 3 corrections sur des branches encore en revue (#212, #216, #220).
+L'annexe compte 43 erreurs (23 de Claude, 16 de Codex, 4 sans agent nommé) : 41 corrections intégrées à `dev`, puis portées en production par la promotion #221 le 20 novembre, et 2 changements de méthode. Les PR #212, #216 et #220 sont désormais fusionnées.
 
 ## Ma réflexion personnelle
 
