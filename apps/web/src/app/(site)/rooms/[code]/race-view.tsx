@@ -16,6 +16,7 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { format } from "@/i18n/format";
 import { formatNumber } from "@/i18n/value-format";
 import type { Locale } from "@/i18n/locale";
+import { accentVariant, holdsAccents } from "@/races/accent-hold";
 import type { BonusClient } from "@/races/bonus-client";
 import { isBonusKeyIntent } from "@/races/bonus-key-intent";
 import { fogStartsAt } from "@/races/fog";
@@ -586,10 +587,11 @@ function TypingPad({
         return;
       }
       if (event.inputType === "insertText" && event.data !== null) {
-        const firstBase = event.data === accentKey && pendingBase === undefined && field.value === "";
+        // A letter still held is sent first: the next one, pressed before its release (rollover),
+        // may then be held in its turn for its own accent menu.
         commitBase();
-        if (firstBase && event.cancelable && !event.isComposing && !field.disabled) {
-          // Keep only this provisional e in the native field so the OS can select it.
+        if (event.data === accentKey && field.value === "" && event.cancelable && !event.isComposing && !field.disabled) {
+          // Keep only this provisional letter in the native field so the OS accent menu can select it.
           // Nothing is sent to the race until the key or the replacement is committed.
           pendingBase = event.data;
           return;
@@ -600,9 +602,9 @@ function TypingPad({
       }
       event.preventDefault();
       if (event.inputType === "insertReplacementText" && event.data !== null && baseIsSelected()) {
-        const candidate = event.data.normalize("NFC");
-        const accents = pendingBase === "E" ? /^[ÉÈÊË]$/u : /^[éèêë]$/u;
-        if (accents.test(candidate)) commitBase(candidate);
+        // Only the held letter with its accent, as one grapheme, replaces it (accent-hold.ts).
+        const typed = accentVariant(pendingBase ?? "", event.data);
+        if (typed !== undefined) commitBase(typed);
       }
       // Pasting, dropping, line breaks and other edits are refused (screen 08).
     };
@@ -632,7 +634,7 @@ function TypingPad({
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.repeat && !event.isComposing && !composing && !event.ctrlKey && !event.metaKey && !event.altKey
-        && (event.key === "e" || event.key === "E")) accentKey = event.key;
+        && holdsAccents(event.key)) accentKey = event.key;
       if (event.key === "Backspace") {
         // An input method edits its own composition (a dead key, a candidate): not the race's text.
         if (event.isComposing || composing) return;

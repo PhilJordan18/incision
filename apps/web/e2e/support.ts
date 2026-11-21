@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { type BrowserContext, expect, type Page } from "@playwright/test";
+import { type BrowserContext, expect, type Locator, type Page } from "@playwright/test";
 import { encode } from "next-auth/jwt";
 import pg from "pg";
 import { io, type Socket } from "socket.io-client";
@@ -71,4 +71,34 @@ export async function expectNoAccessibilityViolation(page: Page): Promise<void> 
 export async function expectNoHorizontalScroll(page: Page): Promise<void> {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+}
+
+/**
+ * What `page` sends to its race, in order: each grapheme inserted, and ⌫ for Backspace. Read from
+ * the socket's `race:batch` frames, a batch sent again counted once. Install before the page loads.
+ */
+export function sentKeystrokes(page: Page): () => string[] {
+  const batches = new Map<number, string[]>();
+  page.on("websocket", socket => socket.on("framesent", ({ payload }) => {
+    const packet = /^42\d*(\[[\s\S]*\])$/.exec(String(payload));
+    if (packet === null) return;
+    const [event, batch] = JSON.parse(packet[1]!) as [string, { seq?: number; events?: { type: string; grapheme?: string }[] }];
+    if (event !== "race:batch" || batch.seq === undefined || batch.events === undefined) return;
+    batches.set(batch.seq, batch.events.map(keystroke => keystroke.type === "insert" ? keystroke.grapheme ?? "" : keystroke.type === "deleteBackward" ? "⌫" : keystroke.type));
+  }));
+  return () => [...batches.entries()].sort(([a], [b]) => a - b).flatMap(([, keystrokes]) => keystrokes);
+}
+
+/**
+ * The browser events around the macOS accent menu, synthetic: `key` held (the browser inserts it),
+ * selected by the OS, released, then replaced by `replacement`. Proves the page's handling only, not
+ * the OS menu itself. Returns whether the page cancelled the replacement.
+ */
+export async function holdForAccent(page: Page, field: Locator, key: string, replacement: string): Promise<boolean> {
+  await page.keyboard.down(key);
+  await field.evaluate(element => (element as HTMLInputElement).select());
+  await page.keyboard.up(key);
+  return field.evaluate((element, data) => !element.dispatchEvent(new InputEvent("beforeinput", {
+    inputType: "insertReplacementText", data, bubbles: true, cancelable: true,
+  })), replacement);
 }
