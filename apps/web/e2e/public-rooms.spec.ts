@@ -169,13 +169,22 @@ test("the explorer socket carries only public rooms, never ids, members or other
   const privateCode = await openRoom(other.page, "private");
   const { socket, error } = await connectSocket(test.info().project.use.baseURL ?? "");
   expect(error).toBeUndefined();
+  const updates: { rooms: Record<string, unknown>[] }[] = [];
+  socket.on("publicRooms:list", (list: { rooms: Record<string, unknown>[] }) => updates.push(list));
   try {
     const ack = await socket.timeout(5_000).emitWithAck("publicRooms:watch", null) as { ok: boolean; rooms: Record<string, unknown>[] };
     expect(ack.ok).toBe(true);
-    expect(ack.rooms.map((room) => room.code)).toEqual([code]);
-    expect(Object.keys(ack.rooms[0]!).sort()).toEqual(
-      ["arcade", "capacity", "code", "complexity", "hostName", "joinable", "participants", "phase", "textKind", "textLanguage", "wordCount"]);
-    const serialized = JSON.stringify(ack);
-    for (const leak of [privateCode, "Private payload host", host.accountId, other.accountId]) expect(serialized).not.toContain(leak);
+    // The feed may acknowledge with its cached list during the 1 s throttle window.
+    // SQL fixture cleanup emits no event; observe the live refresh, as the browser does.
+    // Listen before watching so an update arriving before the acknowledgement is retained.
+    await expect.poll(() => (updates.at(-1) ?? ack).rooms.map((room) => room.code),
+      { timeout: 20_000 }).toEqual([code]);
+    // Check every received payload, including the initial cache, not just the final list.
+    for (const payload of [ack, ...updates]) {
+      for (const room of payload.rooms) expect(Object.keys(room).sort()).toEqual(
+        ["arcade", "capacity", "code", "complexity", "hostName", "joinable", "participants", "phase", "textKind", "textLanguage", "wordCount"]);
+      const serialized = JSON.stringify(payload);
+      for (const leak of [privateCode, "Private payload host", host.accountId, other.accountId]) expect(serialized).not.toContain(leak);
+    }
   } finally { socket.close(); }
 });
