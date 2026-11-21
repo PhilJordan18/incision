@@ -1,5 +1,17 @@
 # Bilan de l'intégration C1
 
+## État actualisé — 20 novembre, soirée
+
+Les lots C1 ci-dessous sont désormais intégrés dans `dev`, puis déployés par
+la promotion #221 (`main 276c06f`). #223 adapte le délai de CI; #224 conserve
+le [contrôle post-merge dans les deux thèmes](../../evidence/da2-recette-2026-11-20/README.md).
+Philippe a accepté les écrans pour la remise et confirme ensuite les courses
+de production à 30 participants : [recette et réserves précises](../../evidence/production-acceptance-2026-11-20/README.md).
+Les relevés suivants restent historiques : « aucun lot intégré », « à fusionner »
+et les anciennes corrections demandées ne décrivent plus cet état combiné.
+Les choix artistiques acceptés restent inchangés; la réserve de contraste de
+la voile secondaire en Aube reste sous A11Y-01.
+
 État relevé le 18 novembre 2026 vers 15 h, `dev` à `b98314a`. Les CI en cours à cette heure sont notées « en cours » : leur résultat se lit sur la pull request, pas ici. Ce bilan sépare quatre choses qui ne se valent pas :
 
 - **rapporté** : ce que la session de travail d'un lot dit avoir fait et testé;
