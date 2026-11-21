@@ -52,6 +52,13 @@ it("replays the same lost intent after fresh reconnect state, not the next grant
   expect(client.getState().pending).toBeUndefined();
 });
 
+it("keeps the bonus pending on the guest gate's UNAVAILABLE, a valid ack and not an invalid response", async () => {
+  const send = vi.fn(async () => ({ ok: false, error: "UNAVAILABLE" }));
+  const client = setup(send); client.self(snapshot()); client.activate();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(client.getState()).toMatchObject({ error: "UNAVAILABLE", pending: { seq: 1 }, self: { ackSeq: 0 }, sending: false });
+});
+
 it("does not spin on transport refusals or advance their sequence", async () => {
   const send = vi.fn(async () => ({ ok: false, error: "RATE_LIMITED" }));
   const client = setup(send); client.self(snapshot()); client.activate();
