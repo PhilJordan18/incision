@@ -118,4 +118,3 @@ Contrôles locaux : unicité et nombre des IDs, cinq réserves nommées, statuts
 autorisés, liens locaux du nouveau dossier, intégrité des PNG, diff limité aux
 documents et pièces fournies, `git diff --check`.
 Aucun build nécessaire pour cette tranche documentaire (CONTRIBUTING.md).
-
