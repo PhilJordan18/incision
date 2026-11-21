@@ -4,7 +4,7 @@ import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RACE_ABANDON_EVENT, RACE_BATCH_EVENT, RACE_CONTROL_EVENT, RACE_PRESENT_EVENT, RACE_START_EVENT } from "../../races/protocol";
 import type { RaceService } from "../races/race-service";
-import { RACE_BONUS_ACTIVATE_EVENT } from "../../races/bonus-protocol";
+import { RACE_BONUS_ACTIVATE_EVENT, type BonusActivationAck } from "../../races/bonus-protocol";
 import { CONTROL_LIMIT, connectionOf, ENTRANT_ACTION_LIMIT, registerRaceChannel, START_LIMIT } from "./race-channel";
 import { SessionRegistry } from "./session-registry";
 import { attachRealtimeServer } from "./socket-server";
@@ -17,6 +17,7 @@ const RACE = "6f1d2c3b-4a5e-4f60-8a7b-9c8d7e6f5a4b";
 let httpServer: HttpServer;
 let io: Server;
 let baseUrl: string;
+let registry: SessionRegistry;
 const clients: Socket[] = [];
 const following = new Set<string>();
 const guestActivity: boolean[] = [];
@@ -45,7 +46,7 @@ beforeEach(async () => {
     throw new Error("expected a TCP address");
   }
   baseUrl = `http://127.0.0.1:${address.port}`;
-  const registry = new SessionRegistry();
+  registry = new SessionRegistry();
   following.clear();
   guestActivity.length = 0;
   Object.assign(guestStore, { invalid: false, unavailable: false, calls: 0 });
@@ -193,6 +194,67 @@ describe("race channel", () => {
   });
 });
 
+
+describe("guest bonus activation (BONUS-02)", () => {
+  const payload = { raceId: RACE, seq: 1, milestone: 25 };
+  // The channel forwards the service's answer untouched: its receipt's shape is the runtime's concern.
+  const applied = { ok: true, result: { ok: true, seq: 1, receipt: {} },
+    self: { raceId: RACE, revision: 1, enabled: true, ackSeq: 1, grants: [], fog: null } } as unknown as BonusActivationAck;
+
+  it("requires a followed member before any command SQL", async () => {
+    const guest = await open("session=guest");
+    expect(await ask(guest, RACE_BONUS_ACTIVATE_EVENT, payload)).toEqual({ ok: false, error: "NO_RACE" });
+    expect(guestStore.calls).toBe(0);
+    expect(races.activateBonus).not.toHaveBeenCalled();
+  });
+
+  it("activates through the guest gate with the server member identity, never a payload identity", async () => {
+    races.activateBonus.mockReturnValueOnce(applied);
+    const guest = await open("session=guest"); following.add(guest.id!);
+    const activity = new Promise<void>((resolve) => guest.once("guest:activity", () => resolve()));
+    const forged = { ...payload, memberId: "forged", accountId: ALICE };
+    expect(await ask(guest, RACE_BONUS_ACTIVATE_EVENT, forged)).toEqual(applied);
+    await activity;
+    expect(races.activateBonus).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: guest.id, accountId: null, memberId: "guest-member" }), forged);
+    expect(guestStore.calls).toBe(1);
+    expect(guestActivity).toEqual([true]);
+  });
+
+  it("forwards a refused activation without counting it as activity", async () => {
+    races.activateBonus.mockReturnValueOnce({ ok: false, error: "NOT_CONTROLLING" });
+    const guest = await open("session=guest"); following.add(guest.id!);
+    expect(await ask(guest, RACE_BONUS_ACTIVATE_EVENT, payload)).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+    expect(guestActivity).toEqual([false]);
+  });
+
+  it("disconnects a guest revoked in SQL before activating anything", async () => {
+    const guest = await open("session=guest"); following.add(guest.id!); guestStore.invalid = true;
+    const disconnected = new Promise<void>((resolve) => guest.once("disconnect", () => resolve()));
+    guest.emit(RACE_BONUS_ACTIVATE_EVENT, payload, () => undefined); await disconnected;
+    expect(races.activateBonus).not.toHaveBeenCalled(); expect(guestActivity).toEqual([]);
+  });
+
+  it("fails closed when SQL cannot verify membership", async () => {
+    const guest = await open("session=guest"); following.add(guest.id!); guestStore.unavailable = true;
+    await expect(ask(guest, RACE_BONUS_ACTIVATE_EVENT, payload)).rejects.toThrow("socket has been disconnected");
+    expect(races.activateBonus).not.toHaveBeenCalled();
+  });
+
+  it("refuses a revoked or expired guest session before the gate", async () => {
+    const guest = await open("session=guest"); following.add(guest.id!);
+    registry.revokeGuest(ALICE);
+    await expect(ask(guest, RACE_BONUS_ACTIVATE_EVENT, payload)).rejects.toThrow("disconnected");
+    expect(races.activateBonus).not.toHaveBeenCalled(); expect(guestStore.calls).toBe(0);
+  });
+
+  it("refuses a concurrent burst while one activation is in flight", async () => {
+    const guest = await open("session=guest"); following.add(guest.id!);
+    const answers = await Promise.all([1, 2, 3].map((seq) => ask(guest, RACE_BONUS_ACTIVATE_EVENT, { ...payload, seq })));
+    expect(answers.filter((answer) => answer.error === "RATE_LIMITED").length).toBeGreaterThanOrEqual(1);
+    expect(races.activateBonus.mock.calls.length).toBe(answers.filter((answer) => answer.error !== "RATE_LIMITED").length);
+  });
+});
 
 describe("guest race commands", () => {
   it("requires a followed member before any command SQL", async () => {

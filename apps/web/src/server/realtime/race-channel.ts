@@ -49,7 +49,7 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
     const controls = { windowStart: now(), used: 0 };
     const entrantActions = { windowStart: now(), used: 0 };
 
-    function guestCommand(kind: "batch" | "control" | "present" | "abandon", payload: unknown, acknowledge: (answer: unknown) => void): void {
+    function guestCommand(kind: "batch" | "bonus" | "control" | "present" | "abandon", payload: unknown, acknowledge: (answer: unknown) => void): void {
       const guest = currentGuestSession(socket, dependencies);
       const member = dependencies.followedMember?.(socket);
       const gate = dependencies.guestCommands;
@@ -57,13 +57,14 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
       if (member === undefined) { acknowledge({ ok: false, error: "NO_RACE" }); return; }
       const budget = kind === "control" ? controls : entrantActions;
       const limit = kind === "control" ? CONTROL_LIMIT : ENTRANT_ACTION_LIMIT;
-      if (kind !== "batch") {
+      // Batches and bonuses are bounded by the gate and the service, like an account's.
+      if (kind !== "batch" && kind !== "bonus") {
         if (now() - budget.windowStart >= limit.windowMs) { budget.windowStart = now(); budget.used = 0; }
         budget.used += 1;
         if (budget.used > limit.maxRequests) { acknowledge({ ok: false, error: "RATE_LIMITED" }); return; }
       }
       const connection = guestConnectionOf(socket, member.memberId);
-      void gate.run<RaceBatchAck | RaceControlAck | RaceEntrantActionAck>({
+      void gate.run<RaceBatchAck | BonusActivationAck | RaceControlAck | RaceEntrantActionAck>({
         proof: guest.proof, ...member,
         alive: () => socket.connected && currentGuestSession(socket, dependencies) !== undefined &&
           dependencies.followedMember?.(socket)?.memberId === member.memberId,
@@ -72,13 +73,17 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
             const answer = dependencies.races.keystrokes(connection, payload);
             return { answer, activity: answer.ok && answer.result.outcome === "applied" };
           }
+          if (kind === "bonus") {
+            const answer = dependencies.races.activateBonus(connection, payload);
+            return { answer, activity: answer.ok };
+          }
           const answer = kind === "control" ? dependencies.races.takeControl(connection, payload)
             : kind === "present" ? dependencies.races.present(connection, payload) : dependencies.races.abandon(connection, payload);
           return { answer, activity: answer.ok };
         },
       }).then((answer) => {
         acknowledge(answer);
-        if (answer.ok && (kind !== "batch" || ("result" in answer && answer.result.outcome === "applied"))) {
+        if (answer.ok && (kind !== "batch" || ("result" in answer && "outcome" in answer.result && answer.result.outcome === "applied"))) {
           socket.emit(GUEST_ACTIVITY_EVENT, {});
         }
         if (!answer.ok && answer.error === "UNAUTHORIZED") socket.disconnect(true);
@@ -89,7 +94,8 @@ export function registerRaceChannel(io: Server, dependencies: RaceChannelDepende
       if (typeof acknowledge !== "function") return;
       const session = currentSession(socket, dependencies);
       if (session === undefined) {
-        acknowledge({ ok: false, error: "UNAUTHORIZED" } satisfies BonusActivationAck);
+        // Guests pass the same SQL-backed membership gate as their other race commands (BONUS-02).
+        guestCommand("bonus", payload, (answer) => acknowledge(answer));
         return;
       }
       if (dependencies.followedRoom(socket) === undefined) {
