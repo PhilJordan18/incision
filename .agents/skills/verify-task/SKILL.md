@@ -17,7 +17,7 @@ Role: [architect](../../roles/architect.md), who consolidates and decides.
    - Codex or no subagents: roles applied one after another, without changing files during a review.
 5. Read every report. Classify the findings; reject, with a reason, those that are wrong or out of the card's scope.
 6. Fixes: the developer applies them sequentially, in new commits. Then re-run the affected commands and reviews.
-7. Update `docs/EXIGENCES.md` (honest status, files, real tests) and the affected documentation. Notable agent mistake: add an entry to the `docs/IA.md` log.
+7. Update `docs/EXIGENCES.md` (honest status, files, real tests) and the affected documentation. Notable agent mistake: add a row to the AI log, `docs/annexes/ia-journal.md`.
 8. Re-run the key commands yourself on the final SHA, produce the report and **stop**.
 
 ## "Ready to deliver" report

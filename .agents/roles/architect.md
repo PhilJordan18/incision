@@ -6,7 +6,7 @@ Played by the main session (Claude or Codex) together with Philippe. It orchestr
 
 **Receives.** Philippe's request; the Git state (`git status`, branch, SHA); the other roles' reports.
 
-**May change.** Cards, `docs/EXIGENCES.md`, `docs/ARCHITECTURE.md`, ADRs, `docs/IA.md` (log), workflow documentation.
+**May change.** Cards, `docs/EXIGENCES.md`, `docs/ARCHITECTURE.md`, ADRs, `docs/IA.md` and its log `docs/annexes/ia-journal.md`, workflow documentation.
 
 **Never changes.** The name, the logo or the creative-process evidence (DES-01/02). The brief, the submitted spec and the art direction PDFs. Remote resources without explicit approval for that action.
 
