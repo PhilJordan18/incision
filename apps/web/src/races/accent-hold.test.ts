@@ -1,4 +1,4 @@
-import { toGraphemes } from "@incision/domain";
+import { toGraphemes, WORD_LETTERS } from "@incision/domain";
 import { describe, expect, it } from "vitest";
 import { accentVariant, holdsAccents } from "./accent-hold";
 
@@ -35,6 +35,16 @@ describe("accentVariant", () => {
     for (const accent of accents) expect(accentVariant(base, accent)).toBe(accent);
   });
 
+  it("accepts every accented letter of the French texts from its own letter, in both cases", () => {
+    const accented = [...WORD_LETTERS.fr].filter(letter => letter.normalize("NFD").length > 1);
+    expect(accented.length).toBeGreaterThan(10);
+    for (const letter of accented.flatMap(letter => [letter, letter.toUpperCase()])) {
+      const base = letter.normalize("NFD")[0]!;
+      expect(holdsAccents(base), base).toBe(true);
+      expect(accentVariant(base, letter), letter).toBe(letter);
+    }
+  });
+
   it("composes a decomposed accent into the grapheme the text holds", () => {
     expect(accentVariant("i", "î")).toBe("î");
     expect(accentVariant("E", "É")).toBe("É");
@@ -53,6 +63,7 @@ describe("accentVariant", () => {
     ["e", "é ", "a trailing space"],
     ["e", "unwanted text", "any text"],
     ["e", "", "nothing"],
+    ["i", "i" + "\u0302".repeat(20), "a pile of diacritics"],
     ["n", "ñ", "a letter that is not held"],
     ["t", "ţ", "a letter that is not held"],
   ])("refuses %s → %j: %s", (base, candidate) => {

@@ -158,11 +158,28 @@ test("every held letter of the texts takes its accent, as one grapheme, in both 
   await expect.poll(sent).toEqual(afterRefused);
   await expect(progress).toHaveAttribute("value", "1");
 
+  // Rollover: e (expected here) still down when i goes down and is held for î. The e is sent, then
+  // the i waits for its own menu: î alone follows the e.
+  await runner.keyboard.down("e");
+  await runner.keyboard.down("i");
+  await runner.keyboard.up("e");
+  await expect(field).toHaveValue("i");
+  await field.evaluate(element => (element as HTMLInputElement).select());
+  await runner.keyboard.up("i");
+  await field.evaluate(element => element.dispatchEvent(new InputEvent("beforeinput", {
+    inputType: "insertReplacementText", data: "î", bubbles: true, cancelable: true,
+  })));
+  await expect(field).toHaveValue("");
+  await field.press("Backspace");
+  const afterRollover = [...afterRefused, "e", "î", "⌫"];
+  await expect.poll(sent).toEqual(afterRollover);
+  await expect(progress).toHaveAttribute("value", "2");
+
   // Normal typing, the held vowels included, loses, doubles and blocks nothing.
   const text = await raceText(runner);
-  await Promise.all([typeText(field, text.slice(1)), typeText(host.getByLabel("Your typing"), text)]);
+  await Promise.all([typeText(field, text.slice(2)), typeText(host.getByLabel("Your typing"), text)]);
   await expect(runner.getByRole("heading", { name: /Fin de la traversée/i })).toBeVisible({ timeout: 15_000 });
-  expect(sent()).toEqual([...afterRefused, ...text.slice(1)]);
+  expect(sent()).toEqual([...afterRollover, ...text.slice(2)]);
   const [counts] = await query<{ correct_inputs: string; total_inputs: string }>(
     `select r.correct_inputs, r.total_inputs from race_results r
       join race_entrants e on e.id = r.entrant_id
@@ -171,7 +188,7 @@ test("every held letter of the texts takes its accent, as one grapheme, in both 
   );
   // One input per chosen accent and per refused held letter, nothing more: the scoring is unchanged.
   expect(counts).toEqual({
-    correct_inputs: String(text.length), total_inputs: String(text.length + accents.length + refused.length),
+    correct_inputs: String(text.length), total_inputs: String(text.length + accents.length + refused.length + 1),
   });
 });
 

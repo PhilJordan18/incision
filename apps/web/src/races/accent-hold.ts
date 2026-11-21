@@ -14,7 +14,8 @@ export function holdsAccents(key: string): boolean {
   return HELD_LETTERS.has(key);
 }
 
-const COMBINING_MARKS = /^\p{M}+$/u;
+/** Up to two diacritics (ǘ, ệ): more is no accent menu's, and the engine caps one keystroke's length. */
+const COMBINING_MARKS = /^\p{M}{1,2}$/u;
 
 /**
  * One grapheme that is the held letter, in the same case, with diacritics only: i gives î, ï, ì, í,
@@ -27,5 +28,5 @@ export function accentVariant(base: string, candidate: string): string | undefin
   const composed = candidate.normalize("NFC");
   const [first, ...rest] = [...composed.normalize("NFD")];
   // A letter followed by combining marks only is a single grapheme.
-  return first === base && rest.length > 0 && COMBINING_MARKS.test(rest.join("")) ? composed : undefined;
+  return first === base && COMBINING_MARKS.test(rest.join("")) ? composed : undefined;
 }

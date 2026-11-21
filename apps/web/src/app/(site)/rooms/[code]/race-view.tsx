@@ -587,9 +587,10 @@ function TypingPad({
         return;
       }
       if (event.inputType === "insertText" && event.data !== null) {
-        const firstBase = event.data === accentKey && pendingBase === undefined && field.value === "";
+        // A letter still held is sent first: the next one, pressed before its release (rollover),
+        // may then be held in its turn for its own accent menu.
         commitBase();
-        if (firstBase && event.cancelable && !event.isComposing && !field.disabled) {
+        if (event.data === accentKey && field.value === "" && event.cancelable && !event.isComposing && !field.disabled) {
           // Keep only this provisional letter in the native field so the OS accent menu can select it.
           // Nothing is sent to the race until the key or the replacement is committed.
           pendingBase = event.data;
