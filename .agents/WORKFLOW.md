@@ -71,4 +71,4 @@ When a capability is missing (hook, subagent, browser), the agent says so under 
 
 ## AI log
 
-`docs/IA.md` (final submission) requires three real situations where AI got it wrong. When a review or Philippe catches a significant agent mistake, the architect adds a dated entry to the "Log" section of `docs/IA.md` (create the section if missing): mistake, how it was detected, how it was fixed.
+`docs/IA.md` (final submission) requires three real situations where AI got it wrong. When a review or Philippe catches a significant agent mistake, the architect adds a dated row to the log in `docs/annexes/ia-journal.md`, the annex of `docs/IA.md`: agent, mistake, how it was detected, how it was fixed, and whether the fix is in `dev`, still in review or a change of method. Keep the counts at the top of the annex and in `docs/IA.md` in step.

@@ -27,7 +27,7 @@ export const bonusSelfSchema = z.object({
 export type BonusSelf = z.infer<typeof bonusSelfSchema>;
 export type BonusActivationAck =
   | { readonly ok: true; readonly result: ActivationReply; readonly self: BonusSelf }
-  | { readonly ok: false; readonly error: "UNAUTHORIZED" | "INVALID_PAYLOAD" | "NOT_AN_ENTRANT" | "NOT_CONTROLLING" | "NO_RACE" | "SUSPENDED" | "RATE_LIMITED" };
+  | { readonly ok: false; readonly error: "UNAUTHORIZED" | "UNAVAILABLE" | "INVALID_PAYLOAD" | "NOT_AN_ENTRANT" | "NOT_CONTROLLING" | "NO_RACE" | "SUSPENDED" | "RATE_LIMITED" };
 /** Announcements are facts only; never an envelope, inventory or text snapshot. */
 export type BonusAnnouncementPayload = { readonly raceId: string; readonly revision: number; readonly announcement: BonusAnnouncement };
 
@@ -40,7 +40,8 @@ const receiptSchema = z.object({
 }).strict();
 export const bonusActivationAckSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(false), error: z.enum([
-    "UNAUTHORIZED", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NOT_CONTROLLING", "NO_RACE", "SUSPENDED", "RATE_LIMITED",
+    // UNAVAILABLE: the guest command gate could not verify the member (stopping server, SQL failure).
+    "UNAUTHORIZED", "UNAVAILABLE", "INVALID_PAYLOAD", "NOT_AN_ENTRANT", "NOT_CONTROLLING", "NO_RACE", "SUSPENDED", "RATE_LIMITED",
   ]) }).strict(),
   z.object({ ok: z.literal(true), self: bonusSelfSchema, result: z.discriminatedUnion("ok", [
     z.object({ ok: z.literal(true), seq: sequence.min(1), receipt: receiptSchema }).strict(),

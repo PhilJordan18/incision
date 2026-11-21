@@ -1,5 +1,5 @@
 import { asDuration, asEntrantId, asInstant, asRaceId, createBonusRace, createRandom, BONUS_KINDS, type BonusKind, type RandomState, type BonusContent } from "@incision/domain";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { bonusSelfSchema, RACE_BONUS_ANNOUNCEMENT_EVENT, RACE_BONUS_SELF_EVENT, type BonusSelf } from "../../races/bonus-protocol";
 import { RACE_SELF_EVENT, type RaceSelfPayload } from "../../races/protocol";
 import { RaceRuntime, type RaceConnection } from "./race-runtime";
@@ -15,25 +15,30 @@ function seedFor(kind: BonusKind): RandomState {
   }
   throw new Error("No deterministic test seed");
 }
-function tab(id: string, accountId = id) {
+function tab(id: string, accountId: string | null = id, memberId?: string): RaceConnection & { readonly emit: Mock<RaceConnection["emit"]> } {
   const emit = vi.fn<RaceConnection["emit"]>();
-  return { id, accountId, pageId: id, emit };
+  const identity = accountId === null ? { accountId, memberId: memberId ?? id } : { accountId };
+  return { id, ...identity, pageId: id, emit };
 }
 const latest = <T>(connection: ReturnType<typeof tab>, event: string): T => connection.emit.mock.calls.filter(([name]) => name === event).at(-1)?.[1] as T;
 
-async function setup(kind: BonusKind = "shortenSelf", options: { content?: BonusContent; enabled?: boolean; timeLimit?: number } = {}) {
+async function setup(kind: BonusKind = "shortenSelf", options: { content?: BonusContent; enabled?: boolean; timeLimit?: number; guestActor?: boolean } = {}) {
   const result = createBonusRace({ enabled: options.enabled ?? true, random: seedFor(kind), race: {
     raceId: asRaceId(RACE), now: asInstant(0), text: TEXT, errorMode: "mandatory", timeLimit: asDuration(options.timeLimit ?? 120_000),
     participants: ["actor", "leader"].map((id) => ({ entrantId: asEntrantId(id), kind: "human" })),
   } });
   if (!result.ok) throw new Error(result.reason);
-  const actor = tab("actor"), leader = tab("leader"), observer = tab("observer", "actor"), spectator = tab("spectator");
+  const guest = options.guestActor === true ? { accountId: null, memberId: "actor-member" } : undefined;
+  const actor = tab("actor", guest?.accountId, guest?.memberId), leader = tab("leader");
+  const observer = tab("observer", guest === undefined ? "actor" : null, guest?.memberId), spectator = tab("spectator");
   const followers = [actor, leader, observer, spectator];
   let leaseState: LeaseState = "held";
   const won = { won: true, alreadyDone: false } as const;
   const store = { beginRacing: vi.fn(async () => won), finalizeRace: vi.fn(async () => won), interruptOwnRace: vi.fn(async () => won) };
   const runtime = new RaceRuntime({ state: result.state, ownership: { raceId: RACE, lobbyId: "room", ownerId: "owner", ownerEpoch: 1 },
-    entrants: ["actor", "leader"].map((id) => ({ entrantId: id, accountId: id, displayName: id })), language: "en", store,
+    entrants: ["actor", "leader"].map((id) => options.guestActor === true && id === "actor"
+      ? { entrantId: id, accountId: null, memberId: "actor-member", displayName: id }
+      : { entrantId: id, accountId: id, displayName: id }), language: "en", store,
     lease: { start: () => {}, stop: () => {}, get state() { return leaseState; }, isAuthoritative: () => leaseState === "held", suspendedForMs: () => undefined },
     now: Date.now, schedule: (callback, ms) => { const timer = setTimeout(callback, ms); return () => clearTimeout(timer); },
     followers: () => followers, onSettled: vi.fn(), log: vi.fn(), ...(options.content ? { bonusContent: options.content } : {}),
@@ -76,6 +81,19 @@ describe("authoritative bonus runtime", () => {
     expect(journal?.grants.slice(1).every((grant) => grant.activation === undefined)).toBe(true);
     expect(Object.isFrozen(journal?.grants)).toBe(true);
     expect(store.finalizeRace).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(BONUS_KINDS)("lets a guest entrant's controlling tab apply %s once, as an account would (BONUS-02)", async (kind) => {
+    const { runtime, actor, observer, spectator } = await setup(kind, { guestActor: true, content: () => ["sea", "port", "sail"] });
+    expect(latest<BonusSelf>(actor, RACE_BONUS_SELF_EVENT).grants[0]?.kind).toBe(kind);
+    expect(runtime.activateBonus(observer, command)).toEqual({ ok: false, error: "NOT_CONTROLLING" });
+    const first = runtime.activateBonus(actor, command);
+    expect(first).toMatchObject({ ok: true, result: { ok: true, seq: 1 } });
+    expect(runtime.activateBonus(actor, command)).toEqual(first);
+    expect(spectator.emit.mock.calls.filter(([event]) => event === RACE_BONUS_ANNOUNCEMENT_EVENT)).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(120_000);
+    const journal = runtime.resultsForDisplay()?.find((row) => row.entrantId === "actor")?.bonusJournal;
+    expect(journal?.grants[0]).toEqual({ kind, milestone: 25, activation: { targetOrdinal: kind === "shortenSelf" ? 1 : 2, atMs: 2000 } });
   });
 
   it("rejects observers, spectators, other races and suspended owners without consumption", async () => {

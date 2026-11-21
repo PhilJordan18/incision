@@ -33,6 +33,7 @@ it.each(["fr", "en"] as const)("keeps unconfirmed transport distinct from author
   expect(bonusErrorText("ACK_TIMEOUT", t)).toBe(t.unconfirmed);
   expect(bonusErrorText("CONTENT_UNAVAILABLE", t)).toBe(t.contentUnavailable);
   expect(bonusErrorText("RATE_LIMITED", t)).toBe(t.rateLimited);
+  expect(bonusErrorText("UNAVAILABLE", t)).toBe(t.unconfirmed);
   expect(bonusErrorText("FOG_ALREADY_ACTIVE", t)).toBe(t.fogActive);
   expect(bonusErrorText("NO_VALID_TARGET", t)).toBe(t.noTarget);
   expect(bonusErrorText("NO_REMOVABLE_WORD", t)).toBe(t.noWord);
